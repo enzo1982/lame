@@ -1308,6 +1308,7 @@ void lame_init(lame_global_flags *gfp)
 
   gfp->version = 1;   /* =1   Default: MPEG-1 */
   gfp->mode = MPG_MD_JOINT_STEREO;
+  gfp->mode_fixed=0;
   gfp->force_ms=0;
   gfp->brate=0;
   gfp->copyright=0;
