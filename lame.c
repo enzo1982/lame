@@ -430,8 +430,6 @@ void lame_init_params(lame_global_flags *gfp)
 
   if (gfp->quality==5) {
     /* the default */
-    /* jstereo (which is slower) not enabled at this quality level  */
-    if (!gfp->mode_fixed && gfp->mode==1) gfp->mode=0;  
     gfp->filter_type=0;
     gfp->psymodel=1;
     gfp->quantization=0;
