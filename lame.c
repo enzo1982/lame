@@ -880,7 +880,6 @@ int mf_size,char *mp3buf, int mp3buf_size)
 
 
 
-
 int fill_buffer_resample(lame_global_flags *gfp,short int *outbuf,int desired_len,
         short int *inbuf,int len,int *num_used,int ch) {
 
@@ -888,7 +887,7 @@ int fill_buffer_resample(lame_global_flags *gfp,short int *outbuf,int desired_le
 #define OLDBUFSIZE 5
   static short int inbuf_old[2][OLDBUFSIZE];
   static int init[2]={0,0};
-  int i,j=0,k,linear;
+  int i,j=0,k,linear,value;
 
   if (gfp->frameNum==0 && !init[ch]) {
     init[ch]=1;
@@ -928,9 +927,13 @@ int fill_buffer_resample(lame_global_flags *gfp,short int *outbuf,int desired_le
       x3 = x1-2;
       y0 = ((j-1)<0) ? inbuf_old[ch][OLDBUFSIZE+(j-1)] : inbuf[j-1];
       y3 = ((j+2)<0) ? inbuf_old[ch][OLDBUFSIZE+(j+2)] : inbuf[j+2];
-      outbuf[k] = floor(.5 +
+      value = floor(.5 +
 			-y0*x1*x2*x3/6 + y1*x0*x2*x3/2 - y2*x0*x1*x3/2 +y3*x0*x1*x2/6
 			);
+      if (value > 32767) outbuf[k]=32767;
+      else if (value < -32767) outbuf[k]=-32767;
+      else outbuf[k]=value;
+
       /*
       printf("k=%i  new=%i   [ %i %i %i %i ]\n",k,outbuf[k],
 	     y0,y1,y2,y3);
