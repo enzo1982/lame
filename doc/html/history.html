@@ -27,20 +27,27 @@ LAME 3.80beta&nbsp; (CVS)</h3>
 huffman encoding!</font></li>
 
 <li>
-<font color="#000000">Tomasz Motylewski:&nbsp; Initial MPEG2.5 code added.</font></li>
+<font color="#000000">Tomasz Motylewski and Mark Taylor:&nbsp; MPEG2.5
+now supported!</font></li>
+
+<li>
+<font color="#000000">Mark Taylor: incorporated Takehiro's bitstream.c!&nbsp;
+This replaces the last of the ISO code.</font></li>
 
 <li>
 <font color="#FF0000">Scott&nbsp; Manley and Mark Taylor:&nbsp; good resampling
 routine finaly in LAME.&nbsp; uses a 19 point FIR filter with Blackman
-window.</font></li>
+window.&nbsp; Very slow for non integer resampling ratios.</font></li>
 </ul>
 
 <h3>
-LAME 3.70&nbsp; (CVS, under branch "lame3_70")</h3>
+LAME 3.70&nbsp;&nbsp; April 6 2000</h3>
 
 <ul>
 <li>
-LAME 3.68beta becomes LAME 3.70 "stable"?</li>
+"spahm":&nbsp; default mode selection bug fixed.&nbsp; In some cases, lame
+was defaulting to regular stereo instead of jstereo when the user did not
+specify a mode.</li>
 </ul>
 
 <h3>
@@ -49,6 +56,9 @@ LAME 3.68beta&nbsp; April 4 2000</h3>
 <ul>
 <li>
 Mark Taylor: mono encoding bug in DLL fixed.</li>
+
+<li>
+Ingo Saitz: bug in --cwlimit argument parsing fixed.</li>
 
 <li>
 <font color="#FF0000">Scott Manly: bug in 4-point resample code fixed.</font></li>
