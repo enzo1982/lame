@@ -237,7 +237,7 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
 	
 
 	//LAME encoding call will accept any number of samples.  Lets use 1152
-	*dwSamples=1152*gf.stereo;
+	*dwSamples=1152*gf.num_channels;
 
 
 	// Set the input sample buffer size, so we know what we can expect
@@ -324,7 +324,7 @@ __declspec(dllexport) BE_ERR	beEncodeChunk(HBE_STREAM hbeStream, DWORD nSamples,
 											  PSHORT pSamples, PBYTE pOutput, PDWORD pdwOutput)
 {
 	int iSampleIndex;
-	int n=nSamples/gf.stereo;
+	int n=nSamples/gf.num_channels;
     PSHORT LBuffer,RBuffer;
 	LBuffer=malloc(sizeof(short)*n);
 	RBuffer=malloc(sizeof(short)*n);
