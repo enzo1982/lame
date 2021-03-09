@@ -18434,7 +18434,7 @@ FRONTEND_LDADD="${FRONTEND_LDADD} ${LTLIBICONV} ${CONFIG_MATH_LIB}"
 
 
 
-ac_config_files="$ac_config_files Makefile libmp3lame/Makefile libmp3lame/i386/Makefile libmp3lame/vector/Makefile frontend/Makefile mpglib/Makefile doc/Makefile doc/html/Makefile doc/man/Makefile include/Makefile Dll/Makefile misc/Makefile dshow/Makefile ACM/Makefile ACM/ADbg/Makefile ACM/ddk/Makefile ACM/tinyxml/Makefile lame.spec mac/Makefile macosx/Makefile macosx/English.lproj/Makefile macosx/LAME.xcodeproj/Makefile vc_solution/Makefile"
+ac_config_files="$ac_config_files Makefile libmp3lame/Makefile libmp3lame/i386/Makefile libmp3lame/vector/Makefile frontend/Makefile mpglib/Makefile doc/Makefile doc/html/Makefile doc/man/Makefile include/Makefile Dll/Makefile misc/Makefile dshow/Makefile ACM/Makefile ACM/ADbg/Makefile ACM/ddk/Makefile ACM/tinyxml/Makefile lame.spec mac/Makefile vc_solution/Makefile"
 
 
 cat >confcache <<\_ACEOF
@@ -19492,9 +19492,6 @@ do
     "ACM/tinyxml/Makefile") CONFIG_FILES="$CONFIG_FILES ACM/tinyxml/Makefile" ;;
     "lame.spec") CONFIG_FILES="$CONFIG_FILES lame.spec" ;;
     "mac/Makefile") CONFIG_FILES="$CONFIG_FILES mac/Makefile" ;;
-    "macosx/Makefile") CONFIG_FILES="$CONFIG_FILES macosx/Makefile" ;;
-    "macosx/English.lproj/Makefile") CONFIG_FILES="$CONFIG_FILES macosx/English.lproj/Makefile" ;;
-    "macosx/LAME.xcodeproj/Makefile") CONFIG_FILES="$CONFIG_FILES macosx/LAME.xcodeproj/Makefile" ;;
     "vc_solution/Makefile") CONFIG_FILES="$CONFIG_FILES vc_solution/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
