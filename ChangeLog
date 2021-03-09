@@ -7,6 +7,342 @@
 
 -- 
 
+2021-03-09 10:52  aleidinger
+
+	* ACM/ADbg/Makefile.in, ACM/Makefile.in, ACM/ddk/Makefile.in,
+	  ACM/tinyxml/Makefile.in, Dll/Makefile.in, Makefile.in,
+	  doc/Makefile.in, doc/html/Makefile.in, doc/man/Makefile.in,
+	  dshow/Makefile.in, frontend/Makefile.in, include/Makefile.in,
+	  libmp3lame/Makefile.in, libmp3lame/i386/Makefile.in,
+	  libmp3lame/vector/Makefile.in, mac/Makefile.in,
+	  macosx/English.lproj/Makefile.in,
+	  macosx/LAME.xcodeproj/Makefile.in, macosx/Makefile.in,
+	  misc/Makefile.in, mpglib/Makefile.in, vc_solution/Makefile.in:
+	  regen
+
+2021-03-09 10:52  aleidinger
+
+	* configure:
+	  regen
+
+2021-03-09 10:52  aleidinger
+
+	* aclocal.m4:
+	  regen
+
+2021-03-09 10:35  aleidinger
+
+	* configure.in:
+	  - Remove cases which matches all previous cases, this was not
+	  intended.
+	  - In the clang case, do the same as for gcc, if someone provied
+	  CFLAGS on his own,
+	  do not add flags on our own.
+
+2020-08-25 10:24  aleidinger
+
+	* vc_solution/README.vs2019.txt, vc_solution/vs2019_lame.sln,
+	  vc_solution/vs2019_lame_config.props,
+	  vc_solution/vs2019_lame_lame.vcxproj,
+	  vc_solution/vs2019_libmp3lame.vcxproj,
+	  vc_solution/vs2019_libmp3lame_dll.vcxproj,
+	  vc_solution/vs2019_libmpg123_config.props,
+	  vc_solution/vs2019_libsndfile_config.props:
+	  Add 64-bit support.
+	  
+	  Submitted by: Michael Fink via [patches:#94]
+
+2020-08-25 10:18  aleidinger
+
+	* include/lame.def, include/libmp3lame.sym:
+	  Add hip_decode_init_gapless() to the linker exports.
+	  
+	  Submitted by: Michael Fink via [patches:#92]
+
+2020-08-25 10:14  aleidinger
+
+	* frontend/get_audio.c:
+	  Fix the "Could not close audio input file" message when decoding
+	  from mp3
+	  or transcoding. The message only occurred on Win32 builds of
+	  lame.exe.
+	  
+	  Submitted by: Michael Fink via [patches:#93]
+
+2020-08-19 14:06  aleidinger
+
+	* ACM/acm.rc, Dll/BladeMP3EncDLL.c, LICENSE, Makefile.MSVC,
+	  debian/copyright, doc/man/lame.1, dshow/Property.rc,
+	  libmp3lame/id3tag.c, misc/abx.c:
+	  Fix the homepage of LAME. The old www.mp3dev.org is pointing to
+	  the
+	  sourceforge page.
+
+2020-08-19 13:13  aleidinger
+
+	* libmp3lame/i386/nasm.h:
+	  Fix nasm include file (UTF-8 BOM which nasm does't know about).
+	  
+	  Submitted by: KO Myung-Hun via [patches:#81]
+
+2020-08-19 12:56  aleidinger
+
+	* vc_solution/Makefile.am, vc_solution/Makefile.in,
+	  vc_solution/README.vs2019.txt, vc_solution/arch_nasm.vsprops,
+	  vc_solution/arch_sse2.vsprops, vc_solution/arch_x87.vsprops,
+	  vc_solution/vc9_lame.sln, vc_solution/vc9_lame_acm.vcproj,
+	  vc_solution/vc9_lame_acm_adbg.vcproj,
+	  vc_solution/vc9_lame_acm_tinyxml.vcproj,
+	  vc_solution/vc9_lame_clients.sln,
+	  vc_solution/vc9_lame_config.vsprops,
+	  vc_solution/vc9_lame_dll.vcproj,
+	  vc_solution/vc9_lame_dll_example.vcproj,
+	  vc_solution/vc9_lame_dshow.vcproj,
+	  vc_solution/vc9_lame_lame.vcproj,
+	  vc_solution/vc9_lame_mp3rtp.vcproj,
+	  vc_solution/vc9_lame_mp3x.vcproj,
+	  vc_solution/vc9_lame_test.vcproj,
+	  vc_solution/vc9_libmp3lame.vcproj,
+	  vc_solution/vc9_libmp3lame_dll.vcproj,
+	  vc_solution/vc9_mpglib.vcproj, vc_solution/vc9_nasm.rules,
+	  vc_solution/vs2019_arch_nasm.props,
+	  vc_solution/vs2019_arch_sse2.props,
+	  vc_solution/vs2019_arch_x87.props,
+	  vc_solution/vs2019_gtk_config.props, vc_solution/vs2019_lame.sln,
+	  vc_solution/vs2019_lame_acm.vcxproj,
+	  vc_solution/vs2019_lame_acm.vcxproj.filters,
+	  vc_solution/vs2019_lame_acm_adbg.vcxproj,
+	  vc_solution/vs2019_lame_acm_adbg.vcxproj.filters,
+	  vc_solution/vs2019_lame_acm_tinyxml.vcxproj,
+	  vc_solution/vs2019_lame_clients.sln,
+	  vc_solution/vs2019_lame_config.props,
+	  vc_solution/vs2019_lame_dshow.vcxproj,
+	  vc_solution/vs2019_lame_dshow.vcxproj.filters,
+	  vc_solution/vs2019_lame_enc_dll.vcxproj,
+	  vc_solution/vs2019_lame_enc_dll.vcxproj.filters,
+	  vc_solution/vs2019_lame_lame.vcxproj,
+	  vc_solution/vs2019_lame_lame.vcxproj.filters,
+	  vc_solution/vs2019_lame_mp3rtp.vcxproj,
+	  vc_solution/vs2019_lame_mp3rtp.vcxproj.filters,
+	  vc_solution/vs2019_lame_mp3x.vcxproj,
+	  vc_solution/vs2019_lame_mp3x.vcxproj.filters,
+	  vc_solution/vs2019_lame_test.vcxproj,
+	  vc_solution/vs2019_libmp3lame.vcxproj,
+	  vc_solution/vs2019_libmp3lame.vcxproj.filters,
+	  vc_solution/vs2019_libmp3lame_dll.vcxproj,
+	  vc_solution/vs2019_libmpg123_config.props,
+	  vc_solution/vs2019_libsndfile_config.props,
+	  vc_solution/vs2019_nasm.props, vc_solution/vs2019_nasm.targets,
+	  vc_solution/vs2019_nasm.xml,
+	  vc_solution/vs2019_win71sdk_config.props:
+	  - add files to build LAME with Visual Studio 2019
+	  - remove the old project files for VC 9
+	  - add a readme with a description about what you can do with the
+	  files
+	  
+	  Submitted by: Michael Fink via [patches:#91]
+
+2020-08-19 12:45  aleidinger
+
+	* frontend/get_audio.c:
+	  On Win32 compiles it can happen that lame.exe and libmp3lame.dll
+	  use
+	  different C++ runtimes, which maintail different FILE* lists, and
+	  fileno() would produce invalid file numbers for those msvcrt
+	  instances.
+	  So use mpg123_replace_reader_handle() / mpg123_open_handle() here
+	  instead of mpg123_open_fd().
+	  
+	  Submitted by: Michael Fink via [patches:#90]
+
+2020-08-19 12:36  aleidinger
+
+	* libmp3lame/version.h:
+	  Change the URL of the LAME webpage to the canonical https
+	  location.
+	  
+	  Submitted by: Michael Fink via [patches:#89]
+
+2020-08-19 12:29  aleidinger
+
+	* ACM/ACM.cpp:
+	  An obsolete method TranslateURL() is called which is not strictly
+	  necessary.
+	  The patch is in the ACM module, which is the ancient Windows
+	  "Audio Codec
+	  Manager". Applying this patch is necessary before applying the
+	  Visual Studio
+	  2019 project files patch.
+	  
+	  Submitted by: Michael Fink via [patches:#88]
+
+2020-07-11 10:24  aleidinger
+
+	* ACM/ADbg/Makefile.in, ACM/Makefile.in, ACM/ddk/Makefile.in,
+	  ACM/tinyxml/Makefile.in, Dll/Makefile.in, Makefile.in,
+	  doc/Makefile.in, doc/html/Makefile.in, doc/man/Makefile.in,
+	  dshow/Makefile.in, frontend/Makefile.in, include/Makefile.in,
+	  libmp3lame/Makefile.in, libmp3lame/i386/Makefile.in,
+	  libmp3lame/vector/Makefile.in, mac/Makefile.in,
+	  macosx/English.lproj/Makefile.in,
+	  macosx/LAME.xcodeproj/Makefile.in, macosx/Makefile.in,
+	  misc/Makefile.in, mpglib/Makefile.in, vc_solution/Makefile.in:
+	  Replace mpeg decoder with external libmpg123 - step 1/2 part 3/3
+	  
+	  Step 1 is to allow to use external libmp123 (preferred) or
+	  interal mpglib to decode mpeg audio.
+	  
+	  Patch by Thomas Orgis <thomas-forum@orgis.org>, with some
+	  minor modifications to the autotools build by me.
+	  
+	  Part 3: Regenerate automake stuff.
+	  
+	  
+	  
+	  Step 2 would be to remove the internal mpglib.
+
+2020-07-11 10:23  aleidinger
+
+	* config.h.in, configure:
+	  Replace mpeg decoder with external libmpg123 - step 1/2 part 2/3
+	  
+	  Step 1 is to allow to use external libmp123 (preferred) or
+	  interal mpglib to decode mpeg audio.
+	  
+	  Patch by Thomas Orgis <thomas-forum@orgis.org>, with some
+	  minor modifications to the autotools build by me.
+	  
+	  Part 2: regenerate autoconf stuff
+	  
+	  
+	  
+	  Step 2 would be to remove the internal mpglib.
+
+2020-07-11 10:23  aleidinger
+
+	* configure.in:
+	  Replace mpeg decoder with external libmpg123 - step 1/2 part 1/3
+	  
+	  Step 1 is to allow to use external libmp123 (preferred) or
+	  interal mpglib to decode mpeg audio.
+	  
+	  Patch by Thomas Orgis <thomas-forum@orgis.org>, with some
+	  minor modifications to the autotools build by me.
+	  
+	  Part 1: commit the source files and the input files for the
+	  build.
+	  
+	  
+	  
+	  Step 2 would be to remove the internal mpglib.
+
+2020-07-11 10:22  aleidinger
+
+	* frontend/Makefile.am, frontend/get_audio.c, frontend/parse.c,
+	  include/lame.h, libmp3lame/Makefile.am,
+	  libmp3lame/mpglib_interface.c, libmp3lame/util.h,
+	  mpglib/Makefile.am, mpglib/common.h, mpglib/mpglib.h,
+	  mpglib/tabinit.c, mpglib/tabinit.h:
+	  Replace mpeg decoder with external libmpg123 - step 1/2 part 1/3
+	  
+	  Step 1 is to allow to use external libmp123 (preferred) or
+	  interal mpglib to decode mpeg audio.
+	  
+	  Patch by Thomas Orgis <thomas-forum@orgis.org>, with some
+	  minor modifications to the autotools build by me.
+	  
+	  Part 1: commit the source files and the input files for the
+	  build.
+	  
+	  
+	  
+	  Step 2 would be to remove the internal mpglib.
+
+2020-05-08 16:02  aleidinger
+
+	* doc/html/history.html:
+	  Add recent changes.
+
+2020-05-08 15:33  aleidinger
+
+	* configure:
+	  regen
+
+2020-05-08 15:32  aleidinger
+
+	* configure.in:
+	  Disable Takehiros IEEE hack by default, add an option for
+	  not so modern CPU architectures to enable it.
+	  
+	  While I'm here, make some whitespace fixes in user visible
+	  parts of the --help option.
+
+2020-05-07 07:51  aleidinger
+
+	* libmp3lame/Makefile.in:
+	  regen
+
+2020-05-07 07:51  aleidinger
+
+	* libmp3lame/Makefile.am, libmp3lame/VbrTag.c,
+	  libmp3lame/VbrTagCrc.h:
+	  Faster CRC calculation by Robert Kausch from the fre:ac project
+	  (https://freac.org/developer-blog-mainmenu-9/14-freac/277-fastcrc).
+	  
+	  The gain here is small, but measurable. If you encode multiple
+	  independent streams at once and if there are not small (not just
+	  a few minutes of play time), you may notice a difference.
+
+2020-05-06 13:17  aleidinger
+
+	* include/libmp3lame.sym:
+	  Remove lame_init_old from symbols file. It is made static in
+	  lame.h and as
+	  such is not available as a symbold for export in libmp3lame.
+
+2020-05-06 12:31  aleidinger
+
+	* ACM/ADbg/Makefile.in, ACM/Makefile.in, ACM/ddk/Makefile.in,
+	  ACM/tinyxml/Makefile.in, Dll/Makefile.in, Makefile.in, configure,
+	  doc/Makefile.in, doc/html/Makefile.in, doc/man/Makefile.in,
+	  dshow/Makefile.in, frontend/Makefile.in, include/Makefile.in,
+	  libmp3lame/Makefile.in, libmp3lame/i386/Makefile.in,
+	  libmp3lame/vector/Makefile.in, mac/Makefile.in,
+	  macosx/English.lproj/Makefile.in,
+	  macosx/LAME.xcodeproj/Makefile.in, macosx/Makefile.in,
+	  misc/Makefile.in, mpglib/Makefile.in, vc_solution/Makefile.in:
+	  regen
+
+2020-05-06 12:31  aleidinger
+
+	* config.h.in:
+	  regen
+
+2020-05-06 12:30  aleidinger
+
+	* aclocal.m4:
+	  regen
+
+2020-05-06 12:29  aleidinger
+
+	* compile, config.guess, config.sub, depcomp, install-sh, missing:
+	  Update do recent autotools.
+
+2020-05-06 12:08  aleidinger
+
+	* configure.in:
+	  Fix case statements with character ranges. Autoconf is eating up
+	  the single '[' and ']'. Duplicating them escapes them.
+	  Reported as part of [bugs:#491].
+	  
+	  While I'm here add gcc v10.* until v19.x to the gcc optimization
+	  parts.
+
+2020-05-06 10:06  aleidinger
+
+	* ChangeLog:
+	  Add 2 years of changes.
+
 2019-07-23 12:20  robert
 
 	* doc/html/history.html:
