@@ -821,7 +821,6 @@ enable_efence
 with_fileio
 enable_analyzer_hooks
 enable_decoder
-enable_libmpg123
 enable_frontend
 enable_mp3x
 enable_mp3rtp
@@ -1486,8 +1485,7 @@ Optional Features:
   --disable-gtktest       Do not try to compile and run a test GTK program
   --enable-efence         Use ElectricFence for malloc debugging
   --disable-analyzer-hooks Exclude analyzer hooks
-  --disable-decoder          Exclude mpg123 decoder (internal or external)
-  --disable-libmpg123        Disable use of external libmpg123 decoder (normally favoured over internal decoder)
+  --disable-decoder          Exclude mpg123 decoder
   --disable-frontend      Do not build the lame executable default=build
   --enable-mp3x           Build GTK frame analyzer default=no
   --enable-mp3rtp         Build mp3rtp default=no
@@ -17528,17 +17526,8 @@ else
   CONFIG_DECODER="yes"
 fi
 
-# Check whether --enable-libmpg123 was given.
-if test "${enable_libmpg123+set}" = set; then :
-  enableval=$enable_libmpg123; CONFIG_MPG123="${enableval}"
-else
-  CONFIG_MPG123="auto"
-fi
+CONFIG_MPG123=${CONFIG_DECODER}
 
-
-if test "${CONFIG_MPG123}" = "yes" && ! test "${HAVE_MPG123}" = "yes"; then
-	as_fn_error $? "libmpg123 decoder enforced but not found" "$LINENO" 5
-fi
 if test "${CONFIG_MPG123}" = "auto" && test "${HAVE_MPG123}" = "yes"; then
 	CONFIG_MPG123="yes"
 fi
@@ -17559,19 +17548,11 @@ $as_echo "#define DECODE_ON_THE_FLY 1" >>confdefs.h
 	INCLUDES="$mpg123_CFLAGS $INCLUDES"
 else
 	if test "${CONFIG_DECODER}" != "no" ; then
-		LIB_WITH_DECODER=true
-		CONFIG_DECODER="internal mpglib decoder (Layer 1, 2, 3)"
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $CONFIG_DECODER" >&5
-$as_echo "$CONFIG_DECODER" >&6; }
-
-$as_echo "#define HAVE_MPGLIB 1" >>confdefs.h
-
-
-$as_echo "#define DECODE_ON_THE_FLY 1" >>confdefs.h
-
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no, libmpg123 not found" >&5
+$as_echo "no, libmpg123 not found" >&6; }
 	else
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $CONFIG_DECODER" >&5
-$as_echo "$CONFIG_DECODER" >&6; }
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: ${CONFIG_DECODER}" >&5
+$as_echo "${CONFIG_DECODER}" >&6; }
 	fi
 fi
  if ${LIB_WITH_DECODER}; then
