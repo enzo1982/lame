@@ -33,8 +33,7 @@ There is HTML documentation and a man page in the doc directory.
 
 ============================================================================
 
-LAME uses the MPGLIB decoding engine, from the mpg123 package, written
-by: Michael Hipp (www.mpg123.de) MPGLIB is released under the GPL.
+LAME depends upon mpg123 for some features.
 
 Copyrights (c) 1999-2011 by The LAME Project
 Copyrights (c) 1999,2000,2001 by Mark Taylor
