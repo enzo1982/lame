@@ -1291,9 +1291,6 @@ AC_CONFIG_FILES([Makefile \
 		 ACM/tinyxml/Makefile \
 		 lame.spec \
 		 mac/Makefile \
-		 macosx/Makefile \
-		 macosx/English.lproj/Makefile \
-		 macosx/LAME.xcodeproj/Makefile \
 		 vc_solution/Makefile])
 
 AC_OUTPUT
