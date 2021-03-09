@@ -55,6 +55,12 @@
                     </li>
                     <li>Update to more recent autotools based scripts, this may or may not fix issues during the configure stage for less popular or more recent OS or architectures.
                     </li>
+		    <li>Use external libmpg123 instead of internal mpglib for mpeg decoding (unix-like systems which use the autotools ("configure; make; make install") build system). There are years of improvements in libmpg123 which we do not have in mpglib. Patch by Thomas Orgis of the mpg123 project.
+		    </li>
+		    <li>Update the Visual Studio project files to Visual Studio 2019. Patch by Michel Fink.
+		    </li>
+		    <li>Remove the macosx XCode project files, nobody stepped up to update them for the libmpg123 changes.
+		    </li>
                 </ul>
             </li>
         </ul>
