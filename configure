@@ -2847,12 +2847,7 @@ program_transform_name=`$as_echo "$program_transform_name" | sed "$ac_script"`
 am_aux_dir=`cd "$ac_aux_dir" && pwd`
 
 if test x"${MISSING+set}" != xset; then
-  case $am_aux_dir in
-  *\ * | *\	*)
-    MISSING="\${SHELL} \"$am_aux_dir/missing\"" ;;
-  *)
-    MISSING="\${SHELL} $am_aux_dir/missing" ;;
-  esac
+  MISSING="\${SHELL} '$am_aux_dir/missing'"
 fi
 # Use eval to expand $SHELL
 if eval "$MISSING --is-lightweight"; then
@@ -18123,10 +18118,6 @@ $as_echo "#define FLOAT double" >>confdefs.h
 					OPTIMIZATION="${OPTIMIZATION} -march=i686 \
 						-mtune=native"
 					;;
-				*86)
-					OPTIMIZATION="${OPTIMIZATION} -march=native \
-						-mtune=native"
-					;;
 				arm*-gnueabi)
 					if  -z "$(echo ${GCC_version} | awk '/4\.0/')" ; then
 						# Work round buggy softfloat optimization in ARM EABI compilers
@@ -18176,12 +18167,12 @@ $as_echo "$as_me: WARNING: LAME doesn't know about your version (${GCC_version})
 			OPTIMIZATION="${OPTIMIZATION} -march=i686 \
 				-mtune=native"
 			;;
-		*86)
-			OPTIMIZATION="${OPTIMIZATION} -march=native \
-				-mtune=native"
-			;;
 		esac
 
+		# if someone supplies own CFLAGS, we don't add our own
+		if test "x${ac_save_CFLAGS}" != "x"; then
+			OPTIMIZATION=""
+		fi
 	fi
 
 
