@@ -126,9 +126,6 @@
 /* set to 1 if you have libmpg123 */
 #undef HAVE_MPG123
 
-/* build with mpglib support */
-#undef HAVE_MPGLIB
-
 /* have nasm */
 #undef HAVE_NASM
 
