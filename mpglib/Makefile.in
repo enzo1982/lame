@@ -16,7 +16,6 @@
 
 # global section for every Makefile.am
 
-
 VPATH = @srcdir@
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -91,15 +90,6 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-@LIB_WITH_DECODER_FALSE@am__append_1 = common.c \
-@LIB_WITH_DECODER_FALSE@	dct64_i386.c \
-@LIB_WITH_DECODER_FALSE@	decode_i386.c \
-@LIB_WITH_DECODER_FALSE@	interface.c \
-@LIB_WITH_DECODER_FALSE@	layer1.c \
-@LIB_WITH_DECODER_FALSE@	layer2.c \
-@LIB_WITH_DECODER_FALSE@	layer3.c \
-@LIB_WITH_DECODER_FALSE@	tabinit.c
-
 subdir = mpglib
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
@@ -112,20 +102,6 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-LTLIBRARIES = $(noinst_LTLIBRARIES)
-libmpgdecoder_la_LIBADD =
-am__libmpgdecoder_la_SOURCES_DIST = common.c dct64_i386.c \
-	decode_i386.c interface.c layer1.c layer2.c layer3.c tabinit.c
-@LIB_WITH_DECODER_TRUE@am_libmpgdecoder_la_OBJECTS = common.lo \
-@LIB_WITH_DECODER_TRUE@	dct64_i386.lo decode_i386.lo \
-@LIB_WITH_DECODER_TRUE@	interface.lo layer1.lo layer2.lo \
-@LIB_WITH_DECODER_TRUE@	layer3.lo tabinit.lo
-libmpgdecoder_la_OBJECTS = $(am_libmpgdecoder_la_OBJECTS)
-AM_V_lt = $(am__v_lt_@AM_V@)
-am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
-am__v_lt_0 = --silent
-am__v_lt_1 = 
-@LIB_WITH_DECODER_TRUE@am_libmpgdecoder_la_rpath =
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -138,34 +114,8 @@ AM_V_at = $(am__v_at_@AM_V@)
 am__v_at_ = $(am__v_at_@AM_DEFAULT_V@)
 am__v_at_0 = @
 am__v_at_1 = 
-depcomp = $(SHELL) $(top_srcdir)/depcomp
-am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = ./$(DEPDIR)/common.Plo \
-	./$(DEPDIR)/dct64_i386.Plo ./$(DEPDIR)/decode_i386.Plo \
-	./$(DEPDIR)/interface.Plo ./$(DEPDIR)/layer1.Plo \
-	./$(DEPDIR)/layer2.Plo ./$(DEPDIR)/layer3.Plo \
-	./$(DEPDIR)/tabinit.Plo
-am__mv = mv -f
-COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
-	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-LTCOMPILE = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) \
-	$(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) \
-	$(AM_CFLAGS) $(CFLAGS)
-AM_V_CC = $(am__v_CC_@AM_V@)
-am__v_CC_ = $(am__v_CC_@AM_DEFAULT_V@)
-am__v_CC_0 = @echo "  CC      " $@;
-am__v_CC_1 = 
-CCLD = $(CC)
-LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
-	$(AM_LDFLAGS) $(LDFLAGS) -o $@
-AM_V_CCLD = $(am__v_CCLD_@AM_V@)
-am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
-am__v_CCLD_0 = @echo "  CCLD    " $@;
-am__v_CCLD_1 = 
-SOURCES = $(libmpgdecoder_la_SOURCES)
-DIST_SOURCES = $(am__libmpgdecoder_la_SOURCES_DIST)
+SOURCES =
+DIST_SOURCES =
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -192,8 +142,7 @@ am__define_uniq_tagged_files = \
 ETAGS = etags
 CTAGS = ctags
 am__DIST_COMMON = $(srcdir)/Makefile.in \
-	$(top_srcdir)/Makefile.am.global $(top_srcdir)/depcomp AUTHORS \
-	README depcomp
+	$(top_srcdir)/Makefile.am.global AUTHORS README depcomp
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 ALLOCA = @ALLOCA@
@@ -347,44 +296,14 @@ top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = 1.15 foreign
 # Avoid -I. which obscures libmpg123's mpg123.h
 DEFAULT_INCLUDES = 
-EXTRA_DIST = AUTHORS README $(am__append_1)
-@LIB_WITH_DECODER_TRUE@noinst_LTLIBRARIES = libmpgdecoder.la
-@LIB_WITH_DECODER_TRUE@libmpgdecoder_la_SOURCES = common.c \
-@LIB_WITH_DECODER_TRUE@	dct64_i386.c \
-@LIB_WITH_DECODER_TRUE@	decode_i386.c \
-@LIB_WITH_DECODER_TRUE@	interface.c \
-@LIB_WITH_DECODER_TRUE@	layer1.c \
-@LIB_WITH_DECODER_TRUE@	layer2.c \
-@LIB_WITH_DECODER_TRUE@	layer3.c \
-@LIB_WITH_DECODER_TRUE@	tabinit.c
+EXTRA_DIST = \
+	AUTHORS \
+	README
 
-noinst_HEADERS = common.h \
-	dct64_i386.h \
-	decode_i386.h \
-	huffman.h \
-	interface.h \
-	l2tables.h \
-	layer1.h \
-	layer2.h \
-	layer3.h \
-	mpg123.h \
-	mpglib.h \
-	tabinit.h
-
-LCLINTFLAGS = \
-	+posixlib \
-	+showsummary \
-	+showalluses \
-	+whichlib \
-	+forcehints \
-	-fixedformalarray \
-	+matchanyintegral \
-	-Dlint
-
+noinst_HEADERS = mpglib.h
 all: all-am
 
 .SUFFIXES:
-.SUFFIXES: .c .lo .o .obj
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(top_srcdir)/Makefile.am.global $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -415,62 +334,6 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
-
-clean-noinstLTLIBRARIES:
-	-test -z "$(noinst_LTLIBRARIES)" || rm -f $(noinst_LTLIBRARIES)
-	@list='$(noinst_LTLIBRARIES)'; \
-	locs=`for p in $$list; do echo $$p; done | \
-	      sed 's|^[^/]*$$|.|; s|/[^/]*$$||; s|$$|/so_locations|' | \
-	      sort -u`; \
-	test -z "$$locs" || { \
-	  echo rm -f $${locs}; \
-	  rm -f $${locs}; \
-	}
-
-libmpgdecoder.la: $(libmpgdecoder_la_OBJECTS) $(libmpgdecoder_la_DEPENDENCIES) $(EXTRA_libmpgdecoder_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(LINK) $(am_libmpgdecoder_la_rpath) $(libmpgdecoder_la_OBJECTS) $(libmpgdecoder_la_LIBADD) $(LIBS)
-
-mostlyclean-compile:
-	-rm -f *.$(OBJEXT)
-
-distclean-compile:
-	-rm -f *.tab.c
-
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/common.Plo@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dct64_i386.Plo@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/decode_i386.Plo@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/interface.Plo@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/layer1.Plo@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/layer2.Plo@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/layer3.Plo@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tabinit.Plo@am__quote@ # am--include-marker
-
-$(am__depfiles_remade):
-	@$(MKDIR_P) $(@D)
-	@echo '# dummy' >$@-t && $(am__mv) $@-t $@
-
-am--depfiles: $(am__depfiles_remade)
-
-.c.o:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ $<
-
-.c.obj:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
-
-.c.lo:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LTCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -565,7 +428,7 @@ distdir-am: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(LTLIBRARIES) $(HEADERS)
+all-am: Makefile $(HEADERS)
 installdirs:
 install: install-am
 install-exec: install-exec-am
@@ -599,21 +462,11 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic clean-libtool clean-noinstLTLIBRARIES \
-	mostlyclean-am
+clean-am: clean-generic clean-libtool mostlyclean-am
 
 distclean: distclean-am
-		-rm -f ./$(DEPDIR)/common.Plo
-	-rm -f ./$(DEPDIR)/dct64_i386.Plo
-	-rm -f ./$(DEPDIR)/decode_i386.Plo
-	-rm -f ./$(DEPDIR)/interface.Plo
-	-rm -f ./$(DEPDIR)/layer1.Plo
-	-rm -f ./$(DEPDIR)/layer2.Plo
-	-rm -f ./$(DEPDIR)/layer3.Plo
-	-rm -f ./$(DEPDIR)/tabinit.Plo
 	-rm -f Makefile
-distclean-am: clean-am distclean-compile distclean-generic \
-	distclean-tags
+distclean-am: clean-am distclean-generic distclean-tags
 
 dvi: dvi-am
 
@@ -656,21 +509,12 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-		-rm -f ./$(DEPDIR)/common.Plo
-	-rm -f ./$(DEPDIR)/dct64_i386.Plo
-	-rm -f ./$(DEPDIR)/decode_i386.Plo
-	-rm -f ./$(DEPDIR)/interface.Plo
-	-rm -f ./$(DEPDIR)/layer1.Plo
-	-rm -f ./$(DEPDIR)/layer2.Plo
-	-rm -f ./$(DEPDIR)/layer3.Plo
-	-rm -f ./$(DEPDIR)/tabinit.Plo
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
 mostlyclean: mostlyclean-am
 
-mostlyclean-am: mostlyclean-compile mostlyclean-generic \
-	mostlyclean-libtool
+mostlyclean-am: mostlyclean-generic mostlyclean-libtool
 
 pdf: pdf-am
 
@@ -684,9 +528,8 @@ uninstall-am:
 
 .MAKE: install-am install-strip
 
-.PHONY: CTAGS GTAGS TAGS all all-am am--depfiles check check-am clean \
-	clean-generic clean-libtool clean-noinstLTLIBRARIES \
-	cscopelist-am ctags ctags-am distclean distclean-compile \
+.PHONY: CTAGS GTAGS TAGS all all-am check check-am clean clean-generic \
+	clean-libtool cscopelist-am ctags ctags-am distclean \
 	distclean-generic distclean-libtool distclean-tags distdir dvi \
 	dvi-am html html-am info info-am install install-am \
 	install-data install-data-am install-dvi install-dvi-am \
@@ -694,20 +537,14 @@ uninstall-am:
 	install-info install-info-am install-man install-pdf \
 	install-pdf-am install-ps install-ps-am install-strip \
 	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-am
+	maintainer-clean-generic mostlyclean mostlyclean-generic \
+	mostlyclean-libtool pdf pdf-am ps ps-am tags tags-am uninstall \
+	uninstall-am
 
 .PRECIOUS: Makefile
 
 
 # end global section
-
-lclint.txt: ${libmpgdecoder_la_SOURCES} ${noinst_HEADERS}
-	@lclint ${LCLINTFLAGS} ${INCLUDES} ${DEFS} ${libmpgdecoder_la_SOURCES} 2>&1 >lclint.txt || true
-
-lclint: lclint.txt
-	more lclint.txt
 
 #$(OBJECTS): libtool
 #libtool: $(LIBTOOL_DEPS)
