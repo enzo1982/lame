@@ -971,10 +971,6 @@ if test "x$HAVE_GCC" = "xyes" -o "x$HAVE_CLANG" = "xyes"; then
 					OPTIMIZATION="${OPTIMIZATION} -march=i686 \
 						-mtune=native"
 					;;
-				*86)
-					OPTIMIZATION="${OPTIMIZATION} -march=native \
-						-mtune=native"
-					;;
 				arm*-gnueabi)
 					if [ -z "$(echo ${GCC_version} | awk '/4\.0/')" ]; then
 						# Work round buggy softfloat optimization in ARM EABI compilers
@@ -1022,12 +1018,12 @@ if test "x$HAVE_GCC" = "xyes" -o "x$HAVE_CLANG" = "xyes"; then
 			OPTIMIZATION="${OPTIMIZATION} -march=i686 \
 				-mtune=native"
 			;;
-		*86)
-			OPTIMIZATION="${OPTIMIZATION} -march=native \
-				-mtune=native"
-			;;
 		esac
 
+		# if someone supplies own CFLAGS, we don't add our own
+		if test "x${ac_save_CFLAGS}" != "x"; then
+			OPTIMIZATION=""
+		fi
 	fi
 
 
