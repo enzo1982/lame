@@ -17526,11 +17526,6 @@ else
   CONFIG_DECODER="yes"
 fi
 
-CONFIG_MPG123=${CONFIG_DECODER}
-
-if test "${CONFIG_MPG123}" = "auto" && test "${HAVE_MPG123}" = "yes"; then
-	CONFIG_MPG123="yes"
-fi
 
 LIB_WITH_DECODER=false
 if test "${HAVE_MPG123}" = "yes" && test "${CONFIG_DECODER}" != "no"; then
