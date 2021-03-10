@@ -98,6 +98,10 @@ char   *strchr(), *strrchr();
 #include <dmalloc.h>
 #endif
 
+/* In util.h, but including it here needs much more includes than util.h. */
+extern void hip_set_pinfo(hip_t hip, plotting_data* pinfo);
+extern void hip_finish_pinfo(hip_t hip);
+
 #ifndef STR
 # define __STR(x)  #x
 # define STR(x)    __STR(x)
