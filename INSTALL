@@ -141,7 +141,7 @@ Building the software on Windows with MSVC:
 =======================================================================
 There are MSVC project files, and a Makefile.MSVC included with the 
 project.  For production use, be sure to compile a "Release" target, 
-with the "maximum speed" compile option, and #define NDEBUG.   
+with the "maximum speed" compile option.   
 
 It is possible to compile the GTK frame analyzer under windows, see
 README.WINGTK
