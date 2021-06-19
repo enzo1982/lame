@@ -93,6 +93,9 @@ char   *strchr(), *strrchr();
 #include "get_audio.h"
 #include "lametime.h"
 #include "console.h"
+#include "machine.h"
+#include "encoder.h"
+#include "lame-analysis.h"
 
 #ifdef WITH_DMALLOC
 #include <dmalloc.h>
