@@ -30,6 +30,7 @@ INCLUDES = @INCLUDES@ -I$(top_srcdir) -I$(top_builddir)
 DEFS = @DEFS@ @CONFIG_DEFS@
 
 EXTRA_DIST = \
+	lame.pc.in \
 	lame.rc \
 	vbrquantize.h \
 	logoe.ico
@@ -101,3 +102,8 @@ lclint: lclint.txt
 #$(OBJECTS): libtool
 #libtool: $(LIBTOOL_DEPS)
 #	$(SHELL) $(top_builddir)/config.status --recheck
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = lame.pc
+
+DISTCLEANFILES = $(pkgconfig_DATA)
