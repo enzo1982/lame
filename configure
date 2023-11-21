@@ -856,6 +856,7 @@ enable_decoder
 enable_frontend
 enable_mp3x
 enable_mp3rtp
+enable_ipv6
 enable_dynamic_frontends
 enable_expopt
 enable_debug
@@ -1530,6 +1531,8 @@ Optional Features:
   --disable-frontend      Do not build the lame executable default=build
   --enable-mp3x           Build GTK frame analyzer default=no
   --enable-mp3rtp         Build mp3rtp default=no
+  --disable-ipv6          Disable IPV6 support(By default ipv6 (with ipv4)
+                          support is enabled)
   --enable-dynamic-frontends Link frontends against shared libraries default=no
   --enable-expopt=full,norm Whether to enable experimental optimizations
                             default=no
@@ -18689,6 +18692,64 @@ else
 printf "%s\n" "no" >&6; }
 fi
 
+#Checking for IPV6 support
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for IPv6 support" >&5
+printf %s "checking for IPv6 support... " >&6; }
+# Check whether --enable-ipv6 was given.
+if test ${enable_ipv6+y}
+then :
+  enableval=$enable_ipv6; CONFIG_IPV6=$enableval
+else $as_nop
+  CONFIG_IPV6=yes
+fi
+
+if test "x$CONFIG_IPV6" = "xyes" ; then
+    if test ${ac_cv_ipv6+y}
+then :
+  printf %s "(cached) " >&6
+else $as_nop
+  if test "$cross_compiling" = yes
+then :
+  ac_cv_ipv6=yes
+else $as_nop
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #include <stdlib.h>
+    main()
+    {
+        int fd;
+        struct sockaddr_in6 foo;
+        fd = socket(AF_INET6, SOCK_STREAM, 0);
+        exit(fd >= 0 ? 0 : 1);
+    }
+_ACEOF
+if ac_fn_c_try_run "$LINENO"
+then :
+  ac_cv_ipv6=yes
+else $as_nop
+  ac_cv_ipv6=no
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
+fi
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_ipv6" >&5
+printf "%s\n" "$ac_cv_ipv6" >&6; }
+    if test $ac_cv_ipv6 = yes ; then
+
+printf "%s\n" "#define IPV6 1" >>confdefs.h
+
+    fi
+else
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $CONFIG_IPV6" >&5
+printf "%s\n" "$CONFIG_IPV6" >&6; }
+fi
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if dynamic linking of the frontends is requested" >&5
 printf %s "checking if dynamic linking of the frontends is requested... " >&6; }
 # Check whether --enable-dynamic-frontends was given.
