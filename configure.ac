@@ -192,7 +192,7 @@ fi
 	 precision than `double'.])
     fi
   
-if test "${ac_cv_c_have_long_double}" = "yes" ; then
+if test "${ac_cv_c_long_double}" = "yes" ; then
 	AC_CHECK_SIZEOF(long double)
 fi
 
