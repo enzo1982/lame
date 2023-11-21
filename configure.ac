@@ -637,6 +637,36 @@ else
 	AC_MSG_RESULT(no)
 fi
 
+#Checking for IPV6 support
+AC_MSG_CHECKING(for IPv6 support)
+AC_ARG_ENABLE(ipv6, AS_HELP_STRING([--disable-ipv6],
+    [Disable IPV6 support(By default ipv6 (with ipv4) support is enabled)]),
+    CONFIG_IPV6=$enableval,
+    CONFIG_IPV6=yes)
+if test "x$CONFIG_IPV6" = "xyes" ; then
+    AC_CACHE_VAL(ac_cv_ipv6,
+    AC_TRY_RUN([
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #include <stdlib.h>
+    main()
+    {
+        int fd;
+        struct sockaddr_in6 foo;
+        fd = socket(AF_INET6, SOCK_STREAM, 0);
+        exit(fd >= 0 ? 0 : 1);
+    }],
+    ac_cv_ipv6=yes,
+    ac_cv_ipv6=no,
+    ac_cv_ipv6=yes))
+    AC_MSG_RESULT($ac_cv_ipv6)
+    if test $ac_cv_ipv6 = yes ; then
+        AC_DEFINE(IPV6,1,[check if system supports IPV6])
+    fi
+else
+    AC_MSG_RESULT($CONFIG_IPV6)	
+fi
 AC_MSG_CHECKING(if dynamic linking of the frontends is requested)
 AC_ARG_ENABLE(dynamic-frontends,
   [  --enable-dynamic-frontends Link frontends against shared libraries [default=no]],
