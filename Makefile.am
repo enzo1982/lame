@@ -2,6 +2,8 @@
 
 include $(top_srcdir)/Makefile.am.global
 
+ACLOCAL_AMFLAGS=-I m4
+
 .PHONY: test
 
 SUBDIRS = mpglib libmp3lame frontend Dll doc include misc dshow ACM \
