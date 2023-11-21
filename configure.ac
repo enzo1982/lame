@@ -20,9 +20,10 @@ dnl FRONTEND_LDADD
 dnl extra vars for libmp3lame:
 dnl LIBMP3LAME_LDADD
 
-AC_PREREQ(2.69)
+AC_PREREQ([2.71])
 AC_INIT([lame],[3.101],[lame-dev@lists.sf.net])
 AC_CONFIG_SRCDIR([libmp3lame/lame.c])
+AC_CONFIG_MACRO_DIRS([m4])
 AC_LANG([C])
 
 dnl check system
@@ -41,9 +42,8 @@ AM_MAKE_INCLUDE
 PKG_PROG_PKG_CONFIG([])
 
 dnl check environment
-AC_AIX
-AC_ISC_POSIX
-AC_MINIX
+AC_SEARCH_LIBS([strerror],[cposix])
+AC_USE_SYSTEM_EXTENSIONS
 case $host_os in
   *cygwin* ) CYGWIN=yes;;
          * ) CYGWIN=no;;
@@ -51,7 +51,7 @@ esac
 
 dnl libtool
 # AC_DISABLE_SHARED
-AC_PROG_LIBTOOL
+LT_INIT
 AC_SUBST(LIBTOOL_DEPS)
 CFLAGS="${ac_save_CFLAGS}"
 
@@ -126,7 +126,6 @@ if test "${ac_cv_header_dmalloc_h}" = "yes"; then
 fi
 
 dnl Checks for header files.
-AC_HEADER_STDC
 AC_CHECK_HEADERS( \
 		 errno.h \
 		 fcntl.h \
@@ -186,7 +185,13 @@ if test $ac_cv_sizeof_short -eq 0 \
 	exit 1
 fi
 
-AC_C_LONG_DOUBLE
+    AC_TYPE_LONG_DOUBLE_WIDER
+    ac_cv_c_long_double=$ac_cv_type_long_double_wider
+    if test $ac_cv_c_long_double = yes; then
+      AC_DEFINE([HAVE_LONG_DOUBLE],[1],[Define to 1 if the type `long double' works and has more range or
+	 precision than `double'.])
+    fi
+  
 if test "${ac_cv_c_have_long_double}" = "yes" ; then
 	AC_CHECK_SIZEOF(long double)
 fi
@@ -375,7 +380,14 @@ if test ${cross_compiling} = "yes"; then
 fi
 
 AC_TYPE_SIZE_T
-AC_HEADER_TIME
+AC_CHECK_HEADERS_ONCE([sys/time.h])
+# Obsolete code to be removed.
+if test $ac_cv_header_sys_time_h = yes; then
+  AC_DEFINE([TIME_WITH_SYS_TIME],[1],[Define to 1 if you can safely include both <sys/time.h>
+	     and <time.h>.  This macro is obsolete.])
+fi
+# End of obsolete code.
+
 
 dnl Checks for library functions.
 AC_FUNC_ALLOCA
@@ -1260,6 +1272,7 @@ AC_SUBST(CONFIG_DEFS)
 AC_CONFIG_FILES([Makefile \
 		 libmp3lame/Makefile \
 		 libmp3lame/i386/Makefile \
+		 libmp3lame/lame.pc \
 		 libmp3lame/vector/Makefile \
 		 frontend/Makefile \
 		 mpglib/Makefile \
