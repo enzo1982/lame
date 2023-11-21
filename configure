@@ -15444,7 +15444,7 @@ printf "%s\n" "#define HAVE_LONG_DOUBLE 1" >>confdefs.h
 
     fi
 
-if test "${ac_cv_c_have_long_double}" = "yes" ; then
+if test "${ac_cv_c_long_double}" = "yes" ; then
 	# The cast to long int works around a bug in the HP C Compiler
 # version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
 # declarations like `int a3[[(sizeof (unsigned char)) >= 0]];'.
