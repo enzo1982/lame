@@ -159,7 +159,8 @@ RawPCMConfig global_raw_pcm =
 typedef enum TextEncoding
 { TENC_RAW     /* bytes will be stored as-is into ID3 tags, which are Latin1 per definition */
 , TENC_LATIN1  /* text will be converted from local encoding to Latin1, as ID3 needs it */
-, TENC_UTF16   /* text will be converted from local encoding to Unicode, as ID3v2 wants it */
+, TENC_UTF16   /* text will be converted from local encoding to Unicode (UCS-2), as ID3v2 wants it */
+, TENC_UTF8    /* text will be converted from local encoding to UTF-8, as ID3v2.4 wants it */
 } TextEncoding;
 
 #ifdef HAVE_ICONV
@@ -298,6 +299,35 @@ char* toLatin1( char* src )
 
 
 static
+char* toUtf8( char* src )
+{
+    size_t w = currCharCodeSize();
+    char* dst = 0;
+    if (src != 0) {
+        size_t const l = strlenMultiByte(src, w);
+        size_t const n = (l+1)*4;
+        dst = calloc(n+4, 4);
+        if (dst != 0) {
+            char* cur_code = currentCharacterEncoding();
+            iconv_t xiconv = iconv_open("UTF-8//TRANSLIT", cur_code);
+            dst[0] = 0xff;
+            dst[1] = 0xfe;
+            if (xiconv != (iconv_t)-1) {
+                char* i_ptr = (char*)src;
+                char* o_ptr = &dst[2];
+                size_t srcln = l*w;
+                size_t avail = n;
+                iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
+                iconv_close(xiconv);
+            }
+        }
+    }
+    return dst;
+
+}
+
+
+static
 char* toUtf16( char* src )
 {
     size_t w = currCharCodeSize();
@@ -416,7 +446,8 @@ id3_tag(lame_global_flags* gfp, int type, TextEncoding enc, char* str)
         default:
 #ifdef ID3TAGS_EXTENDED
         case TENC_LATIN1: x = toLatin1(str); break;
-        case TENC_UTF16:  x = toUtf16(str);   break;
+        case TENC_UTF16:  x = toUtf16(str);  break;
+        case TENC_UTF8:   x = toUtf8(str);   break;
 #else
         case TENC_RAW:    x = strdup(str);   break;
 #endif
@@ -427,6 +458,7 @@ id3_tag(lame_global_flags* gfp, int type, TextEncoding enc, char* str)
 #ifdef ID3TAGS_EXTENDED
         case TENC_LATIN1: result = set_id3tag(gfp, type, x);   break;
         case TENC_UTF16:  result = set_id3v2tag(gfp, type, x); break;
+        case TENC_UTF8:   result = set_id3v2tag(gfp, type, x); break;
 #else
         case TENC_RAW:    result = set_id3tag(gfp, type, x);   break;
 #endif
@@ -642,7 +674,8 @@ help_id3tag(FILE * const fp)
             "    --id3v1-only    add only a version 1 tag\n"
             "    --id3v2-only    add only a version 2 tag\n"
 #ifdef ID3TAGS_EXTENDED
-            "    --id3v2-utf16   add following options in unicode text encoding\n"
+            "    --id3v2-utf8    add following options in unicode UTF-8 text encoding\n"
+            "    --id3v2-utf16   add following options in unicode UTF-16 text encoding\n"
             "    --id3v2-latin1  add following options in latin-1 text encoding\n"
 #endif
             "    --space-id3v1   pad version 1 tag with spaces instead of nulls\n"
@@ -1558,7 +1591,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
     int     id3tag_mode = ID3TAG_MODE_DEFAULT;
     int     ignore_tag_errors = 0;  /* Ignore errors in values passed for tags */
 #ifdef ID3TAGS_EXTENDED
-    enum TextEncoding id3_tenc = TENC_UTF16;
+    enum TextEncoding id3_tenc = TENC_UTF8;
 #else
     enum TextEncoding id3_tenc = TENC_LATIN1;
 #endif
@@ -1770,6 +1803,10 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                 T_ELIF2("id3v2-utf16","id3v2-ucs2") /* id3v2-ucs2 for compatibility only */
                     id3_tenc = TENC_UTF16;
                     id3tag_add_v2(gfp);
+
+                T_ELIF("id3v2-utf8")
+                    id3_tenc = TENC_UTF8;
+                    id3tag_add_v2_4_UTF8(gfp);
 
                 T_ELIF("id3v2-latin1")
                     id3_tenc = TENC_LATIN1;

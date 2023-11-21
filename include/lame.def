@@ -300,3 +300,7 @@ id3tag_set_fieldvalue_ucs2	@2023
 id3tag_set_comment_utf16	@2024
 id3tag_set_textinfo_utf16 @2025
 id3tag_set_fieldvalue_utf16	@2026
+
+; two external functions for ID3v2.4 tag support
+id3tag_add_v2_4_UTF8 @2027
+id3tag_v2_4_UTF8_only @2028

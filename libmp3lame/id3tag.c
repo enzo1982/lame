@@ -190,7 +190,9 @@ debug_tag_spec_flags(lame_internal_flags * gfc, const char* info)
     MSGF(gfc, "V1_ONLY_FLAG  : %d\n", test_tag_spec_flags(gfc, V1_ONLY_FLAG )); 
     MSGF(gfc, "V2_ONLY_FLAG  : %d\n", test_tag_spec_flags(gfc, V2_ONLY_FLAG )); 
     MSGF(gfc, "SPACE_V1_FLAG : %d\n", test_tag_spec_flags(gfc, SPACE_V1_FLAG)); 
-    MSGF(gfc, "PAD_V2_FLAG   : %d\n", test_tag_spec_flags(gfc, PAD_V2_FLAG  )); 
+    MSGF(gfc, "PAD_V2_FLAG   : %d\n", test_tag_spec_flags(gfc, PAD_V2_FLAG  ));
+    // adding debugging functionality for the ID3v2.4 flag
+    MSGF(gfc, "V2_4_UTF8_FLAG: %d\n", test_tag_spec_flags(gfc, V2_4_UTF8_FLAG));
 }
 #endif
 
@@ -200,10 +202,23 @@ is_lame_internal_flags_null(lame_t gfp)
     return (gfp && gfp->internal_flags) ? 0 : 1;
 }
 
+// moved this function up so it can be used in copyV1ToV2 (for ID3v2.4 support)
+static char const*
+id3v2_get_language(lame_t gfp)
+{
+    lame_internal_flags const* gfc = gfp ? gfp->internal_flags : 0;
+    if (gfc) return gfc->tag_spec.language;
+    return 0;
+}
+
 static int
 id3v2_add_ucs2_lng(lame_t gfp, uint32_t frame_id, unsigned short const *desc, unsigned short const *text);
 static int
 id3v2_add_latin1_lng(lame_t gfp, uint32_t frame_id, char const *desc, char const *text);
+
+// forward-declare the id3v2_add_utf8 function to be used in copyV1ToV2
+static int
+id3v2_add_utf8(lame_t gfp, uint32_t frame_id, char const *lng, char const *desc, char const *text);
 
 
 static void
@@ -212,7 +227,17 @@ copyV1ToV2(lame_t gfp, int frame_id, char const *s)
     lame_internal_flags *gfc = gfp != 0 ? gfp->internal_flags : 0;
     if (gfc != 0) {
         unsigned int flags = gfc->tag_spec.flags;
-        id3v2_add_latin1_lng(gfp, frame_id, 0, s);
+        
+        // add V2 tag: either ID3v2.3 or ID3v2.4 according to
+        // whether V2_4_UTF8_FLAG is used
+        
+        // if we are writing UTF-8 ID3v2.4 tag
+        if (test_tag_spec_flags(gfc, V2_4_UTF8_FLAG)) {
+            char const* lang = id3v2_get_language(gfp);
+            id3v2_add_utf8(gfp, frame_id, lang, 0, s);
+        } else { // if we are writing latin1 ID3v2.3 tag
+            id3v2_add_latin1_lng(gfp, frame_id, 0, s);
+        }
         gfc->tag_spec.flags = flags;
 #if 0
         debug_tag_spec_flags(gfc, "copyV1ToV2");
@@ -311,6 +336,27 @@ id3tag_add_v2(lame_t gfp)
     gfc->tag_spec.flags |= ADD_V2_FLAG;
 }
 
+/**
+ * function to enable writing ID3v2.4 with UTF-8 characters
+ * in addition to ID3v1 tags
+ * */
+void
+id3tag_add_v2_4_UTF8(lame_t gfp)
+{
+    lame_internal_flags *gfc = 0;
+
+    if (is_lame_internal_flags_null(gfp)) {
+        return;
+    }
+    gfc = gfp->internal_flags;
+    // use both ID3v1 and ID3v2 tags
+    gfc->tag_spec.flags &= ~V1_ONLY_FLAG;
+    gfc->tag_spec.flags |= ADD_V2_FLAG;
+    
+    // for ID3v2 tags, specifically use ID3v2.4 with UTF-8 characters
+    gfc->tag_spec.flags |= V2_4_UTF8_FLAG;
+}
+
 void
 id3tag_v1_only(lame_t gfp)
 {
@@ -335,6 +381,28 @@ id3tag_v2_only(lame_t gfp)
     gfc = gfp->internal_flags;
     gfc->tag_spec.flags &= ~V1_ONLY_FLAG;
     gfc->tag_spec.flags |= V2_ONLY_FLAG;
+}
+
+/**
+ * function to enable writing ID3v2.4 with UTF-8 characters
+ * exclusively (without ID3v1 tags)
+ * */
+void
+id3tag_v2_4_UTF8_only(lame_t gfp)
+{
+    lame_internal_flags *gfc = 0;
+
+    if (is_lame_internal_flags_null(gfp)) {
+        return;
+    }
+    gfc = gfp->internal_flags;
+    
+    // use ID3v2 tags and not ID3v1
+    gfc->tag_spec.flags &= ~V1_ONLY_FLAG;
+    gfc->tag_spec.flags |= V2_ONLY_FLAG;
+    
+    // for ID3v2 tags, specifically use ID3v2.4 with UTF-8 characters
+    gfc->tag_spec.flags |= V2_4_UTF8_FLAG;
 }
 
 void
@@ -899,8 +967,12 @@ id3v2_add_ucs2(lame_t gfp, uint32_t frame_id, char const *lng, unsigned short co
     return -255;
 }
 
+/*
+* internal helper, adds encoded text to node.
+* For latin1 (enc=0) or UTF-8 (enc=3).
+*/
 static int
-id3v2_add_latin1(lame_t gfp, uint32_t frame_id, char const *lng, char const *desc, char const *text)
+id3v2_add_enc(lame_t gfp, uint32_t frame_id, char const *lng, char const *desc, char const *text, int enc)
 {
     lame_internal_flags *gfc = gfp != 0 ? gfp->internal_flags : 0;
     if (gfc != 0) {
@@ -927,21 +999,31 @@ id3v2_add_latin1(lame_t gfp, uint32_t frame_id, char const *lng, char const *des
         node->fid = frame_id;
         setLang(node->lng, lang);
         node->dsc.dim = local_strdup(&node->dsc.ptr.l, desc);
-        node->dsc.enc = 0;
+        node->dsc.enc = enc; // set specified encoding
         node->txt.dim = local_strdup(&node->txt.ptr.l, text);
-        node->txt.enc = 0;
+        node->txt.enc = enc; // set specified encoding
         gfc->tag_spec.flags |= (CHANGED_FLAG | ADD_V2_FLAG);
         return 0;
     }
     return -255;
 }
 
-static char const*
-id3v2_get_language(lame_t gfp)
+// this function now uses id3v2_add_enc
+static int
+id3v2_add_latin1(lame_t gfp, uint32_t frame_id, char const *lng, char const *desc, char const *text)
 {
-    lame_internal_flags const* gfc = gfp ? gfp->internal_flags : 0;
-    if (gfc) return gfc->tag_spec.language;
-    return 0;
+    // call internal helper with encoding = 0 (which indicates latin1)
+    int enc = 0;
+    return id3v2_add_enc(gfp, frame_id, lng, desc, text, enc);
+}
+
+// function to add UTF-8-encoded text to node
+static int
+id3v2_add_utf8(lame_t gfp, uint32_t frame_id, char const *lng, char const *desc, char const *text)
+{
+    // call internal helper with encoding = 3 (which indicates UTF8)
+    int enc = 3;
+    return id3v2_add_enc(gfp, frame_id, lng, desc, text, enc);
 }
 
 static int
@@ -1176,7 +1258,18 @@ id3tag_set_comment(lame_t gfp, const char *comment)
         gfc->tag_spec.flags |= CHANGED_FLAG;
         {
             uint32_t const flags = gfc->tag_spec.flags;
-            id3v2_add_latin1_lng(gfp, ID_COMMENT, "", comment);
+            
+            // add V2 comment tag: either ID3v2.3 or ID3v2.4
+            // according to whether V2_4_UTF8_FLAG is used
+            
+            // if we are writing UTF-8 ID3v2.4 tag
+            if (test_tag_spec_flags(gfc, V2_4_UTF8_FLAG)) {
+                char const* lang = id3v2_get_language(gfp);
+                id3v2_add_utf8(gfp, ID_COMMENT, lang, "", comment);
+            } else { // if we are writing latin1 ID3v2.3 tag
+                id3v2_add_latin1_lng(gfp, ID_COMMENT, "", comment);
+            }
+            
             gfc->tag_spec.flags = flags;
         }
     }
@@ -1462,8 +1555,8 @@ set_frame_comment(unsigned char *frame, FrameDataNode const *node)
         /* clear 2-byte header flags */
         *frame++ = 0;
         *frame++ = 0;
-        /* encoding descriptor byte */
-        *frame++ = node->txt.enc == 1 ? 1 : 0;
+        /* use the specified encoding descriptor byte */
+        *frame++ = node->txt.enc;
         /* 3 bytes language */
         *frame++ = node->lng[0];
         *frame++ = node->lng[1];
@@ -1499,8 +1592,8 @@ set_frame_custom2(unsigned char *frame, FrameDataNode const *node)
         /* clear 2-byte header flags */
         *frame++ = 0;
         *frame++ = 0;
-        /* clear 1 encoding descriptor byte to indicate ISO-8859-1 format */
-        *frame++ = node->txt.enc == 1 ? 1 : 0;
+        /* use the specified encoding descriptor byte */
+        *frame++ = node->txt.enc;
         if (node->dsc.dim > 0) {
             if (node->dsc.enc != 1) {
                 frame = writeChars(frame, node->dsc.ptr.l, node->dsc.dim);
@@ -1533,8 +1626,8 @@ set_frame_wxxx(unsigned char *frame, FrameDataNode const *node)
         *frame++ = 0;
         *frame++ = 0;
         if (node->dsc.dim > 0) {
-            /* clear 1 encoding descriptor byte to indicate ISO-8859-1 format */
-            *frame++ = node->dsc.enc == 1 ? 1 : 0;
+            /* use the specified encoding descriptor byte */
+            *frame++ = node->dsc.enc;
             if (node->dsc.enc != 1) {
                 frame = writeChars(frame, node->dsc.ptr.l, node->dsc.dim);
                 *frame++ = 0;
@@ -1741,9 +1834,18 @@ lame_get_id3v2_tag(lame_t gfp, unsigned char *buffer, size_t size)
             *p++ = 'I';
             *p++ = 'D';
             *p++ = '3';
+            
             /* set version number word */
-            *p++ = 3;
-            *p++ = 0;
+            // set it according to whether V2_4_UTF8_FLAG is used
+            if (test_tag_spec_flags(gfc, V2_4_UTF8_FLAG)) // if using ID3v2.4.0
+            {
+                *p++ = 4;
+                *p++ = 0;
+            } else { // if using ID3v2.3.0
+                *p++ = 3;
+                *p++ = 0;
+            }
+
             /* clear flags byte */
             *p++ = 0;
             /* calculate and set tag size = total size - header size */

@@ -1204,6 +1204,12 @@ void CDECL id3tag_init     (lame_t gfp);
 /* force addition of version 2 tag */
 void CDECL id3tag_add_v2   (lame_t gfp);
 
+/* force addition of version 2.4 tag with UTF-8 encoding */
+void CDECL id3tag_add_v2_4_UTF8 (lame_t gfp);
+
+/* add only a version 2.4 tag with UTF-8 encoding */
+void CDECL id3tag_v2_4_UTF8_only (lame_t gfp);
+
 /* add only a version 1 tag */
 void CDECL id3tag_v1_only  (lame_t gfp);
 

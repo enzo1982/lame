@@ -203,8 +203,10 @@ lame_decode_exit
 id3tag_genre_list
 id3tag_init
 id3tag_add_v2
+id3tag_add_v2_4_UTF8
 id3tag_v1_only
 id3tag_v2_only
+id3tag_v2_4_UTF8_only
 id3tag_space_v1
 id3tag_pad_v2
 id3tag_set_pad
