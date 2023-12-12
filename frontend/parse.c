@@ -367,6 +367,11 @@ unsigned short* toUtf16(char const* s)
 {
     return utf8ToUtf16(s);
 }
+
+unsigned short* toUtf8(char const* s)
+{
+    return (unsigned short *)s;
+}
 #endif
 
 static int evaluateArgument(char const* token, char const* arg, char* _EndPtr)
