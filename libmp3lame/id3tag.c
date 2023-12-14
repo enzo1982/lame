@@ -640,6 +640,34 @@ local_strdup_utf16_to_latin1(unsigned short const* utf16)
 
 
 static int
+id3tag_set_genre_utf8(lame_t gfp, unsigned short const* text)
+{
+    lame_internal_flags* gfc = gfp->internal_flags;
+    int   ret;
+    if (text == 0) {
+        return -3;
+    }
+    if (maybeLatin1(text)) {
+        char*   latin1 = local_strdup_utf16_to_latin1(text);
+        int     num = lookupGenre(latin1);
+        free(latin1);
+        if (num == -1) return -1; /* number out of range */
+        if (num >= 0) {           /* common genre found  */
+            gfc->tag_spec.flags |= CHANGED_FLAG;
+            gfc->tag_spec.genre_id3v1 = num;
+            copyV1ToV2(gfp, ID_GENRE, genre_names[num]);
+            return 0;
+        }
+    }
+    ret = id3v2_add_ucs2_lng(gfp, ID_GENRE, 0, text);
+    if (ret == 0) {
+        gfc->tag_spec.flags |= CHANGED_FLAG;
+        gfc->tag_spec.genre_id3v1 = GENRE_INDEX_OTHER;
+    }
+    return ret;
+}
+
+static int
 id3tag_set_genre_utf16(lame_t gfp, unsigned short const* text)
 {
     lame_internal_flags* gfc = gfp->internal_flags;
@@ -1072,6 +1100,46 @@ id3tag_set_userinfo_ucs2(lame_t gfp, uint32_t id, unsigned short const *fieldval
         free(val);
     }
     return rc;
+}
+
+int
+id3tag_set_textinfo_utf8(lame_t gfp, char const *id, unsigned short const *text)
+{
+    uint32_t const frame_id = toID3v2TagId(id);
+    if (frame_id == 0) {
+        return -1;
+    }
+    if (is_lame_internal_flags_null(gfp)) {
+        return 0;
+    }
+    if (text == 0) {
+        return 0;
+    }
+    if (frame_id == ID_TXXX || frame_id == ID_WXXX || frame_id == ID_COMMENT) {
+        return id3tag_set_userinfo_ucs2(gfp, frame_id, text);
+    }
+    if (frame_id == ID_GENRE) {
+        return id3tag_set_genre_utf8(gfp, text);
+    }
+    if (frame_id == ID_PCST) {
+        return id3v2_add_ucs2_lng(gfp, frame_id, 0, text);
+    }
+    if (frame_id == ID_USER) {
+        return id3v2_add_ucs2_lng(gfp, frame_id, text, 0);
+    }
+    if (frame_id == ID_WFED) {
+        return id3v2_add_ucs2_lng(gfp, frame_id, text, 0); /* iTunes expects WFED to be a text frame */
+    }
+    if (isFrameIdMatching(frame_id, FRAME_ID('T', 0, 0, 0))
+      ||isFrameIdMatching(frame_id, FRAME_ID('W', 0, 0, 0))) {
+#if 0
+        if (isNumericString(frame_id)) {
+            return -2;  /* must be Latin-1 encoded */
+        }
+#endif
+        return id3v2_add_ucs2_lng(gfp, frame_id, 0, text);
+    }
+    return -255;        /* not supported by now */
 }
 
 int
