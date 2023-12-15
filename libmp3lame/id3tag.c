@@ -216,9 +216,9 @@ id3v2_add_ucs2_lng(lame_t gfp, uint32_t frame_id, unsigned short const *desc, un
 static int
 id3v2_add_latin1_lng(lame_t gfp, uint32_t frame_id, char const *desc, char const *text);
 
-// forward-declare the id3v2_add_utf8 function to be used in copyV1ToV2
+// forward-declare the id3v2_add_utf8_lng function to be used in copyV1ToV2
 static int
-id3v2_add_utf8(lame_t gfp, uint32_t frame_id, char const *lng, char const *desc, char const *text);
+id3v2_add_utf8_lng(lame_t gfp, uint32_t frame_id, char const *desc, char const *text);
 
 
 static void
@@ -233,8 +233,7 @@ copyV1ToV2(lame_t gfp, int frame_id, char const *s)
         
         // if we are writing UTF-8 ID3v2.4 tag
         if (test_tag_spec_flags(gfc, V2_4_UTF8_FLAG)) {
-            char const* lang = id3v2_get_language(gfp);
-            id3v2_add_utf8(gfp, frame_id, lang, 0, s);
+            id3v2_add_utf8_lng(gfp, frame_id, 0, s);
         } else { // if we are writing latin1 ID3v2.3 tag
             id3v2_add_latin1_lng(gfp, frame_id, 0, s);
         }
@@ -659,7 +658,7 @@ id3tag_set_genre_utf8(lame_t gfp, unsigned short const* text)
             return 0;
         }
     }
-    ret = id3v2_add_ucs2_lng(gfp, ID_GENRE, 0, text);
+    ret = id3v2_add_utf8_lng(gfp, ID_GENRE, 0, text);
     if (ret == 0) {
         gfc->tag_spec.flags |= CHANGED_FLAG;
         gfc->tag_spec.genre_id3v1 = GENRE_INDEX_OTHER;
@@ -1055,6 +1054,13 @@ id3v2_add_utf8(lame_t gfp, uint32_t frame_id, char const *lng, char const *desc,
 }
 
 static int
+id3v2_add_utf8_lng(lame_t gfp, uint32_t frame_id, char const *desc, char const *text)
+{
+    char const* lang = id3v2_get_language(gfp);
+    return id3v2_add_utf8(gfp, frame_id, lang, desc, text);
+}
+
+static int
 id3v2_add_ucs2_lng(lame_t gfp, uint32_t frame_id, unsigned short const *desc, unsigned short const *text)
 {
     char const* lang = id3v2_get_language(gfp);
@@ -1079,6 +1085,22 @@ id3tag_set_userinfo_latin1(lame_t gfp, uint32_t id, char const *fieldvalue)
         local_strdup(&dup, fieldvalue);
         dup[a] = 0;
         rc = id3v2_add_latin1_lng(gfp, id, dup, dup+a+1);
+        free(dup);
+    }
+    return rc;
+}
+
+static int
+id3tag_set_userinfo_utf8(lame_t gfp, uint32_t id, char const *fieldvalue)
+{
+    char const separator = '=';
+    int     rc = -7;
+    int     a = local_char_pos(fieldvalue, separator);
+    if (a >= 0) {
+        char*   dup = 0;
+        local_strdup(&dup, fieldvalue);
+        dup[a] = 0;
+        rc = id3v2_add_utf8_lng(gfp, id, dup, dup+a+1);
         free(dup);
     }
     return rc;
@@ -1116,19 +1138,19 @@ id3tag_set_textinfo_utf8(lame_t gfp, char const *id, unsigned short const *text)
         return 0;
     }
     if (frame_id == ID_TXXX || frame_id == ID_WXXX || frame_id == ID_COMMENT) {
-        return id3tag_set_userinfo_ucs2(gfp, frame_id, text);
+        return id3tag_set_userinfo_utf8(gfp, frame_id, text);
     }
     if (frame_id == ID_GENRE) {
         return id3tag_set_genre_utf8(gfp, text);
     }
     if (frame_id == ID_PCST) {
-        return id3v2_add_ucs2_lng(gfp, frame_id, 0, text);
+        return id3v2_add_utf8_lng(gfp, frame_id, 0, text);
     }
     if (frame_id == ID_USER) {
-        return id3v2_add_ucs2_lng(gfp, frame_id, text, 0);
+        return id3v2_add_utf8_lng(gfp, frame_id, text, 0);
     }
     if (frame_id == ID_WFED) {
-        return id3v2_add_ucs2_lng(gfp, frame_id, text, 0); /* iTunes expects WFED to be a text frame */
+        return id3v2_add_utf8_lng(gfp, frame_id, text, 0); /* iTunes expects WFED to be a text frame */
     }
     if (isFrameIdMatching(frame_id, FRAME_ID('T', 0, 0, 0))
       ||isFrameIdMatching(frame_id, FRAME_ID('W', 0, 0, 0))) {
@@ -1137,7 +1159,7 @@ id3tag_set_textinfo_utf8(lame_t gfp, char const *id, unsigned short const *text)
             return -2;  /* must be Latin-1 encoded */
         }
 #endif
-        return id3v2_add_ucs2_lng(gfp, frame_id, 0, text);
+        return id3v2_add_utf8_lng(gfp, frame_id, 0, text);
     }
     return -255;        /* not supported by now */
 }
@@ -1237,6 +1259,15 @@ id3tag_set_comment_latin1(lame_t gfp, char const *lang, char const *desc, char c
         return 0;
     }
     return id3v2_add_latin1(gfp, ID_COMMENT, lang, desc, text);
+}
+
+int
+id3tag_set_comment_utf8(lame_t gfp, char const *lang, char const *desc, char const *text)
+{
+    if (is_lame_internal_flags_null(gfp)) {
+        return 0;
+    }
+    return id3v2_add_utf8(gfp, ID_COMMENT, lang, desc, text);
 }
 
 

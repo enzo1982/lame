@@ -698,9 +698,7 @@ help_id3tag(FILE * const fp)
             "    --id3v1-only    add only a version 1 tag\n"
             "    --id3v2-only    add only a version 2 tag\n"
 #ifdef ID3TAGS_EXTENDED
-#ifdef UTF8BROKEN
             "    --id3v2-utf8    add following options in unicode UTF-8 text encoding\n"
-#endif
             "    --id3v2-utf16   add following options in unicode UTF-16 text encoding\n"
             "    --id3v2-latin1  add following options in latin-1 text encoding\n"
 #endif
@@ -1830,11 +1828,9 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     id3_tenc = TENC_UTF16;
                     id3tag_add_v2(gfp);
 
-#ifdef UTF8BROKEN
                 T_ELIF("id3v2-utf8")
                     id3_tenc = TENC_UTF8;
                     id3tag_add_v2_4_UTF8(gfp);
-#endif
 
                 T_ELIF("id3v2-latin1")
                     id3_tenc = TENC_LATIN1;

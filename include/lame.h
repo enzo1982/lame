@@ -1305,6 +1305,9 @@ int CDECL id3tag_set_comment_utf16(lame_t gfp, char const *lang, unsigned short 
 /* experimental */
 int CDECL id3tag_set_textinfo_utf8(lame_t gfp, char const *id, unsigned short const *text);
 
+/* experimental */
+int CDECL id3tag_set_comment_utf8(lame_t gfp, char const *lang, char const *desc, char const *text);
+
 
 /***********************************************************************
 *
