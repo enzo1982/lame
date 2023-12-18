@@ -2106,7 +2106,7 @@ lenOfId3v2Tag(unsigned char const* buf)
 #define CHECK123(code) if(MPG123_OK != (code)) return -1
 
 #ifdef _WIN32
-static ssize_t lame123_read_from_file(void* handle, void* buffer, size_t size)
+static mpg123_ssize_t lame123_read_from_file(void* handle, void* buffer, size_t size)
 {
    return fread(buffer, 1, size, (FILE*)handle);
 }
