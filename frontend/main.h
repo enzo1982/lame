@@ -93,6 +93,7 @@ extern char* utf8ToConsole8Bit(const char* str);
 extern char* utf8ToLocal8Bit(const char* str);
 extern unsigned short* utf8ToUtf16(char const* mbstr);
 extern char* utf8ToLatin1(char const* str);
+extern char* local8BitToUtf8(const char* str);
 #ifdef _WIN32
 extern wchar_t* utf8ToUnicode(char const* mbstr);
 extern char *unicodeToUtf8(const wchar_t *wstr);

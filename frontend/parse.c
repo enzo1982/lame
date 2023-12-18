@@ -367,7 +367,7 @@ unsigned short* toUtf16(char const* s)
     return utf8ToUtf16(s);
 }
 
-unsigned short* toUtf8(char const* s)
+char* toUtf8(char const* s)
 {
     return local8BitToUtf8(s);
 }
@@ -436,7 +436,6 @@ set_id3v2tag(lame_global_flags* gfp, TextEncoding enc, int type, unsigned short 
         default:
             return -3;
     }
-    return 0;
 }
 #endif
 
