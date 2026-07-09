@@ -7,6 +7,363 @@
 
 -- 
 
+2026-07-09 12:08  aleidinger
+
+	* doc/html/history.html, libmp3lame/version.h, testcase.mp3:
+	  Prepare 3.101 release.
+
+2023-12-18 13:41  aleidinger
+
+	* frontend/get_audio.c:
+	  Use suitable typedef for Windows.
+
+2023-12-18 13:40  aleidinger
+
+	* frontend/main.h, frontend/parse.c:
+	  Use better return types and provide prototype for toUtf8().
+
+2023-12-15 12:07  aleidinger
+
+	* frontend/parse.c, include/lame.def, include/lame.h,
+	  libmp3lame/id3tag.c:
+	  Fix UTF8 id3tag support.
+
+2023-12-14 09:13  aleidinger
+
+	* frontend/parse.c:
+	  Unbreak UTF8 genre tag. Text tags still broken.
+	  
+	  Disable UTF8 for now in the frontend.
+
+2023-12-14 09:12  aleidinger
+
+	* include/lame.def, include/lame.h, libmp3lame/id3tag.c:
+	  Unbreak UTF8 genre tag, text-tags still broken (wrong encoding).
+
+2023-12-12 21:07  aleidinger
+
+	* frontend/parse.c:
+	  Try to provide a toUtf8() function for Windows.
+	  Completely untested, based upon the assumption that
+	  Windows already uses UTF8. This assumption is based
+	  upon the function names of the Windows implementation
+	  of toUtf18() and toLatin1().
+
+2023-11-21 18:00  aleidinger
+
+	* libmp3lame/version.h:
+	  increase beta patch-level after todays changes
+
+2023-11-21 15:12  aleidinger
+
+	* configure:
+	  regen
+
+2023-11-21 15:12  aleidinger
+
+	* config.h.in:
+	  regen
+
+2023-11-21 15:12  aleidinger
+
+	* configure.ac, doc/html/history.html, frontend/mp3rtp.c,
+	  frontend/rtp.c:
+	  Add IPv6 support for mp3rtp.
+	  This includes an incompatible change to the command line
+	  arguments for existing use cases / scripts.
+	  
+	  Submitted by: Surabhi
+	  Patch: #69
+
+2023-11-21 15:06  aleidinger
+
+	* doc/html/history.html:
+	  pkg-config support and some tab to spaces
+
+2023-11-21 14:34  aleidinger
+
+	* configure:
+	  regen
+
+2023-11-21 14:33  aleidinger
+
+	* configure.ac:
+	  fix variable name
+
+2023-11-21 14:32  aleidinger
+
+	* config.h.in:
+	  regen / modernize with newer autotools
+
+2023-11-21 14:32  aleidinger
+
+	* ACM/ADbg/Makefile.in, ACM/Makefile.in, ACM/ddk/Makefile.in,
+	  ACM/tinyxml/Makefile.in, Dll/Makefile.in, Makefile.in,
+	  doc/Makefile.in, doc/html/Makefile.in, doc/man/Makefile.in,
+	  dshow/Makefile.in, frontend/Makefile.in, include/Makefile.in,
+	  libmp3lame/Makefile.in, libmp3lame/i386/Makefile.in,
+	  libmp3lame/vector/Makefile.in, mac/Makefile.in, misc/Makefile.in,
+	  mpglib/Makefile.in, vc_solution/Makefile.in:
+	  regen / modernize with newer autotools
+
+2023-11-21 14:31  aleidinger
+
+	* configure:
+	  regen / modernize with newer autotools
+
+2023-11-21 14:31  aleidinger
+
+	* aclocal.m4:
+	  regen / modernize with newer autotools
+
+2023-11-21 14:30  aleidinger
+
+	* configure.ac, configure.in:
+	  rename to current convention and modernize with newer autotools
+
+2023-11-21 14:29  aleidinger
+
+	* Makefile.am:
+	  modernize with newer autotools
+
+2023-11-21 14:29  aleidinger
+
+	* m4, m4/libtool.m4, m4/ltoptions.m4, m4/ltsugar.m4,
+	  m4/ltversion.m4, m4/lt~obsolete.m4:
+	  modernize with newer autotools
+
+2023-11-21 14:29  aleidinger
+
+	* compile, depcomp, missing:
+	  modernize with newer autotools
+
+2023-11-21 14:28  aleidinger
+
+	* install-sh, ltmain.sh:
+	  modernize with newer autotools
+
+2023-11-21 14:27  aleidinger
+
+	* libmp3lame/Makefile.am, libmp3lame/lame.pc.in:
+	  Add pkg-config support.
+	  
+	  Taken from: Nicolas Boulenguez <nicolas@debian.org>
+	  https://salsa.debian.org/multimedia-team/lame/-/blob/master/debian/patches/pkg-config.patch
+	  Support Request: #42
+
+2023-11-21 13:34  aleidinger
+
+	* doc/html/history.html, doc/man/lame.1, frontend/parse.c,
+	  include/lame.def, include/lame.h, include/libmp3lame.sym,
+	  libmp3lame/id3tag.c, libmp3lame/id3tag.h:
+	  Add ID3v2.4 support (UTF-8) to libmp3lame.
+	  
+	  Submitted by: "kris"
+	  Patch: #99
+	  
+	  The use in the frontend is by me and only slightly tested (simple
+	  --tt with umlauts).
+
+2021-06-19 12:14  aleidinger
+
+	* frontend/get_audio.c:
+	  Fix build on cygwin with configure options --disable-static
+	  --enable-shared --disable-decoder.
+	  
+	  Submitted by: Carlo Bramini
+	  Patch: #97
+
+2021-06-19 12:05  aleidinger
+
+	* libmp3lame/util.c:
+	  Fix build on FreeBSD riscv (replace compile time arch detection
+	  by feature detection).
+	  
+	  Patch by: arichardson of LLVM project.
+	  Submitted by: Robert Clausecker
+	  Patch: #96
+
+2021-03-12 12:58  aleidinger
+
+	* libmp3lame/version.h:
+	  bump to beta 2
+
+2021-03-12 12:48  aleidinger
+
+	* libmp3lame/vector/xmm_quantize_sub.c:
+	  Fix some issues with clang build.
+	  
+	  Obtained from: VLC
+	  
+	  Original commit log from mstorsjo:
+	  ---snip---
+	  …GCC target("sse")
+	  
+	  Clang doesn't support the pragma, but does support the attribute.
+	  Update the existing patch to do things this way.
+	  
+	  With previous versions of lame, this hasn't been an issue,
+	  because
+	  if one doesn't pass any -march flag, clang defaults to pentium4
+	  as
+	  target for i386 targets, and there both sse and sse2 are
+	  available
+	  by default.
+	  
+	  Since lame 3.100, lame now passes -march=i686 even for clang,
+	  which
+	  disables SSE by default, requiring the per-function enabling to
+	  actually work.
+	  ---snip---
+
+2021-03-12 12:39  aleidinger
+
+	* INSTALL:
+	  Remove the part about NDEBUG, we use existing asserts as a quick
+	  and easy way to prevent bad input to cause issues.
+
+2021-03-10 12:07  aleidinger
+
+	* doc/html/history.html:
+	  Fix version of upcomming release.
+
+2021-03-10 11:45  aleidinger
+
+	* COPYING:
+	  Correct the address of the FSF. [bugs#420]
+
+2021-03-10 11:37  aleidinger
+
+	* frontend/lametime.c:
+	  Cygwin documents O_BINARY instead of _O_BINARY, see
+	  https://cygwin.com/cygwin-ug-net/using-textbinary.html
+	  
+	  This should fix [bugs#451] and [bugs#494].
+
+2021-03-10 11:25  aleidinger
+
+	* configure:
+	  regen
+
+2021-03-10 11:25  aleidinger
+
+	* configure.in:
+	  Simplify (remove superflous).
+	  
+	  Suggested by: Thomas Orgis
+
+2021-03-10 10:13  aleidinger
+
+	* Makefile.in:
+	  regen
+
+2021-03-10 10:12  aleidinger
+
+	* configure:
+	  regen
+
+2021-03-10 10:05  aleidinger
+
+	* configure.in:
+	  Fix decoder/mpg123 logic.
+
+2021-03-10 10:05  aleidinger
+
+	* frontend/get_audio.c:
+	  Fix implicit declaration.
+
+2021-03-10 10:03  aleidinger
+
+	* Makefile.am:
+	  Remove superflous dependency.
+	  
+	  Submitted by: vemakereporter via [patches#84]
+
+2021-03-09 13:12  aleidinger
+
+	* ChangeLog:
+	  Add recent commits.
+
+2021-03-09 12:01  aleidinger
+
+	* libmp3lame/version.h:
+	  Update version to 3.101 beta 1.
+
+2021-03-09 11:51  aleidinger
+
+	* configure:
+	  regen
+
+2021-03-09 11:51  aleidinger
+
+	* config.h.in:
+	  regen
+
+2021-03-09 11:50  aleidinger
+
+	* configure.in:
+	  Remove reference to internal decoder.
+
+2021-03-09 11:29  aleidinger
+
+	* doc/html/history.html:
+	  Add recent changes.
+
+2021-03-09 11:29  aleidinger
+
+	* README:
+	  Document dependency on mpg123.
+
+2021-03-09 11:27  aleidinger
+
+	* mpglib/common.c, mpglib/common.h, mpglib/dct64_i386.c,
+	  mpglib/dct64_i386.h, mpglib/decode_i386.c, mpglib/decode_i386.h,
+	  mpglib/huffman.h, mpglib/interface.c, mpglib/interface.h,
+	  mpglib/l2tables.h, mpglib/layer1.c, mpglib/layer1.h,
+	  mpglib/layer2.c, mpglib/layer2.h, mpglib/layer3.c,
+	  mpglib/layer3.h, mpglib/mpg123.h, mpglib/tabinit.c,
+	  mpglib/tabinit.h:
+	  RIP mpglib
+
+2021-03-09 11:26  aleidinger
+
+	* Makefile.in, mpglib/Makefile.in:
+	  regen
+
+2021-03-09 11:26  aleidinger
+
+	* mpglib/mpglib.h:
+	  Replace mpeg decoder with external libmpg123 - step 2
+	  
+	  Remove the internal mpglib.
+	  
+	  Submitted by: Michael Fink via [patches:#95]
+
+2021-03-09 11:26  aleidinger
+
+	* libmp3lame/mpglib_interface.c, mpglib/Makefile.am, mpglib/README:
+	  Replace mpeg decoder with external libmpg123 - step 2
+	  
+	  Remove the internal mpglib.
+	  
+	  Submitted by: Michael Fink via [patches:#95]
+
+2021-03-09 11:25  aleidinger
+
+	* configure:
+	  regen
+
+2021-03-09 11:24  aleidinger
+
+	* configure.in:
+	  remove macosx xcode directory
+
+2021-03-09 11:04  aleidinger
+
+	* Makefile.am, macosx:
+	  Remove xcode project, nobody stepped up to adapt it for the
+	  libmpg123 changes.
+
 2021-03-09 10:52  aleidinger
 
 	* ACM/ADbg/Makefile.in, ACM/Makefile.in, ACM/ddk/Makefile.in,
