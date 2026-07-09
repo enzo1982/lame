@@ -21,7 +21,7 @@ dnl extra vars for libmp3lame:
 dnl LIBMP3LAME_LDADD
 
 AC_PREREQ([2.71])
-AC_INIT([lame],[3.101],[lame-dev@lists.sf.net])
+AC_INIT([lame],[3.102],[lame-dev@lists.sf.net])
 AC_CONFIG_SRCDIR([libmp3lame/lame.c])
 AC_CONFIG_MACRO_DIRS([m4])
 AC_LANG([C])
