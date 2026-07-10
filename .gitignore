@@ -1,0 +1,5 @@
+# Doxyfile is generated from doc/Doxyfile.in (see doc/Makefile.am's
+# "doxygen" target) - never committed. Generated output itself always
+# lands in an out-of-tree build directory, never here, so it needs no
+# ignore entry of its own.
+/doc/Doxyfile

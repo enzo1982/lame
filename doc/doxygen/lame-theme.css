@@ -1,0 +1,26 @@
+/* Overrides doxygen-awesome-css's default palette with lame.sf.net's own
+ * color/font tokens. Only the light-mode palette is overridden - dark mode
+ * keeps doxygen-awesome-css's own built-in dark palette rather than forcing
+ * a site that was never designed for it. */
+html {
+    --page-background-color: #ffffff;
+    --page-foreground-color: #000000;
+
+    --primary-color: #17529d;
+    --primary-dark-color: #0f3766;
+    --primary-light-color: #4c7ebc;
+    --on-primary-color: #ffffff;
+
+    --link-color: var(--primary-color);
+
+    /* accent color used for menu hover/selected state */
+    --menu-focus-background: #82a439;
+    --menu-selected-background: #cff57c;
+
+    --font-family: Verdana, Arial, Helvetica, sans-serif;
+    --font-family-monospace: Courier, monospace;
+}
+
+.navpath li.footer {
+    color: silver;
+}

@@ -41,6 +41,14 @@ AM_MAINTAINER_MODE
 AM_MAKE_INCLUDE
 PKG_PROG_PKG_CONFIG([])
 
+dnl for doc/Makefile's "doxygen" target - Graphviz is optional, so this must
+dnl not fail configure if it's absent
+AC_ARG_WITH([dot],
+  [AS_HELP_STRING([--with-dot=PATH], [path to Graphviz's dot tool, used by Doxygen for diagrams (default: autodetect on PATH)])],
+  [AS_IF([test "x$withval" = xno], [DOT=], [DOT="$withval"])],
+  [AC_PATH_PROG([DOT], [dot])])
+AC_SUBST([DOT])
+
 dnl check environment
 AC_SEARCH_LIBS([strerror],[cposix])
 AC_USE_SYSTEM_EXTENSIONS
