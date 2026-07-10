@@ -20,11 +20,12 @@ dnl FRONTEND_LDADD
 dnl extra vars for libmp3lame:
 dnl LIBMP3LAME_LDADD
 
-AC_PREREQ([2.71])
+AC_PREREQ([2.73])
 AC_INIT([lame],[4.0],[lame-dev@lists.sf.net])
 AC_CONFIG_SRCDIR([libmp3lame/lame.c])
 AC_CONFIG_MACRO_DIRS([m4])
 AC_LANG([C])
+AC_USE_SYSTEM_EXTENSIONS
 
 dnl check system
 AC_CANONICAL_HOST
@@ -653,7 +654,7 @@ AC_ARG_ENABLE(ipv6, AS_HELP_STRING([--disable-ipv6],
     CONFIG_IPV6=yes)
 if test "x$CONFIG_IPV6" = "xyes" ; then
     AC_CACHE_VAL(ac_cv_ipv6,
-    AC_TRY_RUN([
+    AC_RUN_IFELSE([AC_LANG_SOURCE([[
     #include <sys/types.h>
     #include <sys/socket.h>
     #include <netinet/in.h>
@@ -664,10 +665,7 @@ if test "x$CONFIG_IPV6" = "xyes" ; then
         struct sockaddr_in6 foo;
         fd = socket(AF_INET6, SOCK_STREAM, 0);
         exit(fd >= 0 ? 0 : 1);
-    }],
-    ac_cv_ipv6=yes,
-    ac_cv_ipv6=no,
-    ac_cv_ipv6=yes))
+    }]])],[ac_cv_ipv6=yes],[ac_cv_ipv6=no],[ac_cv_ipv6=yes]))
     AC_MSG_RESULT($ac_cv_ipv6)
     if test $ac_cv_ipv6 = yes ; then
         AC_DEFINE(IPV6,1,[check if system supports IPV6])
