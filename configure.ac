@@ -1305,7 +1305,26 @@ AC_SUBST(CPUCCODE)
 
 AC_SUBST(CONFIG_DEFS)
 
+dnl ### unit tests (CMocka) ###
+dnl Off by default: a plain build is completely unaffected. When explicitly
+dnl requested, require CMocka via pkg-config and hard-fail if it is missing,
+dnl rather than silently configuring a test target that builds nothing.
+AC_MSG_CHECKING(whether to build unit tests)
+AC_ARG_ENABLE(unit-tests,
+  [AS_HELP_STRING([--enable-unit-tests],
+    [build the CMocka-based unit tests, run with "make check" [default=no]])],
+  [enable_unit_tests="${enableval}"], [enable_unit_tests=no])
+AC_MSG_RESULT(${enable_unit_tests})
+if test "x${enable_unit_tests}" = "xyes"; then
+	PKG_CHECK_MODULES([CMOCKA], [cmocka], [],
+	  [AC_MSG_ERROR([--enable-unit-tests was given, but the CMocka unit-test library was not found by pkg-config. Install CMocka (e.g. libcmocka-dev / sysutils/cmocka / mingw-w64-cmocka) or configure without --enable-unit-tests.])])
+fi
+AM_CONDITIONAL([ENABLE_UNIT_TESTS], [test "x${enable_unit_tests}" = "xyes"])
+
+
 AC_CONFIG_FILES([Makefile \
+		 test/Makefile \
+		 test/unit/Makefile \
 		 libmp3lame/Makefile \
 		 libmp3lame/i386/Makefile \
 		 libmp3lame/lame.pc \

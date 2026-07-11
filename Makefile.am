@@ -7,7 +7,7 @@ ACLOCAL_AMFLAGS=-I m4
 .PHONY: test
 
 SUBDIRS = mpglib libmp3lame frontend Dll doc include misc dshow ACM \
-	mac vc_solution
+	mac vc_solution test
 
 CLEANFILES = testcase.new.mp3
 

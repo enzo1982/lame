@@ -641,6 +641,10 @@ ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
+ENABLE_UNIT_TESTS_FALSE
+ENABLE_UNIT_TESTS_TRUE
+CMOCKA_LIBS
+CMOCKA_CFLAGS
 CONFIG_DEFS
 CPUCCODE
 CPUTYPE
@@ -844,6 +848,7 @@ enable_ipv6
 enable_dynamic_frontends
 enable_expopt
 enable_debug
+enable_unit_tests
 enable_year2038
 '
       ac_precious_vars='build_alias
@@ -862,7 +867,9 @@ CPP
 SNDFILE_CFLAGS
 SNDFILE_LIBS
 mpg123_CFLAGS
-mpg123_LIBS'
+mpg123_LIBS
+CMOCKA_CFLAGS
+CMOCKA_LIBS'
 
 
 # Initialize some variables set by options.
@@ -1528,6 +1535,8 @@ Optional Features:
                             default=no
   --enable-debug=alot,norm Enable debugging (disables optimizations)
                            default=no
+  --enable-unit-tests     build the CMocka-based unit tests, run with "make
+                          check" [default=no]
   --enable-year2038       support timestamps after 2038
 
 Optional Packages:
@@ -1571,6 +1580,9 @@ Some influential environment variables:
   mpg123_CFLAGS
               C compiler flags for mpg123, overriding pkg-config
   mpg123_LIBS linker flags for mpg123, overriding pkg-config
+  CMOCKA_CFLAGS
+              C compiler flags for CMOCKA, overriding pkg-config
+  CMOCKA_LIBS linker flags for CMOCKA, overriding pkg-config
 
 Use these variables to override the choices made by 'configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -20902,7 +20914,103 @@ FRONTEND_LDADD="${FRONTEND_LDADD} ${LTLIBICONV} ${CONFIG_MATH_LIB}"
 
 
 
-ac_config_files="$ac_config_files Makefile libmp3lame/Makefile libmp3lame/i386/Makefile libmp3lame/lame.pc libmp3lame/vector/Makefile frontend/Makefile mpglib/Makefile doc/Makefile doc/html/Makefile doc/man/Makefile include/Makefile Dll/Makefile misc/Makefile dshow/Makefile ACM/Makefile ACM/ADbg/Makefile ACM/ddk/Makefile ACM/tinyxml/Makefile lame.spec mac/Makefile vc_solution/Makefile"
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether to build unit tests" >&5
+printf %s "checking whether to build unit tests... " >&6; }
+# Check whether --enable-unit-tests was given.
+if test ${enable_unit_tests+y}
+then :
+  enableval=$enable_unit_tests; enable_unit_tests="${enableval}"
+else case e in #(
+  e) enable_unit_tests=no ;;
+esac
+fi
+
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: ${enable_unit_tests}" >&5
+printf '%s\n' "${enable_unit_tests}" >&6; }
+if test "x${enable_unit_tests}" = "xyes"; then
+
+pkg_failed=no
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for cmocka" >&5
+printf %s "checking for cmocka... " >&6; }
+
+if test -n "$CMOCKA_CFLAGS"; then
+    pkg_cv_CMOCKA_CFLAGS="$CMOCKA_CFLAGS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"cmocka\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "cmocka") 2>&5
+  ac_status=$?
+  printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_CMOCKA_CFLAGS=`$PKG_CONFIG --cflags "cmocka" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+if test -n "$CMOCKA_LIBS"; then
+    pkg_cv_CMOCKA_LIBS="$CMOCKA_LIBS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"cmocka\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "cmocka") 2>&5
+  ac_status=$?
+  printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_CMOCKA_LIBS=`$PKG_CONFIG --libs "cmocka" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf '%s\n' "no" >&6; }
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+                CMOCKA_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "cmocka" 2>&1`
+        else
+                CMOCKA_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "cmocka" 2>&1`
+        fi
+        # Put the nasty error message in config.log where it belongs
+        echo "$CMOCKA_PKG_ERRORS" >&5
+
+        as_fn_error $? "--enable-unit-tests was given, but the CMocka unit-test library was not found by pkg-config. Install CMocka (e.g. libcmocka-dev / sysutils/cmocka / mingw-w64-cmocka) or configure without --enable-unit-tests." "$LINENO" 5
+elif test $pkg_failed = untried; then
+        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf '%s\n' "no" >&6; }
+        as_fn_error $? "--enable-unit-tests was given, but the CMocka unit-test library was not found by pkg-config. Install CMocka (e.g. libcmocka-dev / sysutils/cmocka / mingw-w64-cmocka) or configure without --enable-unit-tests." "$LINENO" 5
+else
+        CMOCKA_CFLAGS=$pkg_cv_CMOCKA_CFLAGS
+        CMOCKA_LIBS=$pkg_cv_CMOCKA_LIBS
+        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf '%s\n' "yes" >&6; }
+
+fi
+fi
+ if test "x${enable_unit_tests}" = "xyes"; then
+  ENABLE_UNIT_TESTS_TRUE=
+  ENABLE_UNIT_TESTS_FALSE='#'
+else
+  ENABLE_UNIT_TESTS_TRUE='#'
+  ENABLE_UNIT_TESTS_FALSE=
+fi
+
+
+
+ac_config_files="$ac_config_files Makefile test/Makefile test/unit/Makefile libmp3lame/Makefile libmp3lame/i386/Makefile libmp3lame/lame.pc libmp3lame/vector/Makefile frontend/Makefile mpglib/Makefile doc/Makefile doc/html/Makefile doc/man/Makefile include/Makefile Dll/Makefile misc/Makefile dshow/Makefile ACM/Makefile ACM/ADbg/Makefile ACM/ddk/Makefile ACM/tinyxml/Makefile lame.spec mac/Makefile vc_solution/Makefile"
 
 
 cat >confcache <<\_ACEOF
@@ -21038,6 +21146,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAVE_NASM_TRUE}" && test -z "${HAVE_NASM_FALSE}"; then
   as_fn_error $? "conditional \"HAVE_NASM\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${ENABLE_UNIT_TESTS_TRUE}" && test -z "${ENABLE_UNIT_TESTS_FALSE}"; then
+  as_fn_error $? "conditional \"ENABLE_UNIT_TESTS\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 
@@ -21908,6 +22020,8 @@ do
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
     "libtool") CONFIG_COMMANDS="$CONFIG_COMMANDS libtool" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
+    "test/unit/Makefile") CONFIG_FILES="$CONFIG_FILES test/unit/Makefile" ;;
     "libmp3lame/Makefile") CONFIG_FILES="$CONFIG_FILES libmp3lame/Makefile" ;;
     "libmp3lame/i386/Makefile") CONFIG_FILES="$CONFIG_FILES libmp3lame/i386/Makefile" ;;
     "libmp3lame/lame.pc") CONFIG_FILES="$CONFIG_FILES libmp3lame/lame.pc" ;;
