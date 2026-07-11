@@ -35,6 +35,12 @@
                         since 3.100 the 3-digit minor version left no room for the trailing
                         alpha/beta/release marker character, which was silently dropped.
                     </li>
+                    <li>Fix building with recent GCC and Clang, which rejected the UTF-8
+                        ID3 tag functions as an incompatible pointer type. Also fixes the
+                        corrupted genre written by <i>--id3v2-utf8 --tg</i>. Patch submitted
+                        by Rudi Heitbaum, patch ticket <i class="ticket">[ #102 ]</i>; thanks
+                        to lazka for reporting, bug ticket <i class="ticket">[ #523 ]</i>.
+                    </li>
                 </ul>
             </li>
         </ul>

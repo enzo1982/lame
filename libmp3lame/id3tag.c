@@ -639,17 +639,15 @@ local_strdup_utf16_to_latin1(unsigned short const* utf16)
 
 
 static int
-id3tag_set_genre_utf8(lame_t gfp, unsigned short const* text)
+id3tag_set_genre_utf8(lame_t gfp, char const* text)
 {
     lame_internal_flags* gfc = gfp->internal_flags;
     int   ret;
     if (text == 0) {
         return -3;
     }
-    if (maybeLatin1(text)) {
-        char*   latin1 = local_strdup_utf16_to_latin1(text);
-        int     num = lookupGenre(latin1);
-        free(latin1);
+    {
+        int     num = lookupGenre(text);
         if (num == -1) return -1; /* number out of range */
         if (num >= 0) {           /* common genre found  */
             gfc->tag_spec.flags |= CHANGED_FLAG;
@@ -1125,7 +1123,7 @@ id3tag_set_userinfo_ucs2(lame_t gfp, uint32_t id, unsigned short const *fieldval
 }
 
 int
-id3tag_set_textinfo_utf8(lame_t gfp, char const *id, unsigned short const *text)
+id3tag_set_textinfo_utf8(lame_t gfp, char const *id, char const *text)
 {
     uint32_t const frame_id = toID3v2TagId(id);
     if (frame_id == 0) {
