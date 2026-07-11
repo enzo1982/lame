@@ -7,6 +7,249 @@
 
 -- 
 
+2026-07-11 07:40  aleidinger
+
+	* testcase.mp3:
+	  Prepare for release
+
+2026-07-11 07:39  aleidinger
+
+	* libmp3lame/version.h:
+	  Prepare for release
+
+2026-07-11 07:36  aleidinger
+
+	* doc/html/history.html, frontend/get_audio.c:
+	  get_audio: reject AIFF files with an undersized FORM chunk size
+	  
+	  A crafted AIFF/AIFC whose FORM chunk size is below 4 underflowed
+	  the
+	  unsigned chunk-size counter when the 4-byte form type is
+	  subtracted from
+	  it, wrapping it to roughly 4 billion and sending the
+	  chunk-scanning loop
+	  into an effectively unbounded spin - a denial of service
+	  triggerable with
+	  a tiny (~16-byte) malicious file. Validate the size before the
+	  subtraction. The remaining in-loop subtractions are already
+	  bounded by
+	  the surrounding "chunk size >= 8" loop guard, so the single entry
+	  check
+	  closes the hole.
+	  
+	  CVSS 5.5 (AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H).
+
+2026-07-11 07:36  aleidinger
+
+	* libmp3lame/util.c:
+	  util.c: document why fill_buffer_resample's offset assert is a
+	  sufficient guard
+	  
+	  The blackfilt[joff] table index in fill_buffer_resample() looks
+	  like it could
+	  run one slot past the precomputed window table when offset
+	  exceeds +0.5,
+	  guarded only by an assert that compiles out under NDEBUG. It
+	  cannot: offset is
+	  bounded to [-0.5, +0.5) by construction for integer sample rates,
+	  which are
+	  the only kind LAME ever sees, so joff always stays within
+	  blackfilt[0..2*bpc].
+	  Record that reasoning next to the assert so the assert-only guard
+	  is not later
+	  mistaken for a missing runtime bounds check.
+
+2026-07-11 07:35  aleidinger
+
+	* Dll/BladeMP3EncDLL.c, Dll/BladeMP3EncDLL.h,
+	  doc/html/history.html:
+	  Blade DLL: bounds-check beInitStream() config copy, fix packed
+	  layout
+	  
+	  beInitStream() copied the caller-supplied BE_CONFIG into a stack
+	  local
+	  using the caller-controlled dwStructSize as the length, with no
+	  check
+	  that it fits. A host that sets dwStructSize larger than the
+	  struct --
+	  whether malicious or merely built with a different compiler --
+	  overflows
+	  the stack. Clamp the copy to sizeof(lameConfig).
+	  
+	  The size mismatch was also reachable benignly: ATTRIBUTE_PACKED
+	  was
+	  attached to the pointer typedef, not the struct, so under
+	  GCC/MinGW the
+	  packed attribute was ignored and sizeof(BE_CONFIG) was 332 rather
+	  than
+	  the 331 the header intends and MSVC produces. Apply the existing
+	  pack(1)/pop pragma unconditionally so both compilers agree on
+	  331.
+	  
+	  CVSS 8.4 (AV:L/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H).
+
+2026-07-11 07:34  aleidinger
+
+	* doc/html/history.html, include/libmp3lame.sym,
+	  libmp3lame/id3tag.c:
+	  id3tag: export the UTF-8 tag functions and guard against OOM
+	  
+	  Export id3tag_set_textinfo_utf8 and id3tag_set_comment_utf8 from
+	  the shared
+	  library, and fix a possible crash on out-of-memory in the ID3v2
+	  user-defined
+	  tag setters. SF bug #518.
+
+2026-07-11 07:30  aleidinger
+
+	* doc/html/history.html, include/lame.h, libmp3lame/id3tag.c:
+	  id3tag: retype the UTF-8 text setters to char* to fix modern
+	  GCC/Clang builds
+	  
+	  Their text parameter was cloned from the UTF-16 siblings
+	  (unsigned short*),
+	  which recent GCC/Clang reject as an incompatible pointer type;
+	  char* matches
+	  the UTF-8 bytes the function bodies already handle, and also
+	  fixes the
+	  --id3v2-utf8 --tg genre corruption.
+	  
+	  Patch by Rudi Heitbaum, SF patch #102. Reported by lazka, SF bug
+	  #523.
+
+2026-07-11 07:26  aleidinger
+
+	* doc/html/history.html:
+	  history.html: switch entry colours to descriptive CSS classes,
+	  add security category
+	  
+	  Use descriptive CSS classes instead of direct per-entry colour
+	  references, and
+	  add a "security" category (class plus legend entry) ahead of the
+	  first security
+	  fix that will use it.
+
+2026-07-10 18:28  aleidinger
+
+	* ABOUT-NLS, ACM/ADbg/Makefile.in, ACM/Makefile.in,
+	  ACM/ddk/Makefile.in, ACM/tinyxml/Makefile.in, Dll/Makefile.in,
+	  Makefile.in, aclocal.m4, compile, config.h.in, config.rpath,
+	  configure, configure.ac, depcomp, doc/Makefile.in,
+	  doc/html/Makefile.in, doc/man/Makefile.in, dshow/Makefile.in,
+	  frontend/Makefile.in, include/Makefile.in, install-sh,
+	  libmp3lame/Makefile.in, libmp3lame/i386/Makefile.in,
+	  libmp3lame/vector/Makefile.in, ltmain.sh, m4/build-to-host.m4,
+	  m4/gettext.m4, m4/host-cpu-c-abi.m4, m4/iconv.m4,
+	  m4/intlmacosx.m4, m4/lib-ld.m4, m4/lib-link.m4, m4/lib-prefix.m4,
+	  m4/libtool.m4, m4/ltoptions.m4, m4/ltsugar.m4, m4/ltversion.m4,
+	  m4/lt~obsolete.m4, m4/nls.m4, m4/po.m4, m4/progtest.m4,
+	  mac/Makefile.in, misc/Makefile.in, missing, mpglib/Makefile.in,
+	  po, po/Makefile.in.in, po/Makevars.template, po/Rules-quot,
+	  po/boldquot.sed, po/en@boldquot.header, po/en@quot.header,
+	  po/insert-header.sed, po/quot.sed, po/remove-potcdate.sed,
+	  vc_solution/Makefile.in:
+	  update/regen with more recent autotools
+
+2026-07-10 18:18  aleidinger
+
+	* .gitignore, configure.ac, doc/Doxyfile.in, doc/Makefile.am,
+	  doc/doxygen, doc/doxygen/doxygen-awesome-css,
+	  doc/doxygen/doxygen-awesome-css/doxygen-awesome.css,
+	  doc/doxygen/lame-theme.css, doc/doxygen/logo,
+	  doc/doxygen/logo/lame_logo.svg,
+	  doc/doxygen/logo/lame_logo_full.svg, doc/doxygen/mainpage.md:
+	  Add Doxyfile: API documentation build configuration
+	  
+	  Sets up Doxygen-based API documentation for include/,
+	  libmp3lame/, and
+	  frontend/, generated on demand via a new "doxygen" target in
+	  doc/Makefile.am - not part of all/check, since there's no
+	  per-function
+	  documentation yet for it to build.
+	  
+	  - doc/Doxyfile.in is a template rather than a static Doxyfile.
+	  - Graphviz's dot is autodetected via configure, or specified
+	  explicitly
+	  with --with-dot=PATH; HAVE_DOT/DOT_PATH fall back cleanly to no
+	  diagrams when it isn't found.
+	  - doc/doxygen/mainpage.md is a purpose-written entry page (API
+	  entry
+	  points, license pointer) for the generated docs.
+	  - Vendored doxygen-awesome-css (MIT-licensed,
+	  https://github.com/jothepro/doxygen-awesome-css) with a
+	  color/font
+	  override (doc/doxygen/lame-theme.css) matching the lame.sf.net
+	  site's own palette.
+	  - Doxyfile comments mark the public (include/lame.h) vs. internal
+	  (everything else in libmp3lame/) surface split.
+
+2026-07-10 18:17  aleidinger
+
+	* configure.ac, doc/html/history.html, libmp3lame/VbrTag.c,
+	  libmp3lame/machine.h, libmp3lame/version.c, libmp3lame/version.h:
+	  Bump major version to 4.0 to fix LAME-tag encoder-version field
+	  overflow
+	  
+	  The LAME tag embedded in every encoded MP3 has a fixed 9-byte
+	  field for
+	  the encoder-version string ("LAME" + major + "." + minor +
+	  type-marker).
+	  Since 3.100, the 3-digit minor version left no room for the
+	  trailing
+	  alpha/beta/release marker character: strncpy(...,9) silently
+	  truncated
+	  it on every 3.100-3.102 build. The field's width and format can't
+	  change
+	  without breaking third-party decoders that parse it at a fixed
+	  offset
+	  and pattern-match its exact format, so the version numbers had to
+	  give
+	  instead.
+	  
+	  - libmp3lame/version.h, configure.ac: version bump
+	  (LIB_MAJOR_VERSION/
+	  LIB_MINOR_VERSION, the shared-library ABI version, are untouched
+	  - the
+	  ABI hasn't changed)
+	  - libmp3lame/version.c: add a compile-time assertion tying the
+	  encoder-
+	  version string's actual length to the 9-byte budget, so a future
+	  version bump that reintroduces the overflow fails the build
+	  instead
+	  of silently truncating again; Doxygen documentation of the
+	  field's
+	  fixed width/format and the exact byte-budget formula
+	  - libmp3lame/VbrTag.c: matching documentation at the field's
+	  write site
+	  - libmp3lame/machine.h: fix compiletime_assert(), which the check
+	  above
+	  needed - ##-pasting doesn't expand __FILE__/__LINE__, so two uses
+	  in
+	  one translation unit collided on the same enum tag (dead code
+	  before
+	  this, zero call sites)
+	  - doc/html/history.html: user-facing changelog entry
+	  
+	  Verified: rebuilt with UCRT64 GCC; the assertion compiles clean
+	  at 4.0
+	  and correctly fails against the original 3.102 numbers;
+	  spot-checked
+	  across major/minor digit-count combinations (10.0, 99.9, 9.99
+	  pass;
+	  10.89, 10.90, 100.0, 9.999 correctly fail) to confirm it checks
+	  the
+	  true combined string length rather than a fixed digit-count rule.
+
+2026-07-09 13:13  aleidinger
+
+	* configure.ac, libmp3lame/version.h:
+	  Welcome to 3.102
+
+2026-07-09 12:14  aleidinger
+
+	* ChangeLog:
+	  Update ChangeLog for 3.101 release.
+
 2026-07-09 12:08  aleidinger
 
 	* doc/html/history.html, libmp3lame/version.h, testcase.mp3:
