@@ -231,6 +231,8 @@ id3tag_set_fieldvalue_ucs2
 id3tag_set_fieldvalue_utf16
 id3tag_set_textinfo_utf16
 id3tag_set_comment_utf16
+id3tag_set_textinfo_utf8
+id3tag_set_comment_utf8
 lame_get_bitrate
 lame_get_samplerate
 lame_get_maximum_number_of_samples

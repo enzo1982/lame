@@ -1081,6 +1081,9 @@ id3tag_set_userinfo_latin1(lame_t gfp, uint32_t id, char const *fieldvalue)
     if (a >= 0) {
         char*   dup = 0;
         local_strdup(&dup, fieldvalue);
+        if (dup == 0) {
+            return -254;    /* memory problem */
+        }
         dup[a] = 0;
         rc = id3v2_add_latin1_lng(gfp, id, dup, dup+a+1);
         free(dup);
@@ -1097,6 +1100,9 @@ id3tag_set_userinfo_utf8(lame_t gfp, uint32_t id, char const *fieldvalue)
     if (a >= 0) {
         char*   dup = 0;
         local_strdup(&dup, fieldvalue);
+        if (dup == 0) {
+            return -254;    /* memory problem */
+        }
         dup[a] = 0;
         rc = id3v2_add_utf8_lng(gfp, id, dup, dup+a+1);
         free(dup);
