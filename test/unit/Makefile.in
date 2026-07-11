@@ -91,7 +91,8 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-@ENABLE_UNIT_TESTS_TRUE@check_PROGRAMS = test_sanity$(EXEEXT)
+@ENABLE_UNIT_TESTS_TRUE@check_PROGRAMS = test_sanity$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_get_audio_aiff$(EXEEXT)
 subdir = test/unit
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/host-cpu-c-abi.m4 \
@@ -108,17 +109,29 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__test_sanity_SOURCES_DIST = test_sanity.c
-@ENABLE_UNIT_TESTS_TRUE@am_test_sanity_OBJECTS =  \
-@ENABLE_UNIT_TESTS_TRUE@	test_sanity-test_sanity.$(OBJEXT)
-test_sanity_OBJECTS = $(am_test_sanity_OBJECTS)
+am__test_get_audio_aiff_SOURCES_DIST = test_get_audio_aiff.c \
+	test_stubs.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_get_audio_aiff_OBJECTS = test_get_audio_aiff-test_get_audio_aiff.$(OBJEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_get_audio_aiff-test_stubs.$(OBJEXT)
+test_get_audio_aiff_OBJECTS = $(am_test_get_audio_aiff_OBJECTS)
 am__DEPENDENCIES_1 =
-@ENABLE_UNIT_TESTS_TRUE@test_sanity_DEPENDENCIES =  \
-@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1)
+@ENABLE_UNIT_TESTS_TRUE@test_get_audio_aiff_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+test_get_audio_aiff_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(AM_CFLAGS) $(CFLAGS) $(test_get_audio_aiff_LDFLAGS) \
+	$(LDFLAGS) -o $@
+am__test_sanity_SOURCES_DIST = test_sanity.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_sanity_OBJECTS =  \
+@ENABLE_UNIT_TESTS_TRUE@	test_sanity-test_sanity.$(OBJEXT)
+test_sanity_OBJECTS = $(am_test_sanity_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_sanity_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -134,7 +147,10 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = ./$(DEPDIR)/test_sanity-test_sanity.Po
+am__depfiles_remade =  \
+	./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po \
+	./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po \
+	./$(DEPDIR)/test_sanity-test_sanity.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -154,8 +170,9 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(test_sanity_SOURCES)
-DIST_SOURCES = $(am__test_sanity_SOURCES_DIST)
+SOURCES = $(test_get_audio_aiff_SOURCES) $(test_sanity_SOURCES)
+DIST_SOURCES = $(am__test_get_audio_aiff_SOURCES_DIST) \
+	$(am__test_sanity_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -556,6 +573,21 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@test_sanity_SOURCES = test_sanity.c
 @ENABLE_UNIT_TESTS_TRUE@test_sanity_CPPFLAGS = $(CMOCKA_CFLAGS)
 @ENABLE_UNIT_TESTS_TRUE@test_sanity_LDADD = $(CMOCKA_LIBS)
+
+# The AIFF header parser lives in frontend/get_audio.c and is static, so the
+# test compiles it in directly (hence the frontend/libmp3lame/include search
+# paths). fread is wrapped to trap the underflow spin the guard prevents.
+@ENABLE_UNIT_TESTS_TRUE@test_get_audio_aiff_SOURCES = test_get_audio_aiff.c test_stubs.c
+@ENABLE_UNIT_TESTS_TRUE@test_get_audio_aiff_CPPFLAGS = $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/frontend \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_get_audio_aiff_LDFLAGS = -Wl,--wrap=fread
+@ENABLE_UNIT_TESTS_TRUE@test_get_audio_aiff_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+
 all: all-am
 
 .SUFFIXES:
@@ -595,6 +627,10 @@ clean-checkPROGRAMS:
 	$(am__rm_f) $(check_PROGRAMS)
 	test -z "$(EXEEXT)" || $(am__rm_f) $(check_PROGRAMS:$(EXEEXT)=)
 
+test_get_audio_aiff$(EXEEXT): $(test_get_audio_aiff_OBJECTS) $(test_get_audio_aiff_DEPENDENCIES) $(EXTRA_test_get_audio_aiff_DEPENDENCIES) 
+	@rm -f test_get_audio_aiff$(EXEEXT)
+	$(AM_V_CCLD)$(test_get_audio_aiff_LINK) $(test_get_audio_aiff_OBJECTS) $(test_get_audio_aiff_LDADD) $(LIBS)
+
 test_sanity$(EXEEXT): $(test_sanity_OBJECTS) $(test_sanity_DEPENDENCIES) $(EXTRA_test_sanity_DEPENDENCIES) 
 	@rm -f test_sanity$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_sanity_OBJECTS) $(test_sanity_LDADD) $(LIBS)
@@ -605,6 +641,8 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_sanity-test_sanity.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
@@ -633,6 +671,34 @@ am--depfiles: $(am__depfiles_remade)
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
+
+test_get_audio_aiff-test_get_audio_aiff.o: test_get_audio_aiff.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_get_audio_aiff_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_get_audio_aiff-test_get_audio_aiff.o -MD -MP -MF $(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Tpo -c -o test_get_audio_aiff-test_get_audio_aiff.o `test -f 'test_get_audio_aiff.c' || echo '$(srcdir)/'`test_get_audio_aiff.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Tpo $(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_get_audio_aiff.c' object='test_get_audio_aiff-test_get_audio_aiff.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_get_audio_aiff_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_get_audio_aiff-test_get_audio_aiff.o `test -f 'test_get_audio_aiff.c' || echo '$(srcdir)/'`test_get_audio_aiff.c
+
+test_get_audio_aiff-test_get_audio_aiff.obj: test_get_audio_aiff.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_get_audio_aiff_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_get_audio_aiff-test_get_audio_aiff.obj -MD -MP -MF $(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Tpo -c -o test_get_audio_aiff-test_get_audio_aiff.obj `if test -f 'test_get_audio_aiff.c'; then $(CYGPATH_W) 'test_get_audio_aiff.c'; else $(CYGPATH_W) '$(srcdir)/test_get_audio_aiff.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Tpo $(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_get_audio_aiff.c' object='test_get_audio_aiff-test_get_audio_aiff.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_get_audio_aiff_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_get_audio_aiff-test_get_audio_aiff.obj `if test -f 'test_get_audio_aiff.c'; then $(CYGPATH_W) 'test_get_audio_aiff.c'; else $(CYGPATH_W) '$(srcdir)/test_get_audio_aiff.c'; fi`
+
+test_get_audio_aiff-test_stubs.o: test_stubs.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_get_audio_aiff_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_get_audio_aiff-test_stubs.o -MD -MP -MF $(DEPDIR)/test_get_audio_aiff-test_stubs.Tpo -c -o test_get_audio_aiff-test_stubs.o `test -f 'test_stubs.c' || echo '$(srcdir)/'`test_stubs.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_get_audio_aiff-test_stubs.Tpo $(DEPDIR)/test_get_audio_aiff-test_stubs.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_stubs.c' object='test_get_audio_aiff-test_stubs.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_get_audio_aiff_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_get_audio_aiff-test_stubs.o `test -f 'test_stubs.c' || echo '$(srcdir)/'`test_stubs.c
+
+test_get_audio_aiff-test_stubs.obj: test_stubs.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_get_audio_aiff_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_get_audio_aiff-test_stubs.obj -MD -MP -MF $(DEPDIR)/test_get_audio_aiff-test_stubs.Tpo -c -o test_get_audio_aiff-test_stubs.obj `if test -f 'test_stubs.c'; then $(CYGPATH_W) 'test_stubs.c'; else $(CYGPATH_W) '$(srcdir)/test_stubs.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_get_audio_aiff-test_stubs.Tpo $(DEPDIR)/test_get_audio_aiff-test_stubs.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_stubs.c' object='test_get_audio_aiff-test_stubs.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_get_audio_aiff_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_get_audio_aiff-test_stubs.obj `if test -f 'test_stubs.c'; then $(CYGPATH_W) 'test_stubs.c'; else $(CYGPATH_W) '$(srcdir)/test_stubs.c'; fi`
 
 test_sanity-test_sanity.o: test_sanity.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_sanity_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_sanity-test_sanity.o -MD -MP -MF $(DEPDIR)/test_sanity-test_sanity.Tpo -c -o test_sanity-test_sanity.o `test -f 'test_sanity.c' || echo '$(srcdir)/'`test_sanity.c
@@ -879,6 +945,13 @@ test_sanity.log: test_sanity$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_get_audio_aiff.log: test_get_audio_aiff$(EXEEXT)
+	@p='test_get_audio_aiff$(EXEEXT)'; \
+	b='test_get_audio_aiff'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 .test.log:
 	@p='$<'; \
 	$(am__set_b); \
@@ -972,6 +1045,8 @@ clean-am: clean-checkPROGRAMS clean-generic clean-libtool \
 	mostlyclean-am
 
 distclean: distclean-am
+	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
+	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
@@ -1018,6 +1093,8 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
+	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
+	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic

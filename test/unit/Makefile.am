@@ -7,11 +7,24 @@ include $(top_srcdir)/Makefile.am.global
 # "make" / "make check" behaves exactly as it did before the harness existed.
 if ENABLE_UNIT_TESTS
 
-check_PROGRAMS = test_sanity
+check_PROGRAMS = test_sanity test_get_audio_aiff
 TESTS = $(check_PROGRAMS)
 
 test_sanity_SOURCES = test_sanity.c
 test_sanity_CPPFLAGS = $(CMOCKA_CFLAGS)
 test_sanity_LDADD = $(CMOCKA_LIBS)
+
+# The AIFF header parser lives in frontend/get_audio.c and is static, so the
+# test compiles it in directly (hence the frontend/libmp3lame/include search
+# paths). fread is wrapped to trap the underflow spin the guard prevents.
+test_get_audio_aiff_SOURCES = test_get_audio_aiff.c test_stubs.c
+test_get_audio_aiff_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/frontend \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_get_audio_aiff_LDFLAGS = -Wl,--wrap=fread
+test_get_audio_aiff_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la
 
 endif
