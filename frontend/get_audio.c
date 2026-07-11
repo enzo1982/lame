@@ -1656,6 +1656,8 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
     ui32_ChunkSize = read_32_bits_high_low(sf);
 
     ui32_TypeID = read_32_bits_high_low(sf);
+    if (ui32_ChunkSize < 4)     /* malformed FORM size: guard the -= 4 underflow */
+        return -1;
     ui32_ChunkSize -= 4;
     if ((ui32_TypeID != IFF_ID_AIFF) && (ui32_TypeID != IFF_ID_AIFC))
         return -1;

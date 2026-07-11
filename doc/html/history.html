@@ -41,6 +41,14 @@
                         and GCC/MinGW builds. [CVSS 8.4, Blade DLL]. Fix by
                         Alexander Leidinger.
                     </li>
+                    <li>Fixed an integer underflow in the AIFF header parser
+                        (<i>parse_aiff_header()</i>): a crafted file with a FORM chunk size
+                        below&nbsp;4 wrapped the unsigned chunk-size counter to a huge value,
+                        sending the chunk-scanning loop into an effectively unbounded spin
+                        (a hang) on a tiny malicious input. The size is now validated before
+                        it is decremented. [CVSS 5.5, AIFF frontend]. Fix by
+                        Alexander Leidinger.
+                    </li>
                 </ul>
             </li>
             <li>
