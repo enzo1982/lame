@@ -25,7 +25,24 @@
         black = usability, portability, other
         <hr>
         <h3>LAME 4.0 &nbsp;under construction</h3>
+        <p><i>Security scores assume LAME runs under a non-privileged account. For frontend-only
+            entries, scores also assume the command line is sanitized or restricted before reaching
+            LAME; integrators who pass unsanitized or fully scripted command-line input directly may
+            see higher practical severity than stated.</i></p>
         <ul>
+            <li>
+                <span class="security">Security</span>
+                <ul>
+                    <li>Fixed a stack buffer overflow in the Blade-style encoder DLL
+                        (<i>lame_enc.dll</i>): <i>beInitStream()</i> copied a caller-supplied
+                        configuration structure using an unchecked, caller-controlled size, so an
+                        oversized or compiler-mismatched size could overwrite the stack. The size is
+                        now bounds-checked and the packed structure layout is consistent across MSVC
+                        and GCC/MinGW builds. [CVSS 8.4, Blade DLL]. Fix by
+                        Alexander Leidinger.
+                    </li>
+                </ul>
+            </li>
             <li>
                 Alexander Leidinger
                 <ul>

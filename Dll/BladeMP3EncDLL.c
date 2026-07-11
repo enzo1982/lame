@@ -272,7 +272,7 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
     else
     {
         // Copy the parameters
-        memcpy(&lameConfig,pbeConfig,pbeConfig->format.LHV1.dwStructSize);
+        memcpy(&lameConfig,pbeConfig,Min(pbeConfig->format.LHV1.dwStructSize,sizeof(lameConfig)));
     }
 
     // --------------- Set arguments to LAME encoder -------------------------
