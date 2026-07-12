@@ -1900,6 +1900,8 @@ psymodel_init(lame_global_flags const *gfp)
     memset(norm, 0, sizeof(norm));
 
     gd = lame_calloc(PsyConst_t, 1);
+    if (gd == 0)
+        return -1;
     gfc->cd_psy = gd;
 
     gd->force_short_block_calc = gfp->experimentalZ;

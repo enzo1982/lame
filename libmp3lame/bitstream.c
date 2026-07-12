@@ -1093,7 +1093,7 @@ copy_buffer(lame_internal_flags * gfc, unsigned char *buffer, int size, int mp3d
 }
 
 
-void
+int
 init_bit_stream_w(lame_internal_flags * gfc)
 {
     EncStateVar_t *const esv = &gfc->sv_enc;
@@ -1102,10 +1102,15 @@ init_bit_stream_w(lame_internal_flags * gfc)
     esv->header[esv->h_ptr].write_timing = 0;
 
     gfc->bs.buf = lame_calloc(unsigned char, BUFFER_SIZE);
+    if (gfc->bs.buf == NULL) {
+        ERRORF(gfc, "Error: can't allocate bitstream buffer\n");
+        return -1;
+    }
     gfc->bs.buf_size = BUFFER_SIZE;
     gfc->bs.buf_byte_idx = -1;
     gfc->bs.buf_bit_idx = 0;
     gfc->bs.totbit = 0;
+    return 0;
 }
 
 /* end of bitstream.c */

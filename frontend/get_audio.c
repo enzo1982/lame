@@ -548,18 +548,20 @@ init_outfile(char const *outPath, int decode)
         /* Assign correct file type */
         if (outf != NULL) {
             char   *p, *out_path = strdup(outPath);
-            for (p = out_path; *p; p++) { /* ugly, ugly to modify a string */
-                switch (*p) {
-                case '.':
-                    *p = '/';
-                    break;
-                case '/':
-                    *p = '.';
-                    break;
+            if (out_path != NULL) {
+                for (p = out_path; *p; p++) { /* ugly, ugly to modify a string */
+                    switch (*p) {
+                    case '.':
+                        *p = '/';
+                        break;
+                    case '/':
+                        *p = '.';
+                        break;
+                    }
                 }
+                SetFiletype(out_path, decode ? 0xFB1 /*WAV*/ : 0x1AD /*AMPEG*/);
+                free(out_path);
             }
-            SetFiletype(out_path, decode ? 0xFB1 /*WAV*/ : 0x1AD /*AMPEG*/);
-            free(out_path);
         }
 #else
         (void) decode;

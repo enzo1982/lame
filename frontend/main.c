@@ -401,6 +401,10 @@ int wmain(int argc, wchar_t* argv[])
   int i, ret;
   setDebugMode();
   utf8_argv = calloc(argc, sizeof(char*));
+  if (utf8_argv == 0) {
+    fprintf(stderr, "Error: not enough memory for argument conversion\n");
+    return 1;
+  }
   for (i = 0; i < argc; ++i) {
     utf8_argv[i] = unicodeToUtf8(argv[i]);
   }

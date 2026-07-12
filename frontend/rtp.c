@@ -407,6 +407,8 @@ rtp_send(unsigned char const *data, int len)
     int    *outcast = (int *) buffer;
     int     count, size;
 
+    if (buffer == NULL)
+        return -1;
     outcast[0] = htonl(cast[0]);
     outcast[1] = htonl(cast[1]);
     outcast[2] = htonl(cast[2]);

@@ -222,6 +222,12 @@ lame_main(lame_t gf, int argc, char **argv)
         int     i;
         int     argc_mod = argc-arg-1; /* leaving out one or two arguments */
         char**  argv_mod = calloc(argc_mod, sizeof(char*));
+        if (argv_mod == NULL) {
+            rtp_deinitialization();
+            fclose(outf);
+            error_printf("not enough memory\n");
+            return 1;
+        }
         argv_mod[0] = argv[0];
         for (i = 2+arg; i < argc; ++i) { /* leaving out argument number 1, parsed above */
             argv_mod[i-arg-1] = argv[i];

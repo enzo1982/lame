@@ -936,7 +936,8 @@ lame_init_params(lame_global_flags * gfp)
         gfc->ov_enc.bitrate_index = 1;
     }
 
-    init_bit_stream_w(gfc);
+    if (init_bit_stream_w(gfc) != 0)
+        return -1;
 
     j = cfg->samplerate_index + (3 * cfg->version) + 6 * (cfg->samplerate_out < 16000);
     for (i = 0; i < SBMAX_l + 1; i++)
@@ -1276,7 +1277,8 @@ lame_init_params(lame_global_flags * gfp)
     (void) lame_init_bitstream(gfp);
 
     iteration_init(gfc);
-    (void) psymodel_init(gfp);
+    if (psymodel_init(gfp) != 0)
+        return -1;
 
     cfg->buffer_constraint = get_max_frame_buffer_size_by_constraint(cfg, gfp->strict_ISO);
 
