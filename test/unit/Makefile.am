@@ -7,7 +7,7 @@ include $(top_srcdir)/Makefile.am.global
 # "make" / "make check" behaves exactly as it did before the harness existed.
 if ENABLE_UNIT_TESTS
 
-check_PROGRAMS = test_sanity test_get_audio_aiff
+check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen
 TESTS = $(check_PROGRAMS)
 
 test_sanity_SOURCES = test_sanity.c
@@ -26,5 +26,19 @@ test_get_audio_aiff_CPPFLAGS = $(CMOCKA_CFLAGS) \
 test_get_audio_aiff_LDFLAGS = -Wl,--wrap=fread
 test_get_audio_aiff_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la
+
+# The positional-filename length guard set_path_arg() lives in
+# frontend/parse.c and is static, so the test compiles that file in directly;
+# parse_test_stubs.c supplies the console/file helpers it references and
+# libmp3lame provides the lame_* API.
+test_parse_pathlen_SOURCES = test_parse_pathlen.c parse_test_stubs.c
+test_parse_pathlen_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/frontend \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_parse_pathlen_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	$(LTLIBICONV) -lm
 
 endif

@@ -92,7 +92,8 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@check_PROGRAMS = test_sanity$(EXEEXT) \
-@ENABLE_UNIT_TESTS_TRUE@	test_get_audio_aiff$(EXEEXT)
+@ENABLE_UNIT_TESTS_TRUE@	test_get_audio_aiff$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_parse_pathlen$(EXEEXT)
 subdir = test/unit
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/host-cpu-c-abi.m4 \
@@ -126,6 +127,15 @@ test_get_audio_aiff_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(AM_CFLAGS) $(CFLAGS) $(test_get_audio_aiff_LDFLAGS) \
 	$(LDFLAGS) -o $@
+am__test_parse_pathlen_SOURCES_DIST = test_parse_pathlen.c \
+	parse_test_stubs.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_parse_pathlen_OBJECTS = test_parse_pathlen-test_parse_pathlen.$(OBJEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_parse_pathlen-parse_test_stubs.$(OBJEXT)
+test_parse_pathlen_OBJECTS = $(am_test_parse_pathlen_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_parse_pathlen_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1)
 am__test_sanity_SOURCES_DIST = test_sanity.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_sanity_OBJECTS =  \
 @ENABLE_UNIT_TESTS_TRUE@	test_sanity-test_sanity.$(OBJEXT)
@@ -150,6 +160,8 @@ am__maybe_remake_depfiles = depfiles
 am__depfiles_remade =  \
 	./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po \
 	./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po \
+	./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po \
+	./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po \
 	./$(DEPDIR)/test_sanity-test_sanity.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
@@ -170,8 +182,10 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(test_get_audio_aiff_SOURCES) $(test_sanity_SOURCES)
+SOURCES = $(test_get_audio_aiff_SOURCES) $(test_parse_pathlen_SOURCES) \
+	$(test_sanity_SOURCES)
 DIST_SOURCES = $(am__test_get_audio_aiff_SOURCES_DIST) \
+	$(am__test_parse_pathlen_SOURCES_DIST) \
 	$(am__test_sanity_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
@@ -588,6 +602,22 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@test_get_audio_aiff_LDADD = $(CMOCKA_LIBS) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 
+
+# The positional-filename length guard set_path_arg() lives in
+# frontend/parse.c and is static, so the test compiles that file in directly;
+# parse_test_stubs.c supplies the console/file helpers it references and
+# libmp3lame provides the lame_* API.
+@ENABLE_UNIT_TESTS_TRUE@test_parse_pathlen_SOURCES = test_parse_pathlen.c parse_test_stubs.c
+@ENABLE_UNIT_TESTS_TRUE@test_parse_pathlen_CPPFLAGS = $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/frontend \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_parse_pathlen_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	$(LTLIBICONV) -lm
+
 all: all-am
 
 .SUFFIXES:
@@ -631,6 +661,10 @@ test_get_audio_aiff$(EXEEXT): $(test_get_audio_aiff_OBJECTS) $(test_get_audio_ai
 	@rm -f test_get_audio_aiff$(EXEEXT)
 	$(AM_V_CCLD)$(test_get_audio_aiff_LINK) $(test_get_audio_aiff_OBJECTS) $(test_get_audio_aiff_LDADD) $(LIBS)
 
+test_parse_pathlen$(EXEEXT): $(test_parse_pathlen_OBJECTS) $(test_parse_pathlen_DEPENDENCIES) $(EXTRA_test_parse_pathlen_DEPENDENCIES) 
+	@rm -f test_parse_pathlen$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_parse_pathlen_OBJECTS) $(test_parse_pathlen_LDADD) $(LIBS)
+
 test_sanity$(EXEEXT): $(test_sanity_OBJECTS) $(test_sanity_DEPENDENCIES) $(EXTRA_test_sanity_DEPENDENCIES) 
 	@rm -f test_sanity$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_sanity_OBJECTS) $(test_sanity_LDADD) $(LIBS)
@@ -643,6 +677,8 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_sanity-test_sanity.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
@@ -699,6 +735,34 @@ test_get_audio_aiff-test_stubs.obj: test_stubs.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_stubs.c' object='test_get_audio_aiff-test_stubs.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_get_audio_aiff_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_get_audio_aiff-test_stubs.obj `if test -f 'test_stubs.c'; then $(CYGPATH_W) 'test_stubs.c'; else $(CYGPATH_W) '$(srcdir)/test_stubs.c'; fi`
+
+test_parse_pathlen-test_parse_pathlen.o: test_parse_pathlen.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_parse_pathlen_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_parse_pathlen-test_parse_pathlen.o -MD -MP -MF $(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Tpo -c -o test_parse_pathlen-test_parse_pathlen.o `test -f 'test_parse_pathlen.c' || echo '$(srcdir)/'`test_parse_pathlen.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Tpo $(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_parse_pathlen.c' object='test_parse_pathlen-test_parse_pathlen.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_parse_pathlen_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_parse_pathlen-test_parse_pathlen.o `test -f 'test_parse_pathlen.c' || echo '$(srcdir)/'`test_parse_pathlen.c
+
+test_parse_pathlen-test_parse_pathlen.obj: test_parse_pathlen.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_parse_pathlen_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_parse_pathlen-test_parse_pathlen.obj -MD -MP -MF $(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Tpo -c -o test_parse_pathlen-test_parse_pathlen.obj `if test -f 'test_parse_pathlen.c'; then $(CYGPATH_W) 'test_parse_pathlen.c'; else $(CYGPATH_W) '$(srcdir)/test_parse_pathlen.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Tpo $(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_parse_pathlen.c' object='test_parse_pathlen-test_parse_pathlen.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_parse_pathlen_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_parse_pathlen-test_parse_pathlen.obj `if test -f 'test_parse_pathlen.c'; then $(CYGPATH_W) 'test_parse_pathlen.c'; else $(CYGPATH_W) '$(srcdir)/test_parse_pathlen.c'; fi`
+
+test_parse_pathlen-parse_test_stubs.o: parse_test_stubs.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_parse_pathlen_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_parse_pathlen-parse_test_stubs.o -MD -MP -MF $(DEPDIR)/test_parse_pathlen-parse_test_stubs.Tpo -c -o test_parse_pathlen-parse_test_stubs.o `test -f 'parse_test_stubs.c' || echo '$(srcdir)/'`parse_test_stubs.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_parse_pathlen-parse_test_stubs.Tpo $(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='parse_test_stubs.c' object='test_parse_pathlen-parse_test_stubs.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_parse_pathlen_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_parse_pathlen-parse_test_stubs.o `test -f 'parse_test_stubs.c' || echo '$(srcdir)/'`parse_test_stubs.c
+
+test_parse_pathlen-parse_test_stubs.obj: parse_test_stubs.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_parse_pathlen_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_parse_pathlen-parse_test_stubs.obj -MD -MP -MF $(DEPDIR)/test_parse_pathlen-parse_test_stubs.Tpo -c -o test_parse_pathlen-parse_test_stubs.obj `if test -f 'parse_test_stubs.c'; then $(CYGPATH_W) 'parse_test_stubs.c'; else $(CYGPATH_W) '$(srcdir)/parse_test_stubs.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_parse_pathlen-parse_test_stubs.Tpo $(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='parse_test_stubs.c' object='test_parse_pathlen-parse_test_stubs.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_parse_pathlen_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_parse_pathlen-parse_test_stubs.obj `if test -f 'parse_test_stubs.c'; then $(CYGPATH_W) 'parse_test_stubs.c'; else $(CYGPATH_W) '$(srcdir)/parse_test_stubs.c'; fi`
 
 test_sanity-test_sanity.o: test_sanity.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_sanity_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_sanity-test_sanity.o -MD -MP -MF $(DEPDIR)/test_sanity-test_sanity.Tpo -c -o test_sanity-test_sanity.o `test -f 'test_sanity.c' || echo '$(srcdir)/'`test_sanity.c
@@ -952,6 +1016,13 @@ test_get_audio_aiff.log: test_get_audio_aiff$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_parse_pathlen.log: test_parse_pathlen$(EXEEXT)
+	@p='test_parse_pathlen$(EXEEXT)'; \
+	b='test_parse_pathlen'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 .test.log:
 	@p='$<'; \
 	$(am__set_b); \
@@ -1047,6 +1118,8 @@ clean-am: clean-checkPROGRAMS clean-generic clean-libtool \
 distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
+	-rm -f ./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po
+	-rm -f ./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
@@ -1095,6 +1168,8 @@ installcheck-am:
 maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
+	-rm -f ./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po
+	-rm -f ./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
