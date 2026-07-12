@@ -188,6 +188,8 @@ hip_decode_exit
 hip_set_errorf
 hip_set_debugf
 hip_set_msgf
+hip_set_pinfo
+hip_finish_pinfo
 hip_decode
 hip_decode_headers
 hip_decode1
