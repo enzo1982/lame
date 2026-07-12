@@ -2724,6 +2724,7 @@ static int
 merge_argv(int argc, char** argv, int str_argc, char** str_argv, int N)
 {
     int     i;
+    int     merged;
     if (argc > 0) {
         str_argv[0] = argv[0];
         if (str_argc < 1) str_argc = 1;
@@ -2734,7 +2735,14 @@ merge_argv(int argc, char** argv, int str_argc, char** str_argv, int N)
             str_argv[j] = argv[i];
         }
     }
-    return argc + str_argc - 1;
+    merged = argc + str_argc - 1;
+    /* The write loop skips any slot >= N, so never report more entries than
+       the array actually holds.  parse_args() sizes str_argv to fit, but clamp
+       here as well so this helper can never hand back a count that runs past
+       its own buffer. */
+    if (merged > N)
+        merged = N;
+    return merged;
 }
 
 #ifdef DEBUG
@@ -2751,15 +2759,29 @@ dump_argv(int argc, char** argv)
 
 int parse_args(lame_t gfp, int argc, char **argv, char *const inPath, char *const outPath, char **nogap_inPath, int *num_nogap)
 {
-    char   *str_argv[512], *str;
+    char  **str_argv, *str;
     int     str_argc, ret;
+    size_t  n;
+
     str = lame_getenv("LAMEOPT");
-    str_argc = string_to_argv(str, str_argv, dimension_of(str_argv));
-    str_argc = merge_argv(argc, argv, str_argc, str_argv, dimension_of(str_argv));
+    /* Size the merged argument vector to actually fit: at worst every byte of
+       LAMEOPT begins a new token, the real argv contributes argc entries, plus
+       one for argv[0].  argc and the environment are both bounded by the OS
+       ARG_MAX, so n stays well within range. */
+    n = (size_t) argc + (str != 0 ? strlen(str) : 0) + 1;
+    str_argv = malloc(n * sizeof(*str_argv));
+    if (str_argv == 0) {
+        error_printf("out of memory while parsing the command line\n");
+        free(str);
+        return -1;
+    }
+    str_argc = string_to_argv(str, str_argv, (int) n);
+    str_argc = merge_argv(argc, argv, str_argc, str_argv, (int) n);
 #ifdef DEBUG
     dump_argv(str_argc, str_argv);
 #endif
     ret = parse_args_(gfp, str_argc, str_argv, inPath, outPath, nogap_inPath, num_nogap);
+    free(str_argv);
     free(str);
     return ret;
 }

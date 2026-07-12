@@ -7,7 +7,7 @@ include $(top_srcdir)/Makefile.am.global
 # "make" / "make check" behaves exactly as it did before the harness existed.
 if ENABLE_UNIT_TESTS
 
-check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen
+check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv
 TESTS = $(check_PROGRAMS)
 
 test_sanity_SOURCES = test_sanity.c
@@ -38,6 +38,17 @@ test_parse_pathlen_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_parse_pathlen_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	$(LTLIBICONV) -lm
+
+# merge_argv() is likewise static in frontend/parse.c; same include/link setup.
+test_merge_argv_SOURCES = test_merge_argv.c parse_test_stubs.c
+test_merge_argv_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/frontend \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_merge_argv_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	$(LTLIBICONV) -lm
 
