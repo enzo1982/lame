@@ -33,6 +33,17 @@
 			    <li>Fixed linking the frontends against the shared
 			        library (<i>--enable-dynamic-frontends</i>). Bug
 			        ticket <i class="ticket">[ #515 ]</i>.</li>
+			    <li><span class="speed">The <i>--enable-ieeehack</i>
+			        switch is now honored. The Takehiro IEEE-754
+			        rounding shortcut is off by default as documented;
+			        it was previously compiled in unconditionally
+			        regardless of the switch. The shortcut only speeds
+			        up float-to-int conversion on much older CPUs that
+			        lack a fast native conversion instruction; on
+			        current hardware leaving it disabled is faster -
+			        measured about 8-10% on a Xeon&nbsp;X5675 for both
+			        CBR and VBR encoding.</span> Bug ticket
+			        <i class="ticket">[ #521 ]</i>.</li>
 		</ul>
             </li>
 	</ul>
