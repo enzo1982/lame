@@ -1,0 +1,54 @@
+# Doxyfile 1.17.0
+#
+# Internal / development documentation for LAME.
+#
+# This configuration documents everything the public API docs leave out: the
+# static internal functions of libmp3lame and the frontend, plus the CMocka
+# unit-test suite. It is meant for people working ON LAME. If you use LAME as a
+# library, read the public API documentation (generated from Doxyfile) instead.
+#
+# The shared configuration lives in Doxyfile-common; this file @INCLUDEs it and
+# then overrides the options that differ for the internal documentation.
+
+@INCLUDE_PATH          = .
+@INCLUDE               = Doxyfile-common
+
+PROJECT_NAME           = "LAME (internal)"
+PROJECT_BRIEF          = "Internal / development documentation - static internals and unit tests"
+
+# Write to a separate tree so it never clashes with the public documentation.
+OUTPUT_DIRECTORY       = doxygen-internal
+
+# Use the internal front page as the main page in place of the public one.
+USE_MDFILE_AS_MAINPAGE = @top_srcdir@/doc/doxygen/internal.md
+
+# Everything the public docs cover, plus the Windows-only components (the Blade
+# encoder DLL, the DirectShow filter and the ACM codec), the unit tests and an
+# internal-only front page in place of the public main page.
+INPUT                  = @top_srcdir@/include \
+                         @top_srcdir@/libmp3lame \
+                         @top_srcdir@/frontend \
+                         @top_srcdir@/Dll \
+                         @top_srcdir@/dshow \
+                         @top_srcdir@/ACM \
+                         @top_srcdir@/test/unit \
+                         @top_srcdir@/doc/doxygen/internal.md \
+                         @top_srcdir@/doc/doxygen/unit_tests.dox
+
+# Surface the internals: static functions, otherwise-undocumented entities and
+# @internal-marked notes, plus cross-referenced source and call relations.
+EXTRACT_STATIC         = YES
+EXTRACT_ALL            = YES
+INTERNAL_DOCS          = YES
+SOURCE_BROWSER         = YES
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+
+# The unit-test documentation lives only in this configuration, so keep the
+# test list here.
+GENERATE_TESTLIST      = YES
+
+# Optional, kept at the public value for now - candidates to enable for the
+# internal docs later (call graphs need Graphviz/dot and slow the build):
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO

@@ -1,26 +1,26 @@
-/*
- * Regression test for the AIFF FORM-size integer-underflow guard in
- * parse_aiff_header() (frontend/get_audio.c).
+/**
+ * @file
+ * @ingroup unit_tests
+ * @brief Regression test for the AIFF FORM-size integer-underflow guard in
+ *        @c parse_aiff_header() (@c frontend/get_audio.c).
  *
- * A crafted AIFF/AIFC whose FORM chunk size is < 4 used to underflow
- * ui32_ChunkSize on the first "- 4" accounting step, wrapping it to ~4.29e9
- * and driving the chunk loop through ~1e9 iterations (one fread each) before
- * finally returning -1 -- an availability hang from a ~16-byte file. The fix
- * rejects such a file up front.
+ * A crafted AIFF/AIFC whose FORM chunk size is < 4 underflowed
+ * @c ui32_ChunkSize on the first "- 4" accounting step, wrapping it to ~4.29e9
+ * and driving the chunk loop through ~1e9 iterations (one @c fread each) before
+ * returning -1. The guard rejects such a file up front.
  *
- * parse_aiff_header() is static, so the reader is compiled directly into the
- * test. fread() is wrapped: return value alone can't distinguish the fix from
- * the bug (both end at -1), so once armed we cap the fread budget and longjmp
- * out if it is exceeded -- that only happens if the guard is gone and the
- * parser is spinning, and it keeps a regressed build from hanging the suite.
+ * @c parse_aiff_header() is static, so the reader is compiled directly into the
+ * test. @c fread() is wrapped because its return value alone cannot distinguish
+ * the fix from the bug (both end at -1): once armed, exceeding a fixed read
+ * budget @c longjmp()s out, so a regressed (spinning) build fails fast instead
+ * of hanging the suite.
  *
- * Endianness: the test is host byte-order independent. All multi-byte fields
- * are written in AIFF's native big-endian on-disk order (via put_be32 and the
- * byte array below), and get_audio.c reads them back byte by byte
- * (uint32_high_low(), read_ieee_extended_high_low(), ...) using value
- * arithmetic rather than memory-layout reads. So the fixtures and the code
- * under test behave identically on big- and little-endian machines -- no
- * host-endian conversion (POSIX <endian.h> etc.) is needed or used.
+ * The test is host byte-order independent. All multi-byte fields are written in
+ * AIFF's native big-endian on-disk order (via @c put_be32 and the byte array
+ * below), and @c get_audio.c reads them back byte by byte using value
+ * arithmetic rather than memory-layout reads, so the fixtures and the code
+ * under test behave identically on big- and little-endian hosts (no POSIX
+ * @c <endian.h> conversion is needed or used).
  */
 
 #ifdef HAVE_CONFIG_H
@@ -57,6 +57,12 @@ static unsigned long fread_calls;
 static int           spin_trap_armed;
 static jmp_buf       spin_trap;
 
+/**
+ * @brief fread() interposer that traps a runaway parser.
+ *
+ * While armed, once the call count exceeds ::FREAD_BUDGET it @c longjmp()s to
+ * ::spin_trap instead of reading; otherwise it forwards to the real fread().
+ */
 size_t
 __wrap_fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
@@ -69,8 +75,15 @@ __wrap_fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 
 /* --- helpers ----------------------------------------------------------- */
 
-/* A FILE* holding exactly the bytes parse_aiff_header expects to see, i.e.
-   the stream positioned right after the 4-byte "FORM" magic. */
+/**
+ * @brief Builds a rewound temp FILE* holding @p bytes.
+ *
+ * The stream represents the input positioned right after the 4-byte "FORM"
+ * magic, which is where @c parse_aiff_header() begins reading.
+ * @param bytes the post-"FORM" header bytes.
+ * @param n     number of bytes.
+ * @return an open, rewound temp stream.
+ */
 static FILE *
 aiff_stream(const unsigned char *bytes, size_t n)
 {
@@ -82,6 +95,7 @@ aiff_stream(const unsigned char *bytes, size_t n)
     return f;
 }
 
+/** @brief Writes @p v into @p p as 4 big-endian bytes (AIFF on-disk order). */
 static void
 put_be32(unsigned char *p, uint32_t v)
 {
@@ -93,7 +107,10 @@ put_be32(unsigned char *p, uint32_t v)
 
 /* --- tests ------------------------------------------------------------- */
 
-/* FORM sizes 0..3 must be rejected immediately, without spinning. */
+/**
+ * @brief FORM sizes 0..3 must be rejected immediately, without spinning.
+ * @param state fixture state holding an initialised @c lame_t.
+ */
 static void
 test_undersized_form_size_rejected(void **state)
 {
@@ -123,7 +140,10 @@ test_undersized_form_size_rejected(void **state)
     }
 }
 
-/* A well-formed minimal AIFF must still be accepted (guard is narrow). */
+/**
+ * @brief A well-formed minimal AIFF must still be accepted (guard is narrow).
+ * @param state fixture state holding an initialised @c lame_t.
+ */
 static void
 test_valid_aiff_accepted(void **state)
 {
@@ -160,6 +180,7 @@ test_valid_aiff_accepted(void **state)
 
 /* --- fixture ----------------------------------------------------------- */
 
+/** @brief Per-test fixture: creates a @c lame_t into @p state. */
 static int
 setup_lame(void **state)
 {
@@ -170,6 +191,7 @@ setup_lame(void **state)
     return 0;
 }
 
+/** @brief Per-test fixture teardown: closes the @c lame_t from @p state. */
 static int
 teardown_lame(void **state)
 {
@@ -177,6 +199,7 @@ teardown_lame(void **state)
     return 0;
 }
 
+/** @brief Registers and runs the AIFF-underflow test group. */
 int
 main(void)
 {

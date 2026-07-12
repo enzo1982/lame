@@ -1,0 +1,25 @@
+# Doxyfile 1.17.0
+#
+# Public API documentation for LAME.
+#
+# The shared configuration lives in Doxyfile-common; this file @INCLUDEs it and
+# then sets only the options specific to the public API documentation. The
+# parallel Doxyfile-internal additionally covers the static internals and the
+# unit-test suite, for people working on LAME itself.
+#
+# Doxygen applies later settings over earlier ones, so the assignments below
+# override the values pulled in from Doxyfile-common.
+
+@INCLUDE_PATH          = .
+@INCLUDE               = Doxyfile-common
+
+# These options are kept out of the common file so the public and internal docs
+# can diverge on them independently.
+
+# The public API documentation parses no unit tests, so there is nothing for a
+# test list to collect.
+GENERATE_TESTLIST      = NO
+
+# Call graphs need Graphviz/dot and slow the build; off for the public docs.
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO

@@ -1,8 +1,12 @@
-/*
- * Minimal stand-ins for the frontend globals and helpers that get_audio.c
- * references but that normally live in lame_main.c / main.c / console.c.
- * They only need to satisfy the linker; none is exercised on the
- * parse_aiff_header() path the unit tests drive. Kept deliberately small by
+/**
+ * @file
+ * @ingroup unit_tests
+ * @brief Link-time stubs for the get_audio.c unit test.
+ *
+ * Minimal stand-ins for the frontend globals and helpers that @c get_audio.c
+ * references but that normally live in @c lame_main.c / @c main.c /
+ * @c console.c. They only need to satisfy the linker; none is exercised on the
+ * @c parse_aiff_header() path the unit tests drive. Kept deliberately small by
  * building the test with the internal file IO (no libsndfile / mpg123 /
  * mpglib), so the heavy conditional code paths compile out.
  */

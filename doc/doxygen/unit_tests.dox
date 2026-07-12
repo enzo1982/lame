@@ -1,0 +1,46 @@
+/**
+@defgroup unit_tests Unit tests
+@brief CMocka-based unit tests for the LAME library and frontend.
+
+The tests under @c test/unit exercise individual functions in isolation using
+the [CMocka](https://cmocka.org/) framework. They are optional: the build only
+compiles and runs them when configured with
+
+@code
+./configure --enable-unit-tests
+@endcode
+
+(default off). With the flag set, @c "make check" builds and runs every test
+under @c test/unit and reports each one's pass/fail status. Only the pre-2.0 CMocka macro set is used, a
+temporary restriction until cmocka 2.0 is more widely available across
+distributions.
+
+@section unit_tests_seam Testing static functions
+
+Several of the functions under test are @c static and have no external linkage.
+To reach them, the corresponding test compiles the whole translation unit in
+directly with @c \#include (for example @c test_parse_pathlen.c does
+@c \#include @c "parse.c"). That pulls in the file's other external references,
+which a small companion "stubs" object then satisfies for the linker:
+
+- @c test_stubs.c &mdash; the frontend globals and console/file helpers that
+  @c get_audio.c drags in.
+- @c parse_test_stubs.c &mdash; the console/file helpers that @c parse.c drags
+  in (@c parse.c defines the frontend global-config blocks itself, so those are
+  not re-stubbed).
+
+libmp3lame supplies the real @c lame_* API. Where a test needs to observe
+behaviour that the return value alone cannot reveal (such as a parser spinning
+rather than returning), it interposes a libc call with the linker's
+@c --wrap mechanism.
+
+@section unit_tests_list The tests
+
+- @c test_sanity.c &mdash; harness smoke test (@ref test_sanity.c).
+- @c test_get_audio_aiff.c &mdash; AIFF FORM-size underflow guard in
+  @c parse_aiff_header() (@ref test_get_audio_aiff.c).
+- @c test_parse_pathlen.c &mdash; positional input/output filename length bound
+  in @c set_path_arg() (@ref test_parse_pathlen.c).
+- @c test_merge_argv.c &mdash; argument-vector sizing and the @c merge_argv()
+  count clamp (@ref test_merge_argv.c).
+*/
