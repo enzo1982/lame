@@ -306,3 +306,6 @@ id3tag_set_textinfo_utf8	@2028
 ; two external functions for ID3v2.4 tag support
 id3tag_add_v2_4_UTF8 @2029
 id3tag_v2_4_UTF8_only @2030
+
+; UTF-8 field-value setter (companion to id3tag_set_fieldvalue_utf16)
+id3tag_set_fieldvalue_utf8 @2031

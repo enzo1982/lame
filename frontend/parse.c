@@ -402,40 +402,44 @@ static int getIntValue(char const* token, char const* arg, int* ptr)
 }
 
 #ifdef ID3TAGS_EXTENDED
+/* Set an ID3v2 tag field from UTF-16 data. The data pointer is genuinely
+   UTF-16 here, so the UTF-16 id3tag_* setters are used throughout. */
 static int
-set_id3v2tag(lame_global_flags* gfp, TextEncoding enc, int type, unsigned short const* str)
+set_id3v2tag_utf16(lame_global_flags* gfp, int type, unsigned short const* str)
 {
-    switch (enc)
+    switch (type)
     {
-        case TENC_UTF8:
-            switch (type)
-            {
-                case 'a': return id3tag_set_textinfo_utf8(gfp, "TPE1", str);
-                case 't': return id3tag_set_textinfo_utf8(gfp, "TIT2", str);
-                case 'l': return id3tag_set_textinfo_utf8(gfp, "TALB", str);
-                case 'g': return id3tag_set_textinfo_utf8(gfp, "TCON", str);
-                case 'c': return id3tag_set_comment_ucs2(gfp, 0, 0, str);
-                case 'n': return id3tag_set_textinfo_utf8(gfp, "TRCK", str);
-                case 'y': return id3tag_set_textinfo_utf8(gfp, "TYER", str);
-                case 'v': return id3tag_set_fieldvalue_ucs2(gfp, str);
-            }
-            ;;
-        case TENC_UTF16:
-            switch (type)
-            {
-                case 'a': return id3tag_set_textinfo_utf16(gfp, "TPE1", str);
-                case 't': return id3tag_set_textinfo_utf16(gfp, "TIT2", str);
-                case 'l': return id3tag_set_textinfo_utf16(gfp, "TALB", str);
-                case 'g': return id3tag_set_textinfo_utf16(gfp, "TCON", str);
-                case 'c': return id3tag_set_comment_utf16(gfp, 0, 0, str);
-                case 'n': return id3tag_set_textinfo_utf16(gfp, "TRCK", str);
-                case 'y': return id3tag_set_textinfo_utf16(gfp, "TYER", str);
-                case 'v': return id3tag_set_fieldvalue_utf16(gfp, str);
-            }
-            ;;
-        default:
-            return -3;
+        case 'a': return id3tag_set_textinfo_utf16(gfp, "TPE1", str);
+        case 't': return id3tag_set_textinfo_utf16(gfp, "TIT2", str);
+        case 'l': return id3tag_set_textinfo_utf16(gfp, "TALB", str);
+        case 'g': return id3tag_set_textinfo_utf16(gfp, "TCON", str);
+        case 'c': return id3tag_set_comment_utf16(gfp, 0, 0, str);
+        case 'n': return id3tag_set_textinfo_utf16(gfp, "TRCK", str);
+        case 'y': return id3tag_set_textinfo_utf16(gfp, "TYER", str);
+        case 'v': return id3tag_set_fieldvalue_utf16(gfp, str);
     }
+    return -3;
+}
+
+/* Set an ID3v2 tag field from UTF-8 data. The data pointer is a UTF-8 char
+   string (not UTF-16 as the old, mistyped single handler assumed), so the
+   UTF-8 id3tag_* setters are used - including id3tag_set_fieldvalue_utf8 for
+   'v', which replaces the removed *_ucs2 calls the UTF-8 path used to make. */
+static int
+set_id3v2tag_utf8(lame_global_flags* gfp, int type, char const* str)
+{
+    switch (type)
+    {
+        case 'a': return id3tag_set_textinfo_utf8(gfp, "TPE1", str);
+        case 't': return id3tag_set_textinfo_utf8(gfp, "TIT2", str);
+        case 'l': return id3tag_set_textinfo_utf8(gfp, "TALB", str);
+        case 'g': return id3tag_set_textinfo_utf8(gfp, "TCON", str);
+        case 'c': return id3tag_set_comment_utf8(gfp, 0, 0, str);
+        case 'n': return id3tag_set_textinfo_utf8(gfp, "TRCK", str);
+        case 'y': return id3tag_set_textinfo_utf8(gfp, "TYER", str);
+        case 'v': return id3tag_set_fieldvalue_utf8(gfp, str);
+    }
+    return -3;
 }
 #endif
 
@@ -480,8 +484,8 @@ id3_tag(lame_global_flags* gfp, int type, TextEncoding enc, char* str)
         default:
 #ifdef ID3TAGS_EXTENDED
         case TENC_LATIN1: result = set_id3tag(gfp, type, x);   break;
-        case TENC_UTF16:  result = set_id3v2tag(gfp, enc, type, x); break;
-        case TENC_UTF8:   result = set_id3v2tag(gfp, enc, type, x); break;
+        case TENC_UTF16:  result = set_id3v2tag_utf16(gfp, type, x); break;
+        case TENC_UTF8:   result = set_id3v2tag_utf8(gfp, type, x);  break;
 #else
         case TENC_RAW:    result = set_id3tag(gfp, type, x);   break;
 #endif

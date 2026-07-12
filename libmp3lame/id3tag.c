@@ -1844,6 +1844,21 @@ id3tag_set_fieldvalue_ucs2(lame_t gfp, const unsigned short *fieldvalue)
     return id3tag_set_fieldvalue_utf16(gfp, fieldvalue);
 }
 
+int
+id3tag_set_fieldvalue_utf8(lame_t gfp, const char *fieldvalue)
+{
+    if (is_lame_internal_flags_null(gfp)) {
+        return 0;
+    }
+    if (fieldvalue && *fieldvalue) {
+        if (strlen(fieldvalue) < 5 || fieldvalue[4] != '=') {
+            return -1;
+        }
+        return id3tag_set_textinfo_utf8(gfp, fieldvalue, &fieldvalue[5]);
+    }
+    return 0;
+}
+
 size_t
 lame_get_id3v2_tag(lame_t gfp, unsigned char *buffer, size_t size)
 {

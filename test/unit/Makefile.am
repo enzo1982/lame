@@ -7,7 +7,8 @@ include $(top_srcdir)/Makefile.am.global
 # "make" / "make check" behaves exactly as it did before the harness existed.
 if ENABLE_UNIT_TESTS
 
-check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv
+check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv \
+	test_id3tag test_parse_id3
 TESTS = $(check_PROGRAMS)
 
 test_sanity_SOURCES = test_sanity.c
@@ -49,6 +50,29 @@ test_merge_argv_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_merge_argv_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	$(LTLIBICONV) -lm
+
+# The id3tag_* API is public, so this test links libmp3lame and calls it
+# directly - no frontend translation unit compiled in.
+test_id3tag_SOURCES = test_id3tag.c
+test_id3tag_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_id3tag_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The frontend ID3 dispatch (id3_tag/set_id3v2tag_*) is static in parse.c, so
+# this test compiles parse.c in directly; same include/link setup as the other
+# parse.c tests.
+test_parse_id3_SOURCES = test_parse_id3.c parse_test_stubs.c
+test_parse_id3_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/frontend \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_parse_id3_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	$(LTLIBICONV) -lm
 

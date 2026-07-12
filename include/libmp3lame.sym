@@ -229,6 +229,7 @@ id3tag_set_textinfo_ucs2
 id3tag_set_comment_ucs2
 id3tag_set_fieldvalue_ucs2
 id3tag_set_fieldvalue_utf16
+id3tag_set_fieldvalue_utf8
 id3tag_set_textinfo_utf16
 id3tag_set_comment_utf16
 id3tag_set_textinfo_utf8

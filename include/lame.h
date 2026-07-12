@@ -1297,6 +1297,9 @@ int CDECL id3tag_set_fieldvalue_ucs2(lame_t gfp, const unsigned short *fieldvalu
 int CDECL id3tag_set_fieldvalue_utf16(lame_t gfp, const unsigned short *fieldvalue);
 
 /* experimental */
+int CDECL id3tag_set_fieldvalue_utf8(lame_t gfp, const char *fieldvalue);
+
+/* experimental */
 int CDECL id3tag_set_textinfo_utf16(lame_t gfp, char const *id, unsigned short const *text);
 
 /* experimental */
