@@ -1,13 +1,15 @@
-# README for compiling LAME with Visual Studio 2019
+# README for compiling LAME with Visual Studio 2026
 
 This document describes how to compile the LAME projects using Visual Studio
-2019. Any edition will do, even the free Community edition. Be sure to install
-the "Desktop development with C++" workload.
+2026. Any edition will do, even the free Community edition. Be sure to install
+the "Desktop development with C++" workload. Older Visual Studio versions can
+open these projects too; let the IDE retarget them to an installed toolset if
+prompted.
 
 ## Projects
 
 There are two solution files in the "lame/vc_solution" folder that can be
-opened. The solution "vs2019_lame.sln" contains the following projects:
+opened. The solution "vs2026_lame.sln" contains the following projects:
 
 - lame: The lame.exe command line executable
 - libmp3lame: The dynamic library libmp3lame.dll
@@ -15,7 +17,7 @@ opened. The solution "vs2019_lame.sln" contains the following projects:
 - mp3rtp: command line tool to stream mp3 via RTP protocol
 - mp3x: mp3 frame analyzer tool using GTK1 (see below)
 
-The solution "vs2019_lame_clients.sln" contains several more projects:
+The solution "vs2026_lame_clients.sln" contains several more projects:
 
 - ACM, ADbg, tinyxml: Ancient Windows "Audio Codec Manager"
 - lame_DirectShow: DirectShow filter
@@ -29,7 +31,7 @@ compile different flavors of LAME libraries and executables:
 - ReleaseNASM: Uses NASM (see below) to compile some routines using NASM
 - ReleaseSSE2: Uses SSE2 assembler instructions to optimize routines
 
-The vs2019_lame.sln solution has both Win32 and x64 platforms configured, in
+The vs2026_lame.sln solution has both Win32 and x64 platforms configured, in
 order to compile lame.exe and the libmp3lame.dll for 32-bit or 64-bit target
 platforms. The output folder also has separate folders for the two platforms.
 Note that mp3rtp and mp3x are not compiled in x64. Also note that all 64-bit
@@ -50,7 +52,7 @@ The Netwide Assembler is used to compile assembly routines contained in the
 https://nasm.us/
 
 Extract the zip archive in any folder. Open the file
-"lame/vc_solution/vs2019_arch_nasm.props" and edit the `NasmPath` in the first
+"lame/vc_solution/vs2026_arch_nasm.props" and edit the `NasmPath` in the first
 few lines of the file, ending the path with a backslash. As described above,
 you can also use the Property Manager view to change the values.
 
@@ -65,7 +67,7 @@ http://mega-nerd.com/libsndfile/#Download
 Install the Win32 installer into any folder, or (if available) extract
 pre-release versions (e.g. libsndfile-1.0.29pre1-w32.zip) into any folder.
 
-Open the file "lame/vc_solution/vs2019_lame_config.props" and edit the
+Open the file "lame/vc_solution/vs2026_lame_config.props" and edit the
 following  two user macro parameters:
 
 - The value of `HaveLibsndfile` can be set to false or true, and specifies if
@@ -90,7 +92,7 @@ library, which is a mature fork of the internally used mpglib library. The
 latest binaries for Win32 and x64 are available here:
 https://mpg123.de/
 
-Open the file "lame/vc_solution/vs2019_libmpg123_config.props" and edit the
+Open the file "lame/vc_solution/vs2026_libmpg123_config.props" and edit the
 following  two user macro parameters:
 
 - The value of `HaveMpg123` can be set to false or true, and specifies if
@@ -118,7 +120,7 @@ to compile mp3x. You can download version 1.4 here:
 https://sourceforge.net/projects/gtk1-win/
 
 Extract the zip archive in any folder. Open the file
-"lame/vc_solution/vs2019_gtk_config.props" and edit the `WinGtkPath` in the
+"lame/vc_solution/vs2026_gtk_config.props" and edit the `WinGtkPath` in the
 first few lines of the file, ending the path with a backslash.
 
 As described above, you can also use the Property Manager view to change the
@@ -139,7 +141,7 @@ version 7.1)
 When starting the web setup, you can choose the installation options. Only the
 "Samples" under "Windows Native Code Development" is actually necessary.
 
-Open the file "lame/vc_solution/vs2019_win71sdk_config.props" and edit the
+Open the file "lame/vc_solution/vs2026_win71sdk_config.props" and edit the
 `Win71SdkPath` in the first few lines of the file, ending the path with a
 backslash. As described above, you can also use the Property Manager view to
 change the values.

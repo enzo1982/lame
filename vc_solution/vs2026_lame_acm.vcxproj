@@ -17,12 +17,12 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -30,11 +30,11 @@
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="vs2019_lame_config.props" />
+    <Import Project="vs2026_lame_config.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="vs2019_lame_config.props" />
+    <Import Project="vs2026_lame_config.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -118,13 +118,13 @@ copy ..\ACM\lame_acm.xml $(TargetDir)*.*
     <Image Include="..\ACM\lame.ico" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="vs2019_lame_acm_adbg.vcxproj">
+    <ProjectReference Include="vs2026_lame_acm_adbg.vcxproj">
       <Project>{0d7cab1b-ae57-4ba1-bdbf-d7391aaa81aa}</Project>
     </ProjectReference>
-    <ProjectReference Include="vs2019_lame_acm_tinyxml.vcxproj">
+    <ProjectReference Include="vs2026_lame_acm_tinyxml.vcxproj">
       <Project>{30219289-3b7f-4e02-bc34-c1dbd08cd848}</Project>
     </ProjectReference>
-    <ProjectReference Include="vs2019_libmp3lame.vcxproj">
+    <ProjectReference Include="vs2026_libmp3lame.vcxproj">
       <Project>{20536101-3b0e-43ef-94f9-080d595dac57}</Project>
     </ProjectReference>
   </ItemGroup>

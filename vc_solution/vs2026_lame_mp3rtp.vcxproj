@@ -19,66 +19,54 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectName>mp3x</ProjectName>
-    <ProjectGuid>{E745EB1A-070A-45ED-B8BD-D9F794E23CFA}</ProjectGuid>
-    <RootNamespace>mp3x</RootNamespace>
+    <ProjectName>mp3rtp</ProjectName>
+    <ProjectGuid>{C04BA4EA-F719-456D-A332-6C3AF92D7BEA}</ProjectGuid>
+    <RootNamespace>mp3rtp</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseSSE2|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
-    <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
-    <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
-    <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNASM|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
-    <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseSSE2|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="vs2019_gtk_config.props" />
-    <Import Project="vs2019_libmpg123_config.props" />
-    <Import Project="vs2019_lame_config.props" />
-    <Import Project="vs2019_arch_sse2.props" />
+    <Import Project="vs2026_lame_config.props" />
+    <Import Project="vs2026_arch_sse2.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="vs2019_gtk_config.props" />
-    <Import Project="vs2019_libmpg123_config.props" />
-    <Import Project="vs2019_lame_config.props" />
-    <Import Project="vs2019_arch_x87.props" />
+    <Import Project="vs2026_lame_config.props" />
+    <Import Project="vs2026_arch_x87.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="vs2019_gtk_config.props" />
-    <Import Project="vs2019_libmpg123_config.props" />
-    <Import Project="vs2019_lame_config.props" />
-    <Import Project="vs2019_arch_x87.props" />
+    <Import Project="vs2026_lame_config.props" />
+    <Import Project="vs2026_arch_x87.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNASM|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="vs2019_gtk_config.props" />
-    <Import Project="vs2019_libmpg123_config.props" />
-    <Import Project="vs2019_lame_config.props" />
-    <Import Project="vs2019_arch_nasm.props" />
+    <Import Project="vs2026_lame_config.props" />
+    <Import Project="vs2026_arch_nasm.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseNASM|Win32'">
@@ -87,8 +75,8 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>../include;../libmp3lame;../mp3x;../frontend;..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>BRHIST;NDEBUG;WIN32;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..;../libmp3lame;../include;../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;WIN32;_WIN32;_CONSOLE;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <ResourceCompile>
@@ -96,14 +84,15 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
+      <AdditionalDependencies>wsock32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>../include;../libmp3lame;../mp3x;../frontend;..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>BRHIST;_DEBUG;WIN32;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>../;../libmp3lame;../include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_DEBUG;WIN32;_WIN32;_CONSOLE;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <ResourceCompile>
@@ -111,6 +100,7 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
+      <AdditionalDependencies>wsock32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -120,8 +110,8 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>../include;../libmp3lame;../mp3x;../frontend;..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>BRHIST;NDEBUG;WIN32;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..;../libmp3lame;../include;../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;WIN32;_WIN32;_CONSOLE;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <ResourceCompile>
@@ -129,6 +119,7 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
+      <AdditionalDependencies>wsock32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -138,8 +129,8 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>../include;../libmp3lame;../mp3x;../frontend;..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>BRHIST;NDEBUG;WIN32;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..;../libmp3lame;../include;../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;WIN32;_WIN32;_CONSOLE;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <ResourceCompile>
@@ -147,6 +138,7 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
+      <AdditionalDependencies>wsock32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -154,33 +146,28 @@
     <ClCompile Include="..\frontend\brhist.c" />
     <ClCompile Include="..\frontend\console.c" />
     <ClCompile Include="..\frontend\get_audio.c" />
-    <ClCompile Include="..\frontend\gpkplotting.c" />
-    <ClCompile Include="..\frontend\gtkanal.c" />
     <ClCompile Include="..\frontend\lametime.c" />
     <ClCompile Include="..\frontend\main.c" />
-    <ClCompile Include="..\frontend\mp3x.c" />
+    <ClCompile Include="..\frontend\mp3rtp.c" />
     <ClCompile Include="..\frontend\parse.c" />
+    <ClCompile Include="..\frontend\rtp.c" />
     <ClCompile Include="..\frontend\timestatus.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\frontend\brhist.h" />
-    <ClInclude Include="..\configMS.h" />
     <ClInclude Include="..\frontend\console.h" />
     <ClInclude Include="..\frontend\get_audio.h" />
-    <ClInclude Include="..\frontend\gpkplotting.h" />
     <ClInclude Include="..\frontend\lametime.h" />
     <ClInclude Include="..\frontend\main.h" />
     <ClInclude Include="..\frontend\parse.h" />
+    <ClInclude Include="..\frontend\rtp.h" />
     <ClInclude Include="..\frontend\timestatus.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\libmp3lame\lame.rc" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\README.WINGTK" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="vs2019_libmp3lame.vcxproj">
+    <ProjectReference Include="vs2026_libmp3lame.vcxproj">
       <Project>{20536101-3b0e-43ef-94f9-080d595dac57}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>

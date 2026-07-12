@@ -91,7 +91,7 @@ WARN = OFF
 !	ENDIF
 
 !	IF "$(PREC)" == ""
-PREC = SINGLE
+PREC = DOUBLE
 !	ENDIF
 
 !	IF "$(SNDFILE)" == ""
@@ -401,13 +401,22 @@ PGM = $(T_MP3X) $(PGM)
 
 
 
-#__ HIP DECODING ______________________________________________________________
+#__ mpg123 DECODING ___________________________________________________________
 #
-#	uncomment the following if you want decoding support
-#	It's always a good idea to compile it in!
+#	Decoding support uses the external libmpg123 library (the internal
+#	mpglib decoder has been retired). To build with decoding, pass
+#	MPG123=YES and point MPG123_DIR at an unpacked libmpg123 folder
+#	containing mpg123.h and libmpg123-0.lib, ending with a backslash, e.g.:
+#	    nmake -f Makefile.MSVC MPG123=YES MPG123_DIR=.\vc_solution\mpg123\x64\
+#	The mpg123.de binary distribution ships a .def instead of an import
+#	library; generate the .lib once with:
+#	    lib /def:libmpg123-0.def /machine:x64 /out:libmpg123-0.lib
 #
-CPP_OPTS = $(CPP_OPTS) /DHAVE_MPGLIB
-#___________________________________________________________ HIP DECODING _____
+!	IF "$(MPG123)" == "YES"
+CPP_OPTS = $(CPP_OPTS) /DHAVE_MPG123 -I"$(MPG123_DIR)"
+MPG123_LIB = "$(MPG123_DIR)libmpg123-0.lib"
+!	ENDIF
+#___________________________________________________________ mpg123 DECODING __
 
 
 
@@ -416,7 +425,7 @@ CPP_OPTS = $(CPP_OPTS) /DHAVE_MPGLIB
 #	uncomment the following to enable Takehiro's IEEE hack
 #	You'll want it on a x86 machine with i387 FPU
 #
-CPP_OPTS = $(CPP_OPTS) /DTAKEHIRO_IEEE754_HACK
+#CPP_OPTS = $(CPP_OPTS) /DTAKEHIRO_IEEE754_HACK
 #______________________________________________________ Takehiro's IEEE hack __
 
 
@@ -484,23 +493,11 @@ lamelib_sources = \
 	libmp3lame/presets.c \
 	libmp3lame/version.c
 
-mpglib_sources = \
-	mpglib/common.c \
-	mpglib/dct64_i386.c \
-	mpglib/decode_i386.c \
-	mpglib/layer1.c \
-	mpglib/layer2.c \
-	mpglib/layer3.c \
-	mpglib/tabinit.c \
-	mpglib/interface.c
-
-
 !IF "$(MSVCVER)" == "Win64"
 ADDL_OBJ = bufferoverflowU.lib
 !ENDIF
 
 LIB_OBJ = $(lamelib_sources:.c=.obj)
-HIP_OBJ = $(mpglib_sources:.c=.obj)
 CMMN_OBJ = $(common_sources:.c=.obj)
 LAME_OBJ = $(lame_sources:.c=.obj)
 MPX_OBJ = $(mpx_sources:.c=.obj)
@@ -596,12 +593,7 @@ libA:	$(LIB_OBJ)
 	@echo --- LAME MP3 ENCODING LIBRARY UPTODATE ---
 	@echo.
 
-libB:	$(HIP_OBJ)
-	@echo.
-	@echo --- HIP DECODING LIBRARY UPTODATE ---
-	@echo.
-
-lib: $(ASM_OBJ) libA libB
+lib: $(ASM_OBJ) libA
 
 lame.res: ./libmp3lame/lame.rc
 	@rc.exe /d "NDEBUG" /d "_APP=lame.exe" /l 0x409 /fo"./frontend/lame.res" "./libmp3lame/lame.rc"
@@ -616,7 +608,7 @@ lame_enc.res: ./libmp3lame/lame.rc
 	@rc.exe /d "NDEBUG" /d "_DLL=lame_enc.dll" /l 0x409 /fo"./frontend/lame_enc.res" "./libmp3lame/lame.rc"
 
 $(T_LAME) : target_directory config.h $(T_LIB_STATIC) common $(LAME_OBJ) lame.res
-	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(LIBSNDFILE) \
+	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(LIBSNDFILE) $(MPG123_LIB) \
 	       $(TARGET_DIR)$(T_LIB_STATIC) $(CMMN_OBJ) $(LAME_OBJ) $(ADDL_OBJ) \
 	       ./frontend/lame.res
 	@echo.
@@ -624,7 +616,7 @@ $(T_LAME) : target_directory config.h $(T_LIB_STATIC) common $(LAME_OBJ) lame.re
 	@echo.
 
 $(T_MP3X) : target_directory config.h lib common $(MPX_OBJ) mp3x.res
-	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(GTK_LIBS) $(LIBSNDFILE) \
+	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(GTK_LIBS) $(LIBSNDFILE) $(MPG123_LIB) \
 	       $(TARGET_DIR)$(T_LIB_STATIC) $(CMMN_OBJ) $(MPX_OBJ) $(ADDL_OBJ) \
 	       ./frontend/mp3x.res
 	@echo.
@@ -632,7 +624,7 @@ $(T_MP3X) : target_directory config.h lib common $(MPX_OBJ) mp3x.res
 	@echo.
 
 $(T_MP3RTP) : target_directory config.h lib common $(MPRTP_OBJ) mp3rtp.res
-	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(LIBSNDFILE) \
+	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(LIBSNDFILE) $(MPG123_LIB) \
 	       $(TARGET_DIR)$(T_LIB_STATIC) $(CMMN_OBJ) $(MPRTP_OBJ) $(ADDL_OBJ) \
 	       ./frontend/mp3rtp.res wsock32.lib
 	@echo.
@@ -642,7 +634,7 @@ $(T_MP3RTP) : target_directory config.h lib common $(MPRTP_OBJ) mp3rtp.res
 $(T_LEGACY_DLL) : target_directory config.h $(DLL_OBJ) lame_enc.res
 	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) \
 	       $(TARGET_DIR)$(T_LIB_STATIC) $(LN_DLL) \
-	       $(DLL_OBJ) $(ADDL_OBJ) ./frontend/lame_enc.res user32.lib
+	       $(DLL_OBJ) $(ADDL_OBJ) $(MPG123_LIB) ./frontend/lame_enc.res user32.lib
 	@echo.
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
@@ -652,7 +644,7 @@ $(T_DLL) : target_directory config.h $(T_LIB_STATIC)
 		/DEF:"include\lame.def" \
 		$(ADDL_OBJ) \
 		$(LN_OUT)"$(TARGET_DIR)$@" \
-		$(TARGET_DIR)$(T_LIB_STATIC) libmp3lame\version.obj 
+		$(TARGET_DIR)$(T_LIB_STATIC) $(MPG123_LIB) libmp3lame\version.obj
 	@echo.
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
@@ -660,7 +652,7 @@ $(T_DLL) : target_directory config.h $(T_LIB_STATIC)
 $(T_LIB_STATIC) : target_directory lib
 	@lib $(LIB_OPTS) \
 		/OUT:"$(TARGET_DIR)$@" \
-		$(ASM_OBJ) $(LIB_OBJ) $(HIP_OBJ)
+		$(ASM_OBJ) $(LIB_OBJ)
 	@echo.
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
