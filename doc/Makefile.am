@@ -42,6 +42,7 @@ doxygen-internal: Doxyfile-internal
 CLEANFILES = Doxyfile Doxyfile-common Doxyfile-internal
 
 EXTRA_DIST = Doxyfile.in Doxyfile-common.in Doxyfile-internal.in \
+	maintainer-build-matrix.md \
 	doxygen/mainpage.md \
 	doxygen/internal.md \
 	doxygen/unit_tests.dox \

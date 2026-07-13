@@ -29,7 +29,9 @@ EXTRA_DIST = \
 	lame.spec.in \
 	lame.spec \
 	testcase.mp3 \
-	testcase.wav
+	testcase.wav \
+	maintainer/gen-build-matrix.sh \
+	maintainer/gen-build-matrix.ps1
 
 #
 # The differences depend on the used processor architecture, the used
