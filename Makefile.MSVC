@@ -35,6 +35,14 @@
 
 
 
+#	srcdir selects in-tree (default ".") or out-of-tree builds: pass
+#	srcdir=<path-to-sources> and run nmake from an empty build directory to
+#	build outside the source tree, and the intermediate files land in the
+#	build directory instead of next to the sources.
+!	IF "$(srcdir)" == ""
+srcdir = .
+!	ENDIF
+
 #	targets <-> DOS filenames
 
 T_LAME = lame.exe
@@ -504,9 +512,23 @@ MPX_OBJ = $(mpx_sources:.c=.obj)
 MPRTP_OBJ = $(mp3rtp_sources:.c=.obj)
 DLL_OBJ = $(dll_sources:.c=.obj)
 
-.c.obj:
-	@$(CC) $(CPP_OPTS) $(CC_SWITCHES) -Iinclude -Ilibmp3lame -Impglib \
-	       $(CC_OUT)$@  -c $<
+INCLUDES = -I. -I$(srcdir) -I$(srcdir)/include -I$(srcdir)/libmp3lame -I$(srcdir)/mpglib
+
+#	One path-mapped rule per source subdirectory: sources are read from
+#	$(srcdir)\<sub>\ and the objects are written into .\<sub>\ (the build
+#	directory). With srcdir=. this reduces to the traditional in-tree build.
+
+{$(srcdir)/frontend/}.c{frontend/}.obj:
+	@$(CC) $(CPP_OPTS) $(CC_SWITCHES) $(INCLUDES) $(CC_OUT)$@ -c $<
+
+{$(srcdir)/libmp3lame/}.c{libmp3lame/}.obj:
+	@$(CC) $(CPP_OPTS) $(CC_SWITCHES) $(INCLUDES) $(CC_OUT)$@ -c $<
+
+{$(srcdir)/libmp3lame/vector/}.c{libmp3lame/vector/}.obj:
+	@$(CC) $(CPP_OPTS) $(CC_SWITCHES) $(INCLUDES) $(CC_OUT)$@ -c $<
+
+{$(srcdir)/dll/}.c{dll/}.obj:
+	@$(CC) $(CPP_OPTS) $(CC_SWITCHES) $(INCLUDES) $(CC_OUT)$@ -c $<
 
 
 #__ MASM ______________________________________________________________________
@@ -516,15 +538,15 @@ DLL_OBJ = $(dll_sources:.c=.obj)
 !	IF "$(ASM)" == "ML64"
 #
 .SUFFIXES : .nas
-.nas.obj:
+{$(srcdir)/libmp3lame/i386/}.nas{libmp3lame/i386/}.obj:
 	@echo $<
-	@ml64 -Ilibmp3lame\i386 -Sf -DWIN32 -DWIN64 $< -Fo$@
+	@ml64 -I$(srcdir)\libmp3lame\i386 -Sf -DWIN32 -DWIN64 $< -Fo$@
 
 CC_SWITCHES = $(CC_SWITCHES) -DHAVE_NASM
 ASM_OBJ = $(ASM_OBJ) \
-	libmp3lame\i386\cpu_feat.obj \
-	libmp3lame\i386\fft3dn.obj \
-	libmp3lame\i386\fftsse.obj
+	libmp3lame/i386/cpu_feat.obj \
+	libmp3lame/i386/fft3dn.obj \
+	libmp3lame/i386/fftsse.obj
 
 #	not yet coded
 #CC_SWITCHES = $(CC_SWITCHES) -DUSE_FFTFPU
@@ -539,15 +561,15 @@ ASM_OBJ = $(ASM_OBJ) \
 !	ELSEIF "$(ASM)" == "YES"
 #
 .SUFFIXES : .nas
-.nas.obj:
+{$(srcdir)/libmp3lame/i386/}.nas{libmp3lame/i386/}.obj:
 	@echo $<
-	@nasmw -f $(OFF) -i libmp3lame/i386/ -DWIN32 $< -o $@
+	@nasmw -f $(OFF) -i $(srcdir)/libmp3lame/i386/ -DWIN32 $< -o $@
 
 CC_SWITCHES = $(CC_SWITCHES) /DHAVE_NASM
 ASM_OBJ = $(ASM_OBJ) \
-	libmp3lame\i386\cpu_feat.obj \
-	libmp3lame\i386\fft3dn.obj \
-	libmp3lame\i386\fftsse.obj
+	libmp3lame/i386/cpu_feat.obj \
+	libmp3lame/i386/fft3dn.obj \
+	libmp3lame/i386/fftsse.obj
 
 #	not yet coded
 #CC_SWITCHES = $(CC_SWITCHES) /DUSE_FFTFPU
@@ -582,7 +604,11 @@ no_target_specified :	$(PGM)
 
 target_directory :
 	@if not exist $(TARGET_DIR) mkdir $(TARGET_DIR)
-	
+	@if not exist frontend mkdir frontend
+	@if not exist dll mkdir dll
+	@if not exist libmp3lame\vector mkdir libmp3lame\vector
+	@if not exist libmp3lame\i386 mkdir libmp3lame\i386
+
 common:	$(CMMN_OBJ)
 	@echo.
 	@echo --- COMMON FRONTEND STUFF UPTODATE ---
@@ -595,17 +621,17 @@ libA:	$(LIB_OBJ)
 
 lib: $(ASM_OBJ) libA
 
-lame.res: ./libmp3lame/lame.rc
-	@rc.exe /d "NDEBUG" /d "_APP=lame.exe" /l 0x409 /fo"./frontend/lame.res" "./libmp3lame/lame.rc"
+lame.res: $(srcdir)/libmp3lame/lame.rc
+	@rc.exe /d "NDEBUG" /d "_APP=lame.exe" /l 0x409 /fo"./frontend/lame.res" "$(srcdir)/libmp3lame/lame.rc"
 
-mp3rtp.res: ./libmp3lame/lame.rc
-	@rc.exe /d "NDEBUG" /d "_APP=mp3rtp.exe" /l 0x409 /fo"./frontend/mp3rtp.res" "./libmp3lame/lame.rc"
+mp3rtp.res: $(srcdir)/libmp3lame/lame.rc
+	@rc.exe /d "NDEBUG" /d "_APP=mp3rtp.exe" /l 0x409 /fo"./frontend/mp3rtp.res" "$(srcdir)/libmp3lame/lame.rc"
 
-mp3x.res: ./libmp3lame/lame.rc
-	@rc.exe /d "NDEBUG" /d "_APP=mp3x.exe" /l 0x409 /fo"./frontend/mp3x.res" "./libmp3lame/lame.rc"
+mp3x.res: $(srcdir)/libmp3lame/lame.rc
+	@rc.exe /d "NDEBUG" /d "_APP=mp3x.exe" /l 0x409 /fo"./frontend/mp3x.res" "$(srcdir)/libmp3lame/lame.rc"
 
-lame_enc.res: ./libmp3lame/lame.rc
-	@rc.exe /d "NDEBUG" /d "_DLL=lame_enc.dll" /l 0x409 /fo"./frontend/lame_enc.res" "./libmp3lame/lame.rc"
+lame_enc.res: $(srcdir)/libmp3lame/lame.rc
+	@rc.exe /d "NDEBUG" /d "_DLL=lame_enc.dll" /l 0x409 /fo"./frontend/lame_enc.res" "$(srcdir)/libmp3lame/lame.rc"
 
 $(T_LAME) : target_directory config.h $(T_LIB_STATIC) common $(LAME_OBJ) lame.res
 	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(LIBSNDFILE) $(MPG123_LIB) \
@@ -641,7 +667,7 @@ $(T_LEGACY_DLL) : target_directory config.h $(DLL_OBJ) lame_enc.res
 
 $(T_DLL) : target_directory config.h $(T_LIB_STATIC) 
 	@$(LN) $(LN_DLL) $(MACHINE) \
-		/DEF:"include\lame.def" \
+		/DEF:"$(srcdir)\include\lame.def" \
 		$(ADDL_OBJ) \
 		$(LN_OUT)"$(TARGET_DIR)$@" \
 		$(TARGET_DIR)$(T_LIB_STATIC) $(MPG123_LIB) libmp3lame\version.obj
@@ -657,8 +683,8 @@ $(T_LIB_STATIC) : target_directory lib
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
 		
-config.h : configMS.h
-	@-copy configMS.h config.h
+config.h : $(srcdir)/configMS.h
+	@-copy "$(srcdir)\configMS.h" config.h
 
 clean:
 	@-del $(TARGET_DIR)$(T_LAME)
