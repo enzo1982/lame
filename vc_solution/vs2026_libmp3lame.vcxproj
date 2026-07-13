@@ -259,40 +259,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\libmp3lame\bitstream.h" />
-    <CustomBuild Include="..\configMS.h">
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Performing Custom Build Step on %(Filename)</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Performing Custom Build Step on %(Filename)</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">copy ..\configMS.h ..\config.h
-</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy ..\configMS.h ..\config.h
-</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\config.h;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\config.h;%(Outputs)</Outputs>
-      <Message Condition="'$(Configuration)|$(Platform)'=='ReleaseNASM|Win32'">Performing Custom Build Step on %(Filename)</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='ReleaseNASM|x64'">Performing Custom Build Step on %(Filename)</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='ReleaseNASM|Win32'">copy ..\configMS.h ..\config.h
-</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='ReleaseNASM|x64'">copy ..\configMS.h ..\config.h
-</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='ReleaseNASM|Win32'">..\config.h;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='ReleaseNASM|x64'">..\config.h;%(Outputs)</Outputs>
-      <Message Condition="'$(Configuration)|$(Platform)'=='ReleaseSSE2|Win32'">Performing Custom Build Step on %(Filename)</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='ReleaseSSE2|x64'">Performing Custom Build Step on %(Filename)</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='ReleaseSSE2|Win32'">copy ..\configMS.h ..\config.h
-</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='ReleaseSSE2|x64'">copy ..\configMS.h ..\config.h
-</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='ReleaseSSE2|Win32'">..\config.h;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='ReleaseSSE2|x64'">..\config.h;%(Outputs)</Outputs>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Performing Custom Build Step on %(Filename)</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Performing Custom Build Step on %(Filename)</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy ..\configMS.h ..\config.h
-</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy ..\configMS.h ..\config.h
-</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\config.h;%(Outputs)</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\config.h;%(Outputs)</Outputs>
-    </CustomBuild>
+    <ClInclude Include="..\configMS.h" />
     <ClInclude Include="..\libmp3lame\encoder.h" />
     <ClInclude Include="..\libmp3lame\fft.h" />
     <ClInclude Include="..\libmp3lame\gain_analysis.h" />

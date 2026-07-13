@@ -177,8 +177,8 @@
     </NASM>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="..\configMS.h">
+    <ClInclude Include="..\configMS.h">
       <Filter>Include</Filter>
-    </CustomBuild>
+    </ClInclude>
   </ItemGroup>
 </Project>
