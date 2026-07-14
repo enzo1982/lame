@@ -225,6 +225,9 @@ fi
 # noanalyzer  flip the analyzer hooks off (NOANALYSIS)
 # static      flip to a static-only build (no shared lib, no dyn frontends)
 # libonly     flip the frontends off, library only
+# staticfe    flip the (default-on) dynamic frontends off (static frontends)
+# nohardening flip the (default-on) security hardening off
+# expopt      flip the experimental optimizations on (--enable-expopt=norm)
 #
 cells() {
 	cat <<'EOF'
@@ -234,6 +237,9 @@ sndfile|--enable-dynamic-frontends --with-fileio=sndfile
 noanalyzer|--enable-dynamic-frontends --disable-analyzer-hooks
 static|--disable-shared --enable-static
 libonly|--disable-frontend
+staticfe|--disable-dynamic-frontends
+nohardening|--enable-dynamic-frontends --disable-hardening
+expopt|--enable-dynamic-frontends --enable-expopt=norm
 EOF
 }
 

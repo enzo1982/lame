@@ -20,9 +20,6 @@
 /* allow to compute a more accurate replaygain value */
 #undef DECODE_ON_THE_FLY
 
-/* double is faster than float on Alpha */
-#undef FLOAT
-
 /* Define to 1 if you have 'alloca', as a function or macro. */
 #undef HAVE_ALLOCA
 

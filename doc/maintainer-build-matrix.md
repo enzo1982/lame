@@ -33,10 +33,24 @@ while the build count stays small enough to run routinely.
 | `noanalyzer` | `--enable-dynamic-frontends --disable-analyzer-hooks` | analyzer hooks off (NOANALYSIS)  |
 | `static`     | `--disable-shared --enable-static`                | static-only, no dynamic frontends    |
 | `libonly`    | `--disable-frontend`                              | library only, no frontends           |
+| `staticfe`   | `--disable-dynamic-frontends`                     | static (non-default) frontend linking|
+| `nohardening`| `--enable-dynamic-frontends --disable-hardening`  | security hardening off               |
+| `expopt`     | `--enable-dynamic-frontends --enable-expopt=norm` | experimental optimizations on        |
 
-The base build uses `--enable-dynamic-frontends` on purpose: it links the
-frontends against the shared library, so a symbol that is used but missing from
-the export list fails the link here rather than silently slipping through.
+Dynamic frontend linking is the default, and the base build spells it out with
+`--enable-dynamic-frontends` on purpose: linking the frontends against the shared
+library means a symbol that is used but missing from the export list fails the
+link here rather than silently slipping through. The `staticfe` cell covers the
+opposite, `--disable-dynamic-frontends`, path.
+
+Security hardening flags are detected and enabled by default, so the base cell
+already exercises them; the `nohardening` cell covers the `--disable-hardening`
+path. The `expopt` cell exercises the extra `--enable-expopt=norm` optimization
+flags. Both option sets probe the compiler and keep only what it accepts, so the
+exact flags differ between GCC and Clang &mdash; the matrix confirms each cell
+still builds and links on every compiler. (`--enable-native` is deliberately not
+a cell: native-tuned binaries are not meant to be redistributed, and the flag is
+a machine-local convenience rather than something to regression-test.)
 
 Each detected compiler gets the whole star, so the actual build count is
 *compilers &times; cells*.

@@ -16,6 +16,12 @@
       <WarningLevel>Level4</WarningLevel>
       <DisableSpecificWarnings>4995;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <!-- Security hardening (hardcoded for current MSVC; there is no
+           configure step on Windows):
+             ControlFlowGuard  = /guard:cf, indirect-call integrity
+             BufferSecurityCheck = /GS, stack buffer-overflow cookies -->
+      <ControlFlowGuard>Guard</ControlFlowGuard>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
     </ClCompile>
     <PreBuildEvent>
       <Command>if not exist "$(IntDir)" mkdir "$(IntDir)"
@@ -26,6 +32,24 @@ copy /Y "$(ProjectDir)..\configMS.h" "$(IntDir)config.h" &gt; NUL</Command>
       <ProgramDatabaseFile>$(OutDir)$(TargetName).pdb</ProgramDatabaseFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <OptimizeReferences>true</OptimizeReferences>
+      <!-- Security hardening:
+             RandomizedBaseAddress   = /DYNAMICBASE, ASLR
+             DataExecutionPrevention = /NXCOMPAT, DEP -->
+      <RandomizedBaseAddress>true</RandomizedBaseAddress>
+      <DataExecutionPrevention>true</DataExecutionPrevention>
+    </Link>
+  </ItemDefinitionGroup>
+  <!-- x64-only hardening (these options do not apply to 32-bit targets):
+         GuardEHContMetadata = /guard:ehcont, EH continuation metadata
+         CETCompat           = /CETCOMPAT, CET hardware shadow-stack support
+       64-bit high-entropy ASLR (/HIGHENTROPYVA) is already the linker
+       default for x64 images. -->
+  <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
+    <ClCompile>
+      <GuardEHContMetadata>true</GuardEHContMetadata>
+    </ClCompile>
+    <Link>
+      <CETCompat>true</CETCompat>
     </Link>
   </ItemDefinitionGroup>
 </Project>

@@ -45,6 +45,34 @@
 			        CBR and VBR encoding.</span> Bug ticket
 			        <i class="ticket">[ #521 ]</i>.</li>
 			    <li>Modernized the Visual Studio build.</li>
+			    <li><span class="speed">Optimization flags are now
+			        detected from the compiler at configure time
+			        instead of chosen from hard-coded, per-compiler
+			        and per-CPU lists that had fallen out of date.
+			        Each compiler gets an appropriate set, which on
+			        some systems speeds up encoding out of the box
+			        (measured about 3% on a FreeBSD/Clang machine;
+			        roughly unchanged on Linux/GCC). A new
+			        <i>--enable-native</i> option tunes the build for
+			        the exact machine it is compiled on - measured
+			        about 8% faster on a recent CPU - at the cost of a
+			        binary that may not run on other machines. On the
+			        Visual Studio and MSVC command-line builds, which
+			        have no configure step, stale code-generation
+			        switches were dropped and the release build omits
+			        its debug consistency assertions, making 32-bit
+			        encoding roughly 3% faster.</span></li>
+			    <li><span class="security">Security hardening is now
+			        enabled by default: fortified library calls, stack
+			        and control-flow protection, read-only relocations
+			        and a non-executable stack, plus the corresponding
+			        options on the Visual Studio / MSVC build. The
+			        command line tools are also built as
+			        position-independent executables by default. This
+			        costs roughly one to two percent of encoding speed;
+			        <i>--disable-hardening</i> and
+			        <i>--disable-dynamic-frontends</i> turn off the two
+			        pieces.</span></li>
 		</ul>
             </li>
 	</ul>
@@ -434,6 +462,7 @@
                             <li>Get rid of a transitional package</li>
                             <li>Much more to come...</li>
                         </ul>
+                    </li>
                     <li>Minor fix to validate the history file correctly</li>
                 </ul>
             </li>
@@ -755,6 +784,7 @@
                             <li><span class="quality">the "out-of-bits" strategy is reworked</span>
                             </li>
                         </ul>
+                    </li>
                     <li><span class="quality">It was possible, that the "interchannel masking effects feature"
                         was used by the dual-channel-mode for bi-lingual encodings too. It was meant to work
                         on stereo L/R channels only.</span>
@@ -779,6 +809,7 @@
                 Robert Hegemann:
                 <ul>
                     <li>Fix for Bugtracker item <i class="ticket">[ 1719593 ] Track numbers > 255 not allowed even with --id3v2-only</i>
+                    </li>
                     <li>Fix for Bugtracker item <i class="ticket">[ 1742623 ] fail(lame --mp3input -m m -b 128 --resample 8 *.mp3 **.mp3)</i><br>
                         The problem here was, the input files are MPEG-1 Layer2 files named as MP3s. Even if you leave out
                         the --mp3input switch LAME tried to decode the input files as Layer3 files because of the file name
@@ -1657,6 +1688,7 @@
                     <li><span class="quality">improvements to
                         psychoacoustics</span><span class="other">
                         (--nspsytune)</span>
+                    </li>
                     <li><span class="quality">BUG in long block
                         pre echo control fixed </span><span class="other">
                         (some out of range array access in M/S psychoacoustics)</span>
@@ -3335,6 +3367,7 @@
                         </ul>
                     </li>
                 </ul>
+            </li>
             <li>
                 In Progess:
                 <ul>

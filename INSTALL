@@ -87,6 +87,22 @@ Other usefull configure options:
                               the compiler, may or may not produce
                               faster code
 
+  --enable-native             Tune the build for the exact machine it is
+                              compiled on.  May be faster, but the binary
+                              is not guaranteed to run on other CPUs of
+                              the same architecture.
+
+  --disable-hardening         Do not add the compiler/linker security
+                              hardening flags enabled by default (stack and
+                              control-flow protection, fortified library
+                              calls, read-only relocations, ...).
+
+  --disable-dynamic-frontends The front end tools (lame, ...) are linked
+                              dynamically against libmp3lame by default, so
+                              they can be built as position-independent
+                              executables.  Use this to link them statically
+                              into self-contained binaries instead.
+
   --prefix = PATH             default is /usr/local
                               (LAME currently installs:
                                 /usr/local/bin/lame

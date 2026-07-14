@@ -212,13 +212,13 @@ LIB_OPTS = /nologo $(MACHINE)
 
 # release options
 !	IF "$(MSVCVER)" == "Win64"
-CC_OPTS = /nologo /DWin64 /O2b2ity /GAy /Gs1024 /Zp8 /GL /GS- /Zi
+CC_OPTS = /nologo /DWin64 /O2b2ity /GAy /Gs1024 /Zp8 /GL /Zi
 !	ELSEIF "$(MSVCVER)" == "8.0"
 CC_OPTS = /nologo /O2 /Wp64 /Oi /GL /arch:SSE /fp:precise
 !	ELSEif "$(CPU)"=="P6"
 CC_OPTS = /nologo /O2 /Ob2 /GAy /Gs1024 /Zp8 /Zi
 !else
-CC_OPTS = /nologo /O2 /Ob2 /GAy /Gs1024 /QIfdiv /QI0f /YX
+CC_OPTS = /nologo /O2 /Ob2 /GAy /Gs1024
 !	ENDIF
 
 !	IF "$(MSVCVER)" == "6.0"
@@ -239,9 +239,25 @@ CC_OPTS = $(CC_OPTS) /W$(WARN)
 CC_OPTS = $(CC_OPTS) /DFLOAT8=float /DREAL_IS_FLOAT=1
 !	ENDIF
 
-# temporary remove NDEBUG, see configure.in
-#CC_OPTS = $(CC_OPTS) /DNDEBUG /MT
-CC_OPTS = $(CC_OPTS) /MT
+# Release build: compile the consistency assertions out (NDEBUG).
+CC_OPTS = $(CC_OPTS) /DNDEBUG /MT
+
+# Security hardening.  There is no configure step on Windows, so these are
+# hardcoded for current MSVC (Visual Studio 2015 and later).
+#   /guard:cf  Control Flow Guard - integrity checks on indirect calls
+#   /GS        stack buffer-overflow (cookie) detection
+SECURITY_CC_OPTS = /guard:cf /GS
+#   /guard:cf       emit the Control Flow Guard tables into the image
+#   /DYNAMICBASE    address space layout randomization (ASLR)
+#   /NXCOMPAT       data execution prevention (non-executable data)
+SECURITY_LN_OPTS = /guard:cf /DYNAMICBASE /NXCOMPAT
+!	IF "$(MSVCVER)" == "Win64"
+#   /guard:ehcont   exception-handling continuation metadata (x64)
+SECURITY_CC_OPTS = $(SECURITY_CC_OPTS) /guard:ehcont
+#   /CETCOMPAT      compatible with the CET hardware shadow stack (x64)
+#   /HIGHENTROPYVA  64-bit high-entropy ASLR
+SECURITY_LN_OPTS = $(SECURITY_LN_OPTS) /CETCOMPAT /HIGHENTROPYVA
+!	ENDIF
 
 LN_OPTS = /nologo /pdb:none
 LN_DLL = /nologo /DLL
@@ -449,10 +465,10 @@ LN_OPTS = $(LN_OPTS) /LTCG
 
 
 
-CC_SWITCHES = $(CC_OPTS) $(SNDFILE_OPTS) \
+CC_SWITCHES = $(CC_OPTS) $(SECURITY_CC_OPTS) $(SNDFILE_OPTS) \
               $(GTK_OPTS) /DBS_FORMAT=BINARY
 
-LN_SWITCHES = $(LN_OPTS)
+LN_SWITCHES = $(LN_OPTS) $(SECURITY_LN_OPTS)
 
 lame_sources = \
 	frontend/lame_main.c
@@ -666,7 +682,7 @@ $(T_LEGACY_DLL) : target_directory config.h $(DLL_OBJ) lame_enc.res
 	@echo.
 
 $(T_DLL) : target_directory config.h $(T_LIB_STATIC) 
-	@$(LN) $(LN_DLL) $(MACHINE) \
+	@$(LN) $(LN_DLL) $(SECURITY_LN_OPTS) $(MACHINE) \
 		/DEF:"$(srcdir)\include\lame.def" \
 		$(ADDL_OBJ) \
 		$(LN_OUT)"$(TARGET_DIR)$@" \
