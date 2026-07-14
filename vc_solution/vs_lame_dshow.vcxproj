@@ -32,13 +32,13 @@
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="vs2026_win71sdk_config.props" />
-    <Import Project="vs2026_lame_config.props" />
+    <Import Project="vs_win71sdk_config.props" />
+    <Import Project="vs_lame_config.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="vs2026_win71sdk_config.props" />
-    <Import Project="vs2026_lame_config.props" />
+    <Import Project="vs_win71sdk_config.props" />
+    <Import Project="vs_lame_config.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -121,7 +121,7 @@
     <Image Include="..\DShow\elogo.ico" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="vs2026_libmp3lame.vcxproj">
+    <ProjectReference Include="vs_libmp3lame.vcxproj">
       <Project>{20536101-3b0e-43ef-94f9-080d595dac57}</Project>
     </ProjectReference>
   </ItemGroup>

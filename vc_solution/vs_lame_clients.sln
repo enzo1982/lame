@@ -3,19 +3,19 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30225.117
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libmp3lame-static", "vs2026_libmp3lame.vcxproj", "{20536101-3B0E-43EF-94F9-080D595DAC57}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libmp3lame-static", "vs_libmp3lame.vcxproj", "{20536101-3B0E-43EF-94F9-080D595DAC57}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lame_DirectShow", "vs2026_lame_dshow.vcxproj", "{6D348A4E-8B40-4FB0-BB57-C982D51FFA01}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lame_DirectShow", "vs_lame_dshow.vcxproj", "{6D348A4E-8B40-4FB0-BB57-C982D51FFA01}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lame_test", "vs2026_lame_test.vcxproj", "{2FE9808B-2B03-48D9-94FC-6C907D39E2AC}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lame_test", "vs_lame_test.vcxproj", "{2FE9808B-2B03-48D9-94FC-6C907D39E2AC}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tinyxml", "vs2026_lame_acm_tinyxml.vcxproj", "{30219289-3B7F-4E02-BC34-C1DBD08CD848}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tinyxml", "vs_lame_acm_tinyxml.vcxproj", "{30219289-3B7F-4E02-BC34-C1DBD08CD848}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ACM", "ACM", "{4A2EE589-1424-4BD1-994C-1FB52B0CBDA0}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ADbg", "vs2026_lame_acm_adbg.vcxproj", "{0D7CAB1B-AE57-4BA1-BDBF-D7391AAA81AA}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ADbg", "vs_lame_acm_adbg.vcxproj", "{0D7CAB1B-AE57-4BA1-BDBF-D7391AAA81AA}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ACM", "vs2026_lame_acm.vcxproj", "{FC3D65E7-B7CB-406E-B6C9-0B26E30FE7F4}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ACM", "vs_lame_acm.vcxproj", "{FC3D65E7-B7CB-406E-B6C9-0B26E30FE7F4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

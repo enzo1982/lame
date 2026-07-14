@@ -1,5 +1,5 @@
 # Local-only external dependencies for the Visual Studio build.
-# Download/extract these per README.vs2026.txt; they are never committed.
+# Download/extract these per README.vs.txt; they are never committed.
 /mpg123/
 /libsndfile/
 /gtk/

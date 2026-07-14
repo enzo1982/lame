@@ -5,18 +5,18 @@ VisualStudioVersion = 16.0.30225.117
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{92333E74-3F72-4C97-98E0-B62E7CDAC01A}"
 	ProjectSection(SolutionItems) = preProject
-		README.vs2026.txt = README.vs2026.txt
+		README.vs.txt = README.vs.txt
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lame", "vs2026_lame_lame.vcxproj", "{EEF5B49E-DBD1-4E1B-8B86-C5D64FCBAD38}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lame", "vs_lame_lame.vcxproj", "{EEF5B49E-DBD1-4E1B-8B86-C5D64FCBAD38}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libmp3lame-static", "vs2026_libmp3lame.vcxproj", "{20536101-3B0E-43EF-94F9-080D595DAC57}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libmp3lame-static", "vs_libmp3lame.vcxproj", "{20536101-3B0E-43EF-94F9-080D595DAC57}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libmp3lame", "vs2026_libmp3lame_dll.vcxproj", "{92BD50AA-04D6-4FBF-ACE1-468FAF6778F2}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libmp3lame", "vs_libmp3lame_dll.vcxproj", "{92BD50AA-04D6-4FBF-ACE1-468FAF6778F2}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mp3rtp", "vs2026_lame_mp3rtp.vcxproj", "{C04BA4EA-F719-456D-A332-6C3AF92D7BEA}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mp3rtp", "vs_lame_mp3rtp.vcxproj", "{C04BA4EA-F719-456D-A332-6C3AF92D7BEA}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mp3x", "vs2026_lame_mp3x.vcxproj", "{E745EB1A-070A-45ED-B8BD-D9F794E23CFA}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mp3x", "vs_lame_mp3x.vcxproj", "{E745EB1A-070A-45ED-B8BD-D9F794E23CFA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
