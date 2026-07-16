@@ -24,3 +24,5 @@ was written in. Each has a guide of its own:
   so that a change is checked against each of them before it is committed.
 - @ref maintainer_perf - comparing the encoding speed of two builds, and
   telling a real difference from measurement noise.
+- @ref maintainer_quality - scoring what a change did to the encoded audio,
+  for the changes that are meant to alter it.
