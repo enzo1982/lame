@@ -1,8 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <OutDir>$(SolutionDir)..\output\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)..\obj\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <!-- Base directories a build matrix redirects per cell, so that
+         configurations built from one source tree keep their own objects
+         and program databases. -->
+    <OutDirBase Condition="'$(OutDirBase)'==''">$(SolutionDir)..\output\</OutDirBase>
+    <IntDirBase Condition="'$(IntDirBase)'==''">$(SolutionDir)..\obj\</IntDirBase>
+    <OutDir>$(OutDirBase)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(IntDirBase)$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <ItemDefinitionGroup>

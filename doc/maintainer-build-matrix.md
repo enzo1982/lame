@@ -125,8 +125,20 @@ The Windows cells cover:
   nmake cells &mdash; `-Arch` selects the platform for the MSBuild cells only.
 - **MSBuild** (`vc_solution`): the product of `-Config` &times; `-Arch`, with
   the decoder-on flip (`/p:HaveMpg123=true`) generated only when `-Mpg123Dir`
-  is given. Each cell redirects `OutDir`/`IntDir` into its own directory so its
-  binaries and objects stay isolated.
+  is given. Each cell points `OutDirBase`/`IntDirBase` at its own directory, so
+  that cells sharing one source tree keep their binaries and objects apart. The
+  configuration and platform still split the tree below those, which is what
+  lets one cell hold more than one of them.
+
+The solution still carries the `mp3x` analyzer project, but no configuration
+selects it for building: it needs a GTK version no current toolchain ships. It
+is kept so that the analyzer can be modernized from it later, and is loadable
+in the IDE meanwhile.
+
+The decoder-on nmake cell needs an import library beside `mpg123.h`, not just
+the header; the generator says so and skips that one cell when only the header
+is there. The MSBuild projects build their import library from the `.def` file
+the mpg123 binary distribution ships, and so need the header alone.
 
 libsndfile is intentionally **not** part of the Windows matrix.
 

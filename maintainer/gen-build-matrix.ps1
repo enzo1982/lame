@@ -101,8 +101,24 @@ $sln = Get-ChildItem (Join-Path $SrcDir "vc_solution\*.sln") -ErrorAction Silent
 	Where-Object { $_.Name -notmatch 'client' } | Select-Object -First 1 -ExpandProperty FullName
 if (-not $sln) { Fail "No main solution found under vc_solution\." }
 
+# Probe the decoder prerequisites, so that only locally buildable cells are
+# emitted. The MSBuild cell generates the import library from the shipped .def
+# on its own; the nmake build expects it to exist already.
 $mpg123 = ""
-if ($Mpg123Dir) { $mpg123 = (Resolve-Path $Mpg123Dir).Path }
+$mpg123HasLib = $false
+if ($Mpg123Dir) {
+	$mpg123 = (Resolve-Path $Mpg123Dir).Path
+	if (-not (Test-Path (Join-Path $mpg123 "mpg123.h"))) {
+		Write-Warning "no mpg123.h in '$mpg123' - decoder-on cells will be skipped."
+		$mpg123 = ""
+	} else {
+		$mpg123HasLib = Test-Path (Join-Path $mpg123 "libmpg123-0.lib")
+		if (-not $mpg123HasLib) {
+			Write-Warning "no libmpg123-0.lib in '$mpg123' - the nmake decoder cell will be"
+			Write-Warning "skipped. Generate it once with: lib /def:libmpg123-0.def /machine:x86"
+		}
+	}
+}
 
 # --- master directory -------------------------------------------------------
 
@@ -136,8 +152,8 @@ $cells = @()   # each: @{ Name; Cmd }
 $nmakeCommon = "call `"$vcvars`" x86`r`ncd /d `"%~dp0`"`r`nnmake /nologo /f `"$SrcDir\Makefile.MSVC`" srcdir=`"$SrcDir`" ASM=NO SNDFILE=NO"
 
 $cells += @{ Name = "nmake-default"; Cmd = "$nmakeCommon all" }
-if ($mpg123) {
-	$cells += @{ Name = "nmake-mpg123"; Cmd = "$nmakeCommon MPG123=YES MPG123_DIR=`"$mpg123\`" all" }
+if ($mpg123 -and $mpg123HasLib) {
+	$cells += @{ Name = "nmake-mpg123"; Cmd = "$nmakeCommon MPG123=YES MPG123_DIR=`"$mpg123`" all" }
 }
 
 # --- MSBuild cells (Configuration x Platform) -------------------------------
@@ -149,21 +165,23 @@ function To-Platform($a) {
 	return $a
 }
 
-$configs = $Config.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-$archs   = $Arch.Split(",")   | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+# @() keeps a one-element result an array: a bare pipeline yielding a single
+# value returns that value, and indexing a string gives its first character.
+$configs = @($Config.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+$archs   = @($Arch.Split(",")   | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 
 foreach ($c in $configs) {
 	foreach ($a in $archs) {
 		$plat = To-Platform $a
 		$cells += @{ Name = "msbuild-$c-$a"
-			Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$sln`" /nologo /m /t:Rebuild /p:Configuration=$c /p:Platform=$plat /p:OutDir=%~dp0bin\ /p:IntDir=%~dp0obj\" }
+			Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$sln`" /nologo /m /t:Rebuild /p:Configuration=$c /p:Platform=$plat /p:OutDirBase=%~dp0bin\ /p:IntDirBase=%~dp0obj\" }
 	}
 }
 # one decoder-on MSBuild flip on the base config/arch, if mpg123 is available
 if ($mpg123) {
 	$c0 = $configs[0]; $a0 = $archs[0]; $p0 = To-Platform $a0
 	$cells += @{ Name = "msbuild-$c0-$a0-mpg123"
-		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$sln`" /nologo /m /t:Rebuild /p:Configuration=$c0 /p:Platform=$p0 /p:HaveMpg123=true /p:Mpg123Path=`"$mpg123\`" /p:OutDir=%~dp0bin\ /p:IntDir=%~dp0obj\" }
+		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$sln`" /nologo /m /t:Rebuild /p:Configuration=$c0 /p:Platform=$p0 /p:HaveMpg123=true /p:Mpg123Path=`"$mpg123`" /p:OutDirBase=%~dp0bin\ /p:IntDirBase=%~dp0obj\" }
 }
 
 # --- emit cell build.cmd files ----------------------------------------------
