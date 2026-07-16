@@ -1799,8 +1799,30 @@ enum PCMSampleType
 ,   pcm_double_type
 };
 
-static void
-lame_copy_inbuffer(lame_internal_flags* gfc, 
+/*
+ * An IEEE-754 value is NaN or infinite exactly when every exponent bit is set.
+ * The raw bit pattern is inspected rather than the value itself: the encoder is
+ * built with -ffast-math, which permits the compiler to assume that no NaN or
+ * infinity can occur and to fold isfinite()/x!=x down to a constant.
+ */
+static int
+pcm_float_is_finite(float const x)
+{
+    uint32_t u;
+    memcpy(&u, &x, sizeof u);
+    return ((u >> 23) & 0xFFu) != 0xFFu;
+}
+
+static int
+pcm_double_is_finite(double const x)
+{
+    uint64_t u;
+    memcpy(&u, &x, sizeof u);
+    return ((u >> 52) & 0x7FFu) != 0x7FFu;
+}
+
+static int
+lame_copy_inbuffer(lame_internal_flags* gfc,
                    void const* l, void const* r, int nsamples,
                    enum PCMSampleType pcm_type, int jump, FLOAT s)
 {
@@ -1816,39 +1838,56 @@ lame_copy_inbuffer(lame_internal_flags* gfc,
     m[1][0] = s * cfg->pcm_transform[1][0];
     m[1][1] = s * cfg->pcm_transform[1][1];
 
+    /* Integer sample types cannot represent NaN or infinity, so they are taken
+     * as given; only the floating point ones are screened.
+     */
+#define VALIDATE_NONE(sl, sr)
+#define VALIDATE_FLOAT(sl, sr) \
+    if (!pcm_float_is_finite(sl) || !pcm_float_is_finite(sr)) { \
+        return -1; \
+    }
+#define VALIDATE_DOUBLE(sl, sr) \
+    if (!pcm_double_is_finite(sl) || !pcm_double_is_finite(sr)) { \
+        return -1; \
+    }
+
     /* make a copy of input buffer, changing type to sample_t */
-#define COPY_AND_TRANSFORM(T) \
+#define COPY_AND_TRANSFORM(T, VALIDATE) \
 { \
     T const *bl = l, *br = r; \
     int     i; \
     for (i = 0; i < nsamples; i++) { \
-        sample_t const xl = *bl; \
-        sample_t const xr = *br; \
-        sample_t const u = xl * m[0][0] + xr * m[0][1]; \
-        sample_t const v = xl * m[1][0] + xr * m[1][1]; \
-        ib0[i] = u; \
-        ib1[i] = v; \
+        VALIDATE(*bl, *br) \
+        { \
+            sample_t const xl = *bl; \
+            sample_t const xr = *br; \
+            sample_t const u = xl * m[0][0] + xr * m[0][1]; \
+            sample_t const v = xl * m[1][0] + xr * m[1][1]; \
+            ib0[i] = u; \
+            ib1[i] = v; \
+        } \
         bl += jump; \
         br += jump; \
     } \
 }
     switch ( pcm_type ) {
-    case pcm_short_type: 
-        COPY_AND_TRANSFORM(short int);
+    case pcm_short_type:
+        COPY_AND_TRANSFORM(short int, VALIDATE_NONE);
         break;
     case pcm_int_type:
-        COPY_AND_TRANSFORM(int);
+        COPY_AND_TRANSFORM(int, VALIDATE_NONE);
         break;
     case pcm_long_type:
-        COPY_AND_TRANSFORM(long int);
+        COPY_AND_TRANSFORM(long int, VALIDATE_NONE);
         break;
     case pcm_float_type:
-        COPY_AND_TRANSFORM(float);
+        COPY_AND_TRANSFORM(float, VALIDATE_FLOAT);
         break;
     case pcm_double_type:
-        COPY_AND_TRANSFORM(double);
+        COPY_AND_TRANSFORM(double, VALIDATE_DOUBLE);
         break;
     }
+    return 0;
 }
 
 
@@ -1869,17 +1908,26 @@ lame_encode_buffer_template(lame_global_flags * gfp,
                 return -2;
             }
             /* make a copy of input buffer, changing type to sample_t */
-            if (cfg->channels_in > 1) {
-                if (buffer_l == 0 || buffer_r == 0) {
-                    return 0;
+            {
+                int     rc;
+
+                if (cfg->channels_in > 1) {
+                    if (buffer_l == 0 || buffer_r == 0) {
+                        return 0;
+                    }
+                    rc = lame_copy_inbuffer(gfc, buffer_l, buffer_r, nsamples, pcm_type, aa, norm);
+                } else {
+                    if (buffer_l == 0) {
+                        return 0;
+                    }
+                    rc = lame_copy_inbuffer(gfc, buffer_l, buffer_l, nsamples, pcm_type, aa, norm);
                 }
-                lame_copy_inbuffer(gfc, buffer_l, buffer_r, nsamples, pcm_type, aa, norm);
-            }
-            else {
-                if (buffer_l == 0) {
-                    return 0;
+                /* A non-finite sample would spread through the psycho acoustic
+                 * model and turn the whole frame into noise.
+                 */
+                if (rc != 0) {
+                    return LAME_BADINPUTDATA;
                 }
-                lame_copy_inbuffer(gfc, buffer_l, buffer_l, nsamples, pcm_type, aa, norm);
             }
 
             return lame_encode_buffer_sample_t(gfc, nsamples, mp3buf, mp3buf_size);

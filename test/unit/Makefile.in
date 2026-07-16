@@ -96,7 +96,8 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_parse_pathlen$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_merge_argv$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_id3tag$(EXEEXT) \
-@ENABLE_UNIT_TESTS_TRUE@	test_parse_id3$(EXEEXT)
+@ENABLE_UNIT_TESTS_TRUE@	test_parse_id3$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_encode_nonfinite$(EXEEXT)
 subdir = test/unit
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/host-cpu-c-abi.m4 \
@@ -113,19 +114,25 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__test_get_audio_aiff_SOURCES_DIST = test_get_audio_aiff.c \
-	test_stubs.c
-@ENABLE_UNIT_TESTS_TRUE@am_test_get_audio_aiff_OBJECTS = test_get_audio_aiff-test_get_audio_aiff.$(OBJEXT) \
-@ENABLE_UNIT_TESTS_TRUE@	test_get_audio_aiff-test_stubs.$(OBJEXT)
-test_get_audio_aiff_OBJECTS = $(am_test_get_audio_aiff_OBJECTS)
+am__test_encode_nonfinite_SOURCES_DIST = test_encode_nonfinite.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_encode_nonfinite_OBJECTS = test_encode_nonfinite-test_encode_nonfinite.$(OBJEXT)
+test_encode_nonfinite_OBJECTS = $(am_test_encode_nonfinite_OBJECTS)
 am__DEPENDENCIES_1 =
-@ENABLE_UNIT_TESTS_TRUE@test_get_audio_aiff_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@test_encode_nonfinite_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+am__test_get_audio_aiff_SOURCES_DIST = test_get_audio_aiff.c \
+	test_stubs.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_get_audio_aiff_OBJECTS = test_get_audio_aiff-test_get_audio_aiff.$(OBJEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_get_audio_aiff-test_stubs.$(OBJEXT)
+test_get_audio_aiff_OBJECTS = $(am_test_get_audio_aiff_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_get_audio_aiff_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 test_get_audio_aiff_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(AM_CFLAGS) $(CFLAGS) $(test_get_audio_aiff_LDFLAGS) \
@@ -185,6 +192,7 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade =  \
+	./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po \
 	./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po \
 	./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po \
 	./$(DEPDIR)/test_id3tag-test_id3tag.Po \
@@ -214,10 +222,12 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(test_get_audio_aiff_SOURCES) $(test_id3tag_SOURCES) \
+SOURCES = $(test_encode_nonfinite_SOURCES) \
+	$(test_get_audio_aiff_SOURCES) $(test_id3tag_SOURCES) \
 	$(test_merge_argv_SOURCES) $(test_parse_id3_SOURCES) \
 	$(test_parse_pathlen_SOURCES) $(test_sanity_SOURCES)
-DIST_SOURCES = $(am__test_get_audio_aiff_SOURCES_DIST) \
+DIST_SOURCES = $(am__test_encode_nonfinite_SOURCES_DIST) \
+	$(am__test_get_audio_aiff_SOURCES_DIST) \
 	$(am__test_id3tag_SOURCES_DIST) \
 	$(am__test_merge_argv_SOURCES_DIST) \
 	$(am__test_parse_id3_SOURCES_DIST) \
@@ -694,6 +704,18 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
 @ENABLE_UNIT_TESTS_TRUE@	$(LTLIBICONV) -lm
 
+
+# The encoding entry points are public, so this test links libmp3lame and calls
+# them directly - no frontend translation unit compiled in.
+@ENABLE_UNIT_TESTS_TRUE@test_encode_nonfinite_SOURCES = test_encode_nonfinite.c
+@ENABLE_UNIT_TESTS_TRUE@test_encode_nonfinite_CPPFLAGS = $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_encode_nonfinite_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
 all: all-am
 
 .SUFFIXES:
@@ -733,6 +755,10 @@ clean-checkPROGRAMS:
 	$(am__rm_f) $(check_PROGRAMS)
 	test -z "$(EXEEXT)" || $(am__rm_f) $(check_PROGRAMS:$(EXEEXT)=)
 
+test_encode_nonfinite$(EXEEXT): $(test_encode_nonfinite_OBJECTS) $(test_encode_nonfinite_DEPENDENCIES) $(EXTRA_test_encode_nonfinite_DEPENDENCIES) 
+	@rm -f test_encode_nonfinite$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_encode_nonfinite_OBJECTS) $(test_encode_nonfinite_LDADD) $(LIBS)
+
 test_get_audio_aiff$(EXEEXT): $(test_get_audio_aiff_OBJECTS) $(test_get_audio_aiff_DEPENDENCIES) $(EXTRA_test_get_audio_aiff_DEPENDENCIES) 
 	@rm -f test_get_audio_aiff$(EXEEXT)
 	$(AM_V_CCLD)$(test_get_audio_aiff_LINK) $(test_get_audio_aiff_OBJECTS) $(test_get_audio_aiff_LDADD) $(LIBS)
@@ -763,6 +789,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_id3tag-test_id3tag.Po@am__quote@ # am--include-marker
@@ -800,6 +827,20 @@ am--depfiles: $(am__depfiles_remade)
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
+
+test_encode_nonfinite-test_encode_nonfinite.o: test_encode_nonfinite.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_nonfinite_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_encode_nonfinite-test_encode_nonfinite.o -MD -MP -MF $(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Tpo -c -o test_encode_nonfinite-test_encode_nonfinite.o `test -f 'test_encode_nonfinite.c' || echo '$(srcdir)/'`test_encode_nonfinite.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Tpo $(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_encode_nonfinite.c' object='test_encode_nonfinite-test_encode_nonfinite.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_nonfinite_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_encode_nonfinite-test_encode_nonfinite.o `test -f 'test_encode_nonfinite.c' || echo '$(srcdir)/'`test_encode_nonfinite.c
+
+test_encode_nonfinite-test_encode_nonfinite.obj: test_encode_nonfinite.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_nonfinite_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_encode_nonfinite-test_encode_nonfinite.obj -MD -MP -MF $(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Tpo -c -o test_encode_nonfinite-test_encode_nonfinite.obj `if test -f 'test_encode_nonfinite.c'; then $(CYGPATH_W) 'test_encode_nonfinite.c'; else $(CYGPATH_W) '$(srcdir)/test_encode_nonfinite.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Tpo $(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_encode_nonfinite.c' object='test_encode_nonfinite-test_encode_nonfinite.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_nonfinite_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_encode_nonfinite-test_encode_nonfinite.obj `if test -f 'test_encode_nonfinite.c'; then $(CYGPATH_W) 'test_encode_nonfinite.c'; else $(CYGPATH_W) '$(srcdir)/test_encode_nonfinite.c'; fi`
 
 test_get_audio_aiff-test_get_audio_aiff.o: test_get_audio_aiff.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_get_audio_aiff_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_get_audio_aiff-test_get_audio_aiff.o -MD -MP -MF $(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Tpo -c -o test_get_audio_aiff-test_get_audio_aiff.o `test -f 'test_get_audio_aiff.c' || echo '$(srcdir)/'`test_get_audio_aiff.c
@@ -1207,6 +1248,13 @@ test_parse_id3.log: test_parse_id3$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_encode_nonfinite.log: test_encode_nonfinite$(EXEEXT)
+	@p='test_encode_nonfinite$(EXEEXT)'; \
+	b='test_encode_nonfinite'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 .test.log:
 	@p='$<'; \
 	$(am__set_b); \
@@ -1300,6 +1348,7 @@ clean-am: clean-checkPROGRAMS clean-generic clean-libtool \
 	mostlyclean-am
 
 distclean: distclean-am
+	-rm -f ./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_id3tag-test_id3tag.Po
@@ -1355,6 +1404,7 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
+	-rm -f ./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_id3tag-test_id3tag.Po

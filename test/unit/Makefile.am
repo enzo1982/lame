@@ -8,7 +8,7 @@ include $(top_srcdir)/Makefile.am.global
 if ENABLE_UNIT_TESTS
 
 check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv \
-	test_id3tag test_parse_id3
+	test_id3tag test_parse_id3 test_encode_nonfinite
 TESTS = $(check_PROGRAMS)
 
 test_sanity_SOURCES = test_sanity.c
@@ -75,5 +75,15 @@ test_parse_id3_CPPFLAGS = $(CMOCKA_CFLAGS) \
 test_parse_id3_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	$(LTLIBICONV) -lm
+
+# The encoding entry points are public, so this test links libmp3lame and calls
+# them directly - no frontend translation unit compiled in.
+test_encode_nonfinite_SOURCES = test_encode_nonfinite.c
+test_encode_nonfinite_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_encode_nonfinite_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
 
 endif

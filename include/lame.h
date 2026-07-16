@@ -681,38 +681,42 @@ void CDECL lame_print_config(const lame_global_flags*  gfp);
 void CDECL lame_print_internals( const lame_global_flags *gfp);
 
 
-/*
- * input pcm data, output (maybe) mp3 frames.
+/**
+ * Input pcm data, output (maybe) mp3 frames.
  * This routine handles all buffering, resampling and filtering for you.
  *
- * return code     number of bytes output in mp3buf. Can be 0
- *                 -1:  mp3buf was too small
- *                 -2:  malloc() problem
- *                 -3:  lame_init_params() not called
- *                 -4:  psycho acoustic problems
- *
- * The required mp3buf_size can be computed from num_samples,
+ * The required @p mp3buf_size can be computed from @p nsamples,
  * samplerate and encoding rate, but here is a worst case estimate:
  *
- * mp3buf_size in bytes = 1.25*num_samples + 7200
+ *     mp3buf_size in bytes = 1.25*nsamples + 7200
  *
  * I think a tighter bound could be:  (mt, March 2000)
- * MPEG1:
- *    num_samples*(bitrate/8)/samplerate + 4*1152*(bitrate/8)/samplerate + 512
- * MPEG2:
- *    num_samples*(bitrate/8)/samplerate + 4*576*(bitrate/8)/samplerate + 256
+ *
+ *     MPEG1: nsamples*(bitrate/8)/samplerate + 4*1152*(bitrate/8)/samplerate + 512
+ *     MPEG2: nsamples*(bitrate/8)/samplerate + 4*576*(bitrate/8)/samplerate + 256
  *
  * but test first if you use that!
  *
- * set mp3buf_size = 0 and LAME will not check if mp3buf_size is
- * large enough.
+ * @note If the encoder is configured for 2 channels but mono mode, the L & R
+ *       channels are averaged into the L channel before encoding only the L
+ *       channel. This overwrites the data in @p buffer_l and @p buffer_r.
  *
- * NOTE:
- * if gfp->num_channels=2, but gfp->mode = 3 (mono), the L & R channels
- * will be averaged into the L channel before encoding only the L channel
- * This will overwrite the data in buffer_l[] and buffer_r[].
- *
-*/
+ * @param gfp          global context handle.
+ * @param buffer_l     PCM data for the left channel.
+ * @param buffer_r     PCM data for the right channel.
+ * @param nsamples     number of samples per channel.
+ * @param mp3buf       receives the encoded MP3 stream.
+ * @param mp3buf_size  number of valid octets in @p mp3buf. Set it to 0 and
+ *                     LAME will not check whether @p mp3buf is large enough.
+ * @return The number of bytes written to @p mp3buf, which is 0 while the
+ *         encoder is still accumulating a full frame, or a negative value on
+ *         failure:
+ *         @li -1 @p mp3buf was too small.
+ *         @li -2 malloc() problem.
+ *         @li -3 lame_init_params() not called.
+ *         @li -4 psycho acoustic problems.
+ *         @li -6 the ReplayGain analysis of the resampled input failed.
+ */
 int CDECL lame_encode_buffer (
         lame_global_flags*  gfp,           /* global context handle         */
         const short int     buffer_l [],   /* PCM data for left channel     */
@@ -740,9 +744,14 @@ int CDECL lame_encode_buffer_interleaved(
                                               stream                        */
 
 
-/* as lame_encode_buffer, but for 'float's.
+/**
+ * As lame_encode_buffer(), but for 'float's.
+ *
  * !! NOTE: !! data must still be scaled to be in the same range as
  * short int, +/- 32768
+ *
+ * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
+ *         sample is not a finite number, as for lame_encode_buffer_ieee_float().
  */
 int CDECL lame_encode_buffer_float(
         lame_global_flags*  gfp,           /* global context handle         */
@@ -753,8 +762,17 @@ int CDECL lame_encode_buffer_float(
         const int           mp3buf_size ); /* number of valid octets in this
                                               stream                        */
 
-/* as lame_encode_buffer, but for 'float's.
+/**
+ * As lame_encode_buffer(), but for 'float's.
+ *
  * !! NOTE: !! data must be scaled to +/- 1 full scale
+ *
+ * Every sample must be a finite number. A NaN or an infinity has no meaning as
+ * an audio sample and is refused: it would spread through the psycho acoustic
+ * model and turn a whole frame into noise.
+ *
+ * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
+ *         sample is not a finite number. Nothing is encoded in that case.
  */
 int CDECL lame_encode_buffer_ieee_float(
         lame_t          gfp,
@@ -763,6 +781,14 @@ int CDECL lame_encode_buffer_ieee_float(
         const int       nsamples,
         unsigned char * mp3buf,
         const int       mp3buf_size);
+/**
+ * As lame_encode_buffer_ieee_float(), but for interleaved data.
+ *
+ * !! NOTE: !! data must be scaled to +/- 1 full scale
+ *
+ * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
+ *         sample is not a finite number, as for lame_encode_buffer_ieee_float().
+ */
 int CDECL lame_encode_buffer_interleaved_ieee_float(
         lame_t          gfp,
         const float     pcm[],             /* PCM data for left and right
@@ -771,8 +797,13 @@ int CDECL lame_encode_buffer_interleaved_ieee_float(
         unsigned char * mp3buf,
         const int       mp3buf_size);
 
-/* as lame_encode_buffer, but for 'double's.
+/**
+ * As lame_encode_buffer(), but for 'double's.
+ *
  * !! NOTE: !! data must be scaled to +/- 1 full scale
+ *
+ * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
+ *         sample is not a finite number, as for lame_encode_buffer_ieee_float().
  */
 int CDECL lame_encode_buffer_ieee_double(
         lame_t          gfp,
@@ -781,6 +812,14 @@ int CDECL lame_encode_buffer_ieee_double(
         const int       nsamples,
         unsigned char * mp3buf,
         const int       mp3buf_size);
+/**
+ * As lame_encode_buffer_ieee_double(), but for interleaved data.
+ *
+ * !! NOTE: !! data must be scaled to +/- 1 full scale
+ *
+ * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
+ *         sample is not a finite number, as for lame_encode_buffer_ieee_float().
+ */
 int CDECL lame_encode_buffer_interleaved_ieee_double(
         lame_t          gfp,
         const double    pcm[],             /* PCM data for left and right
@@ -1346,6 +1385,9 @@ typedef enum {
     LAME_BADBITRATE       = -11,
     LAME_BADSAMPFREQ      = -12,
     LAME_INTERNALERROR    = -13,
+    /** The data handed to the encoder cannot be encoded, e.g. a PCM sample
+        which is not a finite number. */
+    LAME_BADINPUTDATA     = -14,
 
     FRONTEND_READERROR    = -80,
     FRONTEND_WRITEERROR   = -81,
