@@ -1,4 +1,4 @@
-# Build-configuration test matrix
+# Build-configuration test matrix {#maintainer_build_matrix}
 
 Two generator scripts build LAME in many different configurations at once, so
 that a change can be checked against every configuration it might affect before

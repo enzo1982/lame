@@ -32,7 +32,8 @@ EXTRA_DIST = \
 	testcase.mp3 \
 	testcase.wav \
 	maintainer/gen-build-matrix.sh \
-	maintainer/gen-build-matrix.ps1
+	maintainer/gen-build-matrix.ps1 \
+	maintainer/perf-compare.sh
 
 #
 # The differences depend on the used processor architecture, the used

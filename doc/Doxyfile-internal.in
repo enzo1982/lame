@@ -34,7 +34,8 @@ INPUT                  = @top_srcdir@/include \
                          @top_srcdir@/test/unit \
                          @top_srcdir@/doc/doxygen/internal.md \
                          @top_srcdir@/doc/doxygen/unit_tests.dox \
-                         @top_srcdir@/doc/maintainer-build-matrix.md
+                         @top_srcdir@/doc/maintainer-build-matrix.md \
+                         @top_srcdir@/doc/maintainer-perf.md
 
 # Surface the internals: static functions, otherwise-undocumented entities and
 # @internal-marked notes, plus cross-referenced source and call relations.
