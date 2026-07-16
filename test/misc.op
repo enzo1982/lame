@@ -1,16 +1,25 @@
 --athlower 10
+--athtype 2
+--athonly
+--athshort
 --abr 160 -b 128 -B 192 -F
 -V3 -b 128 -B 192 -F
 --freeformat -b 33
 --freeformat -b 330
+--highpass 0.1
 -k
 --lowpass 12
 --noath
 --noasm mmx --noasm 3dnow --noasm sse
 --noshort
+--short
+--allshort
 --notemp
 --nores
 -p
+--preset standard
+--preset extreme
+--r3mix
 --resample 48000
 --scale 0.8
 -t

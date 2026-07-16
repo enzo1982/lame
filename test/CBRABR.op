@@ -28,6 +28,10 @@
 -b 8 -m s -q 7
 -b 8 -m s -q 8
 -b 8 -m s -q 9
+-b 8 -m f
+-b 8 -m d
+-b 8 -m l
+-b 8 -m r
 --abr 9
 -b 16
 --abr 20
@@ -74,6 +78,10 @@
 --abr 108 -m s -q 7
 --abr 108 -m s -q 8
 --abr 108 -m s -q 9
+--abr 108 -m f
+--abr 108 -m d
+--abr 108 -m l
+--abr 108 -m r
 -b 112
 --abr 120
 -b 128
@@ -116,3 +124,7 @@
 -b 320 -m s -q 7
 -b 320 -m s -q 8
 -b 320 -m s -q 9
+-b 320 -m f
+-b 320 -m d
+-b 320 -m l
+-b 320 -m r

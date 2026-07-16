@@ -24,3 +24,6 @@
 --vbr-new -V0 -h
 --vbr-new -V0 -h -m m
 --vbr-new -V0 -h -m s
+--vbr-old -V9
+--vbr-old -V4
+--vbr-old -V0

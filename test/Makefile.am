@@ -12,6 +12,7 @@ EXTRA_DIST = \
 	cvscheck.sh \
 	CBRABR.op \
 	VBR.op \
+	VBRold.op \
 	misc.op \
 	nores.op \
 	shortCBRABR.op \

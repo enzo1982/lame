@@ -28,6 +28,10 @@
 -V9 -m s -q7
 -V9 -m s -q8
 -V9 -m s -q9
+-V9 -m f
+-V9 -m d
+-V9 -m l
+-V9 -m r
 -V8
 -V7
 -V6
@@ -62,6 +66,10 @@
 -V4 -m s -q7
 -V4 -m s -q8
 -V4 -m s -q9
+-V4 -m f
+-V4 -m d
+-V4 -m l
+-V4 -m r
 -V3
 -V2
 -V1
@@ -95,6 +103,10 @@
 -V0 -m s -q7
 -V0 -m s -q8
 -V0 -m s -q9
+-V0 -m f
+-V0 -m d
+-V0 -m l
+-V0 -m r
 --vbr-new -V9 -q0
 --vbr-new -V9 -q1
 --vbr-new -V9 -q2
