@@ -107,9 +107,6 @@
     <ClInclude Include="..\libmp3lame\vector\lame_intrin.h">
       <Filter>Include</Filter>
     </ClInclude>
-    <ClInclude Include="..\libmp3lame\lameerror.h">
-      <Filter>Include</Filter>
-    </ClInclude>
     <ClInclude Include="..\libmp3lame\machine.h">
       <Filter>Include</Filter>
     </ClInclude>

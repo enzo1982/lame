@@ -268,7 +268,6 @@
     <ClInclude Include="..\libmp3lame\lame-analysis.h" />
     <ClInclude Include="..\libmp3lame\lame_global_flags.h" />
     <ClInclude Include="..\libmp3lame\vector\lame_intrin.h" />
-    <ClInclude Include="..\libmp3lame\lameerror.h" />
     <ClInclude Include="..\libmp3lame\machine.h" />
     <ClInclude Include="..\libmp3lame\newmdct.h" />
     <ClInclude Include="..\libmp3lame\psymodel.h" />
