@@ -12,6 +12,7 @@ SUBDIRS = mpglib libmp3lame frontend Dll doc include misc dshow ACM \
 CLEANFILES = testcase.new.mp3
 
 EXTRA_DIST = \
+	.clang-format \
 	API \
 	DEFINES \
 	HACKING \
