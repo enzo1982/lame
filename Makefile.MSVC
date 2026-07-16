@@ -378,13 +378,17 @@ LN = icl
 
 #__ LIBSNDFILE ________________________________________________________________
 #
-#	uncomment the following if you want LibSndfile for input
-#	It's always a good idea to compile it in!
+#	To read input through libsndfile, pass SNDFILE=YES and point SNDFILE_DIR
+#	at an unpacked libsndfile Windows build, e.g.:
+#	    nmake -f Makefile.MSVC SNDFILE=YES SNDFILE_DIR=.\vc_solution\libsndfile\x64
+#	The folder holds include\sndfile.h and lib\sndfile.lib. The paths below
+#	supply their own separator so SNDFILE_DIR can be quoted against spaces,
+#	exactly as MPG123_DIR below.
 #
 !	IF "$(SNDFILE)" == "YES"
-SNDFILE_OPTS = /DLIBSNDFILE
-LIBSNDFILE = $(SNDFILE_DIR)libsndfile.lib
-!   ENDIF
+SNDFILE_OPTS = /DLIBSNDFILE /I"$(SNDFILE_DIR)\include\."
+LIBSNDFILE = "$(SNDFILE_DIR)\lib\sndfile.lib"
+!	ENDIF
 #________________________________________________________________ LIBSNDFILE __
 
 

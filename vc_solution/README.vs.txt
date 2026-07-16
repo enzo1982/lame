@@ -60,14 +60,13 @@ Note that NASM is only used when selecting the "ReleaseNASM" configuration.
 
 ### libsndfile
 
-LAME can be compiled with the libsndfile library for audio input. Libsndfile
-can be downloaded here:
-http://mega-nerd.com/libsndfile/#Download
+LAME can be compiled with the libsndfile library for audio input. The Windows
+builds are available here:
+https://libsndfile.github.io/libsndfile/
 
-Install the Win32 installer into any folder, or (if available) extract
-pre-release versions (e.g. libsndfile-1.0.29pre1-w32.zip) into any folder.
+Download the win32 or win64 zip archive and extract it into any folder.
 
-Open the file "lame/vc_solution/vs_lame_config.props" and edit the
+Open the file "lame/vc_solution/vs_libsndfile_config.props" and edit the
 following  two user macro parameters:
 
 - The value of `HaveLibsndfile` can be set to false or true, and specifies if

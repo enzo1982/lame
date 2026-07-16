@@ -20,10 +20,10 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories Condition="$(HaveLibsndfile) == 'true'">$(LibsndfilePath)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies Condition="$(HaveLibsndfile) == 'true'">libsndfile-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="$(HaveLibsndfile) == 'true'">sndfile.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command Condition="$(HaveLibsndfile) == 'true'">copy "$(LibsndfilePath)bin\libsndfile-1.dll" "$(OutputPath)"</Command>
+      <Command Condition="$(HaveLibsndfile) == 'true'">copy "$(LibsndfilePath)bin\sndfile.dll" "$(OutputPath)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
 </Project>
