@@ -430,15 +430,20 @@ PGM = $(T_MP3X) $(PGM)
 #	Decoding support uses the external libmpg123 library (the internal
 #	mpglib decoder has been retired). To build with decoding, pass
 #	MPG123=YES and point MPG123_DIR at an unpacked libmpg123 folder
-#	containing mpg123.h and libmpg123-0.lib, ending with a backslash, e.g.:
-#	    nmake -f Makefile.MSVC MPG123=YES MPG123_DIR=.\vc_solution\mpg123\x64\
+#	containing mpg123.h and libmpg123-0.lib, e.g.:
+#	    nmake -f Makefile.MSVC MPG123=YES MPG123_DIR=.\vc_solution\mpg123\x64
 #	The mpg123.de binary distribution ships a .def instead of an import
 #	library; generate the .lib once with:
 #	    lib /def:libmpg123-0.def /machine:x64 /out:libmpg123-0.lib
 #
+#	The paths below supply their own separator, so that MPG123_DIR can be
+#	quoted against spaces: a directory quoted with a trailing backslash
+#	would escape the closing quote. A trailing backslash is still accepted,
+#	it only doubles the separator.
+#
 !	IF "$(MPG123)" == "YES"
-CPP_OPTS = $(CPP_OPTS) /DHAVE_MPG123 -I"$(MPG123_DIR)"
-MPG123_LIB = "$(MPG123_DIR)libmpg123-0.lib"
+CPP_OPTS = $(CPP_OPTS) /DHAVE_MPG123 -I"$(MPG123_DIR)\."
+MPG123_LIB = "$(MPG123_DIR)\libmpg123-0.lib"
 !	ENDIF
 #___________________________________________________________ mpg123 DECODING __
 
