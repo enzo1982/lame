@@ -118,9 +118,17 @@ few still available ports to Windows is "GTK1 for Windows", which can be used
 to compile mp3x. You can download version 1.4 here:
 https://sourceforge.net/projects/gtk1-win/
 
-Extract the zip archive in any folder. Open the file
-"lame/vc_solution/vs_gtk_config.props" and edit the `WinGtkPath` in the
-first few lines of the file, ending the path with a backslash.
+Extract the zip archive in any folder; it holds a `gtk` folder with the `gdk`,
+`glib` and `gtk` subfolders inside. Open the file
+"lame/vc_solution/vs_gtk_config.props" and edit the following two user macro
+parameters:
+
+- The value of `HaveGtk` can be set to false or true, and specifies whether
+  GTK1 is available and mp3x can be built. mp3x is not selected for building in
+  the solution by default, since it needs this download.
+- `WinGtkPath` specifies the path to the folder that contains the `gtk` folder,
+  ending the path with a backslash. The default is `.\WinGtk\`, so extracting
+  the archive into "vc_solution\WinGtk\" needs no change.
 
 As described above, you can also use the Property Manager view to change the
 values.

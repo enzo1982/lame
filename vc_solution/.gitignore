@@ -2,4 +2,4 @@
 # Download/extract these per README.vs.txt; they are never committed.
 /mpg123/
 /libsndfile/
-/gtk/
+/WinGtk/

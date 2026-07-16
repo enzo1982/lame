@@ -1,26 +1,31 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="UserMacros">
+    <!-- GTK1 for the mp3x analyzer; set HaveGtk to true and adjust the path,
+         ending with a backslash. WinGtkPath holds the gtk1-win tree: a gtk
+         folder with gdk, glib and gtk inside. -->
+    <HaveGtk>false</HaveGtk>
     <WinGtkPath>./WinGtk/</WinGtkPath>
   </PropertyGroup>
-  <PropertyGroup>
-  </PropertyGroup>
   <ItemGroup>
+    <BuildMacro Include="HaveGtk">
+      <Value>$(HaveGtk)</Value>
+    </BuildMacro>
     <BuildMacro Include="WinGtkPath">
       <Value>$(WinGtkPath)</Value>
     </BuildMacro>
   </ItemGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(WinGtkPath)gtk;$(WinGtkPath)gtk\glib;$(WinGtkPath)gtk\gdk;$(WinGtkPath)gtk\glib\glib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="$(HaveGtk) == 'true'">$(WinGtkPath)gtk;$(WinGtkPath)gtk\glib;$(WinGtkPath)gtk\gdk;$(WinGtkPath)gtk\glib\glib;$(WinGtkPath)gtk\build\vcpp\glib;$(WinGtkPath)gtk\build\vcpp\gdk</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <!-- Deliberately only use the Debug version of gtk1-win, since the release libs have some missing symbols -->
-      <AdditionalLibraryDirectories>$(WinGtkPath)gtk\build\vcpp\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>gdk.lib;gtk.lib;glib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories Condition="$(HaveGtk) == 'true'">$(WinGtkPath)gtk\build\vcpp\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies Condition="$(HaveGtk) == 'true'">gdk.lib;gtk.lib;glib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /y "$(WinGtkPath)gtk\build\vcpp\Debug\*.dll" "$(OutputPath)"</Command>
+      <Command Condition="$(HaveGtk) == 'true'">xcopy /y "$(WinGtkPath)gtk\build\vcpp\Debug\*.dll" "$(OutputPath)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
 </Project>

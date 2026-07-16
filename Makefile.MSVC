@@ -400,24 +400,20 @@ CPP_OPTS = /DHAVE_CONFIG_H -I.
 
 #__ FRAME ANALYZER SUPPORT ____________________________________________________
 #
-#	Assuming you have "glib-dev" and "gtk+-dev" installed and the system
-#	DLLs "glib-1.3.dll", "gdk-1.3.dll" and "gtk-1.3.dll" copied into the
-#	"Win\System" folder
-#
-#	To compile in the frame analyzer support, you need the above mentioned
-#	libraries. You can pass the appropriate path to them in GTK_DIRS.
+#	The mp3x frame analyzer needs GTK1. Point GTK_DIR at the gtk folder of an
+#	unpacked gtk1-win tree (https://sourceforge.net/projects/gtk1-win/), e.g.:
+#	    nmake -f Makefile.MSVC GTK=YES GTK_DIR=.\vc_solution\WinGtk\gtk
+#	Only the Debug import libraries are usable; the release ones are missing
+#	symbols. The paths supply their own separator so GTK_DIR can be quoted
+#	against spaces, as MPG123_DIR does below.
 #
 !	IF "$(GTK)" == "YES"
-!	IF "$(GTK_DIRS)" == ""
-GTK_DIRS = ../3rdparty
-!	ENDIF
-GTK_OPTS = -I$(GTK_DIRS)/glib     \
-           -I$(GTK_DIRS)/gtk+     \
-           -I$(GTK_DIRS)/gtk+/gtk \
-           -I$(GTK_DIRS)/gtk+/gdk
-GTK_LIBS = $(GTK_DIRS)/gtk+/gtk/gtk-1.3.lib \
-           $(GTK_DIRS)/gtk+/gdk/gdk-1.3.lib \
-           $(GTK_DIRS)/glib/glib-1.3.lib
+GTK_OPTS = -I"$(GTK_DIR)\." -I"$(GTK_DIR)\glib\." -I"$(GTK_DIR)\gdk\." \
+           -I"$(GTK_DIR)\glib\glib\." -I"$(GTK_DIR)\build\vcpp\glib\." \
+           -I"$(GTK_DIR)\build\vcpp\gdk\."
+GTK_LIBS = "$(GTK_DIR)\build\vcpp\Debug\gtk.lib" \
+           "$(GTK_DIR)\build\vcpp\Debug\gdk.lib" \
+           "$(GTK_DIR)\build\vcpp\Debug\glib.lib"
 
 PGM = $(T_MP3X) $(PGM)
 !	ELSE
@@ -474,8 +470,7 @@ LN_OPTS = $(LN_OPTS) /LTCG
 
 
 
-CC_SWITCHES = $(CC_OPTS) $(SECURITY_CC_OPTS) $(SNDFILE_OPTS) \
-              $(GTK_OPTS) /DBS_FORMAT=BINARY
+CC_SWITCHES = $(CC_OPTS) $(SECURITY_CC_OPTS) $(SNDFILE_OPTS) /DBS_FORMAT=BINARY
 
 LN_SWITCHES = $(LN_OPTS) $(SECURITY_LN_OPTS)
 
@@ -537,7 +532,9 @@ MPX_OBJ = $(mpx_sources:.c=.obj)
 MPRTP_OBJ = $(mp3rtp_sources:.c=.obj)
 DLL_OBJ = $(dll_sources:.c=.obj)
 
-INCLUDES = -I. -I$(srcdir) -I$(srcdir)/include -I$(srcdir)/libmp3lame -I$(srcdir)/mpglib
+# GTK1 comes last: gtk1-win ships like-named headers (version.h, config.h),
+# so LAME's own must be found first.
+INCLUDES = -I. -I$(srcdir) -I$(srcdir)/include -I$(srcdir)/libmp3lame -I$(srcdir)/mpglib $(GTK_OPTS)
 
 #	One path-mapped rule per source subdirectory: sources are read from
 #	$(srcdir)\<sub>\ and the objects are written into .\<sub>\ (the build
@@ -666,7 +663,7 @@ $(T_LAME) : target_directory config.h $(T_LIB_STATIC) common $(LAME_OBJ) lame.re
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
 
-$(T_MP3X) : target_directory config.h lib common $(MPX_OBJ) mp3x.res
+$(T_MP3X) : target_directory config.h $(T_LIB_STATIC) common $(MPX_OBJ) mp3x.res
 	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(GTK_LIBS) $(LIBSNDFILE) $(MPG123_LIB) \
 	       $(TARGET_DIR)$(T_LIB_STATIC) $(CMMN_OBJ) $(MPX_OBJ) $(ADDL_OBJ) \
 	       ./frontend/mp3x.res
@@ -674,7 +671,7 @@ $(T_MP3X) : target_directory config.h lib common $(MPX_OBJ) mp3x.res
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
 
-$(T_MP3RTP) : target_directory config.h lib common $(MPRTP_OBJ) mp3rtp.res
+$(T_MP3RTP) : target_directory config.h $(T_LIB_STATIC) common $(MPRTP_OBJ) mp3rtp.res
 	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(LIBSNDFILE) $(MPG123_LIB) \
 	       $(TARGET_DIR)$(T_LIB_STATIC) $(CMMN_OBJ) $(MPRTP_OBJ) $(ADDL_OBJ) \
 	       ./frontend/mp3rtp.res wsock32.lib
