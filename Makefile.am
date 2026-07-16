@@ -33,6 +33,7 @@ EXTRA_DIST = \
 	testcase.wav \
 	maintainer/gen-build-matrix.sh \
 	maintainer/gen-build-matrix.ps1 \
+	maintainer/setup-windows-deps.ps1 \
 	maintainer/perf-compare.sh \
 	maintainer/setup-quality-corpus.sh \
 	maintainer/quality-compare.py

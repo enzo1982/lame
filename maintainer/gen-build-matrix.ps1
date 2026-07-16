@@ -19,8 +19,10 @@
   Visual Studio is located without an exhaustive disk crawl: -VsPath, else
   vswhere.exe, else an already-initialized developer environment.
 
-  libsndfile is intentionally not part of the Windows matrix. The decoder-on
-  cells are generated only when -Mpg123Dir is supplied.
+  The optional libraries (mpg123, libsndfile, GTK1) each add a cell when they
+  are present. They are looked for under vc_solution (where
+  setup-windows-deps.ps1 lays them out), or wherever a -<name>Dir override
+  points; a missing one just drops its cell.
 
   See doc\maintainer-build-matrix.md for prerequisites and the POSIX
   counterpart (gen-build-matrix.sh).
@@ -32,8 +34,14 @@
 .PARAMETER VsPath
   Visual Studio installation to use (overrides autodetection).
 .PARAMETER Mpg123Dir
-  Folder with mpg123.h and libmpg123-0.lib (ending backslash optional);
-  enables the decoder-on cells.
+  mpg123 folder with mpg123.h and libmpg123-0.lib, overriding the default
+  vc_solution\mpg123\Win32; enables the decoder-on cells.
+.PARAMETER LibsndfileDir
+  libsndfile folder with lib\sndfile.lib, overriding the default
+  vc_solution\libsndfile\Win32; enables the libsndfile cells.
+.PARAMETER GtkDir
+  gtk1-win gtk folder with build\vcpp\Debug\gtk.lib, overriding the default
+  vc_solution\WinGtk\gtk; enables the mp3x analyzer cells.
 .PARAMETER Config
   MSBuild configurations, comma-separated (default "Release,Debug").
 .PARAMETER Arch
@@ -41,12 +49,14 @@
 #>
 [CmdletBinding()]
 param(
-	[string]$Dir       = ".\build-matrix",
+	[string]$Dir           = ".\build-matrix",
 	[string]$SrcDir,
 	[string]$VsPath,
 	[string]$Mpg123Dir,
-	[string]$Config    = "Release,Debug",
-	[string]$Arch      = "x64"
+	[string]$LibsndfileDir,
+	[string]$GtkDir,
+	[string]$Config        = "Release,Debug",
+	[string]$Arch          = "x64"
 )
 
 $ErrorActionPreference = "Stop"
@@ -96,29 +106,40 @@ if (-not (Test-Path $msbuild)) {
 }
 if (-not $msbuild) { Fail "MSBuild.exe not found under '$vs'." }
 
-# main solution (rename-robust: the vc_solution .sln that is not the clients one)
-$sln = Get-ChildItem (Join-Path $SrcDir "vc_solution\*.sln") -ErrorAction SilentlyContinue |
+# main solution: the vc_solution solution that is not the clients one. The glob
+# matches both the .sln and the newer .slnx so either form is found.
+$sln = Get-ChildItem (Join-Path $SrcDir "vc_solution\*.sln*") -ErrorAction SilentlyContinue |
 	Where-Object { $_.Name -notmatch 'client' } | Select-Object -First 1 -ExpandProperty FullName
 if (-not $sln) { Fail "No main solution found under vc_solution\." }
 
-# Probe the decoder prerequisites, so that only locally buildable cells are
-# emitted. The MSBuild cell generates the import library from the shipped .def
-# on its own; the nmake build expects it to exist already.
-$mpg123 = ""
-$mpg123HasLib = $false
-if ($Mpg123Dir) {
-	$mpg123 = (Resolve-Path $Mpg123Dir).Path
-	if (-not (Test-Path (Join-Path $mpg123 "mpg123.h"))) {
-		Write-Warning "no mpg123.h in '$mpg123' - decoder-on cells will be skipped."
-		$mpg123 = ""
-	} else {
-		$mpg123HasLib = Test-Path (Join-Path $mpg123 "libmpg123-0.lib")
-		if (-not $mpg123HasLib) {
-			Write-Warning "no libmpg123-0.lib in '$mpg123' - the nmake decoder cell will be"
-			Write-Warning "skipped. Generate it once with: lib /def:libmpg123-0.def /machine:x86"
-		}
-	}
+# the mp3x analyzer project, built on its own because the solution leaves it
+# unselected (it needs GTK1, which is not shipped)
+$mp3x = Join-Path $SrcDir "vc_solution\vs_lame_mp3x.vcxproj"
+
+# Probe the optional libraries, so that only locally buildable cells are
+# emitted. Each is taken from its -<name>Dir override, or the conventional
+# vc_solution location setup-windows-deps.ps1 lays it out in. The nmake build is
+# 32-bit, so it uses each library's Win32 build. A returned path means "present
+# and usable"; empty means the cell is skipped.
+$vcsol = Join-Path $SrcDir "vc_solution"
+function Probe-Dep($override, $default, $marker) {
+	$dir = if ($override) { $override } else { $default }
+	if ($dir -and (Test-Path (Join-Path $dir $marker))) { return (Resolve-Path $dir).Path }
+	return ""
 }
+
+# mpg123: the MSBuild cell generates the import library from the shipped .def on
+# its own and so needs only the header; the nmake build expects the .lib to
+# exist already.
+$mpg123 = Probe-Dep $Mpg123Dir (Join-Path $vcsol "mpg123\Win32") "mpg123.h"
+$mpg123HasLib = $mpg123 -and (Test-Path (Join-Path $mpg123 "libmpg123-0.lib"))
+if ($mpg123 -and -not $mpg123HasLib) {
+	Write-Warning "no libmpg123-0.lib in '$mpg123' - the nmake decoder cell will be"
+	Write-Warning "skipped. Generate it once with: lib /def:libmpg123-0.def /machine:x86"
+}
+
+$sndfile = Probe-Dep $LibsndfileDir (Join-Path $vcsol "libsndfile\Win32") "lib\sndfile.lib"
+$gtk     = Probe-Dep $GtkDir        (Join-Path $vcsol "WinGtk\gtk")       "build\vcpp\Debug\gtk.lib"
 
 # --- master directory -------------------------------------------------------
 
@@ -134,7 +155,9 @@ $info = Join-Path $master "matrix-info.txt"
 	"vs       = $vs"
 	"msbuild  = $msbuild"
 	"solution = $sln"
-	"mpg123   = $(if ($mpg123) { $mpg123 } else { '(none - decoder-on cells skipped)' })"
+	"mpg123     = $(if ($mpg123) { $mpg123 } else { '(none - decoder cells skipped)' })"
+	"libsndfile = $(if ($sndfile) { $sndfile } else { '(none - libsndfile cells skipped)' })"
+	"gtk1       = $(if ($gtk) { $gtk } else { '(none - mp3x cells skipped)' })"
 	"config   = $Config"
 	"arch     = $Arch"
 	"cells:"
@@ -149,11 +172,19 @@ $cells = @()   # each: @{ Name; Cmd }
 # cells only. A 64-bit nmake build would need Makefile.MSVC to learn a target
 # platform of its own.
 
-$nmakeCommon = "call `"$vcvars`" x86`r`ncd /d `"%~dp0`"`r`nnmake /nologo /f `"$SrcDir\Makefile.MSVC`" srcdir=`"$SrcDir`" ASM=NO SNDFILE=NO"
+$nmakeCommon = "call `"$vcvars`" x86`r`ncd /d `"%~dp0`"`r`nnmake /nologo /f `"$SrcDir\Makefile.MSVC`" srcdir=`"$SrcDir`" ASM=NO"
 
-$cells += @{ Name = "nmake-default"; Cmd = "$nmakeCommon all" }
+$cells += @{ Name = "nmake-default"; Cmd = "$nmakeCommon SNDFILE=NO all" }
 if ($mpg123 -and $mpg123HasLib) {
-	$cells += @{ Name = "nmake-mpg123"; Cmd = "$nmakeCommon MPG123=YES MPG123_DIR=`"$mpg123`" all" }
+	$cells += @{ Name = "nmake-mpg123"; Cmd = "$nmakeCommon SNDFILE=NO MPG123=YES MPG123_DIR=`"$mpg123`" all" }
+}
+if ($sndfile) {
+	$cells += @{ Name = "nmake-sndfile"; Cmd = "$nmakeCommon SNDFILE=YES SNDFILE_DIR=`"$sndfile`" all" }
+}
+if ($gtk) {
+	# The analyzer is 32-bit and unselected in the solution, so nmake builds it
+	# through its own target with GTK enabled.
+	$cells += @{ Name = "nmake-mp3x"; Cmd = "$nmakeCommon SNDFILE=NO GTK=YES GTK_DIR=`"$gtk`" mp3x" }
 }
 
 # --- MSBuild cells (Configuration x Platform) -------------------------------
@@ -177,11 +208,26 @@ foreach ($c in $configs) {
 			Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$sln`" /nologo /m /t:Rebuild /p:Configuration=$c /p:Platform=$plat /p:OutDirBase=%~dp0bin\ /p:IntDirBase=%~dp0obj\" }
 	}
 }
-# one decoder-on MSBuild flip on the base config/arch, if mpg123 is available
+# Optional-library MSBuild flips on the base config/arch. The .props files find
+# each library per platform under vc_solution on their own, so these only flip
+# the switch on; a matching library must be laid out for the base platform.
+$c0 = $configs[0]; $a0 = $archs[0]; $p0 = To-Platform $a0
+$msbBase = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$sln`" /nologo /m /t:Rebuild /p:Configuration=$c0 /p:Platform=$p0"
+$msbDirs = "/p:OutDirBase=%~dp0bin\ /p:IntDirBase=%~dp0obj\"
+
 if ($mpg123) {
-	$c0 = $configs[0]; $a0 = $archs[0]; $p0 = To-Platform $a0
 	$cells += @{ Name = "msbuild-$c0-$a0-mpg123"
-		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$sln`" /nologo /m /t:Rebuild /p:Configuration=$c0 /p:Platform=$p0 /p:HaveMpg123=true /p:Mpg123Path=`"$mpg123`" /p:OutDirBase=%~dp0bin\ /p:IntDirBase=%~dp0obj\" }
+		Cmd = "$msbBase /p:HaveMpg123=true /p:Mpg123Path=`"$mpg123`" $msbDirs" }
+}
+if (Test-Path (Join-Path $vcsol "libsndfile\$p0\lib\sndfile.lib")) {
+	$cells += @{ Name = "msbuild-$c0-$a0-sndfile"
+		Cmd = "$msbBase /p:HaveLibsndfile=true $msbDirs" }
+}
+if ($gtk) {
+	# The analyzer builds Win32 only and is not in the solution, so build its
+	# project directly with GTK enabled.
+	$cells += @{ Name = "msbuild-Release-Win32-mp3x"
+		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$mp3x`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 /p:HaveGtk=true $msbDirs" }
 }
 
 # --- emit cell build.cmd files ----------------------------------------------
@@ -243,9 +289,14 @@ exit 0
 Write-Host "Generated $($cells.Count) build cell(s) under: $master"
 Write-Host "Driver: $driver"
 Write-Host "Matrix info: $info"
-if (-not $mpg123) {
+$absent = @()
+if (-not $mpg123) { $absent += "mpg123 (decoder)" }
+if (-not $sndfile) { $absent += "libsndfile" }
+if (-not $gtk)     { $absent += "GTK1 (mp3x analyzer)" }
+if ($absent.Count -gt 0) {
 	Write-Host ""
-	Write-Host "NOTE: -Mpg123Dir not given - decoder-on cells were skipped."
+	Write-Host "NOTE: not found, cells skipped: $($absent -join ', ')."
+	Write-Host "      Lay them out with setup-windows-deps.ps1 or pass -<name>Dir."
 }
 Write-Host ""
 Write-Host "To run the matrix:"

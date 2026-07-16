@@ -116,31 +116,36 @@ to point it at the toolchain.
 
 The Windows cells cover:
 
-- **nmake** (`Makefile.MSVC`): a default build (decoder off), and a decoder-on
-  build (`MPG123=YES MPG123_DIR=...`) that is generated only when `-Mpg123Dir`
-  is given. These build **out-of-tree** inside the cell directory:
-  `Makefile.MSVC` accepts `srcdir=<path>` and writes all intermediates into the
-  build directory, so nothing lands in the source tree. This is the 32-bit
-  build (`Makefile.MSVC`'s native target), so `-Arch` does not apply to the
-  nmake cells &mdash; `-Arch` selects the platform for the MSBuild cells only.
-- **MSBuild** (`vc_solution`): the product of `-Config` &times; `-Arch`, with
-  the decoder-on flip (`/p:HaveMpg123=true`) generated only when `-Mpg123Dir`
-  is given. Each cell points `OutDirBase`/`IntDirBase` at its own directory, so
-  that cells sharing one source tree keep their binaries and objects apart. The
-  configuration and platform still split the tree below those, which is what
-  lets one cell hold more than one of them.
+- **nmake** (`Makefile.MSVC`): a default build, plus one build per optional
+  library that is present &mdash; the decoder (`MPG123=YES`), libsndfile
+  (`SNDFILE=YES`), and the mp3x analyzer (`GTK=YES`). These build
+  **out-of-tree** inside the cell directory: `Makefile.MSVC` accepts
+  `srcdir=<path>` and writes all intermediates into the build directory, so
+  nothing lands in the source tree. This is the 32-bit build (`Makefile.MSVC`'s
+  native target), so `-Arch` does not apply to the nmake cells &mdash; `-Arch`
+  selects the platform for the MSBuild cells only.
+- **MSBuild** (`vc_solution`): the product of `-Config` &times; `-Arch`, plus a
+  base-configuration flip for each optional library that is present
+  (`/p:HaveMpg123=true`, `/p:HaveLibsndfile=true`, and the mp3x project with
+  `/p:HaveGtk=true`). Each cell points `OutDirBase`/`IntDirBase` at its own
+  directory, so that cells sharing one source tree keep their binaries and
+  objects apart. The configuration and platform still split the tree below
+  those, which is what lets one cell hold more than one of them.
 
-The solution still carries the `mp3x` analyzer project, but no configuration
-selects it for building: it needs a GTK version no current toolchain ships. It
-is kept so that the analyzer can be modernized from it later, and is loadable
-in the IDE meanwhile.
+The optional libraries are looked for under `vc_solution` where
+`setup-windows-deps.ps1` lays them out, or wherever a `-Mpg123Dir` /
+`-LibsndfileDir` / `-GtkDir` override points. A library that is not present
+simply drops its cells, so the matrix runs with whatever is installed.
+
+The solution carries the `mp3x` analyzer project but leaves it unselected,
+since it needs GTK1, which LAME does not ship. When a GTK1 build is present the
+generator builds the project on its own (Win32 only) rather than through the
+solution, so the analyzer is exercised without being forced on everyone else.
 
 The decoder-on nmake cell needs an import library beside `mpg123.h`, not just
 the header; the generator says so and skips that one cell when only the header
 is there. The MSBuild projects build their import library from the `.def` file
 the mpg123 binary distribution ships, and so need the header alone.
-
-libsndfile is intentionally **not** part of the Windows matrix.
 
 ## Prerequisites
 
@@ -168,8 +173,10 @@ pacman -S --needed mingw-w64-ucrt-x86_64-toolchain \
 **Windows (native)**
 
 Visual Studio (any edition, incl. Build Tools) with the "Desktop development
-with C++" workload. For the decoder-on cells, an unpacked libmpg123 with
-`mpg123.h` and an import library; pass its folder via `-Mpg123Dir`.
+with C++" workload. The optional-library cells each need their library laid out
+under `vc_solution`; `setup-windows-deps.ps1` does that from archives you have
+downloaded (see `vc_solution\README.vs.txt` for where to get each). Libraries
+that are absent simply drop their cells.
 
 ## Using it to validate a patchset
 
