@@ -923,13 +923,6 @@ lame_init_params(lame_global_flags * gfp)
         else {
             gfp->brate = FindNearestBitrate(gfp->brate, cfg->version, cfg->samplerate_out);
             gfc->ov_enc.bitrate_index = BitrateIndex(gfp->brate, cfg->version, cfg->samplerate_out);
-            if (gfc->ov_enc.bitrate_index <= 0) {
-                /* This never happens, because of preceding FindNearestBitrate!
-                 * But, set a sane value, just in case
-                 */
-                assert(0);
-                gfc->ov_enc.bitrate_index = 8;
-            }
         }
     }
     else {
@@ -1085,26 +1078,12 @@ lame_init_params(lame_global_flags * gfp)
                 FindNearestBitrate(gfp->VBR_min_bitrate_kbps, cfg->version, cfg->samplerate_out);
             cfg->vbr_min_bitrate_index =
                 BitrateIndex(gfp->VBR_min_bitrate_kbps, cfg->version, cfg->samplerate_out);
-            if (cfg->vbr_min_bitrate_index < 0) {
-                /* This never happens, because of preceding FindNearestBitrate!
-                 * But, set a sane value, just in case
-                 */
-                assert(0);
-                cfg->vbr_min_bitrate_index = 1;
-            }
         }
         if (gfp->VBR_max_bitrate_kbps) {
             gfp->VBR_max_bitrate_kbps =
                 FindNearestBitrate(gfp->VBR_max_bitrate_kbps, cfg->version, cfg->samplerate_out);
             cfg->vbr_max_bitrate_index =
                 BitrateIndex(gfp->VBR_max_bitrate_kbps, cfg->version, cfg->samplerate_out);
-            if (cfg->vbr_max_bitrate_index < 0) {
-                /* This never happens, because of preceding FindNearestBitrate!
-                 * But, set a sane value, just in case
-                 */
-                assert(0);
-                cfg->vbr_max_bitrate_index = cfg->samplerate_out < 16000 ? 8 : 14;
-            }
         }
         gfp->VBR_min_bitrate_kbps = bitrate_table[cfg->version][cfg->vbr_min_bitrate_index];
         gfp->VBR_max_bitrate_kbps = bitrate_table[cfg->version][cfg->vbr_max_bitrate_index];
