@@ -1,0 +1,30 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="Release" />
+    <BuildType Name="ReleaseNASM" />
+    <BuildType Name="ReleaseSSE2" />
+    <Platform Name="Win32" />
+    <Platform Name="x64" />
+  </Configurations>
+  <Folder Name="/Solution Items/">
+    <File Path="README.vs.txt" />
+  </Folder>
+  <Project Path="vs_lame_lame.vcxproj">
+    <Build Solution="ReleaseNASM|x64" Project="false" />
+  </Project>
+  <Project Path="vs_lame_mp3rtp.vcxproj">
+    <Platform Project="Win32" />
+    <Build Solution="*|x64" Project="false" />
+  </Project>
+  <Project Path="vs_lame_mp3x.vcxproj">
+    <Platform Project="Win32" />
+    <Build Project="false" />
+  </Project>
+  <Project Path="vs_libmp3lame.vcxproj">
+    <Build Solution="ReleaseNASM|x64" Project="false" />
+  </Project>
+  <Project Path="vs_libmp3lame_dll.vcxproj">
+    <Build Solution="ReleaseNASM|x64" Project="false" />
+  </Project>
+</Solution>

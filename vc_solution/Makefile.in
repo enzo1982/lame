@@ -301,7 +301,7 @@ EXTRA_DIST = \
 	vs_lame_acm_tinyxml.vcxproj \
 	vs_lame_acm.vcxproj \
 	vs_lame_acm.vcxproj.filters \
-	vs_lame_clients.sln \
+	vs_lame_clients.slnx \
 	vs_lame_config.props \
 	vs_lame_dshow.vcxproj \
 	vs_lame_dshow.vcxproj.filters \
@@ -314,7 +314,7 @@ EXTRA_DIST = \
 	vs_lame_mp3x.vcxproj \
 	vs_lame_mp3x.vcxproj.filters \
 	vs_lame_test.vcxproj \
-	vs_lame.sln \
+	vs_lame.slnx \
 	vs_libmp3lame_dll.vcxproj \
 	vs_libmp3lame.vcxproj \
 	vs_libmp3lame.vcxproj.filters \

@@ -1,15 +1,16 @@
-# README for compiling LAME with Visual Studio 2026
+# README for compiling LAME with Visual Studio
 
-This document describes how to compile the LAME projects using Visual Studio
-2026. Any edition will do, even the free Community edition. Be sure to install
-the "Desktop development with C++" workload. Older Visual Studio versions can
-open these projects too; let the IDE retarget them to an installed toolset if
-prompted.
+This document describes how to compile the LAME projects using Visual Studio.
+Any edition will do, even the free Community edition. Be sure to install the
+"Desktop development with C++" workload. The solutions use the .slnx format,
+which Visual Studio 2022 17.14 (or the 17.13 Build Tools) and later understand;
+the project files still open in older Visual Studio, which retargets them to an
+installed toolset if prompted.
 
 ## Projects
 
 There are two solution files in the "lame/vc_solution" folder that can be
-opened. The solution "vs_lame.sln" contains the following projects:
+opened. The solution "vs_lame.slnx" contains the following projects:
 
 - lame: The lame.exe command line executable
 - libmp3lame: The dynamic library libmp3lame.dll
@@ -17,7 +18,7 @@ opened. The solution "vs_lame.sln" contains the following projects:
 - mp3rtp: command line tool to stream mp3 via RTP protocol
 - mp3x: mp3 frame analyzer tool using GTK1 (see below)
 
-The solution "vs_lame_clients.sln" contains several more projects:
+The solution "vs_lame_clients.slnx" contains several more projects:
 
 - ACM, ADbg, tinyxml: Ancient Windows "Audio Codec Manager"
 - lame_DirectShow: DirectShow filter
@@ -31,7 +32,7 @@ compile different flavors of LAME libraries and executables:
 - ReleaseNASM: Uses NASM (see below) to compile some routines using NASM
 - ReleaseSSE2: Uses SSE2 assembler instructions to optimize routines
 
-The vs_lame.sln solution has both Win32 and x64 platforms configured, in
+The vs_lame.slnx solution has both Win32 and x64 platforms configured, in
 order to compile lame.exe and the libmp3lame.dll for 32-bit or 64-bit target
 platforms. The output folder also has separate folders for the two platforms.
 Note that mp3rtp and mp3x are not compiled in x64. Also note that all 64-bit
