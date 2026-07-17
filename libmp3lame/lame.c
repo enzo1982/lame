@@ -1727,7 +1727,8 @@ lame_encode_buffer_sample_t(lame_internal_flags * gfc,
         in_buffer_ptr[0] = in_buffer[0];
         in_buffer_ptr[1] = in_buffer[1];
         /* copy in new samples into mfbuf, with resampling */
-        fill_buffer(gfc, mfbuf, &in_buffer_ptr[0], nsamples, &n_in, &n_out);
+        if (fill_buffer(gfc, mfbuf, &in_buffer_ptr[0], nsamples, &n_in, &n_out) < 0)
+            return LAME_NOMEM;
 
         /* compute ReplayGain of resampled input if requested */
         if (cfg->findReplayGain && !cfg->decode_on_the_fly)

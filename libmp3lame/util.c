@@ -546,6 +546,7 @@ fill_buffer_resample(lame_internal_flags * gfc,
     FLOAT   offset;
     int     i, j = 0, k;
     int     filter_l;
+    int     alloc_failed;
     FLOAT   fcn, intratio;
     FLOAT  *inbuf_old;
     int     bpc;             /* number of convolution functions to pre-compute */
@@ -568,6 +569,31 @@ fill_buffer_resample(lame_internal_flags * gfc,
         esv->inbuf_old[1] = lame_calloc(sample_t, BLACKSIZE);
         for (i = 0; i <= 2 * bpc; ++i)
             esv->blackfilt[i] = lame_calloc(sample_t, BLACKSIZE);
+
+        alloc_failed = (esv->inbuf_old[0] == NULL || esv->inbuf_old[1] == NULL);
+        for (i = 0; i <= 2 * bpc; ++i) {
+            if (esv->blackfilt[i] == NULL) {
+                alloc_failed = 1;
+            }
+        }
+        if (alloc_failed) {
+            if (esv->inbuf_old[0]) {
+                free(esv->inbuf_old[0]);
+                esv->inbuf_old[0] = 0;
+            }
+            if (esv->inbuf_old[1]) {
+                free(esv->inbuf_old[1]);
+                esv->inbuf_old[1] = 0;
+            }
+            for (i = 0; i <= 2 * bpc; ++i) {
+                if (esv->blackfilt[i]) {
+                    free(esv->blackfilt[i]);
+                    esv->blackfilt[i] = 0;
+                }
+            }
+            ERRORF(gfc, "Error: can't allocate resample buffers\n");
+            return -1;
+        }
 
         esv->itime[0] = 0;
         esv->itime[1] = 0;
@@ -679,7 +705,7 @@ isResamplingNecessary(SessionConfig_t const* cfg)
    if necessary.  n_in = number of samples from the input buffer that
    were used.  n_out = number of samples copied into mfbuf  */
 
-void
+int
 fill_buffer(lame_internal_flags * gfc,
             sample_t * const mfbuf[2], sample_t const * const in_buffer[2], int nsamples, int *n_in, int *n_out)
 {
@@ -695,6 +721,9 @@ fill_buffer(lame_internal_flags * gfc,
             nout =
                 fill_buffer_resample(gfc, &mfbuf[ch][mf_size],
                                      framesize, in_buffer[ch], nsamples, n_in, ch);
+            if (nout < 0) {
+                return -1;
+            }
         } while (++ch < nch);
         *n_out = nout;
     }
@@ -706,6 +735,7 @@ fill_buffer(lame_internal_flags * gfc,
         *n_out = nout;
         *n_in = nout;
     }
+    return 0;
 }
 
 

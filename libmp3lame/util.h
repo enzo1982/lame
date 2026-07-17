@@ -571,7 +571,7 @@ extern  "C" {
 
     int     isResamplingNecessary(SessionConfig_t const* cfg);
 
-    void    fill_buffer(lame_internal_flags * gfc,
+    int     fill_buffer(lame_internal_flags * gfc,
                         sample_t *const mfbuf[2],
                         sample_t const *const in_buffer[2], int nsamples, int *n_in, int *n_out);
 
