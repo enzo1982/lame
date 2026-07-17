@@ -135,6 +135,49 @@
 			        order, so it could select a library whose header and
 			        binary disagree - which broke the build on MSYS2. Bug
 			        ticket <i class="ticket">[ #436 ]</i>.</li>
+			    <li><span class="security">Reject an interleaved
+			        encode on a session with a single input channel.
+			        The interleaved entry points read two channels
+			        from one buffer; on a mono session that read ran
+			        one channel's worth of samples past the end of the
+			        buffer. This only happens when a caller drives the
+			        library against its documented contract - LAME's
+			        own front end uses the non-interleaved entry
+			        points, and the Windows modules (<i>Dll</i>,
+			        <i>ACM</i>, <i>dshow</i>) take the interleaved path
+			        only for stereo - so no shipped LAME program
+			        reaches it; the library now returns an error rather
+			        than read past the buffer, for the sake of any
+			        other caller that makes this mistake. Bug ticket
+			        <i class="ticket">[ #522 ]</i>.</span></li>
+			    <li>Removed the unused bundled mpglib and Amiga MPEGA
+			        decoder paths. Decoding has gone through libmpg123
+			        since 3.101, so no build still selected them.
+			        Dropping the dead code also removes an unbounded
+			        recursion in the old header search that a crafted
+			        stream could have driven; the public decode
+			        interface is unchanged.</li>
+			    <li>Removed the long-deprecated <i>--ogginput</i>
+			        option; Ogg Vorbis input support was dropped long
+			        ago and the option only printed a notice.</li>
+			    <li>Let the terminal library hold the console
+			        progress display's capability strings instead of
+			        copying them into a fixed-size buffer, which a
+			        capability string longer than the buffer could
+			        overflow. This needs the terminal description
+			        itself to be hostile, which requires control of the
+			        terminal database or the <i>TERM</i> environment;
+			        anyone with that already runs with at least the
+			        privileges of the lame process, so this is hygiene
+			        rather than a crossed privilege boundary.</li>
+			    <li>Do not write an ID3v2 tag whose length does not fit
+			        the 28-bit tag-size field. A very large tag, for
+			        instance from oversized embedded album art, would
+			        otherwise record a wrapped length and be
+			        unparseable; no tag is produced in that case.</li>
+			    <li>Removed closing the output file on two mp3rtp
+			        startup error paths that run before it is
+			        opened.</li>
 		</ul>
             </li>
 	</ul>
