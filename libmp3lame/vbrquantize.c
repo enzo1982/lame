@@ -1102,7 +1102,8 @@ cutDistribution(const int sfwork[SFBMAX], int sf_out[SFBMAX], int cut)
 
 
 static int
-flattenDistribution(const int sfwork[SFBMAX], int sf_out[SFBMAX], int dm, int k, int p)
+flattenDistribution(const int sfwork[SFBMAX], const int vbrsfmin[SFBMAX],
+                    int sf_out[SFBMAX], int dm, int k, int p)
 {
     unsigned int i, j;
     int     x, sfmax = 0;
@@ -1110,8 +1111,10 @@ flattenDistribution(const int sfwork[SFBMAX], int sf_out[SFBMAX], int dm, int k,
         for (j = SFBMAX, i = 0; j > 0; --j, ++i) {
             int const di = p - sfwork[i];
             x = sfwork[i] + (k * di) / dm;
-            if (x < 0) {
-                x = 0;
+            /* the scalefactor may not drop below the band's minimum, or the
+               allocator cannot represent it; same floor as tryGlobalStepsize */
+            if (x < vbrsfmin[i]) {
+                x = vbrsfmin[i];
             }
             else {
                 if (x > 255) {
@@ -1166,7 +1169,7 @@ outOfBitsStrategy(algo_t const* that, const int sfwork[SFBMAX], const int vbrsfm
         int     bu = 0;
         int     bo = dm;
         for (;;) {
-            int const sfmax = flattenDistribution(sfwork, wrk, dm, bi, p);
+            int const sfmax = flattenDistribution(sfwork, vbrsfmin, wrk, dm, bi, p);
             nbits = tryThatOne(that, wrk, vbrsfmin, sfmax);
             if (nbits <= target) {
                 bi_ok = bi;
@@ -1184,7 +1187,7 @@ outOfBitsStrategy(algo_t const* that, const int sfwork[SFBMAX], const int vbrsfm
         }
         if (bi_ok >= 0) {
             if (bi != bi_ok) {
-                int const sfmax = flattenDistribution(sfwork, wrk, dm, bi_ok, p);
+                int const sfmax = flattenDistribution(sfwork, vbrsfmin, wrk, dm, bi_ok, p);
                 nbits = tryThatOne(that, wrk, vbrsfmin, sfmax);
             }
             return;
@@ -1198,7 +1201,7 @@ outOfBitsStrategy(algo_t const* that, const int sfwork[SFBMAX], const int vbrsfm
         int     bu = p;
         int     bo = 255;
         for (;;) {
-            int const sfmax = flattenDistribution(sfwork, wrk, dm, dm, bi);
+            int const sfmax = flattenDistribution(sfwork, vbrsfmin, wrk, dm, dm, bi);
             nbits = tryThatOne(that, wrk, vbrsfmin, sfmax);
             if (nbits <= target) {
                 bi_ok = bi;
@@ -1216,7 +1219,7 @@ outOfBitsStrategy(algo_t const* that, const int sfwork[SFBMAX], const int vbrsfm
         }
         if (bi_ok >= 0) {
             if (bi != bi_ok) {
-                int const sfmax = flattenDistribution(sfwork, wrk, dm, dm, bi_ok);
+                int const sfmax = flattenDistribution(sfwork, vbrsfmin, wrk, dm, dm, bi_ok);
                 nbits = tryThatOne(that, wrk, vbrsfmin, sfmax);
             }
             return;
