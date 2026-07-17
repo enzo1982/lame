@@ -117,6 +117,24 @@
 			        previously best one, which made one of the search
 			        bounds tighter than intended. The difference was
 			        measured as not perceptible.</span></li>
+			    <li><span class="quality">Disabled amplified noise
+			        shaping for CBR and ABR, where it degraded the result
+			        instead of improving it - which is why the faster
+			        quality settings sounded better than the slower ones.
+			        This affects the default quality setting. The
+			        amplification was the only difference between quality
+			        settings 3 and 4, and between 1 and 2, so for CBR and
+			        ABR each of those pairs now selects the same
+			        encoding. VBR is unaffected. Reported and analysed by
+			        Maik Merten, bug ticket
+			        <i class="ticket">[ #516 ]</i>.</span></li>
+			    <li>Fixed detecting the terminal library the console
+			        progress display uses. The configure check asked for a
+			        symbol that display does not call, and tried the
+			        candidate libraries in the opposite of the intended
+			        order, so it could select a library whose header and
+			        binary disagree - which broke the build on MSYS2. Bug
+			        ticket <i class="ticket">[ #436 ]</i>.</li>
 		</ul>
             </li>
 	</ul>
