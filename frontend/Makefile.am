@@ -5,9 +5,6 @@ include $(top_srcdir)/Makefile.am.global
 bin_PROGRAMS = @WITH_FRONTEND@ @WITH_MP3RTP@ @WITH_MP3X@
 EXTRA_PROGRAMS = lame$(EXEEXT) mp3rtp$(EXEEXT) mp3x$(EXEEXT)
 
-EXTRA_DIST = \
-	amiga_mpega.c
-
 DEFS = @DEFS@ @CONFIG_DEFS@
 
 common_sources = \

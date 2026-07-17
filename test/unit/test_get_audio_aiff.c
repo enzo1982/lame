@@ -35,7 +35,6 @@
    the project was configured with the decoder. get_audio.c re-includes
    config.h, but its include guard makes that a no-op, so these stay undefined. */
 #undef HAVE_MPG123
-#undef HAVE_MPGLIB
 
 #include <stdarg.h>
 #include <stddef.h>

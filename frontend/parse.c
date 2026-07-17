@@ -789,7 +789,7 @@ long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramNam
             "    --ignorelength  ignore file length in WAV header\n"
             "    --gain <arg>    apply Gain adjustment in decibels, range -20.0 to +12.0\n"
            );
-#if (defined HAVE_MPGLIB || defined AMIGA_MPEGA)
+#ifdef HAVE_MPG123
     fprintf(fp,
             "    --mp1input      input file is a MPEG Layer I   file\n"
             "    --mp2input      input file is a MPEG Layer II  file\n"
@@ -1742,6 +1742,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                 T_ELIF("big-endian")
                     global_raw_pcm.in_endian = ByteOrderBigEndian;
 
+#ifdef HAVE_MPG123
                 T_ELIF("mp1input")
                     global_reader.input_format = sf_mp1;
 
@@ -1750,10 +1751,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 
                 T_ELIF("mp3input")
                     global_reader.input_format = sf_mp3;
-
-                T_ELIF("ogginput")
-                    error_printf("sorry, vorbis support in LAME is deprecated.\n");
-                return -1;
+#endif
 
                 T_ELIF("decode")
                     (void) lame_set_decode_only(gfp, 1);
@@ -2656,7 +2654,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
     if (global_reader.input_format == sf_unknown)
         global_reader.input_format = filename_to_type(inPath);
 
-#if !(defined HAVE_MPGLIB || defined AMIGA_MPEGA || HAVE_MPG123)
+#if !defined(HAVE_MPG123)
     if (is_mpeg_file_format(global_reader.input_format)) {
         error_printf("Error: libmp3lame not compiled with mpg123 *decoding* support \n");
         return -1;

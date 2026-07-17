@@ -1058,8 +1058,8 @@ int CDECL lame_encode_finish(
  *
  * decoding
  *
- * a simple interface to mpglib, part of mpg123, is also included if
- * libmp3lame is compiled with HAVE_MPGLIB
+ * a simple interface to the mpg123 decoder is also included when
+ * libmp3lame is built with mpg123 support
  *
  *********************************************************************/
 

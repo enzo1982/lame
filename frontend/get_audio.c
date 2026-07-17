@@ -58,7 +58,7 @@ char   *strchr(), *strrchr();
 # endif
 #endif
 
-#if defined(HAVE_MPGLIB) || defined(HAVE_MPG123)
+#ifdef HAVE_MPG123
 #define hip_global_struct mpstr_tag
 #endif
 #ifdef HAVE_MPG123
@@ -387,18 +387,9 @@ static get_audio_global_data global;
 
 
 
-#ifdef AMIGA_MPEGA
-int     lame_decode_initfile_amiga(const char *fullname, mp3data_struct * const mp3data);
-#else
-int     lame_decode_initfile(FILE * fd, mp3data_struct * mp3data, int *enc_delay, int *enc_padding);
-#endif
 #ifdef HAVE_MPG123
 int     lame123_decode_initfile(FILE * fd, mp3data_struct * mp3data, int *enc_delay, int *enc_padding);
 #endif
-
-/* read mp3 file until mpglib returns one frame of PCM data */
-static int lame_decode_fromfile(FILE * fd, short int pcm_l[], short int pcm_r[],
-                                mp3data_struct * mp3data);
 
 
 static int read_samples_pcm(FILE * musicin, int sample_buffer[2304], int samples_to_read);
@@ -696,7 +687,7 @@ samples_to_skip_at_end(void)
 void
 close_infile(void)
 {
-#if defined(HAVE_MPGLIB) || defined(HAVE_MPG123)
+#ifdef HAVE_MPG123
     if (global.hip != 0) {
         hip_decode_exit(global.hip); /* release mp3decoder memory */
         global. hip = 0;
@@ -934,12 +925,8 @@ read_samples_mp3(lame_t gfp, FILE * musicin, short int mpg123pcm[2][1152])
 #ifdef HAVE_MPG123
     short int *outbuf;
     size_t outbytes;
-#endif
-#if defined(AMIGA_MPEGA)  ||  defined(HAVE_MPGLIB) || defined(HAVE_MPG123)
-    int     samplerate;
     static const char type_name[] = "MP3 file";
 
-#ifdef HAVE_MPG123
     /* Need to deinterleave so rather use mpg123_decode_frame() to decode the
        current frame and deinterleave from the internal buffer. */
     out = mpg123_decode_frame(global.hip->mh, NULL, (unsigned char**)&outbuf, &outbytes);
@@ -966,36 +953,6 @@ read_samples_mp3(lame_t gfp, FILE * musicin, short int mpg123pcm[2][1152])
         memcpy(mpg123pcm[0], outbuf, sizeof(short)*out);
     if(global.hip->pinfo)
         hip_finish_pinfo(global.hip);
-#else
-    out = lame_decode_fromfile(musicin, mpg123pcm[0], mpg123pcm[1], &global_decoder.mp3input_data);
-    /*
-     * out < 0:  error, probably EOF
-     * out = 0:  not possible with lame_decode_fromfile() ???
-     * out > 0:  number of output samples
-     */
-    if (out < 0) {
-        memset(mpg123pcm, 0, sizeof(**mpg123pcm) * 2 * 1152);
-        return 0;
-    }
-
-    if (lame_get_num_channels(gfp) != global_decoder.mp3input_data.stereo) {
-        if (global_ui_config.silent < 10) {
-            error_printf("Error: number of channels has changed in %s - not supported\n",
-                         type_name);
-        }
-        out = -1;
-    }
-    samplerate = global_reader.input_samplerate;
-    if (samplerate == 0) {
-        samplerate = global_decoder.mp3input_data.samplerate;
-    }
-    if (lame_get_in_samplerate(gfp) != samplerate) {
-        if (global_ui_config.silent < 10) {
-            error_printf("Error: sample frequency has changed in %s - not supported\n", type_name);
-        }
-        out = -1;
-    }
-#endif
 #else
     out = -1;
 #endif
@@ -1871,15 +1828,6 @@ open_mpeg_file_part2(lame_t gfp, FILE* musicin, char const *inPath, int *enc_del
         }
         return 0;
     }
-#else
-#ifdef HAVE_MPGLIB
-    if (-1 == lame_decode_initfile(musicin, &global_decoder.mp3input_data, enc_delay, enc_padding)) {
-        if (global_ui_config.silent < 10) {
-            error_printf("Error reading headers in mp3 input file %s.\n", inPath);
-        }
-        return 0;
-    }
-#endif
 #endif
     if (!set_input_num_channels(gfp, global_decoder.mp3input_data.stereo)) {
         return 0;
@@ -1980,15 +1928,6 @@ open_mpeg_file(lame_t gfp, char const *inPath, int *enc_delay, int *enc_padding)
             return 0;
         }
     }
-#ifdef AMIGA_MPEGA
-    if (-1 == lame_decode_initfile_amiga(inPath, &global_decoder.mp3input_data)) {
-        if (global_ui_config.silent < 10) {
-            error_printf("Error reading headers in mp3 input file %s.\n", inPath);
-        }
-        close_input_file(musicin);
-        return 0;
-    }
-#endif
     if ( 0 == open_mpeg_file_part2(gfp, musicin, inPath, enc_delay, enc_padding) ) {
         close_input_file(musicin);
         return 0;
@@ -2028,83 +1967,6 @@ close_input_file(FILE * musicin)
     }
     return ret;
 }
-
-
-
-#if defined(HAVE_MPGLIB)
-static int
-check_aid(const unsigned char *header)
-{
-    return 0 == memcmp(header, "AiD\1", 4);
-}
-
-/*
- * Please check this and don't kill me if there's a bug
- * This is a (nearly?) complete header analysis for a MPEG-1/2/2.5 Layer I, II or III
- * data stream
- */
-
-static int
-is_syncword_mp123(const void *const headerptr)
-{
-    const unsigned char *const p = headerptr;
-    static const char abl2[16] = { 0, 7, 7, 7, 0, 7, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8 };
-
-    if ((p[0] & 0xFF) != 0xFF)
-        return 0;       /* first 8 bits must be '1' */
-    if ((p[1] & 0xE0) != 0xE0)
-        return 0;       /* next 3 bits are also */
-    if ((p[1] & 0x18) == 0x08)
-        return 0;       /* no MPEG-1, -2 or -2.5 */
-    switch (p[1] & 0x06) {
-    default:
-    case 0x00:         /* illegal Layer */
-        return 0;
-
-    case 0x02:         /* Layer3 */
-        if (global_reader.input_format != sf_mp3 && global_reader.input_format != sf_mp123) {
-            return 0;
-        }
-        global_reader.input_format = sf_mp3;
-        break;
-
-    case 0x04:         /* Layer2 */
-        if (global_reader.input_format != sf_mp2 && global_reader.input_format != sf_mp123) {
-            return 0;
-        }
-        global_reader.input_format = sf_mp2;
-        break;
-
-    case 0x06:         /* Layer1 */
-        if (global_reader.input_format != sf_mp1 && global_reader.input_format != sf_mp123) {
-            return 0;
-        }
-        global_reader.input_format = sf_mp1;
-        break;
-    }
-    if ((p[1] & 0x06) == 0x00)
-        return 0;       /* no Layer I, II and III */
-    if ((p[2] & 0xF0) == 0xF0)
-        return 0;       /* bad bitrate */
-    if ((p[2] & 0x0C) == 0x0C)
-        return 0;       /* no sample frequency with (32,44.1,48)/(1,2,4)     */
-    if ((p[1] & 0x18) == 0x18 && (p[1] & 0x06) == 0x04 && abl2[p[2] >> 4] & (1 << (p[3] >> 6)))
-        return 0;
-    if ((p[3] & 3) == 2)
-        return 0;       /* reserved enphasis mode */
-    return 1;
-}
-
-static size_t
-lenOfId3v2Tag(unsigned char const* buf)
-{
-    unsigned int b0 = buf[0] & 127;
-    unsigned int b1 = buf[1] & 127;
-    unsigned int b2 = buf[2] & 127;
-    unsigned int b3 = buf[3] & 127;
-    return (((((b0 << 7) + b1) << 7) + b2) << 7) + b3;
-}
-#endif
 
 #ifdef HAVE_MPG123
 #define CHECK123(code) if(MPG123_OK != (code)) return -1
@@ -2223,189 +2085,6 @@ int lame123_decode_initfile(FILE *fd, mp3data_struct *mp3data, int *enc_delay, i
     return 0;
 }
 #endif
-
-#ifdef HAVE_MPGLIB
-int
-lame_decode_initfile(FILE * fd, mp3data_struct * mp3data, int *enc_delay, int *enc_padding)
-{
-    /*  VBRTAGDATA pTagData; */
-    /* int xing_header,len2,num_frames; */
-    unsigned char buf[100];
-    int     ret;
-    size_t  len;
-    int     aid_header;
-    short int pcm_l[1152], pcm_r[1152];
-    int     freeformat = 0;
-
-    memset(mp3data, 0, sizeof(mp3data_struct));
-    if (global.hip) {
-        hip_decode_exit(global.hip);
-    }
-    global. hip = hip_decode_init();
-    hip_set_msgf(global.hip, global_ui_config.silent < 10 ? &frontend_msgf : 0);
-    hip_set_errorf(global.hip, global_ui_config.silent < 10 ? &frontend_errorf : 0);
-    hip_set_debugf(global.hip, &frontend_debugf);
-
-    len = 4;
-    if (fread(buf, 1, len, fd) != len)
-        return -1;      /* failed */
-    while (buf[0] == 'I' && buf[1] == 'D' && buf[2] == '3') {
-        len = 6;
-        if (fread(&buf[4], 1, len, fd) != len)
-            return -1;  /* failed */
-        len = lenOfId3v2Tag(&buf[6]);
-        if (global.in_id3v2_size < 1) {
-            global.in_id3v2_size = 10 + len;
-            global.in_id3v2_tag = malloc(global.in_id3v2_size);
-            if (global.in_id3v2_tag) {
-                memcpy(global.in_id3v2_tag, buf, 10);
-                if (fread(&global.in_id3v2_tag[10], 1, len, fd) != len)
-                    return -1;  /* failed */
-                len = 0; /* copied, nothing to skip */
-            }
-            else {
-                global.in_id3v2_size = 0;
-            }
-        }
-        if (len > LONG_MAX)
-            return -1;
-        if (fskip_long(fd, (long) len, SEEK_CUR) != 0)
-            return -1;
-        len = 4;
-        if (fread(&buf, 1, len, fd) != len)
-            return -1;  /* failed */
-    }
-    aid_header = check_aid(buf);
-    if (aid_header) {
-        if (fread(&buf, 1, 2, fd) != 2)
-            return -1;  /* failed */
-        aid_header = (unsigned char) buf[0] + 256 * (unsigned char) buf[1];
-        if (global_ui_config.silent < 9) {
-            console_printf("Album ID found.  length=%i \n", aid_header);
-        }
-        /* skip rest of AID, except for 6 bytes we have already read */
-        fskip_long(fd, aid_header - 6, SEEK_CUR);
-
-        /* read 4 more bytes to set up buffer for MP3 header check */
-        if (fread(&buf, 1, len, fd) != len)
-            return -1;  /* failed */
-    }
-    len = 4;
-    while (!is_syncword_mp123(buf)) {
-        unsigned int i;
-        for (i = 0; i < len - 1; i++)
-            buf[i] = buf[i + 1];
-        if (fread(buf + len - 1, 1, 1, fd) != 1)
-            return -1;  /* failed */
-    }
-
-    if ((buf[2] & 0xf0) == 0) {
-        if (global_ui_config.silent < 9) {
-            console_printf("Input file is freeformat.\n");
-        }
-        freeformat = 1;
-    }
-    /* now parse the current buffer looking for MP3 headers.    */
-    /* (as of 11/00: mpglib modified so that for the first frame where  */
-    /* headers are parsed, no data will be decoded.   */
-    /* However, for freeformat, we need to decode an entire frame, */
-    /* so mp3data->bitrate will be 0 until we have decoded the first */
-    /* frame.  Cannot decode first frame here because we are not */
-    /* yet prepared to handle the output. */
-    ret = hip_decode1_headersB(global.hip, buf, len, pcm_l, pcm_r, mp3data, enc_delay, enc_padding);
-    if (-1 == ret)
-        return -1;
-
-    /* repeat until we decode a valid mp3 header.  */
-    while (!mp3data->header_parsed) {
-        len = fread(buf, 1, sizeof(buf), fd);
-        if (len != sizeof(buf))
-            return -1;
-        ret =
-            hip_decode1_headersB(global.hip, buf, len, pcm_l, pcm_r, mp3data, enc_delay,
-                                 enc_padding);
-        if (-1 == ret)
-            return -1;
-    }
-
-    if (mp3data->bitrate == 0 && !freeformat) {
-        if (global_ui_config.silent < 10) {
-            error_printf("fail to sync...\n");
-        }
-        return lame_decode_initfile(fd, mp3data, enc_delay, enc_padding);
-    }
-
-    if (mp3data->totalframes > 0) {
-        /* mpglib found a Xing VBR header and computed nsamp & totalframes */
-    }
-    else {
-        /* set as unknown.  Later, we will take a guess based on file size
-         * ant bitrate */
-        mp3data->nsamp = MAX_U_32_NUM;
-    }
-
-
-    /*
-       report_printf("ret = %i NEED_MORE=%i \n",ret,MP3_NEED_MORE);
-       report_printf("stereo = %i \n",mp.fr.stereo);
-       report_printf("samp = %i  \n",freqs[mp.fr.sampling_frequency]);
-       report_printf("framesize = %i  \n",framesize);
-       report_printf("bitrate = %i  \n",mp3data->bitrate);
-       report_printf("num frames = %ui  \n",num_frames);
-       report_printf("num samp = %ui  \n",mp3data->nsamp);
-       report_printf("mode     = %i  \n",mp.fr.mode);
-     */
-
-    return 0;
-}
-
-/*
-For lame_decode_fromfile:  return code
-  -1     error
-   n     number of samples output.  either 576 or 1152 depending on MP3 file.
-
-
-For lame_decode1_headers():  return code
-  -1     error
-   0     ok, but need more data before outputing any samples
-   n     number of samples output.  either 576 or 1152 depending on MP3 file.
-*/
-static int
-lame_decode_fromfile(FILE * fd, short pcm_l[], short pcm_r[], mp3data_struct * mp3data)
-{
-    int     ret = 0;
-    size_t  len = 0;
-    unsigned char buf[1024];
-
-    /* first see if we still have data buffered in the decoder: */
-    ret = hip_decode1_headers(global.hip, buf, len, pcm_l, pcm_r, mp3data);
-    if (ret != 0)
-        return ret;
-
-
-    /* read until we get a valid output frame */
-    for (;;) {
-        len = fread(buf, 1, 1024, fd);
-        if (len == 0) {
-            /* we are done reading the file, but check for buffered data */
-            ret = hip_decode1_headers(global.hip, buf, len, pcm_l, pcm_r, mp3data);
-            if (ret <= 0) {
-                return -1; /* done with file */
-            }
-            break;
-        }
-
-        ret = hip_decode1_headers(global.hip, buf, len, pcm_l, pcm_r, mp3data);
-        if (ret == -1) {
-            return -1;
-        }
-        if (ret > 0)
-            break;
-    }
-    return ret;
-}
-#endif /* defined(HAVE_MPGLIB) */
-
 
 int
 is_mpeg_file_format(int input_file_format)
