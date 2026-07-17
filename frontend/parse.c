@@ -1652,7 +1652,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
     enum TextEncoding id3_tenc = TENC_LATIN1;
 #endif
 
-#ifdef HAVE_LANGINFO_H
+#if defined(HAVE_ICONV) && defined(HAVE_LANGINFO_H)
     setlocale(LC_CTYPE, "");
 #endif
     inPath[0] = '\0';
