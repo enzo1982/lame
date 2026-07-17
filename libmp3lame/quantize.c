@@ -1136,7 +1136,7 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
 
             /* save data so we can restore this quantization later */
             if (better) {
-                best_part2_3_length = cod_info->part2_3_length;
+                best_part2_3_length = cod_info_w.part2_3_length;
                 best_noise_info = noise_info;
                 *cod_info = cod_info_w;
                 age = 0;
