@@ -469,7 +469,13 @@ lame_encode_mp3_frame(       /* Output */
                 gfc->pinfo->ms_ener_ratio[gr] = ms_ener_ratio[gr];
                 gfc->pinfo->blocktype[gr][ch] = gfc->l3_side.tt[gr][ch].block_type;
                 gfc->pinfo->pe[gr][ch] = pe_use[gr][ch];
-                memcpy(gfc->pinfo->xr[gr][ch], &gfc->l3_side.tt[gr][ch].xr[0], sizeof(FLOAT) * 576);
+                /* pinfo->xr is double but tt[].xr is FLOAT: convert
+                   element-wise, a raw copy would reinterpret the bits */
+                {
+                    int     i;
+                    for (i = 0; i < 576; ++i)
+                        gfc->pinfo->xr[gr][ch][i] = gfc->l3_side.tt[gr][ch].xr[i];
+                }
                 /* in psymodel, LR and MS data was stored in pinfo.  
                    switch to MS data: */
                 if (gfc->ov_enc.mode_ext == MPG_MD_MS_LR) {
