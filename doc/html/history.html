@@ -30,6 +30,16 @@
 	        Alexander Leidinger
 		<ul>
 		    <li>Add a cmocka based unit test infrastructur.</li>
+			    <li>Add Doxygen based documentation, in two flavours.
+			        The public one describes the official libmp3lame
+			        API. The internal one additionally surfaces the
+			        static internals, the Windows modules (<i>Dll</i>,
+			        <i>dshow</i>, <i>ACM</i>), the unit tests and the
+			        maintainer guides, and is the place to look when
+			        working on LAME rather than with it. Both can be
+			        generated from a release tarball. Only a small part
+			        of the source carries documentation comments so far,
+			        so both documents are still far from complete.</li>
 			    <li>Fixed linking the frontends against the shared
 			        library (<i>--enable-dynamic-frontends</i>). Bug
 			        ticket <i class="ticket">[ #515 ]</i>.</li>
@@ -73,6 +83,40 @@
 			        <i>--disable-hardening</i> and
 			        <i>--disable-dynamic-frontends</i> turn off the two
 			        pieces.</span></li>
+			    <li>Add a <i>maintainer</i> directory with the helper
+			        scripts used to develop and test LAME: build matrix
+			        generators, Windows dependency setup and the two
+			        comparison harnesses below. They are not needed to
+			        build or use LAME and are described in the internal
+			        documentation.</li>
+			    <li>Add two harnesses to compare a change against a
+			        baseline build: one measures encoding speed, the
+			        other scores the perceived quality of the encoded
+			        audio with PEAQ (ITU-R BS.1387) against a reference
+			        corpus. Most changes must not alter the bitstream at
+			        all and comparing the two files is the whole test;
+			        for a change which is meant to alter it, a byte
+			        comparison only says that something moved, and these
+			        answer whether the result is slower and whether the
+			        difference can be heard.</li>
+			    <li>Handle some possible out of memory
+			        situations.</li>
+			    <li>Fixed the frame analyzer's per-band spectrum
+			        buffer. Patch by Maya R. Odinezenko.</li>
+			    <li>Guard <i>setlocale()</i> the same way as its
+			        header include. Patch by Maya R. Odinezenko.</li>
+			    <li>Keep VBR scalefactors above their minimum when
+			        reducing bits. A granule which ran out of bits could
+			        be given a scalefactor below the minimum of its
+			        band, which aborted builds with assertions enabled.
+			        Only such a bit starved granule is affected. Bug
+			        ticket <i class="ticket">[ #490 ]</i>.</li>
+			    <li><span class="quality">Record the accepted
+			        quantization's own bit count as the best one in the
+			        noise shaping search; it was taken from the
+			        previously best one, which made one of the search
+			        bounds tighter than intended. The difference was
+			        measured as not perceptible.</span></li>
 		</ul>
             </li>
 	</ul>
