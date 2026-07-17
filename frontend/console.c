@@ -60,10 +60,12 @@ char   *strchr(), *strrchr();
 static void
 get_termcap_string(char const* id, char* dest, size_t n)
 {
-    char    tc[16];
-    char   *tp = tc;
-    tp[0] = '\0';
-    tp = tgetstr(id, &tp);
+    /*  tgetstr takes no length for the area it fills, so a fixed local buffer
+     *  here is overrun by any capability string longer than it. Pass a null
+     *  area so the terminal library returns the string from its own storage
+     *  instead, and copy from there under a bound.
+     */
+    char const *tp = tgetstr(id, NULL);
     if (tp != NULL && dest != NULL && n > 0) {
         strncpy(dest, tp, n);
         dest[n-1] = '\0';
