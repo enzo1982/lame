@@ -151,8 +151,10 @@ am__uninstall_files_from_dir = { \
   || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
        $(am__cd) "$$dir" && echo $$files | $(am__xargs_n) 40 $(am__rm_f); }; \
   }
-am__installdirs = "$(DESTDIR)$(pkghtmldir)"
-DATA = $(pkghtml_DATA)
+am__installdirs = "$(DESTDIR)$(pkghtmldir)" \
+	"$(DESTDIR)$(pkghtmlimagesdir)" \
+	"$(DESTDIR)$(pkghtmlstylesdir)"
+DATA = $(pkghtml_DATA) $(pkghtmlimages_DATA) $(pkghtmlstyles_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 am__DIST_COMMON = $(srcdir)/Makefile.in
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -334,7 +336,19 @@ pkghtml_DATA = \
 	usage.html \
 	vbr.html
 
-EXTRA_DIST = $(pkghtml_DATA)
+pkghtmlimagesdir = $(pkghtmldir)/images
+pkghtmlimages_DATA = \
+	images/logo.gif \
+	images/sflogo.gif \
+	images/valid-css.png \
+	images/valid-html401.png \
+	images/valid-xhtml10.png
+
+pkghtmlstylesdir = $(pkghtmldir)/styles
+pkghtmlstyles_DATA = \
+	styles/lame.css
+
+EXTRA_DIST = $(pkghtml_DATA) $(pkghtmlimages_DATA) $(pkghtmlstyles_DATA)
 all: all-am
 
 .SUFFIXES:
@@ -394,6 +408,48 @@ uninstall-pkghtmlDATA:
 	@list='$(pkghtml_DATA)'; test -n "$(pkghtmldir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
 	dir='$(DESTDIR)$(pkghtmldir)'; $(am__uninstall_files_from_dir)
+install-pkghtmlimagesDATA: $(pkghtmlimages_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(pkghtmlimages_DATA)'; test -n "$(pkghtmlimagesdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(pkghtmlimagesdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(pkghtmlimagesdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(pkghtmlimagesdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(pkghtmlimagesdir)" || exit $$?; \
+	done
+
+uninstall-pkghtmlimagesDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(pkghtmlimages_DATA)'; test -n "$(pkghtmlimagesdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(pkghtmlimagesdir)'; $(am__uninstall_files_from_dir)
+install-pkghtmlstylesDATA: $(pkghtmlstyles_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(pkghtmlstyles_DATA)'; test -n "$(pkghtmlstylesdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(pkghtmlstylesdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(pkghtmlstylesdir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(pkghtmlstylesdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(pkghtmlstylesdir)" || exit $$?; \
+	done
+
+uninstall-pkghtmlstylesDATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(pkghtmlstyles_DATA)'; test -n "$(pkghtmlstylesdir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(pkghtmlstylesdir)'; $(am__uninstall_files_from_dir)
 tags TAGS:
 
 ctags CTAGS:
@@ -438,7 +494,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(DATA)
 installdirs:
-	for dir in "$(DESTDIR)$(pkghtmldir)"; do \
+	for dir in "$(DESTDIR)$(pkghtmldir)" "$(DESTDIR)$(pkghtmlimagesdir)" "$(DESTDIR)$(pkghtmlstylesdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -491,7 +547,8 @@ info: info-am
 
 info-am:
 
-install-data-am: install-pkghtmlDATA
+install-data-am: install-pkghtmlDATA install-pkghtmlimagesDATA \
+	install-pkghtmlstylesDATA
 
 install-dvi: install-dvi-am
 
@@ -535,7 +592,8 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-pkghtmlDATA
+uninstall-am: uninstall-pkghtmlDATA uninstall-pkghtmlimagesDATA \
+	uninstall-pkghtmlstylesDATA
 
 .MAKE: install-am install-strip
 
@@ -545,11 +603,13 @@ uninstall-am: uninstall-pkghtmlDATA
 	install install-am install-data install-data-am install-dvi \
 	install-dvi-am install-exec install-exec-am install-html \
 	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-pkghtmlDATA install-ps \
+	install-pdf install-pdf-am install-pkghtmlDATA \
+	install-pkghtmlimagesDATA install-pkghtmlstylesDATA install-ps \
 	install-ps-am install-strip installcheck installcheck-am \
 	installdirs maintainer-clean maintainer-clean-generic \
 	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
-	ps ps-am tags-am uninstall uninstall-am uninstall-pkghtmlDATA
+	ps ps-am tags-am uninstall uninstall-am uninstall-pkghtmlDATA \
+	uninstall-pkghtmlimagesDATA uninstall-pkghtmlstylesDATA
 
 .PRECIOUS: Makefile
 
