@@ -17407,150 +17407,59 @@ then :
 
 fi
 
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for initscr in -ltermcap" >&5
-printf %s "checking for initscr in -ltermcap... " >&6; }
-if test ${ac_cv_lib_termcap_initscr+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) ac_check_lib_save_LIBS=$LIBS
-LIBS="-ltermcap  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+
+HAVE_TERMCAP=""
+lame_termcap_save_LIBS="${LIBS}"
+for lame_termcap_lib in termcap curses ncurses; do
+  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for the termcap interface in -l${lame_termcap_lib}" >&5
+printf %s "checking for the termcap interface in -l${lame_termcap_lib}... " >&6; }
+  LIBS="-l${lame_termcap_lib} ${lame_termcap_save_LIBS}"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.
-   The 'extern "C"' is for builds by C++ compilers;
-   although this is not generally supported in C code supporting it here
-   has little cost and some practical benefit (sr 110532).  */
-#ifdef __cplusplus
-extern "C"
+#if defined(HAVE_NCURSES_TERMCAP_H)
+# include <ncurses/termcap.h>
+#elif defined(HAVE_TERMCAP_H)
+# include <termcap.h>
+#else
+# include <curses.h>
+# if !defined(__bsdi__)
+#  include <term.h>
+# endif
 #endif
-char initscr (void);
+
 int
 main (void)
 {
-return initscr ();
+
+      char termcap_buffer[2048];
+      char *area = termcap_buffer;
+      if (tgetent(termcap_buffer, "vt100") == 1) {
+          (void) tgetnum("li");
+          (void) tgetstr("ce", &area);
+      }
+
   ;
   return 0;
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  ac_cv_lib_termcap_initscr=yes
+  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf '%s\n' "yes" >&6; }
+           HAVE_TERMCAP="${lame_termcap_lib}"
 else case e in #(
-  e) ac_cv_lib_termcap_initscr=no ;;
+  e) { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf '%s\n' "no" >&6; } ;;
 esac
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS ;;
-esac
-fi
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_termcap_initscr" >&5
-printf '%s\n' "$ac_cv_lib_termcap_initscr" >&6; }
-if test "x$ac_cv_lib_termcap_initscr" = xyes
-then :
-  HAVE_TERMCAP="termcap"
-fi
-
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for initscr in -lcurses" >&5
-printf %s "checking for initscr in -lcurses... " >&6; }
-if test ${ac_cv_lib_curses_initscr+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcurses  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.
-   The 'extern "C"' is for builds by C++ compilers;
-   although this is not generally supported in C code supporting it here
-   has little cost and some practical benefit (sr 110532).  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char initscr (void);
-int
-main (void)
-{
-return initscr ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"
-then :
-  ac_cv_lib_curses_initscr=yes
-else case e in #(
-  e) ac_cv_lib_curses_initscr=no ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS ;;
-esac
-fi
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_curses_initscr" >&5
-printf '%s\n' "$ac_cv_lib_curses_initscr" >&6; }
-if test "x$ac_cv_lib_curses_initscr" = xyes
-then :
-  HAVE_TERMCAP="curses"
-fi
-
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for initscr in -lncurses" >&5
-printf %s "checking for initscr in -lncurses... " >&6; }
-if test ${ac_cv_lib_ncurses_initscr+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) ac_check_lib_save_LIBS=$LIBS
-LIBS="-lncurses  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.
-   The 'extern "C"' is for builds by C++ compilers;
-   although this is not generally supported in C code supporting it here
-   has little cost and some practical benefit (sr 110532).  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char initscr (void);
-int
-main (void)
-{
-return initscr ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"
-then :
-  ac_cv_lib_ncurses_initscr=yes
-else case e in #(
-  e) ac_cv_lib_ncurses_initscr=no ;;
-esac
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS ;;
-esac
-fi
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ncurses_initscr" >&5
-printf '%s\n' "$ac_cv_lib_ncurses_initscr" >&6; }
-if test "x$ac_cv_lib_ncurses_initscr" = xyes
-then :
-  HAVE_TERMCAP="ncurses"
-fi
-
+  if test "x${HAVE_TERMCAP}" != "x"; then
+    break
+  fi
+done
+LIBS="${lame_termcap_save_LIBS}"
        for ac_header in langinfo.h
 do :
   ac_fn_c_check_header_compile "$LINENO" "langinfo.h" "ac_cv_header_langinfo_h" "$ac_includes_default"

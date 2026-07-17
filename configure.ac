@@ -484,9 +484,48 @@ dnl Checks for libraries.
 
 AC_CHECK_HEADERS(termcap.h)
 AC_CHECK_HEADERS(ncurses/termcap.h)
-AC_CHECK_LIB(termcap, initscr, HAVE_TERMCAP="termcap")
-AC_CHECK_LIB(curses, initscr, HAVE_TERMCAP="curses")
-AC_CHECK_LIB(ncurses, initscr, HAVE_TERMCAP="ncurses")
+
+dnl The console code drives the terminal through the termcap interface,
+dnl tgetent/tgetnum/tgetstr, and never calls initscr. Probing for initscr
+dnl therefore accepted libraries that cannot serve the header the console code
+dnl actually includes: where ncurses is packaged as a static library whose
+dnl termcap header declares those entry points as DLL imports, the probe
+dnl succeeded and the frontend then failed to link. Compile the same header
+dnl and calls the console code does, against each candidate in turn, and keep
+dnl the first that satisfies them, so that the intended termcap, curses,
+dnl ncurses preference decides. Falling through all three leaves the terminal
+dnl support disabled, which the console code already handles, rather than
+dnl breaking the build.
+HAVE_TERMCAP=""
+lame_termcap_save_LIBS="${LIBS}"
+for lame_termcap_lib in termcap curses ncurses; do
+  AC_MSG_CHECKING([for the termcap interface in -l${lame_termcap_lib}])
+  LIBS="-l${lame_termcap_lib} ${lame_termcap_save_LIBS}"
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#if defined(HAVE_NCURSES_TERMCAP_H)
+# include <ncurses/termcap.h>
+#elif defined(HAVE_TERMCAP_H)
+# include <termcap.h>
+#else
+# include <curses.h>
+# if !defined(__bsdi__)
+#  include <term.h>
+# endif
+#endif
+    ]], [[
+      char termcap_buffer[2048];
+      char *area = termcap_buffer;
+      if (tgetent(termcap_buffer, "vt100") == 1) {
+          (void) tgetnum("li");
+          (void) tgetstr("ce", &area);
+      }
+    ]])], [AC_MSG_RESULT(yes)
+           HAVE_TERMCAP="${lame_termcap_lib}"], [AC_MSG_RESULT(no)])
+  if test "x${HAVE_TERMCAP}" != "x"; then
+    break
+  fi
+done
+LIBS="${lame_termcap_save_LIBS}"
 AC_CHECK_HEADERS(langinfo.h, AC_CHECK_FUNCS(nl_langinfo))
 
 AM_ICONV
