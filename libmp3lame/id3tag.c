@@ -1941,6 +1941,15 @@ lame_get_id3v2_tag(lame_t gfp, unsigned char *buffer, size_t size)
                 /* add some bytes of padding */
                 tag_size += gfc->tag_spec.padding_size;
             }
+            /* The tag length goes into a 28-bit synchsafe field. A tag larger
+             * than that cannot state its own size, so the four length bytes
+             * would wrap and describe a shorter tag than was written, leaving
+             * the frames after it unparseable. Produce no tag rather than a
+             * corrupt one.
+             */
+            if (tag_size - 10 > 0x0FFFFFFFuL) {
+                return 0;
+            }
             if (size < tag_size) {
                 return tag_size;
             }
