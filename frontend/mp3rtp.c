@@ -202,7 +202,6 @@ lame_main(lame_t gf, int argc, char **argv)
     rtp_initialization();
     if (rtp_socket(ip, port, ttl)) {
         rtp_deinitialization();
-        fclose(outf);
         error_printf("fatal error during initialization\n");
         return 1;
     }
@@ -224,7 +223,6 @@ lame_main(lame_t gf, int argc, char **argv)
         char**  argv_mod = calloc(argc_mod, sizeof(char*));
         if (argv_mod == NULL) {
             rtp_deinitialization();
-            fclose(outf);
             error_printf("not enough memory\n");
             return 1;
         }
