@@ -495,6 +495,8 @@ Same as -q 7, but enables noise shaping and increases subblock gain
 .br
 Same as -f. Very fast, OK quality. Psychoacoustics are used for pre-echo and mid/side stereo, but no noise-shaping is done.
 
+For CBR and ABR, amplified noise shaping is disabled at the moment: it degraded the result instead of improving it. As it was the only difference between -q 3 and -q 4, and between -q 1 and -q 2, each of those pairs selects the same encoding for these two modes. --vbr-old is not affected.
+
 For the default VBR mode since LAME 3.98, the following table applies :
 
 .B -q 0 to -q 4:

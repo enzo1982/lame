@@ -476,6 +476,21 @@ lame_init_qval(lame_global_flags * gfp)
         break;
     }
 
+    /*  Amplified noise shaping degrades CBR and ABR instead of improving them,
+     *  which is why the faster quality settings, the ones that leave it off,
+     *  sound better than the slower ones. It dates from the point where CBR
+     *  and ABR were switched over to the newer VBR psychoacoustic model
+     *  without adapting their encoding loops to it, so the amplification
+     *  decides against a distortion measure that no longer means what it did.
+     *  VBR is unaffected.
+     *
+     *  Until those loops are reconciled with the psychoacoustic model, keep
+     *  the amplification out of the modes it hurts. This treats the symptom;
+     *  the interaction itself is still to be repaired.
+     */
+    if (cfg->vbr == vbr_off || cfg->vbr == vbr_abr) {
+        cfg->noise_shaping_amp = 0;
+    }
 }
 
 

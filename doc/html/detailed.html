@@ -1472,6 +1472,13 @@
         </tr>
     </table>
     <p>
+        For CBR and ABR, amplified noise shaping is disabled at the moment: it
+        degraded the result instead of improving it. As it was the only
+        difference between -q 3 and -q 4, and between -q 1 and -q 2, each of
+        those pairs selects the same encoding for these two modes. --vbr-old is
+        not affected.
+    </p>
+    <p>
         For the default VBR mode since LAME 3.98, the following table applies
     </p>
     <table cellpadding="4">
