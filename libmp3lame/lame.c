@@ -1936,6 +1936,19 @@ lame_encode_buffer_template(lame_global_flags * gfp,
                     if (buffer_l == 0) {
                         return 0;
                     }
+                    /* An interleaved entry point reads the two channels from a
+                     * single buffer with a stride of two. On a mono session
+                     * there is only one channel in that buffer and no length to
+                     * bound the second read, so this walks one channel's worth
+                     * of samples past its end. Reject the combination rather
+                     * than read outside the caller's buffer; a mono session
+                     * takes its samples through the non-interleaved entry
+                     * points, which is what the interleaving front ends already
+                     * do.
+                     */
+                    if (aa != 1) {
+                        return LAME_BADINPUTDATA;
+                    }
                     rc = lame_copy_inbuffer(gfc, buffer_l, buffer_l, nsamples, pcm_type, aa, norm);
                 }
                 /* A non-finite sample would spread through the psycho acoustic

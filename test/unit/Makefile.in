@@ -97,7 +97,8 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_merge_argv$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_id3tag$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_parse_id3$(EXEEXT) \
-@ENABLE_UNIT_TESTS_TRUE@	test_encode_nonfinite$(EXEEXT)
+@ENABLE_UNIT_TESTS_TRUE@	test_encode_nonfinite$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_encode_mono_interleaved$(EXEEXT)
 subdir = test/unit
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/host-cpu-c-abi.m4 \
@@ -114,17 +115,25 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__test_encode_nonfinite_SOURCES_DIST = test_encode_nonfinite.c
-@ENABLE_UNIT_TESTS_TRUE@am_test_encode_nonfinite_OBJECTS = test_encode_nonfinite-test_encode_nonfinite.$(OBJEXT)
-test_encode_nonfinite_OBJECTS = $(am_test_encode_nonfinite_OBJECTS)
+am__test_encode_mono_interleaved_SOURCES_DIST =  \
+	test_encode_mono_interleaved.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_encode_mono_interleaved_OBJECTS = test_encode_mono_interleaved-test_encode_mono_interleaved.$(OBJEXT)
+test_encode_mono_interleaved_OBJECTS =  \
+	$(am_test_encode_mono_interleaved_OBJECTS)
 am__DEPENDENCIES_1 =
-@ENABLE_UNIT_TESTS_TRUE@test_encode_nonfinite_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@test_encode_mono_interleaved_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+am__test_encode_nonfinite_SOURCES_DIST = test_encode_nonfinite.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_encode_nonfinite_OBJECTS = test_encode_nonfinite-test_encode_nonfinite.$(OBJEXT)
+test_encode_nonfinite_OBJECTS = $(am_test_encode_nonfinite_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_encode_nonfinite_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 am__test_get_audio_aiff_SOURCES_DIST = test_get_audio_aiff.c \
 	test_stubs.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_get_audio_aiff_OBJECTS = test_get_audio_aiff-test_get_audio_aiff.$(OBJEXT) \
@@ -191,7 +200,7 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade =  \
+am__depfiles_remade = ./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po \
 	./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po \
 	./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po \
 	./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po \
@@ -222,11 +231,13 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(test_encode_nonfinite_SOURCES) \
+SOURCES = $(test_encode_mono_interleaved_SOURCES) \
+	$(test_encode_nonfinite_SOURCES) \
 	$(test_get_audio_aiff_SOURCES) $(test_id3tag_SOURCES) \
 	$(test_merge_argv_SOURCES) $(test_parse_id3_SOURCES) \
 	$(test_parse_pathlen_SOURCES) $(test_sanity_SOURCES)
-DIST_SOURCES = $(am__test_encode_nonfinite_SOURCES_DIST) \
+DIST_SOURCES = $(am__test_encode_mono_interleaved_SOURCES_DIST) \
+	$(am__test_encode_nonfinite_SOURCES_DIST) \
 	$(am__test_get_audio_aiff_SOURCES_DIST) \
 	$(am__test_id3tag_SOURCES_DIST) \
 	$(am__test_merge_argv_SOURCES_DIST) \
@@ -716,6 +727,18 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
+
+# The interleaved entry points are public, so this test links libmp3lame and
+# calls them directly - no frontend translation unit compiled in.
+@ENABLE_UNIT_TESTS_TRUE@test_encode_mono_interleaved_SOURCES = test_encode_mono_interleaved.c
+@ENABLE_UNIT_TESTS_TRUE@test_encode_mono_interleaved_CPPFLAGS = $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_encode_mono_interleaved_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
 all: all-am
 
 .SUFFIXES:
@@ -755,6 +778,10 @@ clean-checkPROGRAMS:
 	$(am__rm_f) $(check_PROGRAMS)
 	test -z "$(EXEEXT)" || $(am__rm_f) $(check_PROGRAMS:$(EXEEXT)=)
 
+test_encode_mono_interleaved$(EXEEXT): $(test_encode_mono_interleaved_OBJECTS) $(test_encode_mono_interleaved_DEPENDENCIES) $(EXTRA_test_encode_mono_interleaved_DEPENDENCIES) 
+	@rm -f test_encode_mono_interleaved$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_encode_mono_interleaved_OBJECTS) $(test_encode_mono_interleaved_LDADD) $(LIBS)
+
 test_encode_nonfinite$(EXEEXT): $(test_encode_nonfinite_OBJECTS) $(test_encode_nonfinite_DEPENDENCIES) $(EXTRA_test_encode_nonfinite_DEPENDENCIES) 
 	@rm -f test_encode_nonfinite$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_encode_nonfinite_OBJECTS) $(test_encode_nonfinite_LDADD) $(LIBS)
@@ -789,6 +816,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po@am__quote@ # am--include-marker
@@ -827,6 +855,20 @@ am--depfiles: $(am__depfiles_remade)
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
+
+test_encode_mono_interleaved-test_encode_mono_interleaved.o: test_encode_mono_interleaved.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_mono_interleaved_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_encode_mono_interleaved-test_encode_mono_interleaved.o -MD -MP -MF $(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Tpo -c -o test_encode_mono_interleaved-test_encode_mono_interleaved.o `test -f 'test_encode_mono_interleaved.c' || echo '$(srcdir)/'`test_encode_mono_interleaved.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Tpo $(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_encode_mono_interleaved.c' object='test_encode_mono_interleaved-test_encode_mono_interleaved.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_mono_interleaved_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_encode_mono_interleaved-test_encode_mono_interleaved.o `test -f 'test_encode_mono_interleaved.c' || echo '$(srcdir)/'`test_encode_mono_interleaved.c
+
+test_encode_mono_interleaved-test_encode_mono_interleaved.obj: test_encode_mono_interleaved.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_mono_interleaved_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_encode_mono_interleaved-test_encode_mono_interleaved.obj -MD -MP -MF $(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Tpo -c -o test_encode_mono_interleaved-test_encode_mono_interleaved.obj `if test -f 'test_encode_mono_interleaved.c'; then $(CYGPATH_W) 'test_encode_mono_interleaved.c'; else $(CYGPATH_W) '$(srcdir)/test_encode_mono_interleaved.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Tpo $(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_encode_mono_interleaved.c' object='test_encode_mono_interleaved-test_encode_mono_interleaved.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_mono_interleaved_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_encode_mono_interleaved-test_encode_mono_interleaved.obj `if test -f 'test_encode_mono_interleaved.c'; then $(CYGPATH_W) 'test_encode_mono_interleaved.c'; else $(CYGPATH_W) '$(srcdir)/test_encode_mono_interleaved.c'; fi`
 
 test_encode_nonfinite-test_encode_nonfinite.o: test_encode_nonfinite.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_nonfinite_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_encode_nonfinite-test_encode_nonfinite.o -MD -MP -MF $(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Tpo -c -o test_encode_nonfinite-test_encode_nonfinite.o `test -f 'test_encode_nonfinite.c' || echo '$(srcdir)/'`test_encode_nonfinite.c
@@ -1255,6 +1297,13 @@ test_encode_nonfinite.log: test_encode_nonfinite$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_encode_mono_interleaved.log: test_encode_mono_interleaved$(EXEEXT)
+	@p='test_encode_mono_interleaved$(EXEEXT)'; \
+	b='test_encode_mono_interleaved'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 .test.log:
 	@p='$<'; \
 	$(am__set_b); \
@@ -1348,6 +1397,7 @@ clean-am: clean-checkPROGRAMS clean-generic clean-libtool \
 	mostlyclean-am
 
 distclean: distclean-am
+	-rm -f ./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po
 	-rm -f ./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
@@ -1404,6 +1454,7 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
+	-rm -f ./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po
 	-rm -f ./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
