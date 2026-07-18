@@ -2136,7 +2136,12 @@ lame_get_totalframes(const lame_global_flags * gfp)
             unsigned long end_padding = 0;
             int frames = 0;
 
-            if (pcm_samples_to_encode == (0ul-1ul))
+            /* compare against the documented unknown sentinel (lame.h:
+               default = 2^32-1); the (0ul-1ul) test alone matches it only
+               where long is 32-bit, and is kept to preserve existing LP64
+               behavior */
+            if (pcm_samples_to_encode == MAX_U_32_NUM
+                || pcm_samples_to_encode == (0ul-1ul))
                 return 0; /* unknown */
 
             /* estimate based on user set num_samples: */

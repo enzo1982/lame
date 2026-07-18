@@ -47,6 +47,12 @@
 #include "brhist.h"
 #include "console.h"
 
+/* num_samples uses 2^32-1 as its "unknown" sentinel (lame.h documents it as
+   the default); libmp3lame's util.h defines the same name, so guard it */
+#ifndef MAX_U_32_NUM
+#define MAX_U_32_NUM 0xFFFFFFFF
+#endif
+
 #ifdef WITH_DMALLOC
 #include <dmalloc.h>
 #endif
@@ -373,7 +379,9 @@ decoder_progress_init(unsigned long n, int framesize)
     dp->frame_ctr = 0;
     dp->framesize = framesize;
     dp->samples = 0;
-    if (n != (0ul-1ul)) {
+    /* also recognize the documented unknown sentinel; the (0ul-1ul) test
+       alone matches it only where long is 32-bit */
+    if (n != MAX_U_32_NUM && n != (0ul-1ul)) {
         if (framesize == 576 || framesize == 1152) {
             dp->frames_total = calcNumBlocks(n, framesize);
             dp->samples = 576 + calcEndPadding(n, framesize);
