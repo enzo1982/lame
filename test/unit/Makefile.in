@@ -98,7 +98,8 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_id3tag$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_parse_id3$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_encode_nonfinite$(EXEEXT) \
-@ENABLE_UNIT_TESTS_TRUE@	test_encode_mono_interleaved$(EXEEXT)
+@ENABLE_UNIT_TESTS_TRUE@	test_encode_mono_interleaved$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_totalframes$(EXEEXT)
 subdir = test/unit
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/host-cpu-c-abi.m4 \
@@ -185,6 +186,12 @@ am__test_sanity_SOURCES_DIST = test_sanity.c
 test_sanity_OBJECTS = $(am_test_sanity_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@test_sanity_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1)
+am__test_totalframes_SOURCES_DIST = test_totalframes.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_totalframes_OBJECTS = test_totalframes-test_totalframes.$(OBJEXT)
+test_totalframes_OBJECTS = $(am_test_totalframes_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_totalframes_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -211,7 +218,8 @@ am__depfiles_remade = ./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_
 	./$(DEPDIR)/test_parse_id3-test_parse_id3.Po \
 	./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po \
 	./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po \
-	./$(DEPDIR)/test_sanity-test_sanity.Po
+	./$(DEPDIR)/test_sanity-test_sanity.Po \
+	./$(DEPDIR)/test_totalframes-test_totalframes.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -235,7 +243,8 @@ SOURCES = $(test_encode_mono_interleaved_SOURCES) \
 	$(test_encode_nonfinite_SOURCES) \
 	$(test_get_audio_aiff_SOURCES) $(test_id3tag_SOURCES) \
 	$(test_merge_argv_SOURCES) $(test_parse_id3_SOURCES) \
-	$(test_parse_pathlen_SOURCES) $(test_sanity_SOURCES)
+	$(test_parse_pathlen_SOURCES) $(test_sanity_SOURCES) \
+	$(test_totalframes_SOURCES)
 DIST_SOURCES = $(am__test_encode_mono_interleaved_SOURCES_DIST) \
 	$(am__test_encode_nonfinite_SOURCES_DIST) \
 	$(am__test_get_audio_aiff_SOURCES_DIST) \
@@ -243,7 +252,8 @@ DIST_SOURCES = $(am__test_encode_mono_interleaved_SOURCES_DIST) \
 	$(am__test_merge_argv_SOURCES_DIST) \
 	$(am__test_parse_id3_SOURCES_DIST) \
 	$(am__test_parse_pathlen_SOURCES_DIST) \
-	$(am__test_sanity_SOURCES_DIST)
+	$(am__test_sanity_SOURCES_DIST) \
+	$(am__test_totalframes_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -739,6 +749,18 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
+
+# lame_get_totalframes() is public, so this test links libmp3lame and calls it
+# directly - no frontend translation unit compiled in.
+@ENABLE_UNIT_TESTS_TRUE@test_totalframes_SOURCES = test_totalframes.c
+@ENABLE_UNIT_TESTS_TRUE@test_totalframes_CPPFLAGS = $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_totalframes_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
 all: all-am
 
 .SUFFIXES:
@@ -810,6 +832,10 @@ test_sanity$(EXEEXT): $(test_sanity_OBJECTS) $(test_sanity_DEPENDENCIES) $(EXTRA
 	@rm -f test_sanity$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_sanity_OBJECTS) $(test_sanity_LDADD) $(LIBS)
 
+test_totalframes$(EXEEXT): $(test_totalframes_OBJECTS) $(test_totalframes_DEPENDENCIES) $(EXTRA_test_totalframes_DEPENDENCIES) 
+	@rm -f test_totalframes$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_totalframes_OBJECTS) $(test_totalframes_LDADD) $(LIBS)
+
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 
@@ -828,6 +854,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_sanity-test_sanity.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_totalframes-test_totalframes.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -1023,6 +1050,20 @@ test_sanity-test_sanity.obj: test_sanity.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_sanity.c' object='test_sanity-test_sanity.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_sanity_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_sanity-test_sanity.obj `if test -f 'test_sanity.c'; then $(CYGPATH_W) 'test_sanity.c'; else $(CYGPATH_W) '$(srcdir)/test_sanity.c'; fi`
+
+test_totalframes-test_totalframes.o: test_totalframes.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_totalframes_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_totalframes-test_totalframes.o -MD -MP -MF $(DEPDIR)/test_totalframes-test_totalframes.Tpo -c -o test_totalframes-test_totalframes.o `test -f 'test_totalframes.c' || echo '$(srcdir)/'`test_totalframes.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_totalframes-test_totalframes.Tpo $(DEPDIR)/test_totalframes-test_totalframes.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_totalframes.c' object='test_totalframes-test_totalframes.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_totalframes_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_totalframes-test_totalframes.o `test -f 'test_totalframes.c' || echo '$(srcdir)/'`test_totalframes.c
+
+test_totalframes-test_totalframes.obj: test_totalframes.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_totalframes_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_totalframes-test_totalframes.obj -MD -MP -MF $(DEPDIR)/test_totalframes-test_totalframes.Tpo -c -o test_totalframes-test_totalframes.obj `if test -f 'test_totalframes.c'; then $(CYGPATH_W) 'test_totalframes.c'; else $(CYGPATH_W) '$(srcdir)/test_totalframes.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_totalframes-test_totalframes.Tpo $(DEPDIR)/test_totalframes-test_totalframes.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_totalframes.c' object='test_totalframes-test_totalframes.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_totalframes_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_totalframes-test_totalframes.obj `if test -f 'test_totalframes.c'; then $(CYGPATH_W) 'test_totalframes.c'; else $(CYGPATH_W) '$(srcdir)/test_totalframes.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -1304,6 +1345,13 @@ test_encode_mono_interleaved.log: test_encode_mono_interleaved$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_totalframes.log: test_totalframes$(EXEEXT)
+	@p='test_totalframes$(EXEEXT)'; \
+	b='test_totalframes'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 .test.log:
 	@p='$<'; \
 	$(am__set_b); \
@@ -1409,6 +1457,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
+	-rm -f ./$(DEPDIR)/test_totalframes-test_totalframes.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -1466,6 +1515,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
+	-rm -f ./$(DEPDIR)/test_totalframes-test_totalframes.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

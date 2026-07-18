@@ -8,7 +8,8 @@ include $(top_srcdir)/Makefile.am.global
 if ENABLE_UNIT_TESTS
 
 check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv \
-	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved
+	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
+	test_totalframes
 TESTS = $(check_PROGRAMS)
 
 test_sanity_SOURCES = test_sanity.c
@@ -93,6 +94,16 @@ test_encode_mono_interleaved_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_encode_mono_interleaved_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# lame_get_totalframes() is public, so this test links libmp3lame and calls it
+# directly - no frontend translation unit compiled in.
+test_totalframes_SOURCES = test_totalframes.c
+test_totalframes_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_totalframes_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 
