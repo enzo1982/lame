@@ -268,21 +268,22 @@ id3v2AddAudioDuration(lame_t gfp, double ms)
 {
     SessionConfig_t const *const cfg = &gfp->internal_flags->cfg; /* caller checked pointers */
     char    buffer[1024];
-    double const max_ulong = MAX_U_32_NUM;
-    unsigned long playlength_ms;
+    uint64_t const max_ms = (uint64_t) -1;      /* full width of the playlength field */
+    double const max_ms_dbl = (double) max_ms;  /* rounds up past the field, so use >= */
+    uint64_t playlength_ms;
 
     ms *= 1000;
     ms /= cfg->samplerate_in;
-    if (ms > max_ulong) {
-        playlength_ms = max_ulong;
+    if (ms >= max_ms_dbl) {
+        playlength_ms = max_ms;
     }
     else if (ms < 0) {
         playlength_ms = 0;
     }
     else {
-        playlength_ms = ms;
+        playlength_ms = (uint64_t) ms;
     }
-    sprintf(buffer, "%lu", playlength_ms);
+    sprintf(buffer, "%llu", (unsigned long long) playlength_ms);
     copyV1ToV2(gfp, ID_PLAYLENGTH, buffer);
 }
 

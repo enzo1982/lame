@@ -332,6 +332,37 @@ test_v2_size_within_limit_written(void **state)
     assert_true(get_v2(gfp) > 10);
 }
 
+/* --- ID3v2 auto play-length (TLEN) ------------------------------------- */
+
+/**
+ * @brief A play-length past 2^32-1 ms is written in full, not clamped.
+ *
+ * The TLEN value is derived from num_samples, so a long enough declared length
+ * yields a duration beyond a 32-bit millisecond count. This is only
+ * representable where unsigned long is wider than 32 bits (num_samples must
+ * hold the sample count), so it is skipped elsewhere. The length is set on the
+ * config, not encoded, so no audio is processed.
+ */
+static void
+test_v2_playlength_beyond_32bit(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    size_t sz;
+    if (sizeof(unsigned long) < 8) {
+        skip(); /* num_samples cannot express a >2^32-1 ms length here */
+        return;
+    }
+    lame_set_in_samplerate(gfp, 8000);
+    lame_set_num_channels(gfp, 2);
+    lame_set_num_samples(gfp, 40000000000UL); /* 4e10 @ 8 kHz -> 5e9 ms */
+    id3tag_add_v2(gfp);
+    id3tag_set_title(gfp, "MyTitle");
+    assert_int_equal(lame_init_params(gfp), 0);
+    sz = get_v2(gfp);
+    assert_true(mem_contains(tagbuf, sz, "5000000000"));  /* full value */
+    assert_false(mem_contains(tagbuf, sz, "4294967295")); /* not the old clamp */
+}
+
 /* --- fixture ----------------------------------------------------------- */
 
 /** @brief Per-test fixture: fresh lame_t into @p state. */
@@ -376,6 +407,7 @@ main(void)
         ID3_TEST(test_v2_size_over_synchsafe_limit_rejected),
         ID3_TEST(test_v2_albumart_over_synchsafe_limit_rejected),
         ID3_TEST(test_v2_size_within_limit_written),
+        ID3_TEST(test_v2_playlength_beyond_32bit),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
