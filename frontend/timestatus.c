@@ -382,16 +382,21 @@ decoder_progress_init(unsigned long n, int framesize)
     /* also recognize the documented unknown sentinel; the (0ul-1ul) test
        alone matches it only where long is 32-bit */
     if (n != MAX_U_32_NUM && n != (0ul-1ul)) {
+        unsigned long frames_total;
         if (framesize == 576 || framesize == 1152) {
-            dp->frames_total = calcNumBlocks(n, framesize);
+            frames_total = calcNumBlocks(n, framesize);
             dp->samples = 576 + calcEndPadding(n, framesize);
         }
         else if (framesize > 0) {
-            dp->frames_total = n / framesize;
+            frames_total = n / framesize;
         }
         else {
-            dp->frames_total = n;
+            frames_total = n;
         }
+        /* frames_total is an int; a length that would overflow it leaves the
+           total unknown, as the sentinel above does */
+        if (frames_total <= ((unsigned int)-1)/2)
+            dp->frames_total = frames_total;
     }
     return dp;
 }

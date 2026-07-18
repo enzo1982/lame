@@ -2163,6 +2163,8 @@ lame_get_totalframes(const lame_global_flags * gfp)
                 pcm_samples_to_encode = ceil(resampled_samples_to_encode);
             }
             else {
+                if (pcm_samples_to_encode / pcm_samples_per_frame >= (unsigned long)(INT_MAX-2))
+                    return 0; /* overflow, happens eventually, no estimate! */
                 frames = pcm_samples_to_encode / pcm_samples_per_frame;
                 pcm_samples_to_encode -= frames * pcm_samples_per_frame;
             }

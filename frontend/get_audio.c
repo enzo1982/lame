@@ -2034,7 +2034,7 @@ int lame123_decode_initfile(FILE *fd, mp3data_struct *mp3data, int *enc_delay, i
        if libmpg123 got that info from Info tag or not. */
     /* I am paranoid about off_t being larger than long or int. */
     len = mpg123_framelength(global.hip->mh);
-    if(len <= (unsigned long)-1)
+    if(len <= ((unsigned int)-1)/2)     /* totalframes is int, bound to INT_MAX */
         mp3data->totalframes = len;
     else
         return -1;
