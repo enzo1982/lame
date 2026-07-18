@@ -178,6 +178,17 @@
 			    <li>Removed closing the output file on two mp3rtp
 			        startup error paths that run before it is
 			        opened.</li>
+			    <li>Recognize the documented unknown-length sentinel
+			        when reporting the total frame count, so an
+			        unknown-length stream no longer shows a bogus total
+			        and estimate where <i>long</i> is wider than 32 bits.
+			        Patch by Maya R. Odinezenko.</li>
+			    <li>Bound the frame-count estimates to the <i>int</i>
+			        they are returned in, so a declared length large
+			        enough to exceed it no longer overflows the
+			        estimate.</li>
+			    <li>Write the full audio play-length in the ID3v2 tag
+			        instead of clamping it to about 49.7 days.</li>
 		</ul>
             </li>
 	</ul>
