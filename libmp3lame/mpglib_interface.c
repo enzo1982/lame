@@ -134,10 +134,11 @@ lame_decode_init(void)
 #define OUTSIZE_CLIPPED   (4096*sizeof(short))
 
 int
-lame_decode1_headersB(unsigned char *buffer,
-                      int len,
-                      short pcm_l[], short pcm_r[], mp3data_struct * mp3data,
-                      int *enc_delay, int *enc_padding)
+lame_decode1_headersB(LAME_UNUSED unsigned char *buffer,
+                      LAME_UNUSED int len,
+                      LAME_UNUSED short pcm_l[], LAME_UNUSED short pcm_r[],
+                      LAME_UNUSED mp3data_struct *mp3data,
+                      LAME_UNUSED int *enc_delay, LAME_UNUSED int *enc_padding)
 {
     return -1;
 }
@@ -155,15 +156,17 @@ lame_decode1_headersB(unsigned char *buffer,
  */
 
 int
-lame_decode1_headers(unsigned char *buffer,
-                     int len, short pcm_l[], short pcm_r[], mp3data_struct * mp3data)
+lame_decode1_headers(LAME_UNUSED unsigned char *buffer,
+                     LAME_UNUSED int len, LAME_UNUSED short pcm_l[],
+                     LAME_UNUSED short pcm_r[], LAME_UNUSED mp3data_struct *mp3data)
 {
     return -1;
 }
 
 
 int
-lame_decode1(unsigned char *buffer, int len, short pcm_l[], short pcm_r[])
+lame_decode1(LAME_UNUSED unsigned char *buffer, LAME_UNUSED int len,
+             LAME_UNUSED short pcm_l[], LAME_UNUSED short pcm_r[])
 {
     return -1;
 }
@@ -177,15 +180,17 @@ lame_decode1(unsigned char *buffer, int len, short pcm_l[], short pcm_r[])
  */
 
 int
-lame_decode_headers(unsigned char *buffer,
-                    int len, short pcm_l[], short pcm_r[], mp3data_struct * mp3data)
+lame_decode_headers(LAME_UNUSED unsigned char *buffer,
+                    LAME_UNUSED int len, LAME_UNUSED short pcm_l[],
+                    LAME_UNUSED short pcm_r[], LAME_UNUSED mp3data_struct *mp3data)
 {
     return -1;
 }
 
 
 int
-lame_decode(unsigned char *buffer, int len, short pcm_l[], short pcm_r[])
+lame_decode(LAME_UNUSED unsigned char *buffer, LAME_UNUSED int len,
+            LAME_UNUSED short pcm_l[], LAME_UNUSED short pcm_r[])
 {
     return -1;
 }
@@ -549,21 +554,21 @@ void hip_finish_pinfo(hip_t hip)
 #endif
 }
 
-void hip_set_errorf(hip_t hip, lame_report_function func)
+void hip_set_errorf(LAME_UNUSED hip_t hip, LAME_UNUSED lame_report_function func)
 {
 #ifdef HAVE_MPG123
     /* TODO: implement something */
 #endif
 }
 
-void hip_set_debugf(hip_t hip, lame_report_function func)
+void hip_set_debugf(LAME_UNUSED hip_t hip, LAME_UNUSED lame_report_function func)
 {
 #ifdef HAVE_MPG123
     /* TODO: implement something */
 #endif
 }
 
-void hip_set_msgf  (hip_t hip, lame_report_function func)
+void hip_set_msgf  (LAME_UNUSED hip_t hip, LAME_UNUSED lame_report_function func)
 {
 #ifdef HAVE_MPG123
     /* TODO: implement something */

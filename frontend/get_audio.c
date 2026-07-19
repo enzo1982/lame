@@ -919,7 +919,8 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152])
 
 
 static int
-read_samples_mp3(lame_t gfp, FILE * musicin, short int mpg123pcm[2][1152])
+read_samples_mp3(LAME_UNUSED lame_t gfp, LAME_UNUSED FILE * musicin,
+                 LAME_UNUSED short int mpg123pcm[2][1152])
 {
     int     out;
 #ifdef HAVE_MPG123
@@ -1819,7 +1820,8 @@ parse_file_header(lame_global_flags * gfp, FILE * sf)
 
 
 static int
-open_mpeg_file_part2(lame_t gfp, FILE* musicin, char const *inPath, int *enc_delay, int *enc_padding)
+open_mpeg_file_part2(lame_t gfp, LAME_UNUSED FILE * musicin, LAME_UNUSED char const *inPath,
+                     LAME_UNUSED int *enc_delay, LAME_UNUSED int *enc_padding)
 {
 #ifdef HAVE_MPG123
     if (-1 == lame123_decode_initfile(musicin, &global_decoder.mp3input_data, enc_delay, enc_padding)) {
