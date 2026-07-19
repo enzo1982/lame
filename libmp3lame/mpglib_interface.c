@@ -513,7 +513,6 @@ void hip_finish_pinfo(hip_t hip)
 #ifndef NOANALYSIS
 #ifdef HAVE_MPG123
     struct mpg123_frameinfo fi;
-    long rate;
     plotting_data *pinfo = hip->pinfo;
     if(!hip || !hip->pinfo)
         return;

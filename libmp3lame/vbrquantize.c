@@ -105,11 +105,10 @@ typedef VOLATILE union {
 #  define XRPOW_FTOI(src,dest) ((dest) = (int)(src))
 #endif
 
+#if TAKEHIRO_IEEE754_HACK
 static int const MAGIC_INT = MAGIC_INT_def;
-#if !TAKEHIRO_IEEE754_HACK
-static DOUBLEX const ROUNDFAC = ROUNDFAC_def;
-#endif
 static DOUBLEX const MAGIC_FLOAT = MAGIC_FLOAT_def;
+#endif
 
 
 inline static  float
