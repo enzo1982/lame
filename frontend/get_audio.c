@@ -2108,7 +2108,7 @@ is_mpeg_file_format(int input_file_format)
 #define LOW__BYTE(x) (x & 0x00ff)
 #define HIGH_BYTE(x) ((x >> 8) & 0x00ff)
 
-void
+int
 put_audio16(FILE * outf, short Buffer[2][1152], int iread, int nch)
 {
     char    data[2 * 1152 * 2];
@@ -2157,11 +2157,14 @@ put_audio16(FILE * outf, short Buffer[2][1152], int iread, int nch)
         }
     }
     if (m > 0) {
-        fwrite(data, 1, m, outf);
+        if (fwrite(data, 1, m, outf) != (size_t) m)
+            return -1;
     }
     if (global_writer.flush_write == 1) {
-        fflush(outf);
+        if (fflush(outf) != 0)
+            return -1;
     }
+    return 0;
 }
 
 hip_t

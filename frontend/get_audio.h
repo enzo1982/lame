@@ -56,7 +56,7 @@ hip_t   get_hip(void);
 
 FILE   *init_outfile(char const *outPath, int decode);
 int     WriteWaveHeader(FILE * const fp, int pcmbytes, int freq, int channels, int bits);
-void    put_audio16(FILE* outf, short Buffer[2][1152], int iread, int nch);
+int     put_audio16(FILE* outf, short Buffer[2][1152], int iread, int nch);
 
 /*
 struct AudioReader;
