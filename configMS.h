@@ -1,6 +1,16 @@
 #ifndef CONFIGMS_H_INCLUDED
 #define CONFIGMS_H_INCLUDED
 
+/* Silence the MSVC CRT deprecation warning (C4996) for the standard ISO C
+   library functions LAME uses.  The "secure" _s replacements MSVC suggests are
+   not portable, so the code stays on the standard names.  This header is the
+   first include in every translation unit, so the definition takes effect
+   before any CRT header is parsed.  Guarded so a build that already defines it
+   on the command line does not trigger a redefinition warning. */
+#ifndef _CRT_SECURE_NO_WARNINGS
+# define _CRT_SECURE_NO_WARNINGS 1
+#endif
+
 /* The number of bytes in a double.  */
 #define SIZEOF_DOUBLE 8
 
