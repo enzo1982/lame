@@ -110,6 +110,10 @@ char   *strchr(), *strrchr();
 #if    defined(_MSC_VER)
 # pragma warning( disable : 4244 )
 /*# pragma warning( disable : 4305 ) */
+/* 4100: unreferenced formal parameter. Intentional in stub/compatibility
+   entry points; the GCC/Clang -Wunused-parameter build is where a genuinely
+   unused parameter is caught (see LAME_UNUSED). */
+# pragma warning( disable : 4100 )
 #endif
 
 /*
