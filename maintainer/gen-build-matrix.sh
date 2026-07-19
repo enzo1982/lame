@@ -321,6 +321,11 @@ for d in $detected; do
 			echo "# cell: $cell   compiler: $cname ($cpath)"
 			echo "# configure args: $args"
 			echo "set -e"
+			echo "# Configure and build inside this cell's own directory (where"
+			echo "# this script lives) so every matrix cell is a genuine isolated"
+			echo "# out-of-tree build rather than sharing - and clobbering - the"
+			echo "# master directory. srcdir and CC below are absolute."
+			echo 'cd "$(dirname "$0")"'
 			echo "srcdir='$srcdir'"
 			echo "export CC='$cpath'"
 			echo "\"\$srcdir/configure\" $args"
