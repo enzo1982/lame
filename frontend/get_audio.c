@@ -1414,7 +1414,6 @@ static uint32_t const IFF_ID_AIFF = 0x41494646; /* "AIFF" */
 static uint32_t const IFF_ID_AIFC = 0x41494643; /* "AIFC" */
 static uint32_t const IFF_ID_COMM = 0x434f4d4d; /* "COMM" */
 static uint32_t const IFF_ID_SSND = 0x53534e44; /* "SSND" */
-static uint32_t const IFF_ID_MPEG = 0x4d504547; /* "MPEG" */
 
 static uint32_t const IFF_ID_NONE = 0x4e4f4e45; /* "NONE" *//* AIFF-C data format */
 static uint32_t const IFF_ID_2CBE = 0x74776f73; /* "twos" *//* AIFF-C data format */
@@ -1497,21 +1496,42 @@ parse_wave_header(lame_global_flags * gfp, FILE * sf)
                 || read_16_bits_low_high(sf, &ui16_nBlockAlign)
                 || read_16_bits_low_high(sf, &ui16_wBitsPerSample))
                 return -1;
+            /* The block alignment and the byte rate only restate what the
+               other fields already say, so they are cross-checked rather
+               than used: writers get them wrong often enough that a
+               mismatch must not cost the user the file. */
+            if (global_ui_config.silent < 0 && ui16_nChannels > 0 && ui16_wBitsPerSample > 0) {
+                uint32_t const align = ui16_nChannels * ((ui16_wBitsPerSample + 7u) / 8u);
+                if (ui16_nBlockAlign != align)
+                    error_printf("Note: block alignment is %u, expected %u\n",
+                                 (unsigned int) ui16_nBlockAlign, (unsigned int) align);
+                if (ui32_nAvgBytesPerSec != ui32_nSamplesPerSec * align)
+                    error_printf("Note: byte rate is %u, expected %u\n",
+                                 (unsigned int) ui32_nAvgBytesPerSec,
+                                 (unsigned int) (ui32_nSamplesPerSec * align));
+            }
             ui32_cksize -= 16u;
             /* WAVE_FORMAT_EXTENSIBLE support */
             if ((ui32_cksize > 9u) && (ui16_wFormatTag == WAVE_FORMAT_EXTENSIBLE)) {
                 uint16_t ui16_cbSize              = 0;
                 uint16_t ui16_wValidBitsPerSample = 0;
-                uint32_t ui32_dwChannelMask       = 0;
                 uint16_t ui16_SubFormat           = 0;
                 if (read_16_bits_low_high(sf, &ui16_cbSize)
                     || read_16_bits_low_high(sf, &ui16_wValidBitsPerSample)
-                    || read_32_bits_low_high(sf, &ui32_dwChannelMask)
+                    /* the channel mask only names the speakers; zero means
+                       unspecified and nothing here depends on it */
+                    || fskip_uint32(sf, 4u) != 0
                     || read_16_bits_low_high(sf, &ui16_SubFormat))
+                    return -1;
+                /* An extensible header describes a 22 byte extension and
+                   cannot carry more valid bits than the sample holds. */
+                if (ui16_cbSize < 22u)
+                    return -1;
+                if (ui16_wValidBitsPerSample == 0
+                    || ui16_wValidBitsPerSample > ui16_wBitsPerSample)
                     return -1;
                 ui32_cksize -= 10u;
                 ui16_wFormatTag = ui16_SubFormat; /* SubType coincident with format_tag for PCM int or float */
-                (void) (ui16_cbSize, ui16_wValidBitsPerSample, ui32_dwChannelMask); /* unused */
             }
             /* DEBUGF("   skipping %d bytes\n", ui32_cksize); */
             if (ui32_cksize > 0) {
@@ -1752,12 +1772,13 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
         global. pcm_is_ieee_float = 1;
         global. pcmswapbytes = !global_reader.swapbytes;
     }
-    /*  64 bit floating point reading is still missing
     else if (aiff_info.sampleFormat == IFF_ID_FL64) {
-        global. pcm_is_ieee_float = 1;
-        global. pcmswapbytes = !global_reader.swapbytes;
+        /* reading 64 bit floating point samples is not implemented */
+        if (global_ui_config.silent < 10) {
+            error_printf("Unsupported data format: 64 bit floating point\n");
+        }
+        return -1;
     }
-    */
     else {
         return -1;
     }
