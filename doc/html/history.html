@@ -189,6 +189,39 @@
 			        estimate.</li>
 			    <li>Write the full audio play-length in the ID3v2 tag
 			        instead of clamping it to about 49.7 days.</li>
+			    <li>Detect a truncated WAV or AIFF header instead of
+			        reading past it. A file that ended partway through
+			        its header was parsed together with whatever bytes
+			        happened to follow in memory; such a file is now
+			        rejected as corrupt.</li>
+			    <li>Report a write error when decoding to a file. If
+			        the decoded output could not be fully written - a
+			        full disk, for example - <i>--decode</i> now fails
+			        instead of finishing silently with a truncated
+			        file.</li>
+			    <li>Fixed converting a short 8.3 path back to its long
+			        form on Windows, which could leave the resulting
+			        name unterminated or copy the wrong number of
+			        characters.</li>
+			    <li>Reject an extensible WAV header that describes too
+			        small an extension or claims more valid bits than
+			        its samples hold, and name a 64 bit floating point
+			        AIFF file as an unsupported format instead of
+			        failing as though it were corrupt. A block
+			        alignment or byte rate that disagrees with the rest
+			        of the header - which many writers get wrong - is
+			        still accepted and is only reported under
+			        <i>--verbose</i>.</li>
+			    <li>Build without compiler warnings on GCC, Clang and
+			        MSVC. Most were harmless, but the cleanup also
+			        corrected some undefined behaviour. The encoder
+			        output is unchanged.</li>
+			    <li>In maintainer mode the GCC/Clang build compiles
+			        with additional warnings enabled and treated as
+			        errors, so a newly introduced warning fails the
+			        build. This applies only to
+			        <i>--enable-maintainer-mode</i>; ordinary and
+			        release builds are unaffected.</li>
 		</ul>
             </li>
 	</ul>
