@@ -147,29 +147,30 @@ dosToLongFileName(char *filename)
     WIN32_FIND_DATAA lpFindFileData;
     HANDLE  h = FindFirstFileA(filename, &lpFindFileData);
     if (h != INVALID_HANDLE_VALUE) {
-        size_t  a;
-        char   *q, *p;
+        char   *q, *p, *name;
+        size_t  namelen, prefix;
+
         FindClose(h);
-        for (a = 0; a < MSIZE; a++) {
-            if ('\0' == lpFindFileData.cFileName[a])
-                break;
-        }
-        if (a >= MSIZE || a == 0)
-            return;
+        namelen = strnlen(lpFindFileData.cFileName, sizeof(lpFindFileData.cFileName));
+        if (namelen == 0 || namelen >= sizeof(lpFindFileData.cFileName))
+            return;             /* empty, or not terminated within the field */
+
+        /* Locate the last path separator. Either form may be absent, so the
+           two candidates are compared only when both exist. */
         q = strrchr(filename, '\\');
         p = strrchr(filename, '/');
-        if (p - q > 0)
+        if (q == NULL || (p != NULL && p > q))
             q = p;
         if (q == NULL)
             q = strrchr(filename, ':');
-        if (q == NULL)
-            strncpy(filename, lpFindFileData.cFileName, a);
-        else {
-            a += q - filename + 1;
-            if (a >= MSIZE)
-                return;
-            strncpy(++q, lpFindFileData.cFileName, MSIZE - a);
-        }
+
+        /* The long name replaces the short one after the separator; anything
+           that no longer fits leaves the path untouched. */
+        name = (q == NULL) ? filename : q + 1;
+        prefix = (size_t) (name - filename);
+        if (prefix >= MSIZE || namelen >= MSIZE - prefix)
+            return;
+        snprintf(name, MSIZE - prefix, "%.*s", (int) namelen, lpFindFileData.cFileName);
     }
 }
 
