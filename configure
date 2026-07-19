@@ -21229,6 +21229,103 @@ fi
 
 
 CFLAGS="${OPTIMIZATION} ${CFLAGS}"
+
+if test "x$USE_MAINTAINER_MODE" = xyes; then
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -Wextra" >&5
+printf %s "checking whether $CC accepts -Wextra... " >&6; }
+lame_check_flag_save=$CFLAGS
+CFLAGS="$CFLAGS -O2 -Wextra -Werror"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  lame_check_flag_ok=yes
+else case e in #(
+  e) lame_check_flag_ok=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+CFLAGS=$lame_check_flag_save
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
+printf '%s\n' "$lame_check_flag_ok" >&6; }
+if test "x$lame_check_flag_ok" = xyes
+then :
+  CFLAGS="${CFLAGS} -Wextra"
+fi
+
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -Wshadow" >&5
+printf %s "checking whether $CC accepts -Wshadow... " >&6; }
+lame_check_flag_save=$CFLAGS
+CFLAGS="$CFLAGS -O2 -Wshadow -Werror"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  lame_check_flag_ok=yes
+else case e in #(
+  e) lame_check_flag_ok=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+CFLAGS=$lame_check_flag_save
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
+printf '%s\n' "$lame_check_flag_ok" >&6; }
+if test "x$lame_check_flag_ok" = xyes
+then :
+  CFLAGS="${CFLAGS} -Wshadow"
+fi
+
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -Werror" >&5
+printf %s "checking whether $CC accepts -Werror... " >&6; }
+lame_check_flag_save=$CFLAGS
+CFLAGS="$CFLAGS -O2 -Werror -Werror"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  lame_check_flag_ok=yes
+else case e in #(
+  e) lame_check_flag_ok=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+CFLAGS=$lame_check_flag_save
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
+printf '%s\n' "$lame_check_flag_ok" >&6; }
+if test "x$lame_check_flag_ok" = xyes
+then :
+  CFLAGS="${CFLAGS} -Werror"
+fi
+
+fi
+
 LDADD="${LDADD}"
 FRONTEND_CFLAGS="${INCICONV} ${FRONTEND_CFLAGS}"
 FRONTEND_LDADD="${FRONTEND_LDADD} ${LTLIBICONV} ${CONFIG_MATH_LIB}"

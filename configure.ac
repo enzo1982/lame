@@ -1249,6 +1249,18 @@ fi
 
 
 CFLAGS="${OPTIMIZATION} ${CFLAGS}"
+
+dnl In maintainer mode, build under stricter warnings and make them fatal so
+dnl regressions are caught before release.  This runs after all feature checks
+dnl so -Werror cannot break autoconf's test compilations, and LAME_CHECK_CFLAG
+dnl drops any flag the compiler does not accept (so no compiler gate is needed).
+dnl End-user builds are unaffected: maintainer mode is off by default.
+if test "x$USE_MAINTAINER_MODE" = xyes; then
+	LAME_CHECK_CFLAG([-Wextra], [CFLAGS])
+	LAME_CHECK_CFLAG([-Wshadow], [CFLAGS])
+	LAME_CHECK_CFLAG([-Werror], [CFLAGS])
+fi
+
 LDADD="${LDADD}"
 FRONTEND_CFLAGS="${INCICONV} ${FRONTEND_CFLAGS}"
 FRONTEND_LDADD="${FRONTEND_LDADD} ${LTLIBICONV} ${CONFIG_MATH_LIB}"
