@@ -95,16 +95,16 @@ init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int max_nz, FLOA
     }
     vec_tmp._m128 = _mm_set_ps1(0);
     switch (rest) {
-        case 3: vec_tmp._float[2] = cod_info->xr[upper4+2];
-        case 2: vec_tmp._float[1] = cod_info->xr[upper4+1];
+        case 3: vec_tmp._float[2] = cod_info->xr[upper4+2]; /* fall through */
+        case 2: vec_tmp._float[1] = cod_info->xr[upper4+1]; /* fall through */
         case 1: vec_tmp._float[0] = cod_info->xr[upper4+0];
             vec_tmp._m128 = _mm_and_ps(vec_tmp._m128, vec_fabs_mask); /* fabs */
             vec_sum._m128 = _mm_add_ps(vec_sum._m128, vec_tmp._m128);
             vec_tmp._m128 = _mm_sqrt_ps(_mm_mul_ps(vec_tmp._m128, _mm_sqrt_ps(vec_tmp._m128)));
             vec_xrpow_max._m128 = _mm_max_ps(vec_xrpow_max._m128, vec_tmp._m128); /* retrieve max */
             switch (rest) {
-                case 3: xrpow[upper4+2] = vec_tmp._float[2];
-                case 2: xrpow[upper4+1] = vec_tmp._float[1];
+                case 3: xrpow[upper4+2] = vec_tmp._float[2]; /* fall through */
+                case 2: xrpow[upper4+1] = vec_tmp._float[1]; /* fall through */
                 case 1: xrpow[upper4+0] = vec_tmp._float[0];
                 default:
                     break;

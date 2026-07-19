@@ -624,7 +624,7 @@ quant_compare(const int quant_comp,
 
     case 8:
         calc->max_noise = get_klemm_noise(distort, gi);
-        /*lint --fallthrough */
+        /* fall through */
     case 1:
         better = calc->max_noise < best->max_noise;
         break;
