@@ -394,10 +394,8 @@ GetVbrTag(VBRTAGDATA * pTagData, const unsigned char *buf)
     }
 
     if (head_flags & TOC_FLAG) {
-        if (pTagData->toc != NULL) {
-            for (i = 0; i < NUMTOCENTRIES; i++)
-                pTagData->toc[i] = buf[i];
-        }
+        for (i = 0; i < NUMTOCENTRIES; i++)
+            pTagData->toc[i] = buf[i];
         buf += NUMTOCENTRIES;
     }
 
@@ -435,12 +433,10 @@ GetVbrTag(VBRTAGDATA * pTagData, const unsigned char *buf)
     fprintf(stderr, "enc_delay  = %i \n", enc_delay);
     fprintf(stderr, "enc_padding= %i \n", enc_padding);
     fprintf(stderr, "toc:\n");
-    if (pTagData->toc != NULL) {
-        for (i = 0; i < NUMTOCENTRIES; i++) {
-            if ((i % 10) == 0)
-                fprintf(stderr, "\n");
-            fprintf(stderr, " %3d", (int) (pTagData->toc[i]));
-        }
+    for (i = 0; i < NUMTOCENTRIES; i++) {
+        if ((i % 10) == 0)
+            fprintf(stderr, "\n");
+        fprintf(stderr, " %3d", (int) (pTagData->toc[i]));
     }
     fprintf(stderr, "\n***************** END OF VBR TAG INFO ***************\n");
 #endif
