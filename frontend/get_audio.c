@@ -124,12 +124,17 @@ static uint32_t uint32_high_low(unsigned char const *bytes)
     return (hh << 24) | (hl << 16) | (lh << 8) | ll;
 }
 
-static double
-read_ieee_extended_high_low(FILE * fp)
+/* The header readers below return 0 on success and -1 once the input runs
+   short, leaving their result untouched. Callers chain them so that the
+   first short read stops the rest and rejects the file. */
+
+static int
+read_ieee_extended_high_low(FILE * fp, double *out)
 {
     unsigned char bytes[10];
     memset(bytes, 0, 10);
-    fread(bytes, 1, 10, fp);
+    if (fread(bytes, 1, 10, fp) != 10)
+        return -1;
     {
         int32_t const s = (bytes[0] & 0x80);
         int32_t const e_h = (bytes[0] & 0x7F);
@@ -152,56 +157,65 @@ read_ieee_extended_high_low(FILE * fp)
                 result += ldexp(mantissa_l, e);
             }
         }
-        return s ? -result : result;
+        *out = s ? -result : result;
+        return 0;
     }
 }
 
 
-static uint16_t
-read_16_bits_low_high(FILE * fp)
+static int
+read_16_bits_low_high(FILE * fp, uint16_t * out)
 {
     unsigned char bytes[2] = { 0, 0 };
-    fread(bytes, 1, 2, fp);
+    if (fread(bytes, 1, 2, fp) != 2)
+        return -1;
     {
         uint16_t const l = bytes[0];
         uint16_t const h = bytes[1];
-        return (h << 8) | l;
+        *out = (uint16_t) ((h << 8) | l);
+        return 0;
     }
 }
 
 
-static uint32_t
-read_32_bits_low_high(FILE * fp)
+static int
+read_32_bits_low_high(FILE * fp, uint32_t * out)
 {
     unsigned char bytes[4] = { 0, 0, 0, 0 };
-    fread(bytes, 1, 4, fp);
+    if (fread(bytes, 1, 4, fp) != 4)
+        return -1;
     {
         uint32_t const ll = bytes[0];
         uint32_t const lh = bytes[1];
         uint32_t const hl = bytes[2];
         uint32_t const hh = bytes[3];
-        return (hh << 24) | (hl << 16) | (lh << 8) | ll;
+        *out = (hh << 24) | (hl << 16) | (lh << 8) | ll;
+        return 0;
     }
 }
 
-static uint16_t
-read_16_bits_high_low(FILE * fp)
+static int
+read_16_bits_high_low(FILE * fp, uint16_t * out)
 {
     unsigned char bytes[2] = { 0, 0 };
-    fread(bytes, 1, 2, fp);
+    if (fread(bytes, 1, 2, fp) != 2)
+        return -1;
     {
         uint16_t const h = bytes[0];
         uint16_t const l = bytes[1];
-        return (h << 8) | l;
+        *out = (uint16_t) ((h << 8) | l);
+        return 0;
     }
 }
 
-static uint32_t
-read_32_bits_high_low(FILE * fp)
+static int
+read_32_bits_high_low(FILE * fp, uint32_t * out)
 {
     unsigned char bytes[4] = { 0, 0, 0, 0 };
-    fread(bytes, 1, 4, fp);
-    return uint32_high_low(bytes);
+    if (fread(bytes, 1, 4, fp) != 4)
+        return -1;
+    *out = uint32_high_low(bytes);
+    return 0;
 }
 
 static void
@@ -1452,37 +1466,49 @@ parse_wave_header(lame_global_flags * gfp, FILE * sf)
     int     is_wav = 0;
     int     loop_sanity = 0;
 
-    uint32_t ui32_chunkSize = read_32_bits_high_low(sf); /* file_length */
-    uint32_t ui32_WAVEID    = read_32_bits_high_low(sf);
+    uint32_t ui32_chunkSize = 0; /* file_length */
+    uint32_t ui32_WAVEID    = 0;
+    if (read_32_bits_high_low(sf, &ui32_chunkSize)
+        || read_32_bits_high_low(sf, &ui32_WAVEID))
+        return -1;
     if (ui32_WAVEID != WAV_ID_WAVE || ui32_chunkSize < 1)
         return -1;
 
     for (loop_sanity = 0; loop_sanity < 20; ++loop_sanity) {
-        uint32_t ui32_ckID = read_32_bits_high_low(sf);
+        uint32_t ui32_ckID = 0;
+        if (read_32_bits_high_low(sf, &ui32_ckID))
+            return -1;
         if (ui32_ckID == WAV_ID_FMT) {
             uint32_t ui32_nAvgBytesPerSec = 0;
             uint32_t ui32_cksize = 0;
             uint16_t ui16_nBlockAlign = 0;
 
-            ui32_cksize = read_32_bits_low_high(sf);
+            if (read_32_bits_low_high(sf, &ui32_cksize))
+                return -1;
             ui32_cksize = make_even_number_of_bytes_in_length(ui32_cksize);
             if (ui32_cksize < 16u) {
                 /*DEBUGF("'fmt' chunk too short (only %ld bytes)!", ui32_cksize);*/
                 return -1;
             }
-            ui16_wFormatTag      = read_16_bits_low_high(sf);
-            ui16_nChannels       = read_16_bits_low_high(sf);
-            ui32_nSamplesPerSec  = read_32_bits_low_high(sf);
-            ui32_nAvgBytesPerSec = read_32_bits_low_high(sf);
-            ui16_nBlockAlign     = read_16_bits_low_high(sf);
-            ui16_wBitsPerSample  = read_16_bits_low_high(sf);
+            if (read_16_bits_low_high(sf, &ui16_wFormatTag)
+                || read_16_bits_low_high(sf, &ui16_nChannels)
+                || read_32_bits_low_high(sf, &ui32_nSamplesPerSec)
+                || read_32_bits_low_high(sf, &ui32_nAvgBytesPerSec)
+                || read_16_bits_low_high(sf, &ui16_nBlockAlign)
+                || read_16_bits_low_high(sf, &ui16_wBitsPerSample))
+                return -1;
             ui32_cksize -= 16u;
             /* WAVE_FORMAT_EXTENSIBLE support */
             if ((ui32_cksize > 9u) && (ui16_wFormatTag == WAVE_FORMAT_EXTENSIBLE)) {
-                uint16_t ui16_cbSize              = read_16_bits_low_high(sf);
-                uint16_t ui16_wValidBitsPerSample = read_16_bits_low_high(sf);
-                uint32_t ui32_dwChannelMask       = read_32_bits_low_high(sf);
-                uint16_t ui16_SubFormat           = read_16_bits_low_high(sf);
+                uint16_t ui16_cbSize              = 0;
+                uint16_t ui16_wValidBitsPerSample = 0;
+                uint32_t ui32_dwChannelMask       = 0;
+                uint16_t ui16_SubFormat           = 0;
+                if (read_16_bits_low_high(sf, &ui16_cbSize)
+                    || read_16_bits_low_high(sf, &ui16_wValidBitsPerSample)
+                    || read_32_bits_low_high(sf, &ui32_dwChannelMask)
+                    || read_16_bits_low_high(sf, &ui16_SubFormat))
+                    return -1;
                 ui32_cksize -= 10u;
                 ui16_wFormatTag = ui16_SubFormat; /* SubType coincident with format_tag for PCM int or float */
                 (void) (ui16_cbSize, ui16_wValidBitsPerSample, ui32_dwChannelMask); /* unused */
@@ -1494,13 +1520,16 @@ parse_wave_header(lame_global_flags * gfp, FILE * sf)
             };
         }
         else if (ui32_ckID == WAV_ID_DATA) {
-            ui32_DataChunkSize = read_32_bits_low_high(sf);
+            if (read_32_bits_low_high(sf, &ui32_DataChunkSize))
+                return -1;
             is_wav = 1;
             /* We've found the audio data. Read no further! */
             break;
         }
         else {
-            uint32_t ui32_cksize = read_32_bits_low_high(sf);
+            uint32_t ui32_cksize = 0;
+            if (read_32_bits_low_high(sf, &ui32_cksize))
+                return -1;
             ui32_cksize = make_even_number_of_bytes_in_length(ui32_cksize);
             if (fskip_uint32(sf, ui32_cksize) != 0) {
                 return -1;
@@ -1613,9 +1642,9 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
 
     memset(&aiff_info, 0, sizeof(aiff_info));
     aiff_info.sampleFormat = IFF_ID_NONE;
-    ui32_ChunkSize = read_32_bits_high_low(sf);
-
-    ui32_TypeID = read_32_bits_high_low(sf);
+    if (read_32_bits_high_low(sf, &ui32_ChunkSize)
+        || read_32_bits_high_low(sf, &ui32_TypeID))
+        return -1;
     if (ui32_ChunkSize < 4)     /* malformed FORM size: guard the -= 4 underflow */
         return -1;
     ui32_ChunkSize -= 4;
@@ -1623,7 +1652,9 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
         return -1;
 
     while (ui32_ChunkSize >= 8) {
-        uint32_t ui32_type = read_32_bits_high_low(sf);
+        uint32_t ui32_type = 0;
+        if (read_32_bits_high_low(sf, &ui32_type))
+            return -1;
         ui32_ChunkSize -= 4;
 
         /* DEBUGF(
@@ -1631,7 +1662,12 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
 
         /* don't use a switch here to make it easier to use 'break' for SSND */
         if (ui32_type == IFF_ID_COMM) {
-            uint32_t ui32_cksize = read_32_bits_high_low(sf);
+            uint32_t ui32_cksize = 0;
+            uint16_t ui16_numChannels = 0, ui16_sampleSize = 0;
+            uint32_t ui32_numSampleFrames = 0;
+
+            if (read_32_bits_high_low(sf, &ui32_cksize))
+                return -1;
             ui32_ChunkSize -= 4;
             ui32_cksize = make_even_number_of_bytes_in_length(ui32_cksize);
             if (ui32_cksize < 18 || ui32_ChunkSize < ui32_cksize)
@@ -1639,22 +1675,29 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
             ui32_ChunkSize -= ui32_cksize;
             seen_comm_chunk = seen_ssnd_chunk + 1;
 
-            aiff_info.numChannels = read_16_bits_high_low(sf);
-            aiff_info.numSampleFrames = read_32_bits_high_low(sf);
-            aiff_info.sampleSize = read_16_bits_high_low(sf);
-            aiff_info.sampleRate = read_ieee_extended_high_low(sf);
+            if (read_16_bits_high_low(sf, &ui16_numChannels)
+                || read_32_bits_high_low(sf, &ui32_numSampleFrames)
+                || read_16_bits_high_low(sf, &ui16_sampleSize)
+                || read_ieee_extended_high_low(sf, &aiff_info.sampleRate))
+                return -1;
+            aiff_info.numChannels = (short) ui16_numChannels;
+            aiff_info.numSampleFrames = ui32_numSampleFrames;
+            aiff_info.sampleSize = (short) ui16_sampleSize;
             ui32_cksize -= 18;
             if (ui32_TypeID == IFF_ID_AIFC) {
                 if (ui32_cksize < 4)
                     return -1;
-                aiff_info.sampleFormat = read_32_bits_high_low(sf);
+                if (read_32_bits_high_low(sf, &aiff_info.sampleFormat))
+                    return -1;
                 ui32_cksize -= 4;
             }
             if (fskip_uint32(sf, ui32_cksize) != 0)
                 return -1;
         }
         else if (ui32_type == IFF_ID_SSND) {
-            uint32_t ui32_cksize = read_32_bits_high_low(sf);
+            uint32_t ui32_cksize = 0;
+            if (read_32_bits_high_low(sf, &ui32_cksize))
+                return -1;
             ui32_ChunkSize -= 4;
             ui32_cksize = make_even_number_of_bytes_in_length(ui32_cksize);
             if (ui32_cksize < 8 || ui32_ChunkSize < ui32_cksize)
@@ -1663,8 +1706,9 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
             seen_ssnd_chunk = 1;
 
             aiff_info.sampleType = IFF_ID_SSND;
-            aiff_info.blkAlgn.offset = read_32_bits_high_low(sf);
-            aiff_info.blkAlgn.blockSize = read_32_bits_high_low(sf);
+            if (read_32_bits_high_low(sf, &aiff_info.blkAlgn.offset)
+                || read_32_bits_high_low(sf, &aiff_info.blkAlgn.blockSize))
+                return -1;
             ui32_cksize -= 8;
             if (seen_comm_chunk > 0) {
                 if (fskip_uint32(sf, aiff_info.blkAlgn.offset) != 0)
@@ -1680,8 +1724,9 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
                 return -1;
         }
         else {
-            uint32_t ui32_cksize;
-            ui32_cksize = read_32_bits_high_low(sf);
+            uint32_t ui32_cksize = 0;
+            if (read_32_bits_high_low(sf, &ui32_cksize))
+                return -1;
             ui32_ChunkSize -= 4;
             ui32_cksize = make_even_number_of_bytes_in_length(ui32_cksize);
             if (ui32_ChunkSize < ui32_cksize)
@@ -1762,10 +1807,10 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
 static int
 parse_file_header(lame_global_flags * gfp, FILE * sf)
 {
-    uint32_t ui32_type = read_32_bits_high_low(sf);
+    uint32_t ui32_type = 0;
     /*
        DEBUGF(
-       "First word of input stream: %08x '%4.4s'\n", ui32_type, (char*) &type); 
+       "First word of input stream: %08x '%4.4s'\n", ui32_type, (char*) &type);
      */
     global. count_samples_carefully = 0;
     global. pcm_is_unsigned_8bit = global_raw_pcm.in_signed == 1 ? 0 : 1;
@@ -1773,6 +1818,14 @@ parse_file_header(lame_global_flags * gfp, FILE * sf)
        here as to encode some hundreds of input files not supported by LAME
        If you know you have RAW PCM data, use the -r switch
      */
+
+    if (read_32_bits_high_low(sf, &ui32_type) != 0) {
+        /* not even the four identifying bytes are present */
+        if (global_ui_config.silent < 10) {
+            error_printf("Warning: unsupported audio format\n");
+        }
+        return sf_unknown;
+    }
 
     if (ui32_type == WAV_ID_RIFF) {
         /* It's probably a WAV file */
