@@ -213,9 +213,18 @@
 			        still accepted and is only reported under
 			        <i>--verbose</i>.</li>
 			    <li>Build without compiler warnings on GCC, Clang and
-			        MSVC. Most were harmless, but the cleanup also
-			        corrected some undefined behaviour. The encoder
-			        output is unchanged.</li>
+			        MSVC, including the 64 bit narrowing conversions
+			        and the obsolete empty parameter lists the
+			        frontend still carried. Most were harmless, but
+			        the cleanup also corrected some undefined
+			        behaviour. The encoder output is unchanged. The
+			        narrowing conversions and part of the parameter
+			        list cleanup are based on patches by Maya R.
+			        Odinezenko.</li>
+			    <li>Read the declared length of an input whose sample
+			        count does not fit in 32 bits. Where long is
+			        wider than int such a length was truncated before
+			        use, so reading stopped at the wrong point.</li>
 			    <li>In maintainer mode the GCC/Clang build compiles
 			        with additional warnings enabled and treated as
 			        errors, so a newly introduced warning fails the
