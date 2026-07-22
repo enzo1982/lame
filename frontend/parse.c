@@ -186,7 +186,7 @@ strlenMultiByte(char const* str, size_t w)
 }
 
 static char*
-currentCharacterEncoding()
+currentCharacterEncoding(void)
 {
 #ifdef HAVE_LANGINFO_H
     char* cur_code = nl_langinfo(CODESET);

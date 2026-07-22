@@ -275,19 +275,19 @@ report_printf(const char *format, ...)
 }
 
 void
-console_flush()
+console_flush(void)
 {
     frontend_console_flush(ConsoleIoConsole);
 }
 
 void
-error_flush()
+error_flush(void)
 {
     frontend_console_flush(ConsoleIoError);
 }
 
 void
-report_flush()
+report_flush(void)
 {
     frontend_console_flush(ConsoleIoReport);
 }
@@ -316,7 +316,7 @@ console_up(int n_lines)
 }
 
 int
-console_getwidth()
+console_getwidth(void)
 {
     if (is_console_initialized(&Console_IO))
         return Console_IO.disp_width;
