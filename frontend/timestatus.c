@@ -396,7 +396,7 @@ decoder_progress_init(unsigned long n, int framesize)
         /* frames_total is an int; a length that would overflow it leaves the
            total unknown, as the sentinel above does */
         if (frames_total <= ((unsigned int)-1)/2)
-            dp->frames_total = frames_total;
+            dp->frames_total = (int)frames_total;
     }
     return dp;
 }

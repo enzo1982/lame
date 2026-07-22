@@ -609,12 +609,12 @@ setSkipStartAndEnd(lame_t gfp, int enc_delay, int enc_padding)
         if (skip_start == 0) {
             if (enc_delay > -1 || enc_padding > -1) {
                 if (enc_delay > -1)
-                    skip_start = enc_delay + dec_delay;
+                    skip_start = (int)(enc_delay + dec_delay);
                 if (enc_padding > -1)
-                    skip_end = enc_padding - dec_delay;
+                    skip_end = (int)(enc_padding - dec_delay);
             }
             else
-                skip_start = lame_get_encoder_delay(gfp) + dec_delay;
+                skip_start = (int)(lame_get_encoder_delay(gfp) + dec_delay);
         }
         else {
             /* user specified a value of skip. just add for decoder */
@@ -960,7 +960,7 @@ read_samples_mp3(LAME_UNUSED lame_t gfp, LAME_UNUSED FILE * musicin,
         }
         return -1;
     }
-    out = outbytes/(sizeof(short)*global_decoder.mp3input_data.stereo);
+    out = (int)(outbytes/(sizeof(short)*global_decoder.mp3input_data.stereo));
     if (global_decoder.mp3input_data.stereo == 2) {
         int i;
         for (i=0; i<out; ++i) {
@@ -2120,7 +2120,7 @@ int lame123_decode_initfile(FILE *fd, mp3data_struct *mp3data, int *enc_delay, i
     /* I am paranoid about off_t being larger than long or int. */
     len = mpg123_framelength(global.hip->mh);
     if(len <= ((unsigned int)-1)/2)     /* totalframes is int, bound to INT_MAX */
-        mp3data->totalframes = len;
+        mp3data->totalframes = (int)len;
     else
         return -1;
     len = mpg123_length(global.hip->mh);
@@ -2131,9 +2131,9 @@ int lame123_decode_initfile(FILE *fd, mp3data_struct *mp3data, int *enc_delay, i
     /* Encoder delay and padding are not needed when libmpg123 handles gapless
        decoding itself. So let's see if we get away with that. */
     mpg123_getstate(global.hip->mh, MPG123_ENC_DELAY, &val, NULL);
-    *enc_delay = val;
+    *enc_delay = (int)val;
     mpg123_getstate(global.hip->mh, MPG123_ENC_PADDING, &val, NULL);
-    *enc_padding = val;
+    *enc_padding = (int)val;
     if(global.in_id3v2_tag)
         free(global.in_id3v2_tag);
     global.in_id3v2_size = 0;
@@ -2150,7 +2150,7 @@ int lame123_decode_initfile(FILE *fd, mp3data_struct *mp3data, int *enc_delay, i
     /* How much of this is actually needed for the frontend? */
     mp3data->header_parsed = 1;
     mp3data->stereo = channels; /* Channel count correct? Or is dual mono different? */
-    mp3data->samplerate = rate;
+    mp3data->samplerate = (int)rate;
     mp3data->mode = fi.mode;
     mp3data->mode_ext = fi.mode_ext;
     mp3data->framesize = mpg123_spf(global.hip->mh);

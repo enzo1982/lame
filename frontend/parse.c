@@ -396,7 +396,7 @@ static int getIntValue(char const* token, char const* arg, int* ptr)
     char *_EndPtr=0;
     long d = strtol(arg, &_EndPtr, 10);
     if (ptr != 0) {
-        *ptr = d;
+        *ptr = (int)d;
     }
     return evaluateArgument(token, arg, _EndPtr);
 }
@@ -1619,7 +1619,7 @@ static int dev_only_without_arg(char const* str, char const* token, int* argIgno
 static int
 set_path_arg(char const *const src, char *const dst)
 {
-    int const arg_n = strnlen(src, PATH_MAX);
+    int const arg_n = (int)strnlen(src, PATH_MAX);
     if (arg_n >= PATH_MAX) {
         error_printf("input/output file name too long (limit %d): %s\n",
                      PATH_MAX, src);
@@ -2138,7 +2138,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     nogap_tags = 1;
 
                 T_ELIF("nogapout")
-                    int const arg_n = strnlen(nextArg, PATH_MAX);
+                    int const arg_n = (int)strnlen(nextArg, PATH_MAX);
                     if (arg_n >= PATH_MAX) {
                         error_printf("%s: %s argument length (%d) exceeds limit (%d)\n", ProgramName, token, arg_n, PATH_MAX);
                         return -1;
@@ -2148,7 +2148,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     argUsed = 1;
 
                 T_ELIF("out-dir")
-                    int const arg_n = strnlen(nextArg, PATH_MAX);
+                    int const arg_n = (int)strnlen(nextArg, PATH_MAX);
                     if (arg_n >= PATH_MAX) {
                         error_printf("%s: %s argument length (%d) exceeds limit (%d)\n", ProgramName, token, arg_n, PATH_MAX);
                         return -1;
