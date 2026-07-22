@@ -1397,13 +1397,65 @@ case "x${FRONTEND_LDFLAGS}" in
   *-static*) frontend_link_kind=static ;;
   *)         frontend_link_kind=dynamic ;;
 esac
+# libsndfile has three outcomes, not two: not asked for, in use, or asked for
+# and not found - in which case the file io silently falls back to lame's own
+# routines, which is easy to miss among the rest of the configure output.
+if test "${CONFIG_FILEIO}" = "sndfile"; then
+  sndfile_state=yes
+elif test "x${HAVE_SNDFILE}" = "xno"; then
+  sndfile_state="requested, not found (using lame)"
+else
+  sndfile_state="not requested"
+fi
+if test "x${HAVE_TERMCAP}" = "x"; then
+  termcap_state=none
+else
+  termcap_state="${HAVE_TERMCAP}"
+fi
+if test "${HAVE_MPG123}" = "yes" && test "${CONFIG_DECODER}" != "no"; then
+  decoder_state=yes
+else
+  decoder_state=no
+fi
+if test -n "${WITH_FRONTEND}"; then prog_lame=yes; else prog_lame=no; fi
+if test -n "${WITH_MP3X}"; then prog_mp3x=yes; else prog_mp3x=no; fi
+if test -n "${WITH_MP3RTP}"; then prog_mp3rtp=yes; else prog_mp3rtp=no; fi
+# The vector routines are named by the instruction sets they are BUILT for,
+# not by what the host CPU happens to support. Only SSE is probed today.
+lame_vector_sets=
+if test "x${WITH_XMM}" = "xyes"; then
+  lame_vector_sets="SSE"
+fi
+if test -z "${lame_vector_sets}"; then
+  lame_vector_sets=none
+fi
 echo ""
 echo "  LAME ${PACKAGE_VERSION} configuration summary"
 echo "  -------------------------------------------"
-echo "    version type ........ ${lame_version_type_name}"
-echo "    frontend linking .... ${frontend_link_kind}"
-echo "    internal options .... ${enable_internal}"
-echo "    unit tests .......... ${enable_unit_tests}"
+echo "    version type .......... ${lame_version_type_name}"
+echo "    frontend linking ...... ${frontend_link_kind}"
+echo "    internal options ...... ${enable_internal:-no}"
+echo "    unit tests ............ ${enable_unit_tests:-no}"
+echo ""
+echo "    optional libraries"
+echo "      libmpg123 ........... ${HAVE_MPG123:-no}"
+echo "      libsndfile .......... ${sndfile_state}"
+echo "      terminal library .... ${termcap_state}"
+echo "      GTK 1.2 ............. ${HAVE_GTK:-no}"
+echo ""
+echo "    programs"
+echo "      lame ................ ${prog_lame}"
+echo "      mp3x ................ ${prog_mp3x}"
+echo "      mp3rtp .............. ${prog_mp3rtp}"
+echo ""
+echo "    features"
+echo "      decoder ............. ${decoder_state}"
+echo "      file io ............. ${CONFIG_FILEIO}"
+echo "      analyzer hooks ...... ${CONFIG_ANALYZER:-no}"
+echo "      vector routines ..... ${lame_vector_sets}"
+echo "      hardening ........... ${enable_hardening:-no}"
+echo "      native tuning ....... ${enable_native:-no}"
+echo "      debug ............... ${CONFIG_DEBUG:-no}"
 if test -n "${internal_static_note}"; then
   echo ""
   echo "    NOTE: ${internal_static_note}."
