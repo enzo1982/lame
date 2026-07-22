@@ -178,7 +178,9 @@ putbits2(lame_internal_flags * gfc, int val, int j)
         assert(j < MAX_LENGTH); /* 32 too large on 32 bit machines */
         assert(bs->buf_bit_idx < MAX_LENGTH);
 
-        bs->buf[bs->buf_byte_idx] |= ((val >> j) << bs->buf_bit_idx);
+        /* (val >> j) can carry the sign bit; shift it as unsigned so positioning
+           it into the byte is defined. Only the low 8 bits are kept. */
+        bs->buf[bs->buf_byte_idx] |= (unsigned int) (val >> j) << bs->buf_bit_idx;
         bs->totbit += k;
     }
 }
@@ -209,7 +211,9 @@ putbits_noheaders(lame_internal_flags * gfc, int val, int j)
         assert(j < MAX_LENGTH); /* 32 too large on 32 bit machines */
         assert(bs->buf_bit_idx < MAX_LENGTH);
 
-        bs->buf[bs->buf_byte_idx] |= ((val >> j) << bs->buf_bit_idx);
+        /* (val >> j) can carry the sign bit; shift it as unsigned so positioning
+           it into the byte is defined. Only the low 8 bits are kept. */
+        bs->buf[bs->buf_byte_idx] |= (unsigned int) (val >> j) << bs->buf_bit_idx;
         bs->totbit += k;
     }
 }
@@ -277,7 +281,7 @@ writeheader(lame_internal_flags * gfc, int val, int j)
         j -= k;
         assert(j < MAX_LENGTH); /* >> 32  too large for 32 bit machines */
         esv->header[esv->h_ptr].buf[ptr >> 3]
-            |= ((val >> j)) << (8 - (ptr & 7) - k);
+            |= (unsigned int) (val >> j) << (8 - (ptr & 7) - k);
         ptr += k;
     }
     esv->header[esv->h_ptr].ptr = ptr;
@@ -287,16 +291,21 @@ writeheader(lame_internal_flags * gfc, int val, int j)
 static int
 CRC_update(int value, int crc)
 {
+    /* Shift the running CRC and the data through unsigned locals: crc grows past
+       bit 30 here, so the signed <<= 1 was a shift into/of the sign bit. The
+       tested bits (0x10000) and the polynomial XOR are unchanged, so the CRC is
+       identical. */
+    unsigned int uv = (unsigned int) value << 8;
+    unsigned int uc = (unsigned int) crc;
     int     i;
-    value <<= 8;
     for (i = 0; i < 8; i++) {
-        value <<= 1;
-        crc <<= 1;
+        uv <<= 1;
+        uc <<= 1;
 
-        if (((crc ^ value) & 0x10000))
-            crc ^= CRC16_POLYNOMIAL;
+        if (((uc ^ uv) & 0x10000))
+            uc ^= CRC16_POLYNOMIAL;
     }
-    return crc;
+    return (int) uc;
 }
 
 
