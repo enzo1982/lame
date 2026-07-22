@@ -218,8 +218,12 @@ read_32_bits_high_low(FILE * fp, uint32_t * out)
     return 0;
 }
 
+/* The WAV header fields are unsigned; taking an unsigned value keeps the
+   byte extraction free of the signed-overflow and right-shift-of-negative that
+   a size at/above INT_MAX would otherwise incur (e.g. the 0x7FFFFFFF streaming
+   placeholder plus the 44-byte header). */
 static void
-write_16_bits_low_high(FILE * fp, int val)
+write_16_bits_low_high(FILE * fp, unsigned int val)
 {
     unsigned char bytes[2];
     bytes[0] = (val & 0xff);
@@ -228,7 +232,7 @@ write_16_bits_low_high(FILE * fp, int val)
 }
 
 static void
-write_32_bits_low_high(FILE * fp, int val)
+write_32_bits_low_high(FILE * fp, unsigned int val)
 {
     unsigned char bytes[4];
     bytes[0] = (val & 0xff);
@@ -908,10 +912,10 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152])
     if (is_mpeg_file_format(global_reader.input_format)) {
         if (buffer != NULL) {
             for (i = samples_read; --i >= 0;)
-                buffer[0][i] = buf_tmp16[0][i] << (8 * sizeof(int) - 16);
+                buffer[0][i] = (int) ((unsigned int) buf_tmp16[0][i] << (8 * sizeof(int) - 16));
             if (num_channels == 2) {
                 for (i = samples_read; --i >= 0;)
-                    buffer[1][i] = buf_tmp16[1][i] << (8 * sizeof(int) - 16);
+                    buffer[1][i] = (int) ((unsigned int) buf_tmp16[1][i] << (8 * sizeof(int) - 16));
             }
             else if (num_channels == 1) {
                 memset(buffer[1], 0, samples_read * sizeof(int));
@@ -1011,7 +1015,7 @@ WriteWaveHeader(FILE * const fp, int pcmbytes, int freq, int channels, int bits)
 
     /* quick and dirty, but documented */
     fwrite("RIFF", 1, 4, fp); /* label */
-    write_32_bits_low_high(fp, pcmbytes + 44 - 8); /* length in bytes without header */
+    write_32_bits_low_high(fp, (unsigned int) pcmbytes + 44u - 8u); /* length in bytes without header */
     fwrite("WAVEfmt ", 2, 4, fp); /* 2 labels */
     write_32_bits_low_high(fp, 2 + 2 + 4 + 4 + 2 + 2); /* length of PCM format declaration area */
     write_16_bits_low_high(fp, 1); /* is PCM? */
@@ -1289,29 +1293,30 @@ unpack_read_samples(const int samples_to_read, const int bytes_per_sample,
     if( bytes_per_sample == ga_urs_bps ) \
       for( i = samples_read * bytes_per_sample; (i -= bytes_per_sample) >=0;)
 
+    /* Bytes are assembled into the high end of an int through unsigned shifts:
+       a byte >= 0x80 shifted into the sign position would otherwise overflow the
+       signed int. unsigned int has the same width as int, so every shift amount
+       here stays below the width; the unsigned result converts back to the same
+       two's-complement sample value on assignment. */
     if (swap_order == 0) {
         GA_URS_IFLOOP(1)
-            * --op = ip[i] << (b - 8);
+            * --op = (int) ((unsigned int) ip[i] << (b - 8));
         GA_URS_IFLOOP(2)
-            * --op = ip[i] << (b - 16) | ip[i + 1] << (b - 8);
+            * --op = (int) ((unsigned int) ip[i] << (b - 16) | (unsigned int) ip[i + 1] << (b - 8));
         GA_URS_IFLOOP(3)
-            * --op = ip[i] << (b - 24) | ip[i + 1] << (b - 16) | ip[i + 2] << (b - 8);
+            * --op = (int) ((unsigned int) ip[i] << (b - 24) | (unsigned int) ip[i + 1] << (b - 16) | (unsigned int) ip[i + 2] << (b - 8));
         GA_URS_IFLOOP(4)
-            * --op =
-            ip[i] << (b - 32) | ip[i + 1] << (b - 24) | ip[i + 2] << (b - 16) | ip[i + 3] << (b -
-                                                                                              8);
+            * --op = (int) ((unsigned int) ip[i] << (b - 32) | (unsigned int) ip[i + 1] << (b - 24) | (unsigned int) ip[i + 2] << (b - 16) | (unsigned int) ip[i + 3] << (b - 8));
     }
     else {
         GA_URS_IFLOOP(1)
-            * --op = (ip[i] ^ 0x80) << (b - 8) | 0x7f << (b - 16); /* convert from unsigned */
+            * --op = (int) ((unsigned int) (ip[i] ^ 0x80) << (b - 8) | (unsigned int) 0x7f << (b - 16)); /* convert from unsigned */
         GA_URS_IFLOOP(2)
-            * --op = ip[i] << (b - 8) | ip[i + 1] << (b - 16);
+            * --op = (int) ((unsigned int) ip[i] << (b - 8) | (unsigned int) ip[i + 1] << (b - 16));
         GA_URS_IFLOOP(3)
-            * --op = ip[i] << (b - 8) | ip[i + 1] << (b - 16) | ip[i + 2] << (b - 24);
+            * --op = (int) ((unsigned int) ip[i] << (b - 8) | (unsigned int) ip[i + 1] << (b - 16) | (unsigned int) ip[i + 2] << (b - 24));
         GA_URS_IFLOOP(4)
-            * --op =
-            ip[i] << (b - 8) | ip[i + 1] << (b - 16) | ip[i + 2] << (b - 24) | ip[i + 3] << (b -
-                                                                                             32);
+            * --op = (int) ((unsigned int) ip[i] << (b - 8) | (unsigned int) ip[i + 1] << (b - 16) | (unsigned int) ip[i + 2] << (b - 24) | (unsigned int) ip[i + 3] << (b - 32));
     }
 #undef GA_URS_IFLOOP
     if (global.pcm_is_ieee_float) {
