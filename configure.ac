@@ -750,7 +750,7 @@ AC_MSG_CHECKING(if dynamic linking of the frontends is requested)
 AC_ARG_ENABLE(dynamic-frontends,
   [AS_HELP_STRING([--disable-dynamic-frontends],
      [link the frontends statically against libmp3lame (default: dynamic)])],
-  [], [enable_dynamic_frontends=yes])
+  [dynamic_frontends_given=yes], [enable_dynamic_frontends=yes])
 if test "x${enable_dynamic_frontends}" = "xno"; then
 	FRONTEND_LDFLAGS="${FRONTEND_LDFLAGS} -static"
 fi
@@ -762,6 +762,49 @@ case "x${FRONTEND_LDFLAGS}" in
 	AC_MSG_RESULT(yes)
 	;;
 esac
+
+
+# --enable-internal exposes the internal/developer tuning options in the
+# frontend (--substep, --sfscale, --athcurve, ...). Those setters are
+# deliberately withheld from the shared library's export list
+# (include/libmp3lame.sym), so anything that calls them must link the static
+# archive; enabling the options therefore forces static frontend linking. The
+# options only make sense on an alpha version (LAME_TYPE_VERSION==0) - asking
+# for them on a beta or release tree is an error, not a silent no-op.
+lame_type_version=`sed -n ['s/.*LAME_TYPE_VERSION[[:space:]][[:space:]]*\([0-9]\).*/\1/p'] "$srcdir/libmp3lame/version.h"`
+AC_ARG_ENABLE([internal],
+  [AS_HELP_STRING([--enable-internal],
+     [expose internal/developer tuning options in the frontend; alpha versions only, forces static frontend linking (default: disabled)])],
+  [enable_internal="${enableval}"], [enable_internal=no])
+AC_MSG_CHECKING(whether to enable internal/developer options)
+AC_MSG_RESULT(${enable_internal})
+internal_static_note=
+if test "x${enable_internal}" = "xyes"; then
+	if test "x${lame_type_version}" != "x0"; then
+		AC_MSG_ERROR([--enable-internal requires an alpha version (LAME_TYPE_VERSION==0); this tree is version type "${lame_type_version}". The internal/developer tuning options are not available in beta or release builds.])
+	fi
+	if test "x${enable_static}" = "xno"; then
+		AC_MSG_ERROR([--enable-internal needs the static libmp3lame archive, but --disable-static was given. The internal setters are not exported from the shared library, so the frontend must link statically. Re-run without --disable-static.])
+	fi
+	# _ALLOW_INTERNAL_OPTIONS is defined per-target (frontend and the set_get
+	# unit test) via the INTERNAL_OPTS automake conditional, NOT globally: a
+	# global define would pull the internal-option code path of parse.c into the
+	# other unit tests that compile parse.c only for its argument helpers, and
+	# they link the shared library where the internal setters are absent.
+	case "x${FRONTEND_LDFLAGS}" in
+	*-static*)
+		: ;; # already static (e.g. --disable-dynamic-frontends)
+	*)
+		FRONTEND_LDFLAGS="${FRONTEND_LDFLAGS} -static"
+		if test "x${dynamic_frontends_given}" = "xyes"; then
+			internal_static_note="static frontend linking forced ON, overriding the requested --enable-dynamic-frontends: the internal setters are not exported from the shared library, so the frontend must link the static archive"
+		else
+			internal_static_note="static frontend linking forced ON (the default is dynamic): the internal setters are not exported from the shared library, so the frontend must link the static archive"
+		fi
+		;;
+	esac
+fi
+AM_CONDITIONAL([INTERNAL_OPTS], [test "x${enable_internal}" = "xyes"])
 
 
 #
@@ -1337,3 +1380,32 @@ AC_CONFIG_FILES([Makefile \
 		 vc_solution/Makefile])
 
 AC_OUTPUT
+
+
+# ---------------------------------------------------------------------------
+# Configuration summary. Anything that was forced to a non-default value, or
+# that overrode a user-supplied option, is reported with the reason so the
+# result is never surprising.
+# ---------------------------------------------------------------------------
+case "${lame_type_version}" in
+  0) lame_version_type_name=alpha ;;
+  1) lame_version_type_name=beta ;;
+  2) lame_version_type_name=release ;;
+  *) lame_version_type_name="unknown (${lame_type_version})" ;;
+esac
+case "x${FRONTEND_LDFLAGS}" in
+  *-static*) frontend_link_kind=static ;;
+  *)         frontend_link_kind=dynamic ;;
+esac
+echo ""
+echo "  LAME ${PACKAGE_VERSION} configuration summary"
+echo "  -------------------------------------------"
+echo "    version type ........ ${lame_version_type_name}"
+echo "    frontend linking .... ${frontend_link_kind}"
+echo "    internal options .... ${enable_internal}"
+echo "    unit tests .......... ${enable_unit_tests}"
+if test -n "${internal_static_note}"; then
+  echo ""
+  echo "    NOTE: ${internal_static_note}."
+fi
+echo ""

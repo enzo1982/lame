@@ -670,6 +670,8 @@ WITH_VECTOR_FALSE
 WITH_VECTOR_TRUE
 WITH_XMM_FALSE
 WITH_XMM_TRUE
+INTERNAL_OPTS_FALSE
+INTERNAL_OPTS_TRUE
 LIB_WITH_DECODER_FALSE
 LIB_WITH_DECODER_TRUE
 mpg123_LIBS
@@ -846,6 +848,7 @@ enable_mp3x
 enable_mp3rtp
 enable_ipv6
 enable_dynamic_frontends
+enable_internal
 enable_expopt
 enable_hardening
 enable_native
@@ -1535,6 +1538,9 @@ Optional Features:
   --disable-dynamic-frontends
                           link the frontends statically against libmp3lame
                           (default: dynamic)
+  --enable-internal       expose internal/developer tuning options in the
+                          frontend; alpha versions only, forces static
+                          frontend linking (default: disabled)
   --enable-expopt=norm    Whether to enable experimental optimizations
                             default=no
   --disable-hardening     do not add compiler/linker security hardening flags
@@ -20053,7 +20059,7 @@ printf %s "checking if dynamic linking of the frontends is requested... " >&6; }
 # Check whether --enable-dynamic-frontends was given.
 if test ${enable_dynamic_frontends+y}
 then :
-  enableval=$enable_dynamic_frontends;
+  enableval=$enable_dynamic_frontends; dynamic_frontends_given=yes
 else case e in #(
   e) enable_dynamic_frontends=yes ;;
 esac
@@ -20072,6 +20078,63 @@ printf '%s\n' "no" >&6; }
 printf '%s\n' "yes" >&6; }
 	;;
 esac
+
+
+# --enable-internal exposes the internal/developer tuning options in the
+# frontend (--substep, --sfscale, --athcurve, ...). Those setters are
+# deliberately withheld from the shared library's export list
+# (include/libmp3lame.sym), so anything that calls them must link the static
+# archive; enabling the options therefore forces static frontend linking. The
+# options only make sense on an alpha version (LAME_TYPE_VERSION==0) - asking
+# for them on a beta or release tree is an error, not a silent no-op.
+lame_type_version=`sed -n 's/.*LAME_TYPE_VERSION[[:space:]][[:space:]]*\([0-9]\).*/\1/p' "$srcdir/libmp3lame/version.h"`
+# Check whether --enable-internal was given.
+if test ${enable_internal+y}
+then :
+  enableval=$enable_internal; enable_internal="${enableval}"
+else case e in #(
+  e) enable_internal=no ;;
+esac
+fi
+
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether to enable internal/developer options" >&5
+printf %s "checking whether to enable internal/developer options... " >&6; }
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: ${enable_internal}" >&5
+printf '%s\n' "${enable_internal}" >&6; }
+internal_static_note=
+if test "x${enable_internal}" = "xyes"; then
+	if test "x${lame_type_version}" != "x0"; then
+		as_fn_error $? "--enable-internal requires an alpha version (LAME_TYPE_VERSION==0); this tree is version type \"${lame_type_version}\". The internal/developer tuning options are not available in beta or release builds." "$LINENO" 5
+	fi
+	if test "x${enable_static}" = "xno"; then
+		as_fn_error $? "--enable-internal needs the static libmp3lame archive, but --disable-static was given. The internal setters are not exported from the shared library, so the frontend must link statically. Re-run without --disable-static." "$LINENO" 5
+	fi
+	# _ALLOW_INTERNAL_OPTIONS is defined per-target (frontend and the set_get
+	# unit test) via the INTERNAL_OPTS automake conditional, NOT globally: a
+	# global define would pull the internal-option code path of parse.c into the
+	# other unit tests that compile parse.c only for its argument helpers, and
+	# they link the shared library where the internal setters are absent.
+	case "x${FRONTEND_LDFLAGS}" in
+	*-static*)
+		: ;; # already static (e.g. --disable-dynamic-frontends)
+	*)
+		FRONTEND_LDFLAGS="${FRONTEND_LDFLAGS} -static"
+		if test "x${dynamic_frontends_given}" = "xyes"; then
+			internal_static_note="static frontend linking forced ON, overriding the requested --enable-dynamic-frontends: the internal setters are not exported from the shared library, so the frontend must link the static archive"
+		else
+			internal_static_note="static frontend linking forced ON (the default is dynamic): the internal setters are not exported from the shared library, so the frontend must link the static archive"
+		fi
+		;;
+	esac
+fi
+ if test "x${enable_internal}" = "xyes"; then
+  INTERNAL_OPTS_TRUE=
+  INTERNAL_OPTS_FALSE='#'
+else
+  INTERNAL_OPTS_TRUE='#'
+  INTERNAL_OPTS_FALSE=
+fi
+
 
 
 #
@@ -21580,6 +21643,10 @@ fi
 
 if test -z "${LIB_WITH_DECODER_TRUE}" && test -z "${LIB_WITH_DECODER_FALSE}"; then
   as_fn_error $? "conditional \"LIB_WITH_DECODER\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${INTERNAL_OPTS_TRUE}" && test -z "${INTERNAL_OPTS_FALSE}"; then
+  as_fn_error $? "conditional \"INTERNAL_OPTS\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${WITH_XMM_TRUE}" && test -z "${WITH_XMM_FALSE}"; then
@@ -23777,4 +23844,33 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
 printf '%s\n' "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
 
+
+
+# ---------------------------------------------------------------------------
+# Configuration summary. Anything that was forced to a non-default value, or
+# that overrode a user-supplied option, is reported with the reason so the
+# result is never surprising.
+# ---------------------------------------------------------------------------
+case "${lame_type_version}" in
+  0) lame_version_type_name=alpha ;;
+  1) lame_version_type_name=beta ;;
+  2) lame_version_type_name=release ;;
+  *) lame_version_type_name="unknown (${lame_type_version})" ;;
+esac
+case "x${FRONTEND_LDFLAGS}" in
+  *-static*) frontend_link_kind=static ;;
+  *)         frontend_link_kind=dynamic ;;
+esac
+echo ""
+echo "  LAME ${PACKAGE_VERSION} configuration summary"
+echo "  -------------------------------------------"
+echo "    version type ........ ${lame_version_type_name}"
+echo "    frontend linking .... ${frontend_link_kind}"
+echo "    internal options .... ${enable_internal}"
+echo "    unit tests .......... ${enable_unit_tests}"
+if test -n "${internal_static_note}"; then
+  echo ""
+  echo "    NOTE: ${internal_static_note}."
+fi
+echo ""
 

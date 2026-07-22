@@ -391,6 +391,13 @@ noinst_HEADERS = \
 lame_SOURCES = lame_main.c $(common_sources)
 mp3rtp_SOURCES = mp3rtp.c rtp.c $(common_sources)
 mp3x_SOURCES = mp3x.c gtkanal.c gpkplotting.c $(common_sources)
+
+# --enable-internal exposes the developer tuning options in parse.c. The macro
+# is defined here (frontend only), not globally, so other consumers of parse.c
+# are unaffected. configure has already forced -static into FRONTEND_LDFLAGS,
+# so the frontend can reach the internal setters, which the shared library does
+# not export.
+@INTERNAL_OPTS_TRUE@AM_CPPFLAGS = -D_ALLOW_INTERNAL_OPTIONS
 mp3x_LDADD = $(LDADD) @GTK_LIBS@
 CLEANFILES = lclint.txt $(EXTRA_PROGRAMS)
 LCLINTFLAGS = \
