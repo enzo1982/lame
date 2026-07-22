@@ -388,7 +388,7 @@ typedef struct get_audio_global_data_struct {
     int     pcmswapbytes;
     int     pcm_is_unsigned_8bit;
     int     pcm_is_ieee_float;
-    unsigned int num_samples_read;
+    unsigned long num_samples_read;
     FILE   *music_in;
     SNDFILE *snd_file;
 #ifdef HAVE_MPG123
@@ -825,7 +825,7 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152])
      * are using LIBSNDFILE, this is not necessary 
      */
     if (global.count_samples_carefully) {
-        unsigned int tmp_num_samples, remaining;
+        unsigned long tmp_num_samples, remaining;
         /* get num_samples */
         if (is_mpeg_file_format(global_reader.input_format)) {
             tmp_num_samples = global_decoder.mp3input_data.nsamp;
@@ -839,12 +839,12 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152])
         else {
             remaining = 0;
         }
-        if (remaining < (unsigned int) framesize && 0 != tmp_num_samples)
+        if (remaining < (unsigned long) framesize && 0 != tmp_num_samples)
             /* in case the input is a FIFO (at least it's reproducible with
                a FIFO) tmp_num_samples may be 0 and therefore remaining
                would be 0, but we need to read some samples, so don't
                change samples_to_read to the wrong value in this case */
-            samples_to_read = remaining;
+            samples_to_read = (int) remaining; /* bounded by framesize above */
     }
 
     if (is_mpeg_file_format(global_reader.input_format)) {
