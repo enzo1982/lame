@@ -9,7 +9,7 @@ if ENABLE_UNIT_TESTS
 
 check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv \
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
-	test_totalframes
+	test_totalframes test_set_get
 TESTS = $(check_PROGRAMS)
 
 test_sanity_SOURCES = test_sanity.c
@@ -104,6 +104,27 @@ test_totalframes_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_totalframes_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# Exercises the parameter API in set_get.c. The exported getters/setters are
+# tested in every build; the internal-only tuning setters are additionally
+# tested when configured with --enable-internal (the same gate the frontend
+# uses), which defines _ALLOW_INTERNAL_OPTIONS and pulls in the private
+# libmp3lame/set_get.h - hence the extra include path. Those internal symbols
+# are withheld from the shared library by include/libmp3lame.sym, so under
+# --enable-internal this test links the STATIC archive (-static) to reach them;
+# a normal build tests only the exported interface and links the shared library.
+test_set_get_SOURCES = test_set_get.c
+test_set_get_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_builddir)
+if INTERNAL_OPTS
+test_set_get_CPPFLAGS += -D_ALLOW_INTERNAL_OPTIONS
+test_set_get_LDFLAGS = -static
+endif
+test_set_get_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 
