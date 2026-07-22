@@ -1315,8 +1315,12 @@ unpack_read_samples(const int samples_to_read, const int bytes_per_sample,
     }
 #undef GA_URS_IFLOOP
     if (global.pcm_is_ieee_float) {
-        ieee754_float32_t const m_max = INT_MAX;
-        ieee754_float32_t const m_min = -(ieee754_float32_t) INT_MIN;
+        /* Magnitude that a sample of 1.0 would map to. The two full-scale
+           magnitudes differ by one, but neither is representable in a float:
+           both round to 2^31, so a single factor scales both signs. Samples
+           of magnitude 1 or above are clamped before scaling, so the product
+           always stays below 2^31 and the conversion cannot overflow. */
+        ieee754_float32_t const full_scale = -(ieee754_float32_t) INT_MIN;
         ieee754_float32_t *x = (ieee754_float32_t *) sample_buffer;
         assert(sizeof(ieee754_float32_t) == sizeof(int));
         for (i = 0; i < samples_to_read; ++i) {
@@ -1329,10 +1333,10 @@ unpack_read_samples(const int samples_to_read, const int bytes_per_sample,
                 v = INT_MIN;
             }
             else if (u >= 0) {
-                v = (int) (u * m_max + 0.5f);
+                v = (int) (u * full_scale + 0.5f);
             }
             else {
-                v = (int) (u * m_min - 0.5f);
+                v = (int) (u * full_scale - 0.5f);
             }
             sample_buffer[i] = v;
         }
