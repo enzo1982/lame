@@ -1,0 +1,187 @@
+# coverage-workload.txt - invocations for the coverage harness.
+#
+# Part of the LAME distribution.  No warranty; see COPYING.
+#
+# This file covers what test/*.op cannot express. Those files are lists of
+# *encoder options* appended to a fixed "input.wav output.mp3" invocation, so
+# they cover the encoder settings axis well and nothing else: no decoding, no
+# stdin/stdout, no tagging, no input format other than the one WAV, and no
+# invocation that is supposed to fail. The runner reads test/*.op in addition
+# to this file, so the option coverage curated there is not duplicated here.
+#
+# Format, pipe-separated:
+#
+#   id | mode | input | options | expect | when
+#
+#   id      unique, used for the per-run coverage file name
+#   mode    encode  lame [options] INPUT OUT.mp3
+#           decode  lame [options] INPUT OUT.wav
+#           stdio   lame [options] - < INPUT > OUT   (both ends piped)
+#           noinput lame [options]                   (no file arguments)
+#           rtp     mp3rtp IP PORT [options] INPUT OUT.mp3
+#           rtpnoargs mp3rtp [options]                (no file arguments)
+#   input   a %PLACEHOLDER% resolved from inputs.map (coverage-mkinputs.py),
+#           %MP3% to iterate the optional MP3 corpus, or - for no input
+#   options passed through verbatim, and word-split by the shell, so an
+#           option VALUE cannot contain a space - quotes in this file are not
+#           honoured. Use single-word values; nothing here needs more.
+#           %PLACEHOLDER% tokens are resolved here too, not only in input.
+#   expect  ok   must exit 0
+#           fail must exit non-zero - these are the input-rejection paths,
+#                which are reached ONLY by invocations that fail, and which a
+#                harness treating non-zero as an error would silently drop
+#   when    *         run in every cell
+#           decoder   only where the mpg123 decoder is compiled in
+#           nodecoder only where it is not
+#           analyzer  only where the analyzer hooks are compiled in
+#           mp3rtp    only where --enable-mp3rtp built the second binary
+#           ownio     only where LAME reads input files itself
+#           sndfileio only where --with-fileio=sndfile hands that to
+#                     libsndfile, which accepts input LAME's own reader
+#                     refuses (see the malformed-input section)
+#
+# Capabilities are read from the cell's own config.h, not from the configure
+# arguments it was given: the header is what the compiler actually saw.
+
+# --- usage and information paths ------------------------------------------
+# The usage text is several hundred lines of conditionally-compiled output
+# and is otherwise never executed.
+usage-short     | noinput | -      | --help                          | ok   | *
+usage-long      | noinput | -      | --longhelp                      | ok   | *
+usage-version   | noinput | -      | --version                       | ok   | *
+usage-license   | noinput | -      | --license                       | ok   | *
+# --preset help exits 1 while --help and --longhelp exit 0. That is the
+# existing behaviour, recorded here rather than asserted to be right.
+preset-help     | noinput | -      | --preset help                   | fail | *
+
+# --- argument rejection ----------------------------------------------------
+# parse.c's error handling, unreachable from any successful invocation.
+bad-option      | noinput | -      | --no-such-option                | fail | *
+bad-vbr-arg     | noinput | -      | -V 99                           | fail | *
+missing-input   | noinput | -      | -V5 /nonexistent/nope.wav /dev/null | fail | *
+# A bitrate below the lowest legal one is adjusted rather than refused.
+bad-bitrate     | encode  | %WAV%  | -b 7                            | ok   | *
+
+# --- input format detection -----------------------------------------------
+fmt-aiff        | encode  | %AIFF%      | -V5                        | ok   | *
+fmt-float       | encode  | %FLOATWAV%  | -V5                        | ok   | *
+fmt-mono        | encode  | %MONOWAV%   | -V5                        | ok   | *
+fmt-mono-vbrold | encode  | %MONOWAV%   | --vbr-old -V5              | ok   | *
+fmt-ext-ok      | encode  | %WAVEXT%    | -V5                        | ok   | *
+fmt-raw         | encode  | %RAW%       | -r -s 44.1 --bitwidth 16 -V5 | ok | *
+fmt-raw-swap    | encode  | %RAW%       | -r -s 44.1 -x -V5          | ok   | *
+
+# --- malformed input rejection --------------------------------------------
+# The header validation added for truncated and inconsistent files. Where
+# LAME reads the file itself, each of these must be refused; that refusal is
+# the code under test.
+fmt-ext-badbits | encode  | %WAVEXTBAD% | -V5                        | fail | ownio
+fmt-ext-badcb   | encode  | %WAVEXTCB%  | -V5                        | fail | ownio
+trunc-8         | encode  | %TRUNC8%    | -V5                        | fail | ownio
+trunc-20        | encode  | %TRUNC20%   | -V5                        | fail | ownio
+trunc-30        | encode  | %TRUNC30%   | -V5                        | fail | ownio
+
+# The same files under --with-fileio=sndfile, where they are ACCEPTED. This
+# is not a second-guess of the expectation above: when libsndfile does not
+# recognise a file, get_audio.c falls back to reading it as headerless raw
+# PCM at default rate and channel count, so an 8-byte file encodes to a
+# valid MP3 of noise and exits 0. Whether that fallback should require the
+# user to have actually asked for raw input is a question for its own
+# finding, not for this harness. Recorded here as the behaviour that exists,
+# so the divergence stays visible instead of being smoothed away.
+sf-ext-badbits  | encode  | %WAVEXTBAD% | -V5                        | ok   | sndfileio
+sf-ext-badcb    | encode  | %WAVEXTCB%  | -V5                        | ok   | sndfileio
+sf-trunc-8      | encode  | %TRUNC8%    | -V5                        | ok   | sndfileio
+sf-trunc-20     | encode  | %TRUNC20%   | -V5                        | ok   | sndfileio
+sf-trunc-30     | encode  | %TRUNC30%   | -V5                        | ok   | sndfileio
+# 44 bytes is not a truncation: it is a complete header with a zero-length
+# data chunk, which is legal and must be accepted. It covers the
+# valid-header-no-samples path, which is a different branch from a short read.
+empty-data      | encode  | %TRUNC44%   | -V5                        | ok   | *
+# Inconsistent block align / byte rate stays ACCEPTED on purpose: real
+# encoders emit it, so rejecting it would cost users working files. The
+# cross-check only reports, and only when verbose.
+sloppy-quiet    | encode  | %WAVSLOPPY% | -V5                        | ok   | *
+sloppy-verbose  | encode  | %WAVSLOPPY% | -V5 --verbose              | ok   | *
+
+# --- stdin / stdout --------------------------------------------------------
+pipe-in         | stdio   | %WAV%  | -V5                             | ok   | *
+pipe-in-mono    | stdio   | %MONOWAV% | -V5 -m m                     | ok   | *
+
+# --- decoding --------------------------------------------------------------
+dec-wav         | decode  | %MP3IN% | --decode                       | ok   | decoder
+dec-raw         | decode  | %MP3IN% | --decode -t                    | ok   | decoder
+dec-mp3input    | decode  | %MP3IN% | --decode --mp3input            | ok   | decoder
+reenc           | encode  | %MP3IN% | --mp3input -V5                 | ok   | decoder
+# Decoding is refused outright when the decoder is not compiled in.
+dec-absent      | decode  | %MP3IN% | --decode                       | fail | nodecoder
+
+# --- ReplayGain and clipping ----------------------------------------------
+# --replaygain-accurate and --clipdetect are the only things that reach the
+# decode-what-we-just-encoded gain analysis; both exist only where the
+# decoder is compiled in.
+rg-fast         | encode  | %WAV%  | -V5 --replaygain-fast           | ok   | *
+rg-none         | encode  | %WAV%  | -V5 --noreplaygain              | ok   | *
+rg-accurate     | encode  | %WAV%  | -V5 --replaygain-accurate       | ok   | decoder
+rg-clipdetect   | encode  | %WAV%  | -V5 --clipdetect                | ok   | decoder
+
+# --- tagging ---------------------------------------------------------------
+tag-v1          | encode  | %WAV%  | -V5 --tt Title --ta Artist --tl Album --ty 2026 --tc Comment --tn 3 --tg 17 | ok | *
+tag-v2-force    | encode  | %WAV%  | -V5 --add-id3v2 --tt Title      | ok   | *
+tag-v1-only     | encode  | %WAV%  | -V5 --id3v1-only --tt Title     | ok   | *
+tag-v2-only     | encode  | %WAV%  | -V5 --id3v2-only --tt Title     | ok   | *
+tag-pad         | encode  | %WAV%  | -V5 --pad-id3v2 --tt Title      | ok   | *
+tag-padsize     | encode  | %WAV%  | -V5 --pad-id3v2-size 512 --tt T | ok   | *
+tag-space-v1    | encode  | %WAV%  | -V5 --space-id3v1 --tt Title    | ok   | *
+# Non-ASCII tag values, exercising the latin-1 and UTF-8 encoding paths.
+# Single words: option values are word-split (see the header).
+tag-latin1      | encode  | %WAV%  | -V5 --tt Gruesse --ta Bjoerk    | ok   | *
+tag-utf8        | encode  | %WAV%  | -V5 --id3v2-utf8 --tt Muenchen  | ok   | *
+tag-v2-latin1   | encode  | %WAV%  | -V5 --id3v2-latin1 --tt Muenchen | ok  | *
+tag-genre-name  | encode  | %WAV%  | -V5 --tg Ambient                | ok   | *
+# A genre that is not in the ID3v1 list is written as free text, not refused.
+tag-genre-free  | encode  | %WAV%  | -V5 --tg NotAGenreAtAll         | ok   | *
+tag-user-text   | encode  | %WAV%  | -V5 --tv TXXX=custom:value      | ok   | *
+tag-albumart    | encode  | %WAV%  | -V5 --ti %JPG%                  | ok   | *
+tag-albumart-bad| encode  | %WAV%  | -V5 --ti /nonexistent/art.jpg   | fail | *
+tag-ignore-err  | encode  | %WAV%  | -V5 --ignore-tag-errors --tg Nonsense | ok | *
+tag-genre-list  | noinput | -      | --genre-list                    | ok   | *
+
+# --- reporting and UI paths ------------------------------------------------
+ui-verbose      | encode  | %WAV%  | -V5 --verbose                   | ok   | *
+ui-brief        | encode  | %WAV%  | -V5 --brief                     | ok   | *
+ui-quiet        | encode  | %WAV%  | -V5 --quiet                     | ok   | *
+ui-nohist       | encode  | %WAV%  | -V5 --nohist                    | ok   | *
+ui-disptime     | encode  | %WAV%  | -V5 --disptime 1                | ok   | *
+ui-silent       | encode  | %WAV%  | -V5 -S                          | ok   | *
+
+# --- frame analyzer hooks --------------------------------------------------
+# Compiled out by --disable-analyzer-hooks, so this must not run there.
+analyzer-hook   | encode  | %WAV%  | -V5 --verbose --nohist          | ok   | analyzer
+
+# --- the mp3rtp binary -----------------------------------------------------
+# --enable-mp3rtp builds a SECOND binary, and running only lame leaves it
+# entirely unexecuted - the cell then compiles more code than any other and
+# contributes nothing, which is how this gap was found.
+#
+# The runner streams to 127.0.0.1 on a fixed high port, deliberately not
+# configurable: a coverage harness must not put packets on a real network,
+# least of all the multicast addresses the tool's own usage text suggests.
+rtp-usage       | rtpnoargs | -   |                                 | fail | mp3rtp
+rtp-stream      | rtp     | %WAV% | -V9                             | ok   | mp3rtp
+rtp-stream-mono | rtp     | %MONOWAV% | -V9 -m m                    | ok   | mp3rtp
+rtp-stream-cbr  | rtp     | %WAV% | -b 64                           | ok   | mp3rtp
+
+# --- real-world MP3 corpus -------------------------------------------------
+# Iterated over whatever MP3 directory the runner was pointed at, if any.
+# Real files carry tag layouts, bitrate-switching and truncations that no
+# generated input reproduces.
+#
+# Note the cost asymmetry: each of these decodes a full-length track, so they
+# dominate the wall-clock time of a run while adding very little coverage
+# after the first few files - the same parser code runs each time. Keep the
+# corpus small for coverage measurement; a wide sweep belongs in the sanitizer
+# runs, where the point is finding bugs on already-covered paths rather than
+# reaching new ones.
+corpus-decode   | decode  | %MP3%  | --decode                        | ok   | decoder
+corpus-reenc    | encode  | %MP3%  | --mp3input -V5                  | ok   | decoder

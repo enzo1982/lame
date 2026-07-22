@@ -26,3 +26,6 @@ was written in. Each has a guide of its own:
   telling a real difference from measurement noise.
 - @ref maintainer_quality - scoring what a change did to the encoded audio,
   for the changes that are meant to alter it.
+- @ref maintainer_coverage - measuring which source lines the test material
+  reaches, and which configurations and invocations are worth running under
+  the sanitizers.
