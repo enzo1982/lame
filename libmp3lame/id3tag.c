@@ -157,10 +157,15 @@ typedef enum MiscIDs { ID_TXXX = FRAME_ID('T', 'X', 'X', 'X')
 static int
 frame_id_matches(int id, int mask)
 {
-    int     result = 0, i, window = 0xff;
+    /* window is a byte mask that walks up to 0xff000000; keep it unsigned so
+       reaching and shifting past the top byte is a defined wrap rather than a
+       signed overflow / shift of a negative value. The masks are bit patterns,
+       so the results are unchanged. */
+    int     result = 0, i;
+    unsigned int window = 0xff;
     for (i = 0; i < 4; ++i, window <<= 8) {
-        int const mw = (mask & window);
-        int const iw = (id & window);
+        int const mw = (int) (mask & window);
+        int const iw = (int) (id & window);
         if (mw != 0 && mw != iw) {
             result |= iw;
         }
