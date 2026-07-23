@@ -140,15 +140,11 @@ Some more advanced ways to influence the build procedure
   Or some combination of the above.
 
   Note:
-    If configure detects the presents of "nasm" some additional speed
-    improvements get compiled in (additional assembler code to detect
-    and use multimedia extensions of the used processor).
-
-
-=======================================================================
-Building the software on *NIX platforms without configure:
-=======================================================================
-% make -f Makefile.unix
+    On x86 processors LAME builds vectorized (SSE2) versions of a few hot
+    routines into every binary and uses them when the processor running it
+    supports them, so no assembler and no special configure option are
+    needed.  "lame --verbose" reports what the machine it runs on got, and
+    "--noasm sse" turns the vectorized code off.
 
 
 =======================================================================
@@ -182,8 +178,7 @@ Building the software on Windows with free compilers:
 LAME can be compiled with various Windows ports (all free) of GCC (DJGPP, 
 Mingw32).  See README.DJGPP.  
 
-For Mingw32, you should now be able to use the Unix Makefile that
-comes with LAME.  Try: "make -f Makefile.unix UNAME=MSDOS"
+For Mingw32, use the configure script as on any other platform.
 You may need to remove these lines from brhist.c:
 
 #ifdef _WIN32

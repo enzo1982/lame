@@ -18,9 +18,6 @@ Source: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-root
 Requires: ncurses >= 5.0
 BuildRequires: gcc => 3.0.1, /usr/bin/find, ncurses-devel
-%ifarch %{ix86} x86_64
-BuildRequires: nasm
-%endif
 Provides: mp3encoder
 
 %description
@@ -57,9 +54,6 @@ these libraries.
 rm -f config.cache
  
 %configure \
-%ifarch %{ix86} x86_64
-	--enable-nasm \
-%endif
 	--enable-decoder \
 	--without-vorbis \
 	--enable-analyzer=no \

@@ -258,7 +258,7 @@
         </tr>
         <tr>
             <td><a href="#noasm">--noasm</a> type</td>
-            <td>Disable assembly optimizations for mmx/3dnow/sse</td>
+            <td>Do not use the vector code for mmx/3dnow/sse</td>
         </tr>
         <tr>
             <th colspan="2">Noise shaping &amp; psycho acoustic algorithms</th>
@@ -1223,14 +1223,19 @@
         to use this switch.
     </p>
     <p class="settingtitle">
-        <a name="noasm"><span class="hilight">--noasm value</span></a> Disables the specified assembler 
-        instructions
+        <a name="noasm"><span class="hilight">--noasm value</span></a> Do not use the vector
+        code
     </p>
     <p>
-        When the encoder is compiled with assembler optimizations, this setting allows
-        to disable them at runtime (They are only enabled if the CPU supports them).
-        The purpose of this setting is to detect problems in those optimizations, and/or
-        check the speed difference.
+        The vectorized (SSE2) versions of a few hot routines are built into every
+        x86 binary and used whenever the processor running it supports them. This
+        setting turns them off, which is how the vector and the plain C path are
+        compared against each other - for a speed measurement, or to rule the vector
+        code out when tracking down a problem. Only <span class="hilight">sse</span>
+        selects anything; <span class="hilight">mmx</span> and
+        <span class="hilight">3dnow</span> are still accepted, but no code of either
+        kind is left to disable. The two paths can differ in the last bits of the
+        output; measured audio quality does not change.
     </p>
     <p class="settingtitle">
         <a name="nogap"><span class="hilight">--nogap file1 file2 [...]</span></a> Encodes multiple continuous

@@ -423,16 +423,25 @@ Have a look at the PRESETS section below.
 gives more infos about the the used options in these presets.
 .TP
 .B \-\-noasm " type"
-Disable specific assembly optimizations (
+Do not use the vector code (
 .B mmx
 /
 .B 3dnow
 /
 .B sse
 ).
-Quality will not increase, only speed will be reduced.
-If you have problems running Lame on a Cyrix/Via processor,
-disabling mmx optimizations might solve your problem.
+Only
+.B sse
+selects anything: it turns off the SSE2 routines, which are built into every
+binary and are otherwise used whenever the processor supports them.
+.B mmx
+and
+.B 3dnow
+are still accepted, but no code of either kind is left to disable.
+This is how the vector and the plain C path are compared against each other,
+which is what a test setup or a speed measurement wants.
+The two paths can differ in the last bits of the output; measured audio
+quality does not change, only speed.
 
 .PP
 Verbosity:
