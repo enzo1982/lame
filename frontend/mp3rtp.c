@@ -178,7 +178,7 @@ lame_main(lame_t gf, int argc, char **argv)
 #ifdef IPV6
     if((sscanf(argv[1],"%45[.:0-9a-fA-F]", ip)) == 1)
 #else
-    if((sscanf(argv[1],"%11[.0-9]", ip)) == 1)
+    if((sscanf(argv[1],"%15[.0-9]", ip)) == 1)
 #endif
     {
         switch(sscanf(argv[2],"%u:%u%c", &port, &ttl, &dummy)){
