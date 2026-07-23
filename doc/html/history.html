@@ -272,6 +272,16 @@
 			        its three values, and <i>sse</i> still switches the
 			        vectorized routines off, which is how they are
 			        compared against the plain C code.</li>
+			    <li>Added a manual page for <i>mp3rtp</i>, which had none.
+			        It is installed where the program itself is, and is
+			        part of every distribution regardless of how the tree
+			        it was made from was configured. Manual page
+			        contributed by Fabian Greffrath.</li>
+			    <li>Fixed <i>mp3rtp</i> cutting its destination address
+			        short in builds without IPv6. Addresses longer than
+			        eleven characters were truncated and the stream went to
+			        a different host than the one given, without a
+			        message.</li>
 		</ul>
             </li>
 	</ul>
