@@ -19,7 +19,6 @@ EXTRA_DIST = \
 	INSTALL.configure \
 	LICENSE \
 	Makefile.MSVC \
-	Makefile.unix \
 	Makefile.am.global \
 	README.WINGTK \
 	STYLEGUIDE \
