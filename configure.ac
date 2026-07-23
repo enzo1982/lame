@@ -711,9 +711,11 @@ if test "x${WITH_MP3RTP}" = "xyes"; then
 		AC_MSG_ERROR([function socket is mandatory for mp3rtp])
 	fi
 	WITH_MP3RTP=mp3rtp${ac_exeext}
+	MP3RTP_MAN=mp3rtp.1
 	AC_MSG_RESULT(yes)
 else
 	WITH_MP3RTP=
+	MP3RTP_MAN=
 	AC_MSG_RESULT(no)
 fi
 
@@ -1316,6 +1318,7 @@ AC_SUBST(LIBTOOL_DEPS)
 AC_SUBST(WITH_FRONTEND)
 AC_SUBST(WITH_MP3X)
 AC_SUBST(WITH_MP3RTP)
+AC_SUBST(MP3RTP_MAN)
 
 AC_SUBST(CPUCCODE)
 

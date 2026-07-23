@@ -647,6 +647,7 @@ CMOCKA_LIBS
 CMOCKA_CFLAGS
 CONFIG_DEFS
 CPUCCODE
+MP3RTP_MAN
 WITH_MP3RTP
 WITH_MP3X
 WITH_FRONTEND
@@ -19937,10 +19938,12 @@ if test "x${WITH_MP3RTP}" = "xyes"; then
 		as_fn_error $? "function socket is mandatory for mp3rtp" "$LINENO" 5
 	fi
 	WITH_MP3RTP=mp3rtp${ac_exeext}
+	MP3RTP_MAN=mp3rtp.1
 	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf '%s\n' "yes" >&6; }
 else
 	WITH_MP3RTP=
+	MP3RTP_MAN=
 	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf '%s\n' "no" >&6; }
 fi
@@ -21325,6 +21328,7 @@ fi
 LDADD="${LDADD}"
 FRONTEND_CFLAGS="${INCICONV} ${FRONTEND_CFLAGS}"
 FRONTEND_LDADD="${FRONTEND_LDADD} ${LTLIBICONV} ${CONFIG_MATH_LIB}"
+
 
 
 

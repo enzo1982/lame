@@ -227,6 +227,7 @@ MAKEDEP = @MAKEDEP@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
+MP3RTP_MAN = @MP3RTP_MAN@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -315,8 +316,11 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
-man_MANS = lame.1
-EXTRA_DIST = ${man_MANS}
+
+# mp3rtp is an optional program, so its page is installed only where the
+# program is.
+man_MANS = lame.1 @MP3RTP_MAN@
+EXTRA_DIST = lame.1 mp3rtp.1
 all: all-am
 
 .SUFFIXES:

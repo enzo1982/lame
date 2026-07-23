@@ -1,0 +1,79 @@
+.TH mp3rtp 1 "July 22, 2026" "LAME 4.1" "LAME audio compressor"
+.SH NAME
+mp3rtp \- encode audio to mp3 and stream it as RTP
+.SH SYNOPSIS
+mp3rtp <ip> [port[:ttl]] [options] <infile> <outfile>
+.SH DESCRIPTION
+mp3rtp encodes audio the same way
+.BR lame (1)
+does, and additionally sends each encoded frame as an RTP packet to a network
+address.
+It is meant for streaming a live or recorded source, for example a sound card,
+to one listener or, using a multicast address, to several at once.
+The encoded stream is written to <outfile> as well, so the broadcast and the
+file are produced in one pass.
+.PP
+Both file operands are mandatory.
+To read from stdin, use "\-" for <infile>.
+To write to stdout, use "\-" for <outfile>; it is not a way to discard the
+output, so redirect it to the null device if the file is not wanted.
+.PP
+mp3rtp is not built by default.
+It is available when LAME was configured with
+.B \-\-enable\-mp3rtp
+and the system provides the socket functions.
+.SH OPTIONS
+.TP
+.B <ip>
+Destination address of the stream, as a numeric address.
+IPv6 addresses are accepted unless LAME was configured with
+.B \-\-disable\-ipv6.
+Host names are not resolved.
+.TP
+.B port[:ttl]
+Destination port, optionally followed by a colon and the multicast time to
+live.
+Port defaults to 5004 and TTL to 2.
+This is a separate argument from <ip>, not part of it.
+.TP
+.B options
+Any option
+.BR lame (1)
+accepts, for example
+.B \-b
+to set a bitrate,
+.B \-V
+for VBR quality, or
+.B \-\-resample.
+The options are passed on unchanged, so the encoder behaves exactly as it
+would without the streaming.
+.SH EXAMPLES
+Broadcast a sound card to a multicast group at 56 kbit/s, keeping no local
+copy:
+.PP
+.nf
+arecord \-b 16 \-s 22050 \-w | mp3rtp 224.17.23.42 5004:2 \-b 56 \- /dev/null
+.fi
+.PP
+Stream to a single listener with the default port and TTL, and keep the
+recording:
+.PP
+.nf
+arecord \-b 16 \-s 44100 \-w | mp3rtp 10.1.1.42 \-V2 \-b128 \-B256 \- out.mp3
+.fi
+.SH BUGS
+mp3rtp is a work in progress and is less exercised than
+.BR lame (1)
+itself.
+.SH SEE ALSO
+.BR lame (1)
+.SH AUTHORS
+.nf
+mp3rtp written by Felix von Leitner.
+
+LAME originally developed by Mike Cheng and now maintained by
+Mark Taylor, and the LAME team.
+(See https://lame.sourceforge.io/).
+.\" Local Variables:
+.\" mode: nroff
+.\" End:
