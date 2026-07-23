@@ -67,7 +67,7 @@ fht(FLOAT * fz, int n)
     FLOAT  *fi, *gi;
     FLOAT const *fn;
 
-    n <<= 1;            /* to get BLKSIZE, because of 3DNow! ASM routine */
+    n <<= 1;            /* callers pass half the transform length */
     fn = fz + n;
     k4 = 4;
     do {
@@ -241,8 +241,7 @@ fft_short(lame_internal_flags const *const gfc,
 #undef window
 #undef window_s
 
-        gfc->fft_fht(x, BLKSIZE_s / 2);
-        /* BLKSIZE_s/2 because of 3DNow! ASM routine */
+        gfc->fft_fht(x, BLKSIZE_s / 2); /* fht() takes half the length */
     }
 }
 
@@ -294,14 +293,8 @@ fft_long(lame_internal_flags const *const gfc,
 #undef window
 #undef window_s
 
-    gfc->fft_fht(x, BLKSIZE / 2);
-    /* BLKSIZE/2 because of 3DNow! ASM routine */
+    gfc->fft_fht(x, BLKSIZE / 2); /* fht() takes half the length */
 }
-
-#ifdef HAVE_NASM
-extern void fht_3DN(FLOAT * fz, int n);
-extern void fht_SSE(FLOAT * fz, int n);
-#endif
 
 void
 init_fft(lame_internal_flags * const gfc)
@@ -319,21 +312,9 @@ init_fft(lame_internal_flags * const gfc)
         gfc->cd_psy->window_s[i] = 0.5 * (1.0 - cos(2.0 * PI * (i + 0.5) / BLKSIZE_s));
 
     gfc->fft_fht = fht;
-#ifdef HAVE_NASM
-    if (gfc->CPU_features.AMD_3DNow) {
-        gfc->fft_fht = fht_3DN;
+#ifdef HAVE_SSE2_INTRINSICS
+    if (vector_implementation(gfc) >= VECTOR_IMPL_SSE2) {
+        gfc->fft_fht = fht_SSE2;
     }
-    else if (gfc->CPU_features.SSE) {
-        gfc->fft_fht = fht_SSE;
-    }
-    else {
-        gfc->fft_fht = fht;
-    }
-#else
-#ifdef HAVE_XMMINTRIN_H
-#ifdef MIN_ARCH_SSE
-    gfc->fft_fht = fht_SSE2;
-#endif
-#endif
 #endif
 }

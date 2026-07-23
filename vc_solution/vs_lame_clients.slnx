@@ -2,31 +2,19 @@
   <Configurations>
     <BuildType Name="Debug" />
     <BuildType Name="Release" />
-    <BuildType Name="ReleaseNASM" />
-    <BuildType Name="ReleaseSSE2" />
     <Platform Name="Win32" />
   </Configurations>
   <Folder Name="/ACM/">
     <Project Path="vs_lame_acm.vcxproj">
-      <BuildType Solution="ReleaseNASM|*" Project="Release" />
-      <BuildType Solution="ReleaseSSE2|*" Project="Release" />
     </Project>
     <Project Path="vs_lame_acm_adbg.vcxproj">
-      <BuildType Solution="ReleaseNASM|*" Project="Release" />
-      <BuildType Solution="ReleaseSSE2|*" Project="Release" />
     </Project>
     <Project Path="vs_lame_acm_tinyxml.vcxproj">
-      <BuildType Solution="ReleaseNASM|*" Project="Release" />
-      <BuildType Solution="ReleaseSSE2|*" Project="Release" />
     </Project>
   </Folder>
   <Project Path="vs_lame_dshow.vcxproj">
-    <BuildType Solution="ReleaseNASM|*" Project="Release" />
-    <BuildType Solution="ReleaseSSE2|*" Project="Release" />
   </Project>
   <Project Path="vs_lame_test.vcxproj">
-    <BuildType Solution="ReleaseNASM|*" Project="Release" />
-    <BuildType Solution="ReleaseSSE2|*" Project="Release" />
   </Project>
   <Project Path="vs_libmp3lame.vcxproj" />
 </Solution>

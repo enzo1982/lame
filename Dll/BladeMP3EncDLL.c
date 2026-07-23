@@ -640,11 +640,7 @@ __declspec(dllexport) VOID		beVersion(PBE_VERSION pbeVersion)
     pbeVersion->byAlphaLevel   = (BYTE)lv.alpha;
     pbeVersion->byBetaLevel    = (BYTE)lv.beta;
 
-#ifdef MMX_choose_table
-    pbeVersion->byMMXEnabled=1;
-#else
-    pbeVersion->byMMXEnabled=0;
-#endif
+    pbeVersion->byMMXEnabled=0; /* no MMX-specific code remains */
 
     memset( pbeVersion->btReserved, 0, sizeof( pbeVersion->btReserved ) );
 

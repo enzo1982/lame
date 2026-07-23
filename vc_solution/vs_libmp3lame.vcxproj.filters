@@ -9,10 +9,6 @@
       <UniqueIdentifier>{d09d8629-341a-4cbc-b3d9-f9d8f52b46c7}</UniqueIdentifier>
       <Extensions>h</Extensions>
     </Filter>
-    <Filter Include="Asm">
-      <UniqueIdentifier>{a86890da-24e2-4a5e-841e-25f09b5c7d87}</UniqueIdentifier>
-      <Extensions>.nas</Extensions>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\libmp3lame\bitstream.c">
@@ -146,32 +142,6 @@
     <ClInclude Include="..\include\lame.h">
       <Filter>Include</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <NASM Include="..\libmp3lame\i386\choose_table.nas">
-      <Filter>Asm</Filter>
-    </NASM>
-    <NASM Include="..\libmp3lame\i386\cpu_feat.nas">
-      <Filter>Asm</Filter>
-    </NASM>
-    <NASM Include="..\libmp3lame\i386\fft.nas">
-      <Filter>Asm</Filter>
-    </NASM>
-    <NASM Include="..\libmp3lame\i386\fft3dn.nas">
-      <Filter>Asm</Filter>
-    </NASM>
-    <NASM Include="..\libmp3lame\i386\fftfpu.nas">
-      <Filter>Asm</Filter>
-    </NASM>
-    <NASM Include="..\libmp3lame\i386\fftsse.nas">
-      <Filter>Asm</Filter>
-    </NASM>
-    <NASM Include="..\libmp3lame\i386\ffttbl.nas">
-      <Filter>Asm</Filter>
-    </NASM>
-    <NASM Include="..\libmp3lame\i386\scalar.nas">
-      <Filter>Asm</Filter>
-    </NASM>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\configMS.h">

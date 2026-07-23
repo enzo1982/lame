@@ -28,16 +28,18 @@ In the two solutions there are several configurations that can be used to
 compile different flavors of LAME libraries and executables:
 
 - Debug: Builds without optimization, but debugging support
-- Release: Optimization build, without SSE2 or NASM assembly
-- ReleaseNASM: Uses NASM (see below) to compile some routines using NASM
-- ReleaseSSE2: Uses SSE2 assembler instructions to optimize routines
+- Release: Optimization build
+
+The vector routines are built into every configuration and selected at run
+time from the CPU's own feature bits, so no separate configuration is needed
+to get them, and a binary built with them still runs on a machine without
+SSE2. "lame --verbose" reports what the machine it is running on actually got.
+No assembler is needed to build any configuration.
 
 The vs_lame.slnx solution has both Win32 and x64 platforms configured, in
 order to compile lame.exe and the libmp3lame.dll for 32-bit or 64-bit target
 platforms. The output folder also has separate folders for the two platforms.
-Note that mp3rtp and mp3x are not compiled in x64. Also note that all 64-bit
-processors have SSE2 instructions, so the /arch:SSE2 option is ignored for
-this platform.
+Note that mp3rtp and mp3x are not compiled in x64.
 
 ## External libraries and tools
 
@@ -45,19 +47,6 @@ For some projects, external libraries or tools are necessary for successful
 compilation. These can be configured using .props files or the Property Manager
 window of Visual Studio (View > Other Windows > Property Manager). The props
 files have a "User Macros" page where the variable values can be changed.
-
-### NASM
-
-The Netwide Assembler is used to compile assembly routines contained in the
-.nas files. The most recent version of NASM can be downloaded here:
-https://nasm.us/
-
-Extract the zip archive in any folder. Open the file
-"lame/vc_solution/vs_arch_nasm.props" and edit the `NasmPath` in the first
-few lines of the file, ending the path with a backslash. As described above,
-you can also use the Property Manager view to change the values.
-
-Note that NASM is only used when selecting the "ReleaseNASM" configuration.
 
 ### libsndfile
 

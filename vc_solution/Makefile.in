@@ -149,7 +149,6 @@ CONFIG_MATH_LIB = @CONFIG_MATH_LIB@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CPUCCODE = @CPUCCODE@
-CPUTYPE = @CPUTYPE@
 CSCOPE = @CSCOPE@
 CTAGS = @CTAGS@
 CYGPATH_W = @CYGPATH_W@
@@ -201,8 +200,6 @@ MAKEDEP = @MAKEDEP@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
-NASM = @NASM@
-NASM_FORMAT = @NASM_FORMAT@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -228,6 +225,7 @@ SHELL = @SHELL@
 SNDFILE_CFLAGS = @SNDFILE_CFLAGS@
 SNDFILE_LIBS = @SNDFILE_LIBS@
 STRIP = @STRIP@
+VECTOR_SSE2_FLAGS = @VECTOR_SSE2_FLAGS@
 VERSION = @VERSION@
 WITH_FRONTEND = @WITH_FRONTEND@
 WITH_MP3RTP = @WITH_MP3RTP@
@@ -292,9 +290,6 @@ top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = 1.15 foreign
 EXTRA_DIST = \
 	README.vs.txt \
-	vs_arch_nasm.props \
-	vs_arch_sse2.props \
-	vs_arch_x87.props \
 	vs_gtk_config.props \
 	vs_lame_acm_adbg.vcxproj \
 	vs_lame_acm_adbg.vcxproj.filters \
@@ -320,9 +315,6 @@ EXTRA_DIST = \
 	vs_libmp3lame.vcxproj.filters \
 	vs_libmpg123_config.props \
 	vs_libsndfile_config.props \
-	vs_nasm.props \
-	vs_nasm.targets \
-	vs_nasm.xml \
 	vs_win71sdk_config.props
 
 all: all-am

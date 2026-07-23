@@ -589,6 +589,18 @@ extern  "C" {
     extern int has_SSE(void);
     extern int has_SSE2(void);
 
+    /* Which set of vector routines the encoder will run.  A wider
+       implementation adds a value here and a name in vector_impl_name(),
+       rather than another flag to test at each call site.  Ordered by
+       capability, so a comparison picks the best available one. */
+    typedef enum {
+        VECTOR_IMPL_NONE = 0,
+        VECTOR_IMPL_SSE2
+    } vector_impl_t;
+
+    extern vector_impl_t vector_implementation(lame_internal_flags const *gfc);
+    extern const char *vector_impl_name(vector_impl_t impl);
+
 
 
 /***********************************************************************

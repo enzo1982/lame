@@ -16,6 +16,12 @@ INCLUDES = @INCLUDES@ \
 
 DEFS = @DEFS@ @CONFIG_DEFS@
 
+# Where the compiler cannot express "SSE2 for this function only", configure
+# hands this one translation unit an SSE2 baseline instead. It holds nothing
+# but the vector routines, and their call sites check the CPU at run time, so
+# the resulting binary still runs where SSE2 is absent.
+AM_CFLAGS = @VECTOR_SSE2_FLAGS@
+
 xmm_sources = xmm_quantize_sub.c
 
 if WITH_XMM

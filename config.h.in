@@ -117,9 +117,6 @@
 /* set to 1 if you have libmpg123 */
 #undef HAVE_MPG123
 
-/* have nasm */
-#undef HAVE_NASM
-
 /* Define to 1 if you have the <ncurses/termcap.h> header file. */
 #undef HAVE_NCURSES_TERMCAP_H
 
@@ -128,6 +125,9 @@
 
 /* Define to 1 if you have the 'socket' function. */
 #undef HAVE_SOCKET
+
+/* Define if SSE2 intrinsics work. */
+#undef HAVE_SSE2_INTRINSICS
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
@@ -197,9 +197,6 @@
 /* Define to 1 if you have the <wchar.h> header file. */
 #undef HAVE_WCHAR_H
 
-/* Define if SSE intrinsics work. */
-#undef HAVE_XMMINTRIN_H
-
 /* Define as const if the declaration of iconv() needs const. */
 #undef ICONV_CONST
 
@@ -214,9 +211,6 @@
 
 /* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
-
-/* use MMX version of choose_table */
-#undef MMX_choose_table
 
 /* build without hooks for analyzer */
 #undef NOANALYSIS

@@ -1,16 +1,11 @@
 dnl $Id$
 dnl
 dnl
-dnl don't forget to set ASM_FOR_ARCH to a space delimited list of
-dnl processor architectures, for which assembler routines exist
-dnl
-dnl
 dnl Exported and configured variables:
 dnl CC
 dnl CFLAGS
 dnl LDFLAGS
 dnl LDADD
-dnl NASM
 
 dnl extra vars for frontend:
 dnl FRONTEND_LDFLAGS
@@ -175,16 +170,29 @@ AC_CHECK_HEADERS( \
 		 unistd.h \
 		 linux/soundcard.h)
 
-dnl Checks for actually working SSE intrinsics
-AC_MSG_CHECKING(working SSE intrinsics)
-AC_COMPILE_IFELSE(
+dnl LAME_SSE2_PROBE(RESULT-VARIABLE)
+dnl   Compile the vector routines' own construct: an SSE2 intrinsic inside a
+dnl   function carrying the per-function target attribute they use.  Testing a
+dnl   bare intrinsic instead would ask "is SSE2 the compiler's default here",
+dnl   which is a stricter question than the source asks and answers no on
+dnl   32-bit x86.  Used below, after CFLAGS is final - see there for why.
+AC_DEFUN([LAME_SSE2_PROBE],
+[AC_COMPILE_IFELSE(
 	[AC_LANG_PROGRAM(
-		[[#include <xmmintrin.h>]],
-		[[_mm_sfence();]])],
-	[AC_DEFINE([HAVE_XMMINTRIN_H], [1], [Define if SSE intrinsics work.])
-	 ac_cv_header_xmmintrin_h=yes],
-	[ac_cv_header_xmmintrin_h=no])
-AC_MSG_RESULT(${ac_cv_header_xmmintrin_h})
+		[[#include <xmmintrin.h>
+		  #if defined (__GNUC__) && ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 2)))
+		  #define SSE2_TARGET __attribute__((target("sse2")))
+		  #else
+		  #define SSE2_TARGET
+		  #endif
+		  static float probe_out;
+		  SSE2_TARGET static void probe(void)
+		  {
+		      __m128 v = _mm_set_ps(1.f, 2.f, 3.f, 4.f);
+		      _mm_store_ss(&probe_out, _mm_sqrt_ps(_mm_mul_ps(v, v)));
+		  }]],
+		[[probe();]])],
+	[$1=yes], [$1=no])])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -456,17 +464,12 @@ fi
 dnl Initialize configuration variables for the Makefile
 CFLAGS=${CFLAGS}
 CONFIG_DEFS=${CONFIG_DEFS}
-NASM=
 INCLUDES="-I\$(top_srcdir)/include -I\$(srcdir)"
 FRONTEND_LDFLAGS=
 FRONTEND_CFLAGS=
 LIB_SOURCES=
 MAKEDEP="-M"
 RM_F="rm -f"
-
-AC_ARG_ENABLE(nasm,
-  [  --enable-nasm           Allow the use of nasm if available],
-  ASM_FOR_ARCH="i386", ASM_FOR_ARCH="")
 
 AC_ARG_ENABLE(ieeehack,
   [  --enable-ieeehack       Enable Takhiros IEEE754 hack (speed improvement for old CPUs)],
@@ -872,93 +875,30 @@ AC_MSG_RESULT(${TERMCAP_DEFAULT})
 
 dnl ### processor specific options ###
 WITH_VECTOR=no
+lame_cpu_x86=no
 case $host_cpu in
 x86_64|amd64)
-	CPUTYPE="no"
-	if test $ac_cv_header_xmmintrin_h = yes ; then
-		WITH_XMM=yes
-		WITH_VECTOR=yes
-	fi
+	lame_cpu_x86=yes
 
 	AC_DEFINE(USE_FAST_LOG, 1, faster log implementation with less but enough precission)
 	;;
 *86)
-	CPUTYPE="i386"
-	if test $ac_cv_header_xmmintrin_h = yes ; then
-		WITH_XMM=yes
-		WITH_VECTOR=yes
-	fi
+	lame_cpu_x86=yes
 
 	AC_DEFINE(USE_FAST_LOG, 1, faster log implementation with less but enough precission)
 	;;
 powerpc)
-	CPUTYPE="no"
-
 	# The following should not get enabled on a G5. HOWTO check for a G5?
 	AC_DEFINE(USE_FAST_LOG, 1, faster log implementation with less but enough precission)
 	;;
 *)
-	CPUTYPE="no"
 	;;
 esac
 
-# which vector code do we support to build on this machine?
-AM_CONDITIONAL(WITH_XMM, test "x${WITH_XMM}" = "xyes")
+# The vector decision itself is made further down, once CFLAGS is final -
+# see "vector routines" there. AM_CONDITIONAL and AC_MSG_RESULT for it live
+# with the decision rather than here.
 
-# needs to be defined to link in the internal vector lib
-AM_CONDITIONAL(WITH_VECTOR, test "x${WITH_VECTOR}" = "xyes")
-AC_MSG_CHECKING(if I have to build the internal vector lib)
-AC_MSG_RESULT(${WITH_VECTOR})
-
-
-AC_PATH_PROG(NASM, nasm, no)
-case "${NASM}" in
-no)
-	;;
-*)
-	AC_MSG_CHECKING(for assembler routines for this processor type)
-	for recurse_over in ${ASM_FOR_ARCH}
-	do
-		if test "${CPUTYPE}" = "${recurse_over}"; then
-			include_asm_routines="yes"
-		fi
-
-		case $host_os in
-		*darwin*)
-			# currently we have problems because of a wrong
-			# libtool hack in the darwin case (for nasm code)
-			include_asm_routines="no"
-			;;
-		esac
-	done
-	if test "x${include_asm_routines}" = "xyes"; then
-		AC_DEFINE(HAVE_NASM, 1, have nasm)
-		AC_DEFINE(MMX_choose_table, 1, use MMX version of choose_table)
-	else
-		include_asm_routines="no"
-		NASM="no"
-	fi
-	AC_MSG_RESULT(${include_asm_routines})
-	;;
-esac
-AM_CONDITIONAL(HAVE_NASM, test "${NASM}" != "no")
-
-case $host_os in
-	*cygwin*|*mingw32*)
-		CYGWIN=yes
-		NASM_FORMAT="-f win32 -DWIN32"
-		;;
-	*darwin*)
-		NASM_FORMAT="-f macho"
-		;;
-	*os2-emx*)
-		NASM_FORMAT="-f aout -DAOUT"
-		;;
-	*)
-		CYGWIN=no
-		NASM_FORMAT="-f elf"
-		;;
-esac
 
 #
 # Optimization flags.
@@ -1293,6 +1233,53 @@ fi
 
 CFLAGS="${OPTIMIZATION} ${CFLAGS}"
 
+dnl ### vector routines ###
+dnl
+dnl Probed here, not with the other feature checks, because the answer depends
+dnl on the optimization flags chosen above and those are only settled now. The
+dnl combination that forces it: GCC on 32-bit x86 with -ffast-math rejects the
+dnl per-function target attribute the routines rely on, so a probe run with
+dnl bare CFLAGS says the routines are available and the build then fails to
+dnl compile them. That is how 32-bit x86 lost these routines in 3.100, and a
+dnl probe that does not use the real flags would reintroduce it.
+dnl
+dnl Where the attribute cannot be used, the routines can still be built by
+dnl giving that one translation unit an SSE2 baseline of its own. It contains
+dnl nothing but the vector code, and its callers test the CPU at run time, so
+dnl a binary built this way still runs on machines without SSE2.
+VECTOR_SSE2_FLAGS=
+if test "x${lame_cpu_x86}" = xyes; then
+	AC_MSG_CHECKING(working SSE2 intrinsics)
+	LAME_SSE2_PROBE([lame_sse2_intrinsics])
+	AC_MSG_RESULT(${lame_sse2_intrinsics})
+	if test "x${lame_sse2_intrinsics}" = xno; then
+		AC_MSG_CHECKING(working SSE2 intrinsics with a per-file SSE2 baseline)
+		lame_save_CFLAGS=$CFLAGS
+		CFLAGS="$CFLAGS -msse2"
+		LAME_SSE2_PROBE([lame_sse2_baseline])
+		CFLAGS=$lame_save_CFLAGS
+		AC_MSG_RESULT(${lame_sse2_baseline})
+		if test "x${lame_sse2_baseline}" = xyes; then
+			lame_sse2_intrinsics=yes
+			VECTOR_SSE2_FLAGS="-msse2"
+		fi
+	fi
+	if test "x${lame_sse2_intrinsics}" = xyes; then
+		AC_DEFINE([HAVE_SSE2_INTRINSICS], [1], [Define if SSE2 intrinsics work.])
+		WITH_XMM=yes
+		WITH_VECTOR=yes
+	fi
+fi
+AC_SUBST(VECTOR_SSE2_FLAGS)
+
+# which vector code do we support to build on this machine?
+AM_CONDITIONAL(WITH_XMM, test "x${WITH_XMM}" = "xyes")
+
+# needs to be defined to link in the internal vector lib
+AM_CONDITIONAL(WITH_VECTOR, test "x${WITH_VECTOR}" = "xyes")
+AC_MSG_CHECKING(if I have to build the internal vector lib)
+AC_MSG_RESULT(${WITH_VECTOR})
+
 dnl In maintainer mode, build under stricter warnings and make them fatal so
 dnl regressions are caught before release.  This runs after all feature checks
 dnl so -Werror cannot break autoconf's test compilations, and LAME_CHECK_CFLAG
@@ -1321,9 +1308,6 @@ AC_SUBST(LDADD)
 AC_SUBST(LIB_MAJOR_VERSION)
 AC_SUBST(LIB_MINOR_VERSION)
 
-AC_SUBST(NASM)
-AC_SUBST(NASM_FORMAT)
-
 AC_SUBST(MAKEDEP)
 AC_SUBST(RM_F)
 
@@ -1333,7 +1317,6 @@ AC_SUBST(WITH_FRONTEND)
 AC_SUBST(WITH_MP3X)
 AC_SUBST(WITH_MP3RTP)
 
-AC_SUBST(CPUTYPE)
 AC_SUBST(CPUCCODE)
 
 AC_SUBST(CONFIG_DEFS)
@@ -1359,7 +1342,6 @@ AC_CONFIG_FILES([Makefile \
 		 test/Makefile \
 		 test/unit/Makefile \
 		 libmp3lame/Makefile \
-		 libmp3lame/i386/Makefile \
 		 libmp3lame/lame.pc \
 		 libmp3lame/vector/Makefile \
 		 frontend/Makefile \
@@ -1420,11 +1402,12 @@ fi
 if test -n "${WITH_FRONTEND}"; then prog_lame=yes; else prog_lame=no; fi
 if test -n "${WITH_MP3X}"; then prog_mp3x=yes; else prog_mp3x=no; fi
 if test -n "${WITH_MP3RTP}"; then prog_mp3rtp=yes; else prog_mp3rtp=no; fi
-# The vector routines are named by the instruction sets they are BUILT for,
-# not by what the host CPU happens to support. Only SSE is probed today.
+# The vector routines are named by the instruction sets they are BUILT for.
+# Whether they are used is decided per CPU at run time, and "lame --verbose"
+# reports what the running machine actually got. Only SSE2 is probed today.
 lame_vector_sets=
 if test "x${WITH_XMM}" = "xyes"; then
-  lame_vector_sets="SSE"
+  lame_vector_sets="SSE2"
 fi
 if test -z "${lame_vector_sets}"; then
   lame_vector_sets=none

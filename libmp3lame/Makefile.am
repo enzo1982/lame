@@ -2,13 +2,10 @@
 
 include $(top_srcdir)/Makefile.am.global
 
-SUBDIRS = i386 vector
+SUBDIRS = vector
 
 lib_LTLIBRARIES = libmp3lame.la
 
-if HAVE_NASM
-cpu_ldadd = $(top_builddir)/libmp3lame/@CPUTYPE@/liblameasmroutines.la
-endif
 if WITH_VECTOR
 vector_ldadd = $(top_builddir)/libmp3lame/vector/liblamevectorroutines.la
 endif
@@ -19,7 +16,7 @@ else
 decoder_ldadd =
 endif
 
-libmp3lame_la_LIBADD =	$(cpu_ldadd) $(vector_ldadd) $(decoder_ldadd) \
+libmp3lame_la_LIBADD =	$(vector_ldadd) $(decoder_ldadd) \
 			@LIBMP3LAME_LDADD@ $(CONFIG_MATH_LIB)
 libmp3lame_la_LDFLAGS = -version-info @LIB_MAJOR_VERSION@:@LIB_MINOR_VERSION@ \
 			-export-symbols $(top_srcdir)/include/libmp3lame.sym \

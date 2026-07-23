@@ -32,7 +32,7 @@
 
 
 
-#ifdef HAVE_XMMINTRIN_H
+#ifdef HAVE_SSE2_INTRINSICS
 
 #include <xmmintrin.h>
 
@@ -241,5 +241,5 @@ fht_SSE2(FLOAT * fz, int n)
     } while (k4 < n);
 }
 
-#endif	/* HAVE_XMMINTRIN_H */
+#endif	/* HAVE_SSE2_INTRINSICS */
 

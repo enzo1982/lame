@@ -141,8 +141,8 @@ am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(pkgconfigdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 @LIB_WITH_DECODER_TRUE@am__DEPENDENCIES_1 = $(top_builddir)/mpglib/libmpgdecoder.la
 am__DEPENDENCIES_2 =
-libmp3lame_la_DEPENDENCIES = $(cpu_ldadd) $(vector_ldadd) \
-	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_2)
+libmp3lame_la_DEPENDENCIES = $(vector_ldadd) $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_2)
 am_libmp3lame_la_OBJECTS = VbrTag.lo bitstream.lo encoder.lo fft.lo \
 	gain_analysis.lo id3tag.lo lame.lo newmdct.lo presets.lo \
 	psymodel.lo quantize.lo quantize_pvt.lo reservoir.lo \
@@ -290,7 +290,6 @@ CONFIG_MATH_LIB = @CONFIG_MATH_LIB@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CPUCCODE = @CPUCCODE@
-CPUTYPE = @CPUTYPE@
 CSCOPE = @CSCOPE@
 CTAGS = @CTAGS@
 CYGPATH_W = @CYGPATH_W@
@@ -342,8 +341,6 @@ MAKEDEP = @MAKEDEP@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
-NASM = @NASM@
-NASM_FORMAT = @NASM_FORMAT@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -369,6 +366,7 @@ SHELL = @SHELL@
 SNDFILE_CFLAGS = @SNDFILE_CFLAGS@
 SNDFILE_LIBS = @SNDFILE_LIBS@
 STRIP = @STRIP@
+VECTOR_SSE2_FLAGS = @VECTOR_SSE2_FLAGS@
 VERSION = @VERSION@
 WITH_FRONTEND = @WITH_FRONTEND@
 WITH_MP3RTP = @WITH_MP3RTP@
@@ -431,13 +429,12 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = 1.15 foreign
-SUBDIRS = i386 vector
+SUBDIRS = vector
 lib_LTLIBRARIES = libmp3lame.la
-@HAVE_NASM_TRUE@cpu_ldadd = $(top_builddir)/libmp3lame/@CPUTYPE@/liblameasmroutines.la
 @WITH_VECTOR_TRUE@vector_ldadd = $(top_builddir)/libmp3lame/vector/liblamevectorroutines.la
 @LIB_WITH_DECODER_FALSE@decoder_ldadd = 
 @LIB_WITH_DECODER_TRUE@decoder_ldadd = $(top_builddir)/mpglib/libmpgdecoder.la
-libmp3lame_la_LIBADD = $(cpu_ldadd) $(vector_ldadd) $(decoder_ldadd) \
+libmp3lame_la_LIBADD = $(vector_ldadd) $(decoder_ldadd) \
 			@LIBMP3LAME_LDADD@ $(CONFIG_MATH_LIB)
 
 libmp3lame_la_LDFLAGS = -version-info @LIB_MAJOR_VERSION@:@LIB_MINOR_VERSION@ \

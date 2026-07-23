@@ -206,7 +206,6 @@ CONFIG_MATH_LIB = @CONFIG_MATH_LIB@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CPUCCODE = @CPUCCODE@
-CPUTYPE = @CPUTYPE@
 CSCOPE = @CSCOPE@
 CTAGS = @CTAGS@
 CYGPATH_W = @CYGPATH_W@
@@ -262,8 +261,6 @@ MAKEDEP = @MAKEDEP@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
-NASM = @NASM@
-NASM_FORMAT = @NASM_FORMAT@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
@@ -289,6 +286,7 @@ SHELL = @SHELL@
 SNDFILE_CFLAGS = @SNDFILE_CFLAGS@
 SNDFILE_LIBS = @SNDFILE_LIBS@
 STRIP = @STRIP@
+VECTOR_SSE2_FLAGS = @VECTOR_SSE2_FLAGS@
 VERSION = @VERSION@
 WITH_FRONTEND = @WITH_FRONTEND@
 WITH_MP3RTP = @WITH_MP3RTP@
@@ -352,6 +350,12 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = 1.15 foreign
 @WITH_XMM_TRUE@noinst_LTLIBRARIES = liblamevectorroutines.la
+
+# Where the compiler cannot express "SSE2 for this function only", configure
+# hands this one translation unit an SSE2 baseline instead. It holds nothing
+# but the vector routines, and their call sites check the CPU at run time, so
+# the resulting binary still runs where SSE2 is absent.
+AM_CFLAGS = @VECTOR_SSE2_FLAGS@
 xmm_sources = xmm_quantize_sub.c
 @WITH_XMM_TRUE@liblamevectorroutines_la_SOURCES = $(xmm_sources)
 noinst_HEADERS = lame_intrin.h

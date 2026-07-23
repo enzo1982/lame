@@ -948,13 +948,11 @@ long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramNam
             "\nMisc:\n    --license       print License information\n\n"
         );
 
-#if defined(HAVE_NASM)
     wait_for(fp, lessmode);
     fprintf(fp,
             "  Platform specific:\n"
-            "    --noasm <instructions> disable assembly optimizations for mmx/3dnow/sse\n");
+            "    --noasm <instructions> disable the vector code for mmx/3dnow/sse\n");
     wait_for(fp, lessmode);
-#endif
 
     display_bitrates(fp);
 

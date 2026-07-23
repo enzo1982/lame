@@ -1342,42 +1342,23 @@ lame_print_config(const lame_global_flags * gfp)
     if (gfc->CPU_features.MMX
         || gfc->CPU_features.AMD_3DNow || gfc->CPU_features.SSE || gfc->CPU_features.SSE2) {
         char    text[256] = { 0 };
-        int     fft_asm_used = 0;
-#ifdef HAVE_NASM
-        if (gfc->CPU_features.AMD_3DNow) {
-            fft_asm_used = 1;
-        }
-        else if (gfc->CPU_features.SSE) {
-            fft_asm_used = 2;
-        }
-#else
-# if defined( HAVE_XMMINTRIN_H ) && defined( MIN_ARCH_SSE )
-        {
-            fft_asm_used = 3;
-        }
-# endif
-#endif
+        vector_impl_t const vector_impl = vector_implementation(gfc);
         if (gfc->CPU_features.MMX) {
-#ifdef MMX_choose_table
-            concatSep(text, ", ", "MMX (ASM used)");
-#else
             concatSep(text, ", ", "MMX");
-#endif
         }
         if (gfc->CPU_features.AMD_3DNow) {
-            concatSep(text, ", ", (fft_asm_used == 1) ? "3DNow! (ASM used)" : "3DNow!");
+            concatSep(text, ", ", "3DNow!");
         }
         if (gfc->CPU_features.SSE) {
-#if defined(HAVE_XMMINTRIN_H)
-            concatSep(text, ", ", "SSE (ASM used)");
-#else
-            concatSep(text, ", ", (fft_asm_used == 2) ? "SSE (ASM used)" : "SSE");
-#endif
+            concatSep(text, ", ", "SSE");
         }
         if (gfc->CPU_features.SSE2) {
-            concatSep(text, ", ", (fft_asm_used == 3) ? "SSE2 (ASM used)" : "SSE2");
+            concatSep(text, ", ", "SSE2");
         }
         MSGF(gfc, "CPU features: %s\n", text);
+        if (vector_impl != VECTOR_IMPL_NONE) {
+            MSGF(gfc, "vector routines: %s\n", vector_impl_name(vector_impl));
+        }
     }
 
     if (cfg->channels_in == 2 && cfg->channels_out == 1 /* mono */ ) {

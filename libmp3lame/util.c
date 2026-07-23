@@ -815,18 +815,76 @@ lame_errorf(const lame_internal_flags* gfc, const char *format, ...)
  *
  ***********************************************************************/
 
-#ifdef HAVE_NASM
-extern int has_MMX_nasm(void);
-extern int has_3DNow_nasm(void);
-extern int has_SSE_nasm(void);
-extern int has_SSE2_nasm(void);
+/* Two separate questions, and conflating them is how the vector routines
+ * ended up compiled but unreachable:
+ *
+ *   - may the compiler emit these instructions here unconditionally?  That
+ *     is a property of the target baseline, and every toolchain publishes it
+ *     under a name of its own.
+ *   - does the CPU running this binary have them?  That is a runtime
+ *     question, and only worth asking when the answer above is no.
+ */
+#if defined( __SSE__ )                                        /* GCC, Clang */ \
+ || defined( _M_X64 ) || defined( _M_AMD64 )                  /* MSVC x64   */ \
+ || (defined( _M_IX86_FP ) && _M_IX86_FP >= 1)                /* MSVC /arch */
+#define LAME_BASELINE_SSE  1
+#endif
+#if defined( __SSE2__ ) \
+ || defined( _M_X64 ) || defined( _M_AMD64 ) \
+ || (defined( _M_IX86_FP ) && _M_IX86_FP >= 2)
+#define LAME_BASELINE_SSE2 1
 #endif
 
+#if defined( __i386__ ) || defined( __x86_64__ ) \
+ || defined( _M_IX86 ) || defined( _M_X64 ) || defined( _M_AMD64 )
+#define LAME_TARGET_X86 1
+#endif
+
+#if defined( LAME_TARGET_X86 )
+# if defined( __has_builtin )
+#  if __has_builtin( __builtin_cpu_supports )
+#   define LAME_CPU_SUPPORTS 1
+#  endif
+# elif defined( __GNUC__ ) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8))
+#  define LAME_CPU_SUPPORTS 1
+# endif
+# if defined( _MSC_VER )
+#  include <intrin.h>
+#  define LAME_CPUID_MSVC 1
+# endif
+#endif
+
+#if defined( LAME_CPUID_MSVC )
+/* Feature bits of the EDX result of CPUID leaf 1. */
+enum {
+    CPUID1_EDX_MMX  = 23,
+    CPUID1_EDX_SSE  = 25,
+    CPUID1_EDX_SSE2 = 26
+};
+
+static int
+cpuid_feature_edx(int bit)
+{
+    int     regs[4];
+    __cpuid(regs, 0);
+    if (regs[0] < 1)
+        return 0;
+    __cpuid(regs, 1);
+    return (regs[3] >> bit) & 1;
+}
+#endif
+
+/* __builtin_cpu_supports() is documented to return nonzero, not one, and GCC
+ * really does return a bitmask (sse2 -> 16).  These results feed single-bit
+ * fields, so every one of them is normalised here rather than at the caller.
+ */
 int
 has_MMX(void)
 {
-#ifdef HAVE_NASM
-    return has_MMX_nasm();
+#if defined( LAME_CPU_SUPPORTS )
+    return __builtin_cpu_supports("mmx") != 0;
+#elif defined( LAME_CPUID_MSVC )
+    return cpuid_feature_edx(CPUID1_EDX_MMX);
 #else
     return 0;           /* don't know, assume not */
 #endif
@@ -835,39 +893,68 @@ has_MMX(void)
 int
 has_3DNow(void)
 {
-#ifdef HAVE_NASM
-    return has_3DNow_nasm();
-#else
-    return 0;           /* don't know, assume not */
-#endif
+    /* AMD dropped 3DNow! from its CPUs in 2010 and current compilers offer
+     * no test for it.  The only routine that ever used it was the assembly
+     * FFT, which the intrinsics one replaces, so nothing asks any more.  The
+     * function stays because lame_set_asm_optimizations(AMD_3DNOW) is public.
+     */
+    return 0;
 }
 
 int
 has_SSE(void)
 {
-#ifdef HAVE_NASM
-    return has_SSE_nasm();
-#else
-#if defined( _M_X64 ) || defined( MIN_ARCH_SSE )
+#if defined( LAME_BASELINE_SSE )
     return 1;
+#elif defined( LAME_CPU_SUPPORTS )
+    return __builtin_cpu_supports("sse") != 0;
+#elif defined( LAME_CPUID_MSVC )
+    return cpuid_feature_edx(CPUID1_EDX_SSE);
 #else
     return 0;           /* don't know, assume not */
-#endif
 #endif
 }
 
 int
 has_SSE2(void)
 {
-#ifdef HAVE_NASM
-    return has_SSE2_nasm();
-#else
-#if defined( _M_X64 ) || defined( MIN_ARCH_SSE )
+#if defined( LAME_BASELINE_SSE2 )
     return 1;
+#elif defined( LAME_CPU_SUPPORTS )
+    return __builtin_cpu_supports("sse2") != 0;
+#elif defined( LAME_CPUID_MSVC )
+    return cpuid_feature_edx(CPUID1_EDX_SSE2);
 #else
     return 0;           /* don't know, assume not */
 #endif
+}
+
+/* One place decides which vector routines run, so the dispatch sites and the
+ * configuration report cannot disagree.  Adding a wider implementation means
+ * one more branch here and one more name below.
+ */
+vector_impl_t
+vector_implementation(lame_internal_flags const *gfc)
+{
+#if defined( HAVE_SSE2_INTRINSICS )
+    if (gfc->CPU_features.SSE2)
+        return VECTOR_IMPL_SSE2;
+#else
+    (void) gfc;
 #endif
+    return VECTOR_IMPL_NONE;
+}
+
+const char *
+vector_impl_name(vector_impl_t impl)
+{
+    switch (impl) {
+    case VECTOR_IMPL_SSE2:
+        return "SSE2";
+    case VECTOR_IMPL_NONE:
+        break;
+    }
+    return "none";
 }
 
 void

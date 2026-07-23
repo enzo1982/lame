@@ -11,16 +11,12 @@
 #		-> build lame, but not mp3x
 #		-> use Robert's code modifications
 #		-> assume MSVC 6.0 compiler available
-#		-> assume NASM available
-#		-> assemble MMX code with NASM
 #		-> no compiler warnings
 #       -> use single precision float
 #
 #	passing arguments, one can modify the default behaviour:
 #	COMP=<not INTEL or BCC>    ->  use MS compiler
 #	WARN=<anything but OFF>    ->  give verbose compiler warnings
-#	ASM=<anything but YES>     ->  no NASM nor MMX
-#	MMX=<anything but YES>     ->  do not assemble MMX code
 #	CFG=<anything but RH>      ->  disable Robert's modifications
 #	CPU=P1                     ->  optimize for Pentium instead of P II/III
 #	CPU=P2                     ->  optimize for Pentium II/III, you need a PII or better
@@ -64,23 +60,12 @@ PGM = $(T_LAME)
 !	IF "$(MSVCVER)" != ""
 COMP = MS
 !	IF "$(MSVCVER)" == "Win64"
-!	IF "$(ASM)" == ""
-ASM = NO # or it could be ML64 if we want to use it...
 GTK = NO
-!	ENDIF
 !	ENDIF
 !	ELSE
 !	IF "$(COMP)" == ""
 COMP = MSVC
 !	ENDIF
-!	ENDIF
-
-!	IF "$(ASM)" == ""
-ASM = YES
-!	ENDIF
-
-!	IF "$(MMX)" == ""
-MMX = YES
 !	ENDIF
 
 !	IF "$(CFG)" == ""
@@ -115,12 +100,6 @@ LIB_OPTS = /nologo $(MACHINE)
 !	 MESSAGE building LAME
 !	ELSE
 !	 MESSAGE building LAME featuring $(CFG)
-!	ENDIF
-!	IF "$(ASM)" == "YES"
-!	 MESSAGE + ASM
-!	 IF "$(MMX)" == "YES"
-!	  MESSAGE + MMX
-!	 ENDIF
 !	ENDIF
 !	IF "$(GTK)" == "YES"
 !	 MESSAGE + GTK
@@ -553,69 +532,6 @@ INCLUDES = -I. -I$(srcdir) -I$(srcdir)/include -I$(srcdir)/libmp3lame -I$(srcdir
 	@$(CC) $(CPP_OPTS) $(CC_SWITCHES) $(INCLUDES) $(CC_OUT)$@ -c $<
 
 
-#__ MASM ______________________________________________________________________
-#
-#	MASM: Microsoft Assembler
-#
-!	IF "$(ASM)" == "ML64"
-#
-.SUFFIXES : .nas
-{$(srcdir)/libmp3lame/i386/}.nas{libmp3lame/i386/}.obj:
-	@echo $<
-	@ml64 -I$(srcdir)\libmp3lame\i386 -Sf -DWIN32 -DWIN64 $< -Fo$@
-
-CC_SWITCHES = $(CC_SWITCHES) -DHAVE_NASM
-ASM_OBJ = $(ASM_OBJ) \
-	libmp3lame/i386/cpu_feat.obj \
-	libmp3lame/i386/fft3dn.obj \
-	libmp3lame/i386/fftsse.obj
-
-#	not yet coded
-#CC_SWITCHES = $(CC_SWITCHES) -DUSE_FFTFPU
-#ASM_OBJ = $(ASM_OBJ) libmp3lame\i386\fftfpu.obj
-#______________________________________________________________________ MASM __
-
-
-#__ NASM ______________________________________________________________________
-#
-#	NASM: Netwide Assembler
-#
-!	ELSEIF "$(ASM)" == "YES"
-#
-.SUFFIXES : .nas
-{$(srcdir)/libmp3lame/i386/}.nas{libmp3lame/i386/}.obj:
-	@echo $<
-	@nasmw -f $(OFF) -i $(srcdir)/libmp3lame/i386/ -DWIN32 $< -o $@
-
-CC_SWITCHES = $(CC_SWITCHES) /DHAVE_NASM
-ASM_OBJ = $(ASM_OBJ) \
-	libmp3lame/i386/cpu_feat.obj \
-	libmp3lame/i386/fft3dn.obj \
-	libmp3lame/i386/fftsse.obj
-
-#	not yet coded
-#CC_SWITCHES = $(CC_SWITCHES) /DUSE_FFTFPU
-#ASM_OBJ = $(ASM_OBJ) libmp3lame/i386/fftfpu.obj
-#______________________________________________________________________ NASM __
-
-!	ELSE
-!	MESSAGE Pass ASM=YES to build the assembler optimizations
-!	ENDIF
-
-
-#__ MMX _______________________________________________________________________
-#
-#	you need NASM but *not necessarily* a processor with MMX
-#	The above CPU feature detection code allows to run the same
-#	binary on a CPU without MMX too!
-#
-!	IF "$(ASM)" == "YES"
-!	IF "$(MMX)" == "YES"
-CC_SWITCHES = $(CC_SWITCHES) /DMMX_choose_table
-ASM_OBJ = $(ASM_OBJ) libmp3lame/i386/choose_table.obj
-!	ENDIF
-!	ENDIF
-#_______________________________________________________________________ MMX __
 
 !	MESSAGE
 
@@ -629,7 +545,6 @@ target_directory :
 	@if not exist frontend mkdir frontend
 	@if not exist dll mkdir dll
 	@if not exist libmp3lame\vector mkdir libmp3lame\vector
-	@if not exist libmp3lame\i386 mkdir libmp3lame\i386
 
 common:	$(CMMN_OBJ)
 	@echo.
@@ -641,7 +556,7 @@ libA:	$(LIB_OBJ)
 	@echo --- LAME MP3 ENCODING LIBRARY UPTODATE ---
 	@echo.
 
-lib: $(ASM_OBJ) libA
+lib: libA
 
 lame.res: $(srcdir)/libmp3lame/lame.rc
 	@rc.exe /d "NDEBUG" /d "_APP=lame.exe" /l 0x409 /fo"./frontend/lame.res" "$(srcdir)/libmp3lame/lame.rc"
@@ -700,7 +615,7 @@ $(T_DLL) : target_directory config.h $(T_LIB_STATIC)
 $(T_LIB_STATIC) : target_directory lib
 	@lib $(LIB_OPTS) \
 		/OUT:"$(TARGET_DIR)$@" \
-		$(ASM_OBJ) $(LIB_OBJ)
+		$(LIB_OBJ)
 	@echo.
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
@@ -723,7 +638,6 @@ clean:
 	@-del dll\*.obj
 	@-del mpglib\*.obj
 	@-del libmp3lame\*.obj
-	@-del libmp3lame\i386\*.obj
 	@-del libmp3lame\vector\*.obj
 	@-del libmp3lame\*.res
 	@-del frontend\*.res
