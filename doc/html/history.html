@@ -231,6 +231,47 @@
 			        build. This applies only to
 			        <i>--enable-maintainer-mode</i>; ordinary and
 			        release builds are unaffected.</li>
+			    <li><span class="speed">The vectorized routines are now
+			        used on every x86 build. They have been part of LAME
+			        since 3.98, but the two checks that could switch them
+			        on only ever succeeded on 64 bit Windows, and even
+			        there only one of the two routines was reached, so
+			        Linux, FreeBSD, macOS and every 32 bit build ran the
+			        plain C code. Both are now selected from the
+			        processor's own feature bits at run time, so one
+			        binary serves machines with and without SSE2 and no
+			        build option or assembler is involved.
+			        <i>lame --verbose</i> reports what the machine it runs
+			        on actually got. How much this gains depends on the
+			        processor rather than on the setting: measured about
+			        5 to 9 percent on a Xeon X5675, and 0 to 3 percent on
+			        a Core i7-10700, where the compiler already generates
+			        comparable code by itself. The output can differ in
+			        the last bits from a build that used the C path;
+			        measured audio quality is unchanged.</span></li>
+			    <li><span class="speed">32 bit x86 builds get the
+			        vectorized routines back. They were switched off in
+			        3.100 to repair a build failure, because at that time
+			        the code needed the whole compilation to target SSE2.
+			        3.101 removed that requirement, but the check was not
+			        revisited, so two further releases went without them.
+			        The check now asks what the code actually needs, and
+			        arranges the rest itself where a compiler needs
+			        help.</span></li>
+			    <li>Removed the hand written assembler routines, which
+			        the vectorized C routines above replace, together with
+			        everything that selected them: the
+			        <i>--enable-nasm</i> option and the NASM and SSE2
+			        Visual Studio configurations. They needed an
+			        <b>external assembler</b> to build, could not be used
+			        on any 64 bit host, targeted an instruction set
+			        removed from processors in 2010, and half of the
+			        files had not been assembled by any build system in
+			        this century. Building LAME needs no external
+			        assembler on any platform now. <i>--noasm</i> keeps
+			        its three values, and <i>sse</i> still switches the
+			        vectorized routines off, which is how they are
+			        compared against the plain C code.</li>
 		</ul>
             </li>
 	</ul>
