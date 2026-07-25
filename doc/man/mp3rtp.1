@@ -65,6 +65,14 @@ arecord \-b 16 \-s 44100 \-w | mp3rtp 10.1.1.42 \-V2 \-b128 \-B256 \- out.mp3
 mp3rtp is a work in progress and is less exercised than
 .BR lame (1)
 itself.
+.SH HISTORY
+Through LAME 3.100 the destination was a single argument of the form
+.BR ip[:port[:ttl]] .
+LAME 3.101 added IPv6 support and split it into two arguments, the
+address followed by a separate
+.BR port[:ttl] ,
+because an IPv6 address itself contains colons.
+Scripts written for the old single-argument form need updating.
 .SH SEE ALSO
 .BR lame (1)
 .SH AUTHORS
