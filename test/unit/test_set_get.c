@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <limits.h>
 
 #include <cmocka.h>
 
@@ -554,6 +555,40 @@ test_readonly_getters(void **state)
 }
 
 /*
+ * lame_get_maximum_number_of_samples() derives its answer from a size_t buffer
+ * size and returns it in an int, so every step of the estimate has to be
+ * bounded to that int - the frame count, their product with the frame size,
+ * and the resampled result. At 44.1 kHz stereo 128 kbps CBR the arithmetic is
+ * fully determined (418 bytes per frame, no resampling), so both the ordinary
+ * answers and the two ceilings can be asserted exactly.
+ */
+static void
+test_maximum_number_of_samples(void **state)
+{
+    lame_t  gfp = (lame_t) *state;
+
+    assert_int_equal(lame_set_in_samplerate(gfp, 44100), 0);
+    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
+    assert_int_equal(lame_set_brate(gfp, 128), 0);
+    assert_int_equal(lame_set_VBR(gfp, vbr_off), 0);
+    assert_int_equal(lame_init_params(gfp), 0);
+
+    /* ordinary buffers: 65536/418 = 156 frames, 268435456/418 = 642190,
+       1152 samples each - these must be reported exactly, not clamped */
+    assert_int_equal(lame_get_maximum_number_of_samples(gfp, 65536), 156 * 1152);
+    assert_int_equal(lame_get_maximum_number_of_samples(gfp, 268435456), 642190 * 1152);
+
+    /* a buffer whose frame count still fits an int but whose sample count does
+       not, and the largest buffer expressible at all: both report the ceiling
+       an encode call can accept, never a wrapped or negative estimate */
+    assert_int_equal(lame_get_maximum_number_of_samples(gfp, (size_t) 780 * 1024 * 1024),
+                     INT_MAX);
+    assert_int_equal(lame_get_maximum_number_of_samples(gfp, (size_t) -1), INT_MAX);
+
+    assert_int_equal(lame_get_maximum_number_of_samples(NULL, 65536), LAME_GENERICERROR);
+}
+
+/*
  * ---- internal-only tuning setters (INTERNAL_OPTS builds) --------------------
  * Same three-way probe as the exported API: round-trip, invalid gfp, and the
  * validation-reject arm where one exists.
@@ -638,6 +673,7 @@ main(void)
         cmocka_unit_test_setup_teardown(test_decode_on_the_fly, gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_misc_setters, gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_readonly_getters, gfp_setup, gfp_teardown),
+        cmocka_unit_test_setup_teardown(test_maximum_number_of_samples, gfp_setup, gfp_teardown),
 #if INTERNAL_OPTS
         cmocka_unit_test_setup_teardown(test_internal_opts, gfp_setup, gfp_teardown),
 #endif

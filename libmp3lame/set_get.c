@@ -2331,11 +2331,16 @@ calc_maximum_input_samples_for_buffer_size(lame_internal_flags const* gfc, size_
     {
         int const pad = 1;
         int const bpf = ((cfg->version + 1) * 72000 * kbps / cfg->samplerate_out + pad);
-        frames_per_buffer = buffer_size / bpf;
+        size_t const frames = buffer_size / (size_t) bpf;
+        /* an encode call takes an int sample count, so a buffer holding more
+           frames than that can express is reported at the representable
+           ceiling instead of wrapping into a negative estimate */
+        frames_per_buffer = frames > (size_t) INT_MAX ? INT_MAX : (int) frames;
     }
     {
-        double ratio = (double) cfg->samplerate_in / cfg->samplerate_out;
-        input_samples_per_buffer = pcm_samples_per_frame * frames_per_buffer * ratio;
+        double const ratio = (double) cfg->samplerate_in / cfg->samplerate_out;
+        double const samples = (double) pcm_samples_per_frame * frames_per_buffer * ratio;
+        input_samples_per_buffer = samples >= (double) INT_MAX ? INT_MAX : (int) samples;
     }
     return input_samples_per_buffer;
 }
