@@ -14,7 +14,8 @@ check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_a
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
 if WITH_XMM
-check_PROGRAMS += test_choose_table_vector test_quantize_lines_vector
+check_PROGRAMS += test_choose_table_vector test_quantize_lines_vector \
+	test_calc_sfb_noise_vector
 endif
 
 TESTS = $(check_PROGRAMS)
@@ -163,13 +164,27 @@ test_quantize_lines_vector_LDADD = $(CMOCKA_LIBS) \
 if WITH_AVX2
 test_quantize_lines_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
 endif
+
+# Same arrangement for the VBR scalefactor-band noise.
+test_calc_sfb_noise_vector_SOURCES = test_calc_sfb_noise_vector.c
+test_calc_sfb_noise_vector_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_calc_sfb_noise_vector_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
+	-lm
+if WITH_AVX2
+test_calc_sfb_noise_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
+endif
 endif
 
 endif
 
 # Kept in the tarball whether or not this build configured the vector code,
 # so a dist made on one architecture still carries the tests for another.
-EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c
+EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
+	test_calc_sfb_noise_vector.c
 
 # Header-only unused-parameter marker shared by the tests; not a _SOURCES file,
 # so it has to be named for the tarball explicitly.

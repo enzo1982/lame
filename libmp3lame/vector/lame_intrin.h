@@ -113,4 +113,28 @@ void
 quantize_lines_xrpow_avx2(unsigned int l, FLOAT istep, const FLOAT *xr, int *ix,
                           const FLOAT *adj);
 
+
+/*
+ *  VBR scalefactor-band noise: quantize a band and return the summed squared
+ *  quantization error.
+ *
+ *  The quantization is the same elementwise kernel as above, so the same index
+ *  contract holds: every xr34[i]*sfpow34, and every value it becomes after the
+ *  adj[] step, must truncate into [0, PRECALC_SIZE) - which the VBR search
+ *  guarantees by only ever asking for scalefactors with sfpow34*xr34 <=
+ *  IXMAX_VAL.  The sum is a reduction, and this computes it with the
+ *  (x0^2+x2^2)+(x1^2+x3^2) association - the one gcc and clang already emit -
+ *  accumulated a four-block at a time; a build whose compiler uses another
+ *  association gets a different last bit, which is a quality question and not a
+ *  bitstream-identity one.  bw is the band width in values; adj is adj43[] and
+ *  pw43 is pow43[].
+ *
+ *  SSE2 only: an AVX2 tier was measured and added nothing on this routine's
+ *  variable-bitrate workload, so it is not carried (the ladder allows one tier).
+ */
+FLOAT
+calc_sfb_noise_x34_sse2(const FLOAT *xr, const FLOAT *xr34, unsigned int bw,
+                        FLOAT sfpow, FLOAT sfpow34, const FLOAT *adj,
+                        const FLOAT *pw43);
+
 #endif

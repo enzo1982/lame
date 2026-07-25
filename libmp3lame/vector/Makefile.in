@@ -131,10 +131,11 @@ liblamevectoravx2_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 @WITH_AVX2_TRUE@@WITH_XMM_TRUE@am_liblamevectoravx2_la_rpath =
 liblamevectorroutines_la_LIBADD =
 am__liblamevectorroutines_la_SOURCES_DIST = xmm_quantize_sub.c \
-	xmm_choose_table.c xmm_quantize_lines.c
+	xmm_choose_table.c xmm_quantize_lines.c xmm_calc_sfb_noise.c
 am__objects_2 = liblamevectorroutines_la-xmm_quantize_sub.lo \
 	liblamevectorroutines_la-xmm_choose_table.lo \
-	liblamevectorroutines_la-xmm_quantize_lines.lo
+	liblamevectorroutines_la-xmm_quantize_lines.lo \
+	liblamevectorroutines_la-xmm_calc_sfb_noise.lo
 @WITH_XMM_TRUE@am_liblamevectorroutines_la_OBJECTS = $(am__objects_2)
 liblamevectorroutines_la_OBJECTS =  \
 	$(am_liblamevectorroutines_la_OBJECTS)
@@ -161,6 +162,7 @@ am__maybe_remake_depfiles = depfiles
 am__depfiles_remade =  \
 	./$(DEPDIR)/liblamevectoravx2_la-avx2_choose_table.Plo \
 	./$(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Plo \
+	./$(DEPDIR)/liblamevectorroutines_la-xmm_calc_sfb_noise.Plo \
 	./$(DEPDIR)/liblamevectorroutines_la-xmm_choose_table.Plo \
 	./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_lines.Plo \
 	./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_sub.Plo
@@ -390,7 +392,9 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 # so the resulting binary still runs where the instruction set is absent.
 # Hence one library per instruction set: a baseline applies to a whole file,
 # so files that need different ones cannot share it.
-xmm_sources = xmm_quantize_sub.c xmm_choose_table.c xmm_quantize_lines.c
+xmm_sources = xmm_quantize_sub.c xmm_choose_table.c xmm_quantize_lines.c \
+	xmm_calc_sfb_noise.c
+
 avx2_sources = avx2_choose_table.c avx2_quantize_lines.c
 @WITH_XMM_TRUE@liblamevectorroutines_la_SOURCES = $(xmm_sources)
 @WITH_XMM_TRUE@liblamevectorroutines_la_CFLAGS = $(AM_CFLAGS) @VECTOR_SSE2_FLAGS@
@@ -468,6 +472,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectoravx2_la-avx2_choose_table.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectorroutines_la-xmm_calc_sfb_noise.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectorroutines_la-xmm_choose_table.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_lines.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_sub.Plo@am__quote@ # am--include-marker
@@ -533,6 +538,13 @@ liblamevectorroutines_la-xmm_quantize_lines.lo: xmm_quantize_lines.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='xmm_quantize_lines.c' object='liblamevectorroutines_la-xmm_quantize_lines.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectorroutines_la_CFLAGS) $(CFLAGS) -c -o liblamevectorroutines_la-xmm_quantize_lines.lo `test -f 'xmm_quantize_lines.c' || echo '$(srcdir)/'`xmm_quantize_lines.c
+
+liblamevectorroutines_la-xmm_calc_sfb_noise.lo: xmm_calc_sfb_noise.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectorroutines_la_CFLAGS) $(CFLAGS) -MT liblamevectorroutines_la-xmm_calc_sfb_noise.lo -MD -MP -MF $(DEPDIR)/liblamevectorroutines_la-xmm_calc_sfb_noise.Tpo -c -o liblamevectorroutines_la-xmm_calc_sfb_noise.lo `test -f 'xmm_calc_sfb_noise.c' || echo '$(srcdir)/'`xmm_calc_sfb_noise.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/liblamevectorroutines_la-xmm_calc_sfb_noise.Tpo $(DEPDIR)/liblamevectorroutines_la-xmm_calc_sfb_noise.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='xmm_calc_sfb_noise.c' object='liblamevectorroutines_la-xmm_calc_sfb_noise.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectorroutines_la_CFLAGS) $(CFLAGS) -c -o liblamevectorroutines_la-xmm_calc_sfb_noise.lo `test -f 'xmm_calc_sfb_noise.c' || echo '$(srcdir)/'`xmm_calc_sfb_noise.c
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -668,6 +680,7 @@ clean-am: clean-generic clean-libtool clean-noinstLTLIBRARIES \
 distclean: distclean-am
 	-rm -f ./$(DEPDIR)/liblamevectoravx2_la-avx2_choose_table.Plo
 	-rm -f ./$(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Plo
+	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_calc_sfb_noise.Plo
 	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_choose_table.Plo
 	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_lines.Plo
 	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_sub.Plo
@@ -718,6 +731,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/liblamevectoravx2_la-avx2_choose_table.Plo
 	-rm -f ./$(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Plo
+	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_calc_sfb_noise.Plo
 	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_choose_table.Plo
 	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_lines.Plo
 	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_sub.Plo

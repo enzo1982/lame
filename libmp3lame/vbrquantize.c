@@ -33,6 +33,7 @@
 #include "util.h"
 #include "vbrquantize.h"
 #include "quantize_pvt.h"
+#include "vector/lame_intrin.h"
 
 
 
@@ -41,7 +42,8 @@ struct algo_s;
 typedef struct algo_s algo_t;
 
 typedef void (*alloc_sf_f) (const algo_t *, const int *, const int *, int);
-typedef uint8_t (*find_sf_f) (const FLOAT *, const FLOAT *, FLOAT, unsigned int, uint8_t);
+typedef uint8_t (*find_sf_f) (const FLOAT *, const FLOAT *, FLOAT, unsigned int, uint8_t,
+                              vector_impl_t);
 
 struct algo_s {
     alloc_sf_f alloc;
@@ -213,8 +215,26 @@ k_34_4(DOUBLEX x[4], int l3[4])
  *  for which holds: sfpow34*xr34 <= IXMAX_VAL
  */
 
+/* Bands narrower than this run the scalar path: a fifth to a third of the calls
+ * sit below it (the widths are scalefactor bands, so many are tiny - a bw
+ * histogram over a -V2 encode has 38 % of calls below 8 and the most common
+ * width is 4), and there the vector setup and the horizontal reduce do not earn
+ * back their cost.  Taken from that histogram, not tuned.
+ */
+#define CALC_SFB_NOISE_VECTOR_MIN      8
+
+/** @internal
+ * Only an SSE2 tier: an AVX2 version was written and measured, and it adds
+ * nothing on the variable-bitrate encode this routine serves (the gain would be
+ * the eight-wide gather, but hardware gather is no faster than the SSE2 manual
+ * gather on the tested cores, and the reduction is done a four-block at a time
+ * for cross-CPU output stability, so the wider vector never accumulates).  The
+ * capability ladder permits a routine to exist at one tier only, and this is
+ * that case; see @ref vector_dispatch.
+ */
 static  FLOAT
-calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, unsigned int bw, uint8_t sf)
+calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, unsigned int bw, uint8_t sf,
+                   vector_impl_t impl)
 {
     DOUBLEX x[4];
     int     l3[4];
@@ -222,6 +242,18 @@ calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, unsigned int bw, uint8_
     const FLOAT sfpow34 = ipow20[sf]; /*pow(sfpow,-3.0/4.0); */
 
     FLOAT   xfsf = 0;
+
+    /* The SSE2 tier pins gcc/clang's (x0^2+x2^2)+(x1^2+x3^2) reduction so all
+       CPUs of an architecture agree; the hack formulation is a different
+       computation and keeps its own scalar path (maintainer directive). */
+#if !TAKEHIRO_IEEE754_HACK
+#if defined( HAVE_SSE2_INTRINSICS )
+    if (impl >= VECTOR_IMPL_SSE2 && bw >= CALC_SFB_NOISE_VECTOR_MIN) {
+        return calc_sfb_noise_x34_sse2(xr, xr34, bw, sfpow, sfpow34, adj43, pow43);
+    }
+#endif
+#endif
+    (void) impl;
     unsigned int i = bw >> 2u;
     unsigned int const remaining = (bw & 0x03u);
 
@@ -275,11 +307,11 @@ typedef struct calc_noise_cache calc_noise_cache_t;
 
 static  uint8_t
 tri_calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned int bw,
-                       uint8_t sf, calc_noise_cache_t * did_it)
+                       uint8_t sf, calc_noise_cache_t * did_it, vector_impl_t impl)
 {
     if (did_it[sf].valid == 0) {
         did_it[sf].valid = 1;
-        did_it[sf].value = calc_sfb_noise_x34(xr, xr34, bw, sf);
+        did_it[sf].value = calc_sfb_noise_x34(xr, xr34, bw, sf, impl);
     }
     if (l3_xmin < did_it[sf].value) {
         return 1;
@@ -288,7 +320,7 @@ tri_calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsi
         uint8_t const sf_x = sf + 1;
         if (did_it[sf_x].valid == 0) {
             did_it[sf_x].valid = 1;
-            did_it[sf_x].value = calc_sfb_noise_x34(xr, xr34, bw, sf_x);
+            did_it[sf_x].value = calc_sfb_noise_x34(xr, xr34, bw, sf_x, impl);
         }
         if (l3_xmin < did_it[sf_x].value) {
             return 1;
@@ -298,7 +330,7 @@ tri_calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsi
         uint8_t const sf_x = sf - 1;
         if (did_it[sf_x].valid == 0) {
             did_it[sf_x].valid = 1;
-            did_it[sf_x].value = calc_sfb_noise_x34(xr, xr34, bw, sf_x);
+            did_it[sf_x].value = calc_sfb_noise_x34(xr, xr34, bw, sf_x, impl);
         }
         if (l3_xmin < did_it[sf_x].value) {
             return 1;
@@ -320,13 +352,15 @@ calc_scalefac(FLOAT l3_xmin, int bw)
 }
 
 static uint8_t
-guess_scalefac_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned int bw, uint8_t sf_min)
+guess_scalefac_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned int bw,
+                   uint8_t sf_min, vector_impl_t impl)
 {
     int const guess = calc_scalefac(l3_xmin, bw);
     if (guess < sf_min) return sf_min;
     if (guess >= 255) return 255;
     (void) xr;
     (void) xr34;
+    (void) impl;
     return guess;
 }
 
@@ -344,7 +378,7 @@ guess_scalefac_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned
 
 static  uint8_t
 find_scalefac_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned int bw,
-                  uint8_t sf_min)
+                  uint8_t sf_min, vector_impl_t impl)
 {
     calc_noise_cache_t did_it[256];
     uint8_t sf = 128, sf_ok = 255, delsf = 128, seen_good_one = 0, i;
@@ -355,7 +389,7 @@ find_scalefac_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned 
             sf += delsf;
         }
         else {
-            uint8_t const bad = tri_calc_sfb_noise_x34(xr, xr34, l3_xmin, bw, sf, did_it);
+            uint8_t const bad = tri_calc_sfb_noise_x34(xr, xr34, l3_xmin, bw, sf, did_it, impl);
             if (bad) {  /* distortion.  try a smaller scalefactor */
                 sf -= delsf;
             }
@@ -397,6 +431,7 @@ block_sf(algo_t * that, const FLOAT l3_xmin[SFBMAX], int vbrsf[SFBMAX], int vbrs
     const FLOAT *const xr = &that->cod_info->xr[0];
     const FLOAT *const xr34_orig = &that->xr34orig[0];
     const int *const width = &that->cod_info->width[0];
+    vector_impl_t const impl = vector_implementation(that->gfc);
     const char *const energy_above_cutoff = &that->cod_info->energy_above_cutoff[0];
     unsigned int const max_nonzero_coeff = (unsigned int) that->cod_info->max_nonzero_coeff;
     uint8_t maxsf = 0;
@@ -433,7 +468,7 @@ block_sf(algo_t * that, const FLOAT l3_xmin[SFBMAX], int vbrsf[SFBMAX], int vbrs
         }
         if (sfb < psymax && w > 2) { /* mpeg2.5 at 8 kHz doesn't use all scalefactors, unused have width 2 */
             if (energy_above_cutoff[sfb]) {
-                m2 = that->find(&xr[j], &xr34_orig[j], l3_xmin[sfb], l, m1);
+                m2 = that->find(&xr[j], &xr34_orig[j], l3_xmin[sfb], l, m1, impl);
 #if 0
                 if (0) {
                     /** Robert Hegemann 2007-09-29:
