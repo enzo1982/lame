@@ -72,6 +72,27 @@
 			        switches were dropped and the release build omits
 			        its debug consistency assertions, making 32-bit
 			        encoding roughly 3% faster.</span></li>
+			    <li><span class="speed">Several of the encoder's busiest inner loops
+			        are now vectorized: the step that turns the analyzed audio into the
+			        whole-number values stored in the MP3, the search that picks the
+			        Huffman code tables packing them into the fewest bits, and - in the
+			        VBR modes - the repeated estimate of how much distortion each
+			        quantization choice would introduce. They use SSE2, which every
+			        x86-64 CPU has (nothing between SSE2 and SSE4.2 helps this code), and
+			        AVX2 where the CPU provides it, chosen at run time. Measured over the
+			        whole encode of a music sample on a Core&nbsp;i7-10700 (Comet Lake):
+			        CBR encoding is about 16% faster with GCC and 22% with MSVC, and VBR
+			        encoding about 6% faster with MSVC and roughly unchanged with GCC,
+			        whose compiler already vectorized those loops. AVX2 adds a further 6
+			        to 8% over SSE2 for CBR and nothing measurable for VBR. The table
+			        search itself runs about three times faster as a function; the
+			        whole-encode figures are smaller because it is only one part of the
+			        work. The new <i>--noasm&nbsp;avx2</i> option disables just the AVX2
+			        tier and keeps SSE2, while the existing <i>--noasm&nbsp;sse</i> turns
+			        the vector code off entirely - useful for benchmarking and for working
+			        around a suspected CPU or toolchain problem.</span> On that machine the
+			        64-bit MinGW/GCC&nbsp;16.1.0 build is about 13% faster than the 64-bit
+			        MSVC&nbsp;19.51 build of the same source, for both CBR and VBR.</li>
 			    <li><span class="security">Security hardening is now
 			        enabled by default: fortified library calls, stack
 			        and control-flow protection, read-only relocations
