@@ -321,8 +321,17 @@ int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
         return -1;
     /* MPG123_NEED_MORE and MPG123_DONE (not happening here, though)
         both result in mpg123fill==0, so return 0 here, which is what fits. */
-    samples = mpg123fill /
-        (unclipped ? sizeof(float) : sizeof(short)) / channels;
+    {
+        size_t const bytes_per_sample =
+            (unclipped ? sizeof(float) : sizeof(short)) * (size_t) channels;
+        size_t const decoded = mpg123fill / bytes_per_sample;
+        /* the count is returned in an int and indexes the caller's buffers, so
+           a frame yielding more than that can express is rejected rather than
+           demultiplexed against a wrapped length */
+        if (decoded > (size_t) INT_MAX)
+            return -1;
+        samples = (int) decoded;
+    }
     /* Now demultilex the data in mpg123buf into pcm_l and pcm_r. */
     if(mpg123fill && mpg123buf)
     {
