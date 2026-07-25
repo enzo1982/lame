@@ -36,6 +36,8 @@
 
 #include <cmocka.h>
 
+#include "test_unused.h"
+
 #include "lame.h"
 
 /** @brief Samples per channel handed to the encoder in one call. */
@@ -66,14 +68,13 @@ encoder_new(int channels)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_mono_interleaved_short_rejected(void **state)
+test_mono_interleaved_short_rejected(LAME_UNUSED void **state)
 {
     static short int pcm[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(1);
     int     i;
 
-    (void) state;
     for (i = 0; i < NSAMPLES; i++)
         pcm[i] = (short int) ((i % 2000) - 1000);
     assert_int_equal(lame_encode_buffer_interleaved(gfp, pcm, NSAMPLES, mp3, sizeof mp3),
@@ -86,14 +87,13 @@ test_mono_interleaved_short_rejected(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_mono_interleaved_int_rejected(void **state)
+test_mono_interleaved_int_rejected(LAME_UNUSED void **state)
 {
     static int pcm[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(1);
     int     i;
 
-    (void) state;
     for (i = 0; i < NSAMPLES; i++)
         pcm[i] = (i % 2000) - 1000;
     assert_int_equal(lame_encode_buffer_interleaved_int(gfp, pcm, NSAMPLES, mp3, sizeof mp3),
@@ -106,14 +106,13 @@ test_mono_interleaved_int_rejected(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_mono_interleaved_float_rejected(void **state)
+test_mono_interleaved_float_rejected(LAME_UNUSED void **state)
 {
     static float pcm[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(1);
     int     i;
 
-    (void) state;
     for (i = 0; i < NSAMPLES; i++)
         pcm[i] = (float) ((i % 2000) - 1000) / 1000.0f;
     assert_int_equal(lame_encode_buffer_interleaved_ieee_float(gfp, pcm, NSAMPLES, mp3, sizeof mp3),
@@ -129,14 +128,13 @@ test_mono_interleaved_float_rejected(void **state)
  * through the ordinary entry point continues to work.
  */
 static void
-test_mono_noninterleaved_still_encodes(void **state)
+test_mono_noninterleaved_still_encodes(LAME_UNUSED void **state)
 {
     static short int pcm[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(1);
     int     i;
 
-    (void) state;
     for (i = 0; i < NSAMPLES; i++)
         pcm[i] = (short int) ((i % 2000) - 1000);
     assert_true(lame_encode_buffer(gfp, pcm, pcm, NSAMPLES, mp3, sizeof mp3) >= 0);
@@ -151,14 +149,13 @@ test_mono_noninterleaved_still_encodes(void **state)
  * use must be unaffected.
  */
 static void
-test_stereo_interleaved_still_encodes(void **state)
+test_stereo_interleaved_still_encodes(LAME_UNUSED void **state)
 {
     static short int pcm[2 * NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
     int     i;
 
-    (void) state;
     for (i = 0; i < 2 * NSAMPLES; i++)
         pcm[i] = (short int) ((i % 2000) - 1000);
     assert_true(lame_encode_buffer_interleaved(gfp, pcm, NSAMPLES, mp3, sizeof mp3) >= 0);

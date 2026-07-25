@@ -21,6 +21,8 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
+#include "test_unused.h"
+
 /** @brief Trivial function under test, exercised by test_harness_runs(). */
 static int
 add(int a, int b)
@@ -33,9 +35,8 @@ add(int a, int b)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_harness_runs(void **state)
+test_harness_runs(LAME_UNUSED void **state)
 {
-    (void) state;
     assert_int_equal(add(2, 2), 4);
 }
 

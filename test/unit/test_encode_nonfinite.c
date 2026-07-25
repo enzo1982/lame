@@ -43,6 +43,8 @@
 
 #include <cmocka.h>
 
+#include "test_unused.h"
+
 #include "lame.h"
 
 /** @brief Samples per channel handed to the encoder in one call. */
@@ -133,13 +135,12 @@ fill_valid_double(double *buf, int n)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_ieee_float_valid_is_encoded(void **state)
+test_ieee_float_valid_is_encoded(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
 
-    (void) state;
     fill_valid_float(l, NSAMPLES);
     fill_valid_float(r, NSAMPLES);
     assert_true(lame_encode_buffer_ieee_float(gfp, l, r, NSAMPLES, mp3, sizeof mp3) >= 0);
@@ -151,13 +152,12 @@ test_ieee_float_valid_is_encoded(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_ieee_float_nan_left(void **state)
+test_ieee_float_nan_left(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
 
-    (void) state;
     fill_valid_float(l, NSAMPLES);
     fill_valid_float(r, NSAMPLES);
     l[0] = float_nan();
@@ -171,13 +171,12 @@ test_ieee_float_nan_left(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_ieee_float_nan_right(void **state)
+test_ieee_float_nan_right(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
 
-    (void) state;
     fill_valid_float(l, NSAMPLES);
     fill_valid_float(r, NSAMPLES);
     r[0] = float_nan();
@@ -191,13 +190,12 @@ test_ieee_float_nan_right(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_ieee_float_nan_last_sample(void **state)
+test_ieee_float_nan_last_sample(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
 
-    (void) state;
     fill_valid_float(l, NSAMPLES);
     fill_valid_float(r, NSAMPLES);
     l[NSAMPLES - 1] = float_nan();
@@ -211,13 +209,12 @@ test_ieee_float_nan_last_sample(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_ieee_float_infinities(void **state)
+test_ieee_float_infinities(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
 
-    (void) state;
     fill_valid_float(l, NSAMPLES);
     fill_valid_float(r, NSAMPLES);
 
@@ -236,13 +233,12 @@ test_ieee_float_infinities(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_ieee_float_boundary_accepted(void **state)
+test_ieee_float_boundary_accepted(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
 
-    (void) state;
     fill_valid_float(l, NSAMPLES);
     fill_valid_float(r, NSAMPLES);
     l[0] = 1.0f;                         /* full scale, the documented boundary */
@@ -259,14 +255,13 @@ test_ieee_float_boundary_accepted(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_buffer_float_boundary_accepted(void **state)
+test_buffer_float_boundary_accepted(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
     int     i;
 
-    (void) state;
     for (i = 0; i < NSAMPLES; i++) {
         l[i] = (i & 1) ? 32768.0f : -32768.0f;
         r[i] = -l[i];
@@ -280,14 +275,13 @@ test_buffer_float_boundary_accepted(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_ieee_double_boundary_accepted(void **state)
+test_ieee_double_boundary_accepted(LAME_UNUSED void **state)
 {
     static double l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
     int     i;
 
-    (void) state;
     for (i = 0; i < NSAMPLES; i++) {
         l[i] = (i & 1) ? 1.0 : -1.0;
         r[i] = -l[i];
@@ -301,13 +295,12 @@ test_ieee_double_boundary_accepted(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_ieee_float_recovers_after_rejection(void **state)
+test_ieee_float_recovers_after_rejection(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
 
-    (void) state;
     fill_valid_float(l, NSAMPLES);
     fill_valid_float(r, NSAMPLES);
     l[123] = float_nan();
@@ -325,13 +318,12 @@ test_ieee_float_recovers_after_rejection(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_ieee_float_mono_nan(void **state)
+test_ieee_float_mono_nan(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(1);
 
-    (void) state;
     fill_valid_float(l, NSAMPLES);
     l[5] = float_nan();
     assert_int_equal(lame_encode_buffer_ieee_float(gfp, l, NULL, NSAMPLES, mp3, sizeof mp3),
@@ -346,14 +338,13 @@ test_ieee_float_mono_nan(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_buffer_float_nan(void **state)
+test_buffer_float_nan(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
     int     i;
 
-    (void) state;
     for (i = 0; i < NSAMPLES; i++) {
         l[i] = (float) ((i % 2000) - 1000);
         r[i] = -l[i];
@@ -369,13 +360,12 @@ test_buffer_float_nan(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_interleaved_ieee_float_nan(void **state)
+test_interleaved_ieee_float_nan(LAME_UNUSED void **state)
 {
     static float pcm[2 * NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
 
-    (void) state;
     fill_valid_float(pcm, 2 * NSAMPLES);
     pcm[1] = float_nan(); /* right channel of the first frame */
     assert_int_equal(lame_encode_buffer_interleaved_ieee_float(gfp, pcm, NSAMPLES, mp3, sizeof mp3),
@@ -388,13 +378,12 @@ test_interleaved_ieee_float_nan(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_ieee_double_nan(void **state)
+test_ieee_double_nan(LAME_UNUSED void **state)
 {
     static double l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
 
-    (void) state;
     fill_valid_double(l, NSAMPLES);
     fill_valid_double(r, NSAMPLES);
     r[9] = double_nan();
@@ -408,13 +397,12 @@ test_ieee_double_nan(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_interleaved_ieee_double_nan(void **state)
+test_interleaved_ieee_double_nan(LAME_UNUSED void **state)
 {
     static double pcm[2 * NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
 
-    (void) state;
     fill_valid_double(pcm, 2 * NSAMPLES);
     pcm[2] = double_nan();
     assert_int_equal(lame_encode_buffer_interleaved_ieee_double(gfp, pcm, NSAMPLES, mp3,
@@ -429,14 +417,13 @@ test_interleaved_ieee_double_nan(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_short_int_still_encodes(void **state)
+test_short_int_still_encodes(LAME_UNUSED void **state)
 {
     static short int l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
     lame_t  gfp = encoder_new(2);
     int     i;
 
-    (void) state;
     for (i = 0; i < NSAMPLES; i++) {
         l[i] = (short int) ((i % 2000) - 1000);
         r[i] = (short int) -l[i];

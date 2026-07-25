@@ -174,11 +174,10 @@ fill(int *ix, int n, int hi, unsigned int seed)
  * runs at all are each covered.
  */
 static void
-test_ix_max_lengths(void **state)
+test_ix_max_lengths(LAME_UNUSED void **state)
 {
     int     ix[MAX_LEN];
     int     n;
-    (void) state;
 
     for (n = 2; n <= 80; n += 2) {
         fill(ix, n, 8000, (unsigned int) n + 1u);
@@ -196,13 +195,12 @@ test_ix_max_lengths(void **state)
  * either side of both boundaries have to be exact.
  */
 static void
-test_ix_max_boundaries(void **state)
+test_ix_max_boundaries(LAME_UNUSED void **state)
 {
     static const int interesting[] = { 0, 1, 14, 15, 16, 17, 8190, 8191,
                                        IXMAX_VAL - 1, IXMAX_VAL };
     int     ix[MAX_LEN];
     size_t  k;
-    (void) state;
 
     for (k = 0; k < sizeof interesting / sizeof interesting[0]; ++k) {
         int const v = interesting[k];
@@ -229,12 +227,11 @@ test_ix_max_boundaries(void **state)
  * with the compile-time assertion in takehiro.c.
  */
 static void
-test_ix_max_saturation(void **state)
+test_ix_max_saturation(LAME_UNUSED void **state)
 {
     static const int huge[] = { 32766, 32767, 32768, 40000, 1 << 24, 0x7ffffffe };
     int     ix[64];
     size_t  k;
-    (void) state;
 
     assert_true(IXMAX_VAL < 32767);
 
@@ -253,11 +250,10 @@ test_ix_max_saturation(void **state)
 
 /** @brief Sum and clamp count agree with a scalar reference at every length. */
 static void
-test_esc_lengths(void **state)
+test_esc_lengths(LAME_UNUSED void **state)
 {
     int     ix[MAX_LEN];
     int     n;
-    (void) state;
 
     for (n = 2; n <= 80; n += 2) {
         unsigned int nc_v = 12345, nc_r = 0;
@@ -277,11 +273,10 @@ test_esc_lengths(void **state)
  * block, per lane, or per remainder cannot hide in a mixed sample.
  */
 static void
-test_esc_clamp_boundary(void **state)
+test_esc_clamp_boundary(LAME_UNUSED void **state)
 {
     int     ix[64];
     int     v;
-    (void) state;
 
     for (v = 13; v <= 17; ++v) {
         unsigned int nc_v = 0, nc_r = 0;
@@ -299,13 +294,12 @@ test_esc_clamp_boundary(void **state)
 
 /** @brief Values far above the clamp still count once each, not more. */
 static void
-test_esc_large_values(void **state)
+test_esc_large_values(LAME_UNUSED void **state)
 {
     int     ix[64];
     unsigned int nc_v = 0, nc_r = 0;
     unsigned int sv, sr;
     int     i;
-    (void) state;
 
     for (i = 0; i < 64; ++i)
         ix[i] = (i % 3 == 0) ? 40000 : 3;
@@ -327,12 +321,11 @@ test_esc_large_values(void **state)
  * end of the code-length table, so the ranges here are the real ones.
  */
 static void
-test_from3_widths(void **state)
+test_from3_widths(LAME_UNUSED void **state)
 {
     struct { int xlen; int maxv; } const cases[] = { { 6, 5 }, { 8, 7 }, { 16, 15 } };
     int     ix[MAX_LEN];
     size_t  c;
-    (void) state;
 
     for (c = 0; c < sizeof cases / sizeof cases[0]; ++c) {
         int     n;
@@ -351,12 +344,11 @@ test_from3_widths(void **state)
 
 /** @brief The extreme index of each width is computed, not wrapped or clipped. */
 static void
-test_from3_index_extremes(void **state)
+test_from3_index_extremes(LAME_UNUSED void **state)
 {
     struct { int xlen; int maxv; } const cases[] = { { 6, 5 }, { 8, 7 }, { 16, 15 } };
     int     ix[64];
     size_t  c;
-    (void) state;
 
     for (c = 0; c < sizeof cases / sizeof cases[0]; ++c) {
         unsigned int sv[3], sr[3];
@@ -382,12 +374,11 @@ test_from3_index_extremes(void **state)
 
 /** @brief Guard: a reference that agreed with everything would prove nothing. */
 static void
-test_reference_can_disagree(void **state)
+test_reference_can_disagree(LAME_UNUSED void **state)
 {
     int     ix[64];
     unsigned int sv[3], sr[3];
     int     i;
-    (void) state;
 
     for (i = 0; i < 64; ++i)
         ix[i] = i % 16;

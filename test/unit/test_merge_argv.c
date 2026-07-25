@@ -25,6 +25,8 @@
 
 #include <cmocka.h>
 
+#include "test_unused.h"
+
 #include "parse.c"
 
 /**
@@ -36,13 +38,12 @@
  * @param state cmocka fixture state (unused).
  */
 static void
-test_merge_sized_to_fit(void **state)
+test_merge_sized_to_fit(LAME_UNUSED void **state)
 {
     enum { ARGC = 600 };
     static char *big[ARGC];
     char        *dst[ARGC + 1];        /* argc entries + the argv[0] slot */
     int          i, ret;
-    (void) state;
 
     for (i = 0; i < ARGC; ++i)
         big[i] = "x";
@@ -65,13 +66,12 @@ test_merge_sized_to_fit(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_merge_clamped_to_bound(void **state)
+test_merge_clamped_to_bound(LAME_UNUSED void **state)
 {
     enum { N = 512 };
     static char *big[600];
     char        *dst[N];
     int          i, ret;
-    (void) state;
 
     for (i = 0; i < 600; ++i)
         big[i] = "x";
@@ -90,12 +90,11 @@ test_merge_clamped_to_bound(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_merge_no_overflow_unchanged(void **state)
+test_merge_no_overflow_unchanged(LAME_UNUSED void **state)
 {
     char *av[3] = { "lame", "a", "b" };
     char *dst[512];
     int   ret;
-    (void) state;
 
     ret = merge_argv(3, av, 0, dst, 512);
     assert_int_equal(ret, 3);
@@ -106,13 +105,12 @@ test_merge_no_overflow_unchanged(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_merge_boundary(void **state)
+test_merge_boundary(LAME_UNUSED void **state)
 {
     enum { N = 512 };
     static char *big[513];
     char        *dst[N];
     int          i, ret;
-    (void) state;
 
     for (i = 0; i < 513; ++i)
         big[i] = "x";

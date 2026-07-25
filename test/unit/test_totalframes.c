@@ -25,6 +25,8 @@
 
 #include <cmocka.h>
 
+#include "test_unused.h"
+
 #include "lame.h"
 
 /** @brief totalframes estimate for a stereo 44.1 kHz stream of @p ns samples. */
@@ -44,19 +46,17 @@ totalframes_for(unsigned long ns)
 
 /** @brief The documented unknown sentinel (2^32-1) reports 0, not an estimate. */
 static void
-test_sentinel_is_unknown(void **state)
+test_sentinel_is_unknown(LAME_UNUSED void **state)
 {
-    (void) state;
     assert_int_equal(totalframes_for(0xFFFFFFFFUL), 0);
 }
 
 /** @brief A known finite length gives a positive estimate near samples/1152. */
 static void
-test_known_length_estimated(void **state)
+test_known_length_estimated(LAME_UNUSED void **state)
 {
     unsigned long const ns = 44100UL * 10; /* 10 s, MPEG-1: 1152 samples/frame */
     int const tf = totalframes_for(ns);
-    (void) state;
     assert_true(tf > 0);
     assert_true(tf >= (int) (ns / 1152) && tf <= (int) (ns / 1152) + 4);
 }
@@ -68,9 +68,8 @@ test_known_length_estimated(void **state)
  * not, num_samples cannot express such a length, so the case is skipped.
  */
 static void
-test_overflow_length_is_unknown(void **state)
+test_overflow_length_is_unknown(LAME_UNUSED void **state)
 {
-    (void) state;
     if (sizeof(unsigned long) <= sizeof(int)) {
         skip();
         return;

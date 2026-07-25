@@ -170,3 +170,7 @@ endif
 # Kept in the tarball whether or not this build configured the vector code,
 # so a dist made on one architecture still carries the tests for another.
 EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c
+
+# Header-only unused-parameter marker shared by the tests; not a _SOURCES file,
+# so it has to be named for the tarball explicitly.
+EXTRA_DIST += test_unused.h

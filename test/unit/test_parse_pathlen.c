@@ -23,6 +23,8 @@
 
 #include <cmocka.h>
 
+#include "test_unused.h"
+
 #include "parse.c"
 
 /** Non-NUL fill byte: a copy that fails to terminate leaves this in place of
@@ -36,12 +38,11 @@
  * @param state cmocka fixture state (unused).
  */
 static void
-test_overlong_path_rejected(void **state)
+test_overlong_path_rejected(LAME_UNUSED void **state)
 {
     char    dst[PATH_MAX + 1];
     size_t  n = PATH_MAX + 64;
     char   *src = malloc(n + 1);
-    (void) state;
     assert_non_null(src);
     memset(src, 'a', n);
     src[n] = '\0';
@@ -57,11 +58,10 @@ test_overlong_path_rejected(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_fitting_path_terminated(void **state)
+test_fitting_path_terminated(LAME_UNUSED void **state)
 {
     char        dst[PATH_MAX + 1];
     const char *src = "path/to/input.wav";
-    (void) state;
     memset(dst, SENTINEL, sizeof dst);
 
     assert_int_equal(set_path_arg(src, dst), 0);
@@ -76,11 +76,10 @@ test_fitting_path_terminated(void **state)
  * @param state cmocka fixture state (unused).
  */
 static void
-test_boundary_length(void **state)
+test_boundary_length(LAME_UNUSED void **state)
 {
     char    dst[PATH_MAX + 1];
     char   *src = malloc(PATH_MAX + 1);
-    (void) state;
     assert_non_null(src);
 
     memset(src, 'b', PATH_MAX);
