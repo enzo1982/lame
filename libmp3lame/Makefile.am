@@ -8,6 +8,9 @@ lib_LTLIBRARIES = libmp3lame.la
 
 if WITH_VECTOR
 vector_ldadd = $(top_builddir)/libmp3lame/vector/liblamevectorroutines.la
+if WITH_AVX2
+vector_ldadd += $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
+endif
 endif
 
 if LIB_WITH_DECODER

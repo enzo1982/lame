@@ -51,18 +51,6 @@ static const FLOAT costab[TRI_SIZE * 2] = {
 };
 
 
-/* make sure functions with SSE instructions maintain their own properly aligned stack */
-#if defined (__GNUC__) && ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 2)))
-#define REALIGN __attribute__((force_align_arg_pointer))
-#define TARGET(x) __attribute__((target(x)))
-#else
-#define REALIGN
-#define TARGET(x)
-#endif
-
-#define SSE_FUNCTION REALIGN TARGET("sse2")
-
-
 SSE_FUNCTION void
 init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int max_nz, FLOAT * sum)
 {

@@ -94,6 +94,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+@WITH_AVX2_TRUE@@WITH_VECTOR_TRUE@am__append_1 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
 subdir = libmp3lame
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/host-cpu-c-abi.m4 \
@@ -433,7 +434,8 @@ top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = 1.15 foreign
 SUBDIRS = vector
 lib_LTLIBRARIES = libmp3lame.la
-@WITH_VECTOR_TRUE@vector_ldadd = $(top_builddir)/libmp3lame/vector/liblamevectorroutines.la
+@WITH_VECTOR_TRUE@vector_ldadd = $(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
+@WITH_VECTOR_TRUE@	$(am__append_1)
 @LIB_WITH_DECODER_FALSE@decoder_ldadd = 
 @LIB_WITH_DECODER_TRUE@decoder_ldadd = $(top_builddir)/mpglib/libmpgdecoder.la
 libmp3lame_la_LIBADD = $(vector_ldadd) $(decoder_ldadd) \

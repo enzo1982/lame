@@ -10,6 +10,13 @@ if ENABLE_UNIT_TESTS
 check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv \
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
 	test_totalframes test_set_get
+
+# The vectorised Huffman table search exists only where the vector code was
+# built, so there is nothing to test otherwise.
+if WITH_XMM
+check_PROGRAMS += test_choose_table_vector
+endif
+
 TESTS = $(check_PROGRAMS)
 
 test_sanity_SOURCES = test_sanity.c
@@ -128,4 +135,25 @@ test_set_get_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 
+# The table-search routines are internal to the vector convenience libraries
+# and are not part of libmp3lame's exported interface, so this test links
+# those libraries directly. It needs nothing else from the encoder: each
+# routine is a function of its arguments, tables included.
+if WITH_XMM
+test_choose_table_vector_SOURCES = test_choose_table_vector.c
+test_choose_table_vector_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_choose_table_vector_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la
+if WITH_AVX2
+test_choose_table_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
 endif
+endif
+
+endif
+
+# Kept in the tarball whether or not this build configured the vector code,
+# so a dist made on one architecture still carries the test for another.
+EXTRA_DIST = test_choose_table_vector.c

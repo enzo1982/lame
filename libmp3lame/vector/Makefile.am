@@ -4,6 +4,9 @@ include $(top_srcdir)/Makefile.am.global
 
 if WITH_XMM
 noinst_LTLIBRARIES = liblamevectorroutines.la
+if WITH_AVX2
+noinst_LTLIBRARIES += liblamevectoravx2.la
+endif
 endif
 
 ##liblamecpuroutines_la_LIBADD = 
@@ -16,21 +19,28 @@ INCLUDES = @INCLUDES@ \
 
 DEFS = @DEFS@ @CONFIG_DEFS@
 
-# Where the compiler cannot express "SSE2 for this function only", configure
-# hands this one translation unit an SSE2 baseline instead. It holds nothing
-# but the vector routines, and their call sites check the CPU at run time, so
-# the resulting binary still runs where SSE2 is absent.
-AM_CFLAGS = @VECTOR_SSE2_FLAGS@
-
-xmm_sources = xmm_quantize_sub.c
+# Where the compiler cannot express "this instruction set for this function
+# only", configure hands the translation unit a baseline instead. Each holds
+# nothing but vector routines, and their call sites check the CPU at run time,
+# so the resulting binary still runs where the instruction set is absent.
+# Hence one library per instruction set: a baseline applies to a whole file,
+# so files that need different ones cannot share it.
+xmm_sources = xmm_quantize_sub.c xmm_choose_table.c
+avx2_sources = avx2_choose_table.c
 
 if WITH_XMM
 liblamevectorroutines_la_SOURCES = $(xmm_sources)
+liblamevectorroutines_la_CFLAGS = $(AM_CFLAGS) @VECTOR_SSE2_FLAGS@
+if WITH_AVX2
+liblamevectoravx2_la_SOURCES = $(avx2_sources)
+liblamevectoravx2_la_CFLAGS = $(AM_CFLAGS) @VECTOR_AVX2_FLAGS@
+endif
 endif
 
 noinst_HEADERS = lame_intrin.h
 
 EXTRA_liblamevectorroutines_la_SOURCES = $(xmm_sources)
+EXTRA_liblamevectoravx2_la_SOURCES = $(avx2_sources)
 
 CLEANFILES = lclint.txt
 
