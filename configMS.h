@@ -11,6 +11,13 @@
 # define _CRT_SECURE_NO_WARNINGS 1
 #endif
 
+/* The same for the POSIX names MSVC deprecates in favour of an underscored
+   spelling of its own (strdup -> _strdup).  The POSIX name is the portable
+   one, so the code keeps it. */
+#ifndef _CRT_NONSTDC_NO_WARNINGS
+# define _CRT_NONSTDC_NO_WARNINGS 1
+#endif
+
 /* The number of bytes in a double.  */
 #define SIZEOF_DOUBLE 8
 
