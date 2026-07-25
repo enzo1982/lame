@@ -25,8 +25,8 @@ DEFS = @DEFS@ @CONFIG_DEFS@
 # so the resulting binary still runs where the instruction set is absent.
 # Hence one library per instruction set: a baseline applies to a whole file,
 # so files that need different ones cannot share it.
-xmm_sources = xmm_quantize_sub.c xmm_choose_table.c
-avx2_sources = avx2_choose_table.c
+xmm_sources = xmm_quantize_sub.c xmm_choose_table.c xmm_quantize_lines.c
+avx2_sources = avx2_choose_table.c avx2_quantize_lines.c
 
 if WITH_XMM
 liblamevectorroutines_la_SOURCES = $(xmm_sources)

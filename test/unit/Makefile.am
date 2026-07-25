@@ -11,10 +11,10 @@ check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_a
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
 	test_totalframes test_set_get
 
-# The vectorised Huffman table search exists only where the vector code was
-# built, so there is nothing to test otherwise.
+# The vectorised routines exist only where the vector code was built, so there
+# is nothing to test otherwise.
 if WITH_XMM
-check_PROGRAMS += test_choose_table_vector
+check_PROGRAMS += test_choose_table_vector test_quantize_lines_vector
 endif
 
 TESTS = $(check_PROGRAMS)
@@ -150,10 +150,23 @@ test_choose_table_vector_LDADD = $(CMOCKA_LIBS) \
 if WITH_AVX2
 test_choose_table_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
 endif
+
+# Same arrangement for the quantization loop, and for the same reason.
+test_quantize_lines_vector_SOURCES = test_quantize_lines_vector.c
+test_quantize_lines_vector_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_quantize_lines_vector_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
+	-lm
+if WITH_AVX2
+test_quantize_lines_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
+endif
 endif
 
 endif
 
 # Kept in the tarball whether or not this build configured the vector code,
-# so a dist made on one architecture still carries the test for another.
-EXTRA_DIST = test_choose_table_vector.c
+# so a dist made on one architecture still carries the tests for another.
+EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c

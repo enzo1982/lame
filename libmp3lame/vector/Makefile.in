@@ -113,8 +113,10 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 liblamevectoravx2_la_LIBADD =
-am__liblamevectoravx2_la_SOURCES_DIST = avx2_choose_table.c
-am__objects_1 = liblamevectoravx2_la-avx2_choose_table.lo
+am__liblamevectoravx2_la_SOURCES_DIST = avx2_choose_table.c \
+	avx2_quantize_lines.c
+am__objects_1 = liblamevectoravx2_la-avx2_choose_table.lo \
+	liblamevectoravx2_la-avx2_quantize_lines.lo
 @WITH_AVX2_TRUE@@WITH_XMM_TRUE@am_liblamevectoravx2_la_OBJECTS =  \
 @WITH_AVX2_TRUE@@WITH_XMM_TRUE@	$(am__objects_1)
 liblamevectoravx2_la_OBJECTS = $(am_liblamevectoravx2_la_OBJECTS)
@@ -129,9 +131,10 @@ liblamevectoravx2_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 @WITH_AVX2_TRUE@@WITH_XMM_TRUE@am_liblamevectoravx2_la_rpath =
 liblamevectorroutines_la_LIBADD =
 am__liblamevectorroutines_la_SOURCES_DIST = xmm_quantize_sub.c \
-	xmm_choose_table.c
+	xmm_choose_table.c xmm_quantize_lines.c
 am__objects_2 = liblamevectorroutines_la-xmm_quantize_sub.lo \
-	liblamevectorroutines_la-xmm_choose_table.lo
+	liblamevectorroutines_la-xmm_choose_table.lo \
+	liblamevectorroutines_la-xmm_quantize_lines.lo
 @WITH_XMM_TRUE@am_liblamevectorroutines_la_OBJECTS = $(am__objects_2)
 liblamevectorroutines_la_OBJECTS =  \
 	$(am_liblamevectorroutines_la_OBJECTS)
@@ -157,7 +160,9 @@ depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade =  \
 	./$(DEPDIR)/liblamevectoravx2_la-avx2_choose_table.Plo \
+	./$(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Plo \
 	./$(DEPDIR)/liblamevectorroutines_la-xmm_choose_table.Plo \
+	./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_lines.Plo \
 	./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_sub.Plo
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
@@ -385,8 +390,8 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 # so the resulting binary still runs where the instruction set is absent.
 # Hence one library per instruction set: a baseline applies to a whole file,
 # so files that need different ones cannot share it.
-xmm_sources = xmm_quantize_sub.c xmm_choose_table.c
-avx2_sources = avx2_choose_table.c
+xmm_sources = xmm_quantize_sub.c xmm_choose_table.c xmm_quantize_lines.c
+avx2_sources = avx2_choose_table.c avx2_quantize_lines.c
 @WITH_XMM_TRUE@liblamevectorroutines_la_SOURCES = $(xmm_sources)
 @WITH_XMM_TRUE@liblamevectorroutines_la_CFLAGS = $(AM_CFLAGS) @VECTOR_SSE2_FLAGS@
 @WITH_AVX2_TRUE@@WITH_XMM_TRUE@liblamevectoravx2_la_SOURCES = $(avx2_sources)
@@ -462,7 +467,9 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectoravx2_la-avx2_choose_table.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectorroutines_la-xmm_choose_table.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_lines.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_sub.Plo@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
@@ -499,6 +506,13 @@ liblamevectoravx2_la-avx2_choose_table.lo: avx2_choose_table.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectoravx2_la_CFLAGS) $(CFLAGS) -c -o liblamevectoravx2_la-avx2_choose_table.lo `test -f 'avx2_choose_table.c' || echo '$(srcdir)/'`avx2_choose_table.c
 
+liblamevectoravx2_la-avx2_quantize_lines.lo: avx2_quantize_lines.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectoravx2_la_CFLAGS) $(CFLAGS) -MT liblamevectoravx2_la-avx2_quantize_lines.lo -MD -MP -MF $(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Tpo -c -o liblamevectoravx2_la-avx2_quantize_lines.lo `test -f 'avx2_quantize_lines.c' || echo '$(srcdir)/'`avx2_quantize_lines.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Tpo $(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='avx2_quantize_lines.c' object='liblamevectoravx2_la-avx2_quantize_lines.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectoravx2_la_CFLAGS) $(CFLAGS) -c -o liblamevectoravx2_la-avx2_quantize_lines.lo `test -f 'avx2_quantize_lines.c' || echo '$(srcdir)/'`avx2_quantize_lines.c
+
 liblamevectorroutines_la-xmm_quantize_sub.lo: xmm_quantize_sub.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectorroutines_la_CFLAGS) $(CFLAGS) -MT liblamevectorroutines_la-xmm_quantize_sub.lo -MD -MP -MF $(DEPDIR)/liblamevectorroutines_la-xmm_quantize_sub.Tpo -c -o liblamevectorroutines_la-xmm_quantize_sub.lo `test -f 'xmm_quantize_sub.c' || echo '$(srcdir)/'`xmm_quantize_sub.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/liblamevectorroutines_la-xmm_quantize_sub.Tpo $(DEPDIR)/liblamevectorroutines_la-xmm_quantize_sub.Plo
@@ -512,6 +526,13 @@ liblamevectorroutines_la-xmm_choose_table.lo: xmm_choose_table.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='xmm_choose_table.c' object='liblamevectorroutines_la-xmm_choose_table.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectorroutines_la_CFLAGS) $(CFLAGS) -c -o liblamevectorroutines_la-xmm_choose_table.lo `test -f 'xmm_choose_table.c' || echo '$(srcdir)/'`xmm_choose_table.c
+
+liblamevectorroutines_la-xmm_quantize_lines.lo: xmm_quantize_lines.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectorroutines_la_CFLAGS) $(CFLAGS) -MT liblamevectorroutines_la-xmm_quantize_lines.lo -MD -MP -MF $(DEPDIR)/liblamevectorroutines_la-xmm_quantize_lines.Tpo -c -o liblamevectorroutines_la-xmm_quantize_lines.lo `test -f 'xmm_quantize_lines.c' || echo '$(srcdir)/'`xmm_quantize_lines.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/liblamevectorroutines_la-xmm_quantize_lines.Tpo $(DEPDIR)/liblamevectorroutines_la-xmm_quantize_lines.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='xmm_quantize_lines.c' object='liblamevectorroutines_la-xmm_quantize_lines.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectorroutines_la_CFLAGS) $(CFLAGS) -c -o liblamevectorroutines_la-xmm_quantize_lines.lo `test -f 'xmm_quantize_lines.c' || echo '$(srcdir)/'`xmm_quantize_lines.c
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -646,7 +667,9 @@ clean-am: clean-generic clean-libtool clean-noinstLTLIBRARIES \
 
 distclean: distclean-am
 	-rm -f ./$(DEPDIR)/liblamevectoravx2_la-avx2_choose_table.Plo
+	-rm -f ./$(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Plo
 	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_choose_table.Plo
+	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_lines.Plo
 	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_sub.Plo
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
@@ -694,7 +717,9 @@ installcheck-am:
 
 maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/liblamevectoravx2_la-avx2_choose_table.Plo
+	-rm -f ./$(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Plo
 	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_choose_table.Plo
+	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_lines.Plo
 	-rm -f ./$(DEPDIR)/liblamevectorroutines_la-xmm_quantize_sub.Plo
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic

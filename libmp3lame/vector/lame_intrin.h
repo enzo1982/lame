@@ -88,4 +88,29 @@ count_bit_noESC_from3_sse2(const int *ix, const int *end, int xlen,
                            const uint8_t *hlen1, const uint8_t *hlen2,
                            const uint8_t *hlen3, unsigned int sums[3]);
 
+
+/*
+ *  Quantization of xr^(3/4).
+ *
+ *  Elementwise throughout - multiply, truncate, look up, add, truncate - so
+ *  these compute value for value what the C loop computes, and substituting
+ *  one cannot move the output.
+ *
+ *  Two things a caller owes them.  First, every xr[i] * istep must land in
+ *  [0, PRECALC_SIZE) once truncated, because that is the subscript handed to
+ *  adj[]; the truncating convert answers out-of-range input with
+ *  INT_MIN where C leaves it undefined, so the two forms agree only inside
+ *  the range.  count_bits() establishes this by rejecting a granule whose
+ *  xrpow_max exceeds IXMAX_VAL/istep before it ever gets here.  Second, l is
+ *  consumed exactly as the C loop consumes it: fours, then an optional pair,
+ *  so an odd l leaves its last value untouched.
+ */
+void
+quantize_lines_xrpow_sse2(unsigned int l, FLOAT istep, const FLOAT *xr, int *ix,
+                          const FLOAT *adj);
+
+void
+quantize_lines_xrpow_avx2(unsigned int l, FLOAT istep, const FLOAT *xr, int *ix,
+                          const FLOAT *adj);
+
 #endif

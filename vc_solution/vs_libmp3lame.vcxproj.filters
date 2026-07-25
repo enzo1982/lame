@@ -80,6 +80,12 @@
     <ClCompile Include="..\libmp3lame\vector\avx2_choose_table.c">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="..\libmp3lame\vector\xmm_quantize_lines.c">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\libmp3lame\vector\avx2_quantize_lines.c">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\libmp3lame\bitstream.h">

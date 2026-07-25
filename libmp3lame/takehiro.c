@@ -292,6 +292,46 @@ quantize_lines_xrpow(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix)
 #endif
 
 
+/* Runs shorter than this are quicker scalar.  Unlike the table search this
+ * loop has almost no fixed cost to amortise - one broadcast of istep - so the
+ * threshold sits at the width of a single pass rather than at several.  The
+ * wider tier pays for entering and leaving the wide registers and so asks for
+ * more.  Measured over a real CBR encode, runs below eight values are a fifth
+ * of the calls but under one percent of the values, and below sixteen a third
+ * of the calls and under two percent: these tests are here to avoid a
+ * regression on short runs, not to win anything on them.
+ */
+#define QUANTIZE_LINES_VECTOR_MIN      8
+#define QUANTIZE_LINES_VECTOR_MIN_AVX2 16
+
+/* The vector forms compute the default formulation - truncation toward zero
+ * against adj43[].  TAKEHIRO_IEEE754_HACK is a different formulation with its
+ * own rounding and its own table, reaching the same answer by another route;
+ * it is off by default and may be retired, so it is left entirely alone and a
+ * hack build keeps its own scalar path.
+ */
+static void
+quantize_lines_xrpow_v(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix,
+                       vector_impl_t impl)
+{
+#if !TAKEHIRO_IEEE754_HACK
+#if defined( HAVE_AVX2_INTRINSICS )
+    if (impl >= VECTOR_IMPL_AVX2 && l >= QUANTIZE_LINES_VECTOR_MIN_AVX2) {
+        quantize_lines_xrpow_avx2(l, istep, xr, ix, adj43);
+        return;
+    }
+#endif
+#if defined( HAVE_SSE2_INTRINSICS )
+    if (impl >= VECTOR_IMPL_SSE2 && l >= QUANTIZE_LINES_VECTOR_MIN) {
+        quantize_lines_xrpow_sse2(l, istep, xr, ix, adj43);
+        return;
+    }
+#endif
+#endif
+    (void) impl;
+    quantize_lines_xrpow(l, istep, xr, ix);
+}
+
 
 /*********************************************************************
  * Quantization function
@@ -301,7 +341,7 @@ quantize_lines_xrpow(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix)
 
 static void
 quantize_xrpow(const FLOAT * xp, int *pi, FLOAT istep, gr_info const *const cod_info,
-               calc_noise_data const *prev_noise)
+               calc_noise_data const *prev_noise, vector_impl_t impl)
 {
     /* quantize on xr^(3/4) instead of xr */
     int     sfb;
@@ -345,7 +385,7 @@ quantize_xrpow(const FLOAT * xp, int *pi, FLOAT istep, gr_info const *const cod_
             /* do not recompute this part,
                but compute accumulated lines */
             if (accumulate) {
-                quantize_lines_xrpow(accumulate, istep, acc_xp, acc_iData);
+                quantize_lines_xrpow_v(accumulate, istep, acc_xp, acc_iData, impl);
                 accumulate = 0;
             }
             if (accumulate01) {
@@ -384,7 +424,7 @@ quantize_xrpow(const FLOAT * xp, int *pi, FLOAT istep, gr_info const *const cod_
                 prev_noise->step[sfb] > 0 && step >= prev_noise->step[sfb]) {
 
                 if (accumulate) {
-                    quantize_lines_xrpow(accumulate, istep, acc_xp, acc_iData);
+                    quantize_lines_xrpow_v(accumulate, istep, acc_xp, acc_iData, impl);
                     accumulate = 0;
                     acc_iData = iData;
                     acc_xp = xp;
@@ -410,7 +450,7 @@ quantize_xrpow(const FLOAT * xp, int *pi, FLOAT istep, gr_info const *const cod_
                     accumulate01 = 0;
                 }
                 if (accumulate) {
-                    quantize_lines_xrpow(accumulate, istep, acc_xp, acc_iData);
+                    quantize_lines_xrpow_v(accumulate, istep, acc_xp, acc_iData, impl);
                     accumulate = 0;
                 }
 
@@ -424,7 +464,7 @@ quantize_xrpow(const FLOAT * xp, int *pi, FLOAT istep, gr_info const *const cod_
         }
     }
     if (accumulate) {   /*last data part */
-        quantize_lines_xrpow(accumulate, istep, acc_xp, acc_iData);
+        quantize_lines_xrpow_v(accumulate, istep, acc_xp, acc_iData, impl);
         accumulate = 0;
     }
     if (accumulate01) { /*last data part */
@@ -879,7 +919,7 @@ count_bits(lame_internal_flags const *const gfc,
     if (gi->xrpow_max > w)
         return LARGE_BITS;
 
-    quantize_xrpow(xr, ix, IPOW20(gi->global_gain), gi, prev_noise);
+    quantize_xrpow(xr, ix, IPOW20(gi->global_gain), gi, prev_noise, vector_implementation(gfc));
 
     if (gfc->sv_qnt.substep_shaping & 2) {
         int     sfb, j = 0;
