@@ -198,7 +198,7 @@ gpk_bargraph_draw(GtkWidget * widget, /* plot on this widged */
     gint16  width, height, x, y, barheight;
     GdkFont *fixed_font;
     GdkGC  *gc;
-    int     titleSplit;
+    size_t  titleSplit;
 
 
     gc = gdk_gc_new(widget->window);
@@ -225,18 +225,19 @@ gpk_bargraph_draw(GtkWidget * widget, /* plot on this widged */
             if (titleSplit && (titleSplit != strlen(title))) {
                 gdk_draw_text(*ppixmap, fixed_font,
                               widget->style->fg_gc[GTK_WIDGET_STATE(widget)],
-                              0, 10, title, titleSplit);
+                              0, 10, title, (gint) titleSplit);
 
                 gdk_draw_text(*ppixmap, fixed_font,
                               widget->style->fg_gc[GTK_WIDGET_STATE(widget)],
-                              0, 22, title + titleSplit + 1, (strlen(title) - titleSplit) - 1);
+                              0, 22, title + titleSplit + 1,
+                              (gint) (strlen(title) - titleSplit - 1));
 
 
             }
             else {
                 gdk_draw_text(*ppixmap, fixed_font,
                               widget->style->fg_gc[GTK_WIDGET_STATE(widget)],
-                              0, 10, title, strlen(title));
+                              0, 10, title, (gint) strlen(title));
             }
         }
 

@@ -55,11 +55,6 @@
 
 
 
-/*! Stringify \a x. */
-#define STR(x)   #x
-/*! Stringify \a x, perform macro expansion. */
-#define XSTR(x)  STR(x)
-
 #define MP3X_MAJOR_VERSION      0 /* Major version number */
 #define MP3X_MINOR_VERSION     82 /* Minor version number */
 #define MP3X_ALPHA_VERSION      0 /* Set number if this is an alpha version, otherwise zero */
@@ -1127,15 +1122,15 @@ get_mp3x_version(void)
 {
 #if   MP3X_ALPHA_VERSION > 0
     static /*@observer@ */ const char *const str =
-        XSTR(MP3X_MAJOR_VERSION) "." XSTR(MP3X_MINOR_VERSION)
-        " (alpha " XSTR(MP3X_ALPHA_VERSION) ", " __DATE__ " " __TIME__ ")";
+        STR(MP3X_MAJOR_VERSION) "." STR(MP3X_MINOR_VERSION)
+        " (alpha " STR(MP3X_ALPHA_VERSION) ", " __DATE__ " " __TIME__ ")";
 #elif MP3X_BETA_VERSION > 0
     static /*@observer@ */ const char *const str =
-        XSTR(MP3X_MAJOR_VERSION) "." XSTR(MP3X_MINOR_VERSION)
-        " (beta " XSTR(MP3X_BETA_VERSION) ", " __DATE__ ")";
+        STR(MP3X_MAJOR_VERSION) "." STR(MP3X_MINOR_VERSION)
+        " (beta " STR(MP3X_BETA_VERSION) ", " __DATE__ ")";
 #else
     static /*@observer@ */ const char *const str =
-        XSTR(MP3X_MAJOR_VERSION) "." XSTR(MP3X_MINOR_VERSION);
+        STR(MP3X_MAJOR_VERSION) "." STR(MP3X_MINOR_VERSION);
 #endif
 
     return str;
