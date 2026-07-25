@@ -2218,6 +2218,10 @@ lame_set_asm_optimizations(lame_global_flags * gfp, int optim, int mode)
                 gfp->asm_optimizations.sse = mode;
                 return optim;
             }
+        case AVX2:{
+                gfp->asm_optimizations.avx2 = mode;
+                return optim;
+            }
         default:
             return optim;
         }

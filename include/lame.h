@@ -123,7 +123,8 @@ typedef enum preset_mode_e {
 typedef enum asm_optimizations_e {
     MMX = 1,
     AMD_3DNOW = 2,
-    SSE = 3
+    SSE = 3,
+    AVX2 = 4
 } asm_optimizations;
 
 

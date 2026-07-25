@@ -194,6 +194,34 @@ AC_DEFUN([LAME_SSE2_PROBE],
 		[[probe();]])],
 	[$1=yes], [$1=no])])
 
+dnl LAME_AVX2_PROBE(RESULT-VARIABLE)
+dnl   The same question one tier up.  Both an integer and a floating point
+dnl   construct are compiled, because they do not answer alike: GCC on 32-bit
+dnl   x86 with -ffast-math accepts the integer one under the target attribute
+dnl   and rejects the float one, so probing integers alone would promise a
+dnl   tier the build cannot finish.
+AC_DEFUN([LAME_AVX2_PROBE],
+[AC_COMPILE_IFELSE(
+	[AC_LANG_PROGRAM(
+		[[#include <immintrin.h>
+		  #if defined (__GNUC__) && ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 2)))
+		  #define AVX2_TARGET __attribute__((target("avx2")))
+		  #else
+		  #define AVX2_TARGET
+		  #endif
+		  static const float probe_tbl[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+		  static int probe_i;
+		  static float probe_f;
+		  AVX2_TARGET static void probe(void)
+		  {
+		      __m256i i = _mm256_set1_epi32(1);
+		      __m256i m = _mm256_max_epi16(_mm256_packs_epi32(i, i), _mm256_setzero_si256());
+		      probe_i = _mm256_extract_epi16(m, 0);
+		      _mm_store_ss(&probe_f, _mm256_castps256_ps128(_mm256_i32gather_ps(probe_tbl, i, 4)));
+		  }]],
+		[[probe();]])],
+	[$1=yes], [$1=no])])
+
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_C_INLINE
@@ -1272,10 +1300,37 @@ if test "x${lame_cpu_x86}" = xyes; then
 		WITH_VECTOR=yes
 	fi
 fi
+
+dnl The tiers are cumulative, so a wider one is only offered where the one
+dnl below it was accepted, and it is probed the same way for the same reason.
+VECTOR_AVX2_FLAGS=
+if test "x${WITH_XMM}" = xyes; then
+	AC_MSG_CHECKING(working AVX2 intrinsics)
+	LAME_AVX2_PROBE([lame_avx2_intrinsics])
+	AC_MSG_RESULT(${lame_avx2_intrinsics})
+	if test "x${lame_avx2_intrinsics}" = xno; then
+		AC_MSG_CHECKING(working AVX2 intrinsics with a per-file AVX2 baseline)
+		lame_save_CFLAGS=$CFLAGS
+		CFLAGS="$CFLAGS -mavx2"
+		LAME_AVX2_PROBE([lame_avx2_baseline])
+		CFLAGS=$lame_save_CFLAGS
+		AC_MSG_RESULT(${lame_avx2_baseline})
+		if test "x${lame_avx2_baseline}" = xyes; then
+			lame_avx2_intrinsics=yes
+			VECTOR_AVX2_FLAGS="-mavx2"
+		fi
+	fi
+	if test "x${lame_avx2_intrinsics}" = xyes; then
+		AC_DEFINE([HAVE_AVX2_INTRINSICS], [1], [Define if AVX2 intrinsics work.])
+		WITH_AVX2=yes
+	fi
+fi
 AC_SUBST(VECTOR_SSE2_FLAGS)
+AC_SUBST(VECTOR_AVX2_FLAGS)
 
 # which vector code do we support to build on this machine?
 AM_CONDITIONAL(WITH_XMM, test "x${WITH_XMM}" = "xyes")
+AM_CONDITIONAL(WITH_AVX2, test "x${WITH_AVX2}" = "xyes")
 
 # needs to be defined to link in the internal vector lib
 AM_CONDITIONAL(WITH_VECTOR, test "x${WITH_VECTOR}" = "xyes")
@@ -1407,10 +1462,13 @@ if test -n "${WITH_MP3X}"; then prog_mp3x=yes; else prog_mp3x=no; fi
 if test -n "${WITH_MP3RTP}"; then prog_mp3rtp=yes; else prog_mp3rtp=no; fi
 # The vector routines are named by the instruction sets they are BUILT for.
 # Whether they are used is decided per CPU at run time, and "lame --verbose"
-# reports what the running machine actually got. Only SSE2 is probed today.
+# reports what the running machine actually got.
 lame_vector_sets=
 if test "x${WITH_XMM}" = "xyes"; then
   lame_vector_sets="SSE2"
+fi
+if test "x${WITH_AVX2}" = "xyes"; then
+  lame_vector_sets="${lame_vector_sets} AVX2"
 fi
 if test -z "${lame_vector_sets}"; then
   lame_vector_sets=none

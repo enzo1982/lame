@@ -108,6 +108,7 @@ void acm_Free( void * mem);
 #if defined(_M_IX86) || defined(_M_X64) || defined(_M_AMD64) \
  || (defined(__ICL) && (__ICL >= 450))
     #define HAVE_SSE2_INTRINSICS
+    #define HAVE_AVX2_INTRINSICS
 #endif
 
 #endif

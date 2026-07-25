@@ -429,18 +429,24 @@ Do not use the vector code (
 .B 3dnow
 /
 .B sse
+/
+.B avx2
 ).
-Only
+The vector routines are built into every x86 binary in two tiers - SSE2 on any
+processor of the last two decades, and AVX2 on top of it where available - and
+are used whenever the processor supports them.
 .B sse
-selects anything: it turns off the SSE2 routines, which are built into every
-binary and are otherwise used whenever the processor supports them.
+turns all of them off, so the plain C path is used;
+.B avx2
+turns off only the AVX2 tier, leaving SSE2 in use.
 .B mmx
 and
 .B 3dnow
 are still accepted, but no code of either kind is left to disable.
-This is how the vector and the plain C path are compared against each other,
+Repeat the switch to disable more than one.
+This is how a vector tier and the plain C path are compared against each other,
 which is what a test setup or a speed measurement wants.
-The two paths can differ in the last bits of the output; measured audio
+The paths can differ in the last bits of the output; measured audio
 quality does not change, only speed.
 
 .PP

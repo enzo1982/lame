@@ -518,7 +518,8 @@ extern  "C" {
             unsigned int AMD_3DNow:1; /* K6-2, K6-III, Athlon      */
             unsigned int SSE:1; /* Pentium III, Pentium 4    */
             unsigned int SSE2:1; /* Pentium 4, K8             */
-            unsigned int _unused:28;
+            unsigned int AVX2:1; /* Haswell, Excavator        */
+            unsigned int _unused:27;
         } CPU_features;
 
 
@@ -584,18 +585,36 @@ extern  "C" {
                                    size_t len, sample_t pcm_l[], sample_t pcm_r[]);
 
 
+/* Whether the target is x86 at all.  It decides which CPU tests can be
+   asked and which instruction sets the vector ladder below can name. */
+#if defined( __i386__ ) || defined( __x86_64__ ) \
+ || defined( _M_IX86 ) || defined( _M_X64 ) || defined( _M_AMD64 )
+#define LAME_TARGET_X86 1
+#endif
+
     extern int has_MMX(void);
     extern int has_3DNow(void);
     extern int has_SSE(void);
     extern int has_SSE2(void);
+    extern int has_AVX2(void);
 
     /* Which set of vector routines the encoder will run.  A wider
        implementation adds a value here and a name in vector_impl_name(),
        rather than another flag to test at each call site.  Ordered by
-       capability, so a comparison picks the best available one. */
+       capability, so a comparison picks the best available one: a routine
+       that exists only at the lower tier is still chosen on a machine that
+       offers the higher one.
+
+       The tiers are the instruction sets themselves, so they are listed per
+       architecture and each architecture reports names that exist on it.
+       The type is internal, and a caller written as ">= the tier my routine
+       needs" reads the same whichever architecture it is compiled for. */
     typedef enum {
-        VECTOR_IMPL_NONE = 0,
-        VECTOR_IMPL_SSE2
+        VECTOR_IMPL_NONE = 0
+#if defined( LAME_TARGET_X86 )
+        , VECTOR_IMPL_SSE2
+        , VECTOR_IMPL_AVX2
+#endif
     } vector_impl_t;
 
     extern vector_impl_t vector_implementation(lame_internal_flags const *gfc);

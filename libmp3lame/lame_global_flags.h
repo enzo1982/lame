@@ -172,10 +172,10 @@ struct lame_global_struct {
 
 
     struct {
-        int     mmx;
-        int     amd3dnow;
-        int     sse;
-
+        unsigned int mmx:1;
+        unsigned int amd3dnow:1;
+        unsigned int sse:1;
+        unsigned int avx2:1;
     } asm_optimizations;
 };
 

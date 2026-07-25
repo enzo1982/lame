@@ -951,7 +951,7 @@ long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramNam
     wait_for(fp, lessmode);
     fprintf(fp,
             "  Platform specific:\n"
-            "    --noasm <instructions> disable the vector code for mmx/3dnow/sse\n");
+            "    --noasm <instructions> disable the vector code for mmx/3dnow/sse/avx2\n");
     wait_for(fp, lessmode);
 
     display_bitrates(fp);
@@ -1816,6 +1816,8 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     (void) lame_set_asm_optimizations(gfp, AMD_3DNOW, 0);
                 if (!strcmp(nextArg, "sse"))
                     (void) lame_set_asm_optimizations(gfp, SSE, 0);
+                if (!strcmp(nextArg, "avx2"))
+                    (void) lame_set_asm_optimizations(gfp, AVX2, 0);
 
                 T_ELIF("freeformat")
                     lame_set_free_format(gfp, 1);

@@ -1227,15 +1227,19 @@
         code
     </p>
     <p>
-        The vectorized (SSE2) versions of a few hot routines are built into every
-        x86 binary and used whenever the processor running it supports them. This
-        setting turns them off, which is how the vector and the plain C path are
-        compared against each other - for a speed measurement, or to rule the vector
-        code out when tracking down a problem. Only <span class="hilight">sse</span>
-        selects anything; <span class="hilight">mmx</span> and
-        <span class="hilight">3dnow</span> are still accepted, but no code of either
-        kind is left to disable. The two paths can differ in the last bits of the
-        output; measured audio quality does not change.
+        The vectorized versions of a few hot routines are built into every x86
+        binary and used whenever the processor running it supports them, in two
+        tiers: an SSE2 tier used on any processor of the last two decades, and an
+        AVX2 tier used on top of it where available. This setting turns vector code
+        off, which is how a tier and the plain C path are compared against each
+        other - for a speed measurement, or to rule the vector code out when
+        tracking down a problem. <span class="hilight">sse</span> disables all of
+        it, so the plain C path is used; <span class="hilight">avx2</span> disables
+        only the AVX2 tier, leaving SSE2 in use. <span class="hilight">mmx</span>
+        and <span class="hilight">3dnow</span> are still accepted, but no code of
+        either kind is left to disable. Repeat the switch to disable more than one.
+        The paths can differ in the last bits of the output; measured audio quality
+        does not change.
     </p>
     <p class="settingtitle">
         <a name="nogap"><span class="hilight">--nogap file1 file2 [...]</span></a> Encodes multiple continuous

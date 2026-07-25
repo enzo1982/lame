@@ -613,10 +613,14 @@ lame_init_params(lame_global_flags * gfp)
     if (gfp->asm_optimizations.sse) {
         gfc->CPU_features.SSE = has_SSE();
         gfc->CPU_features.SSE2 = has_SSE2();
+        /* AVX2 sits on top of SSE2, so it can be disabled on its own while the
+           SSE2 tier stays; disabling SSE removes the whole group above. */
+        gfc->CPU_features.AVX2 = gfp->asm_optimizations.avx2 ? has_AVX2() : 0;
     }
     else {
         gfc->CPU_features.SSE = 0;
         gfc->CPU_features.SSE2 = 0;
+        gfc->CPU_features.AVX2 = 0;
     }
 
 
@@ -1340,7 +1344,8 @@ lame_print_config(const lame_global_flags * gfp)
     MSGF(gfc, "warning: alpha versions should be used for testing only\n");
 #endif
     if (gfc->CPU_features.MMX
-        || gfc->CPU_features.AMD_3DNow || gfc->CPU_features.SSE || gfc->CPU_features.SSE2) {
+        || gfc->CPU_features.AMD_3DNow || gfc->CPU_features.SSE || gfc->CPU_features.SSE2
+        || gfc->CPU_features.AVX2) {
         char    text[256] = { 0 };
         vector_impl_t const vector_impl = vector_implementation(gfc);
         if (gfc->CPU_features.MMX) {
@@ -1354,6 +1359,9 @@ lame_print_config(const lame_global_flags * gfp)
         }
         if (gfc->CPU_features.SSE2) {
             concatSep(text, ", ", "SSE2");
+        }
+        if (gfc->CPU_features.AVX2) {
+            concatSep(text, ", ", "AVX2");
         }
         MSGF(gfc, "CPU features: %s\n", text);
         if (vector_impl != VECTOR_IMPL_NONE) {
@@ -2502,6 +2510,7 @@ lame_init_old(lame_global_flags * gfp)
     gfp->asm_optimizations.mmx = 1;
     gfp->asm_optimizations.amd3dnow = 1;
     gfp->asm_optimizations.sse = 1;
+    gfp->asm_optimizations.avx2 = 1;
 
     gfp->preset = 0;
 

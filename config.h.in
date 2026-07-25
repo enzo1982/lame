@@ -26,6 +26,9 @@
 /* Define to 1 if <alloca.h> works. */
 #undef HAVE_ALLOCA_H
 
+/* Define if AVX2 intrinsics work. */
+#undef HAVE_AVX2_INTRINSICS
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 

@@ -664,8 +664,11 @@ FRONTEND_LDFLAGS
 INCLUDES
 WITH_VECTOR_FALSE
 WITH_VECTOR_TRUE
+WITH_AVX2_FALSE
+WITH_AVX2_TRUE
 WITH_XMM_FALSE
 WITH_XMM_TRUE
+VECTOR_AVX2_FLAGS
 VECTOR_SSE2_FLAGS
 INTERNAL_OPTS_FALSE
 INTERNAL_OPTS_TRUE
@@ -15820,6 +15823,8 @@ fi
 
 
 
+
+
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for an ANSI C-conforming const" >&5
 printf %s "checking for an ANSI C-conforming const... " >&6; }
 if test ${ac_cv_c_const+y}
@@ -21204,6 +21209,102 @@ printf '%s\n' "#define HAVE_SSE2_INTRINSICS 1" >>confdefs.h
 	fi
 fi
 
+VECTOR_AVX2_FLAGS=
+if test "x${WITH_XMM}" = xyes; then
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking working AVX2 intrinsics" >&5
+printf %s "checking working AVX2 intrinsics... " >&6; }
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <immintrin.h>
+		  #if defined (__GNUC__) && ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 2)))
+		  #define AVX2_TARGET __attribute__((target("avx2")))
+		  #else
+		  #define AVX2_TARGET
+		  #endif
+		  static const float probe_tbl[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+		  static int probe_i;
+		  static float probe_f;
+		  AVX2_TARGET static void probe(void)
+		  {
+		      __m256i i = _mm256_set1_epi32(1);
+		      __m256i m = _mm256_max_epi16(_mm256_packs_epi32(i, i), _mm256_setzero_si256());
+		      probe_i = _mm256_extract_epi16(m, 0);
+		      _mm_store_ss(&probe_f, _mm256_castps256_ps128(_mm256_i32gather_ps(probe_tbl, i, 4)));
+		  }
+int
+main (void)
+{
+probe();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  lame_avx2_intrinsics=yes
+else case e in #(
+  e) lame_avx2_intrinsics=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: ${lame_avx2_intrinsics}" >&5
+printf '%s\n' "${lame_avx2_intrinsics}" >&6; }
+	if test "x${lame_avx2_intrinsics}" = xno; then
+		{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking working AVX2 intrinsics with a per-file AVX2 baseline" >&5
+printf %s "checking working AVX2 intrinsics with a per-file AVX2 baseline... " >&6; }
+		lame_save_CFLAGS=$CFLAGS
+		CFLAGS="$CFLAGS -mavx2"
+		cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <immintrin.h>
+		  #if defined (__GNUC__) && ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 2)))
+		  #define AVX2_TARGET __attribute__((target("avx2")))
+		  #else
+		  #define AVX2_TARGET
+		  #endif
+		  static const float probe_tbl[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+		  static int probe_i;
+		  static float probe_f;
+		  AVX2_TARGET static void probe(void)
+		  {
+		      __m256i i = _mm256_set1_epi32(1);
+		      __m256i m = _mm256_max_epi16(_mm256_packs_epi32(i, i), _mm256_setzero_si256());
+		      probe_i = _mm256_extract_epi16(m, 0);
+		      _mm_store_ss(&probe_f, _mm256_castps256_ps128(_mm256_i32gather_ps(probe_tbl, i, 4)));
+		  }
+int
+main (void)
+{
+probe();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  lame_avx2_baseline=yes
+else case e in #(
+  e) lame_avx2_baseline=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+		CFLAGS=$lame_save_CFLAGS
+		{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: ${lame_avx2_baseline}" >&5
+printf '%s\n' "${lame_avx2_baseline}" >&6; }
+		if test "x${lame_avx2_baseline}" = xyes; then
+			lame_avx2_intrinsics=yes
+			VECTOR_AVX2_FLAGS="-mavx2"
+		fi
+	fi
+	if test "x${lame_avx2_intrinsics}" = xyes; then
+
+printf '%s\n' "#define HAVE_AVX2_INTRINSICS 1" >>confdefs.h
+
+		WITH_AVX2=yes
+	fi
+fi
+
+
 
 # which vector code do we support to build on this machine?
  if test "x${WITH_XMM}" = "xyes"; then
@@ -21212,6 +21313,14 @@ fi
 else
   WITH_XMM_TRUE='#'
   WITH_XMM_FALSE=
+fi
+
+ if test "x${WITH_AVX2}" = "xyes"; then
+  WITH_AVX2_TRUE=
+  WITH_AVX2_FALSE='#'
+else
+  WITH_AVX2_TRUE='#'
+  WITH_AVX2_FALSE=
 fi
 
 
@@ -21584,6 +21693,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${WITH_XMM_TRUE}" && test -z "${WITH_XMM_FALSE}"; then
   as_fn_error $? "conditional \"WITH_XMM\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${WITH_AVX2_TRUE}" && test -z "${WITH_AVX2_FALSE}"; then
+  as_fn_error $? "conditional \"WITH_AVX2\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${WITH_VECTOR_TRUE}" && test -z "${WITH_VECTOR_FALSE}"; then
@@ -23814,10 +23927,13 @@ if test -n "${WITH_MP3X}"; then prog_mp3x=yes; else prog_mp3x=no; fi
 if test -n "${WITH_MP3RTP}"; then prog_mp3rtp=yes; else prog_mp3rtp=no; fi
 # The vector routines are named by the instruction sets they are BUILT for.
 # Whether they are used is decided per CPU at run time, and "lame --verbose"
-# reports what the running machine actually got. Only SSE2 is probed today.
+# reports what the running machine actually got.
 lame_vector_sets=
 if test "x${WITH_XMM}" = "xyes"; then
   lame_vector_sets="SSE2"
+fi
+if test "x${WITH_AVX2}" = "xyes"; then
+  lame_vector_sets="${lame_vector_sets} AVX2"
 fi
 if test -z "${lame_vector_sets}"; then
   lame_vector_sets=none

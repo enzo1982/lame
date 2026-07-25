@@ -834,12 +834,11 @@ lame_errorf(const lame_internal_flags* gfc, const char *format, ...)
  || (defined( _M_IX86_FP ) && _M_IX86_FP >= 2)
 #define LAME_BASELINE_SSE2 1
 #endif
-
-#if defined( __i386__ ) || defined( __x86_64__ ) \
- || defined( _M_IX86 ) || defined( _M_X64 ) || defined( _M_AMD64 )
-#define LAME_TARGET_X86 1
+#if defined( __AVX2__ )
+#define LAME_BASELINE_AVX2 1
 #endif
 
+/* LAME_TARGET_X86 comes from util.h, where the vector ladder needs it too. */
 #if defined( LAME_TARGET_X86 )
 # if defined( __has_builtin )
 #  if __has_builtin( __builtin_cpu_supports )
@@ -862,6 +861,18 @@ enum {
     CPUID1_EDX_SSE2 = 26
 };
 
+/* The wide registers take three answers rather than one: the CPU has to
+ * carry the instructions, the operating system has to preserve the wider
+ * register state across a context switch, and only then may the state bits
+ * be read at all.  A test that asks the first question alone reports yes on
+ * a system where the registers are silently corrupted.
+ */
+enum {
+    CPUID1_ECX_OSXSAVE = 27,
+    CPUID7_EBX_AVX2 = 5,
+    XCR0_SSE_AND_AVX_STATE = 0x6
+};
+
 static int
 cpuid_feature_edx(int bit)
 {
@@ -871,6 +882,22 @@ cpuid_feature_edx(int bit)
         return 0;
     __cpuid(regs, 1);
     return (regs[3] >> bit) & 1;
+}
+
+static int
+cpuid_feature_avx2(void)
+{
+    int     regs[4];
+    __cpuid(regs, 0);
+    if (regs[0] < 7)
+        return 0;
+    __cpuid(regs, 1);
+    if (((regs[2] >> CPUID1_ECX_OSXSAVE) & 1) == 0)
+        return 0;
+    if ((_xgetbv(0) & XCR0_SSE_AND_AVX_STATE) != XCR0_SSE_AND_AVX_STATE)
+        return 0;
+    __cpuidex(regs, 7, 0);
+    return (regs[1] >> CPUID7_EBX_AVX2) & 1;
 }
 #endif
 
@@ -929,16 +956,38 @@ has_SSE2(void)
 #endif
 }
 
+int
+has_AVX2(void)
+{
+#if defined( LAME_BASELINE_AVX2 )
+    return 1;
+#elif defined( LAME_CPU_SUPPORTS )
+    return __builtin_cpu_supports("avx2") != 0;
+#elif defined( LAME_CPUID_MSVC )
+    return cpuid_feature_avx2();
+#else
+    return 0;           /* don't know, assume not */
+#endif
+}
+
 /* One place decides which vector routines run, so the dispatch sites and the
  * configuration report cannot disagree.  Adding a wider implementation means
- * one more branch here and one more name below.
+ * one more branch here and one more name below.  Highest tier first: the
+ * answer is what the machine offers, and a routine that exists only lower
+ * down is selected by the comparison at its call site.
  */
 vector_impl_t
 vector_implementation(lame_internal_flags const *gfc)
 {
-#if defined( HAVE_SSE2_INTRINSICS )
+#if defined( HAVE_AVX2_INTRINSICS ) || defined( HAVE_SSE2_INTRINSICS )
+# if defined( HAVE_AVX2_INTRINSICS )
+    if (gfc->CPU_features.AVX2)
+        return VECTOR_IMPL_AVX2;
+# endif
+# if defined( HAVE_SSE2_INTRINSICS )
     if (gfc->CPU_features.SSE2)
         return VECTOR_IMPL_SSE2;
+# endif
 #else
     (void) gfc;
 #endif
@@ -949,8 +998,12 @@ const char *
 vector_impl_name(vector_impl_t impl)
 {
     switch (impl) {
+#if defined( LAME_TARGET_X86 )
+    case VECTOR_IMPL_AVX2:
+        return "AVX2";
     case VECTOR_IMPL_SSE2:
         return "SSE2";
+#endif
     case VECTOR_IMPL_NONE:
         break;
     }
