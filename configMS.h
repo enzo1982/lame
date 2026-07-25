@@ -72,15 +72,6 @@
 /* Define if you have the <stdint.h> header file.  */
 #define HAVE_STDINT_H 1
 
-/* The fixed-width integer types come from the standard header.  Declaring them
-   here instead made int8_t an alias of plain char, which the real <stdint.h>
-   redefined as signed char as soon as an optional library's header pulled it
-   in; the alternative spelling declared them as object-like macros, which
-   corrupts any later declaration using one of the names as a type.  This header
-   is the first include in every translation unit, so the types are in scope
-   wherever the declarations used to be.  */
-#include <stdint.h>
-
 #if defined(_MSC_VER) || defined(__BORLANDC__)
 #pragma warning( disable : 4305 )
 #endif
