@@ -62,31 +62,20 @@
 #define HAVE_STRCHR
 #define HAVE_MEMCPY
 
+/* Define if you have the <stdint.h> header file.  */
+#define HAVE_STDINT_H 1
+
+/* The fixed-width integer types come from the standard header.  Declaring them
+   here instead made int8_t an alias of plain char, which the real <stdint.h>
+   redefined as signed char as soon as an optional library's header pulled it
+   in; the alternative spelling declared them as object-like macros, which
+   corrupts any later declaration using one of the names as a type.  This header
+   is the first include in every translation unit, so the types are in scope
+   wherever the declarations used to be.  */
+#include <stdint.h>
+
 #if defined(_MSC_VER) || defined(__BORLANDC__)
 #pragma warning( disable : 4305 )
-	typedef __int8  int8_t;
-	typedef __int16 int16_t;
-	typedef __int32 int32_t;
-	typedef __int64 int64_t;
-
-	typedef unsigned __int8  uint8_t;
-	typedef unsigned __int16 uint16_t;
-	typedef unsigned __int32 uint32_t;
-	typedef unsigned __int64 uint64_t;
-
-	typedef float  float32_t;
-	typedef double float64_t;
-#elif defined (__GNUC__)
-#define __int8_t_defined
-#define uint8_t unsigned char
-#define uint16_t unsigned short
-#define uint32_t unsigned int
-#define uint64_t unsigned long long
-
-#define int8_t signed char
-#define int16_t signed short
-#define int32_t signed int
-#define int64_t signed long long
 #endif
 
 typedef long double ieee854_float80_t;
