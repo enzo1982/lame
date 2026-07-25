@@ -15,6 +15,14 @@ This configuration enables `EXTRACT_ALL` and `EXTRACT_STATIC`, so the entities
 shown here include unsupported internals that carry no stability or ABI
 guarantee; do not rely on them from outside the library.
 
+## Implementation notes
+
+Longer-form notes on how a subsystem is built and why it is built that way:
+
+- @ref vector_dispatch - the run-time SIMD dispatch ladder for the hot
+  quantization loops, and why it stops where it does: no SSE4.1/SSE4.2 rung,
+  and no AVX2 tier for the variable-bitrate noise estimate.
+
 ## Maintainer guides
 
 The scripts under `maintainer/` check a change against more than the tree it

@@ -1,0 +1,127 @@
+/**
+@page vector_dispatch Vector dispatch and the capability ladder
+
+@tableofcontents
+
+LAME's hottest quantization loops carry hand-written SIMD implementations that
+are chosen at run time from the instruction sets the executing CPU reports. This
+page records the shape of that dispatch ladder and, in particular, the two
+decisions that are easy to second-guess later: why the ladder has no SSE4.1 or
+SSE4.2 rung, and why the variable-bitrate noise routine is SSE2-only with no
+AVX2 tier. Both are counter-intuitive, so the reasoning is kept here rather than
+only in the commit history.
+
+@section vector_dispatch_ladder The ladder
+
+@c vector_implementation() returns a @c vector_impl_t naming the highest tier the
+CPU offers: @c VECTOR_IMPL_NONE (scalar), @c VECTOR_IMPL_SSE2 or
+@c VECTOR_IMPL_AVX2. Every dispatch site tests <em>">= the tier my routine
+needs"</em>, so a routine that exists only at a lower tier is still selected on a
+machine that offers a higher one. There is exactly one selector and one
+enumerator; adding a tier is one branch in the selector and one name in the enum.
+
+The ladder is deliberately <b>scalar &rarr; SSE2 &rarr; AVX2</b>, with nothing
+between SSE2 and AVX2. On x86-64 the SSE2 tier needs no feature probe at all:
+every x86-64 CPU has SSE2, as does every 32-bit x86 CPU since 2001, so the SSE2
+win is unconditional. Only the AVX2 tier is gated on a run-time feature bit. The
+front-end exposes two levers: @c --noasm @c avx2 disables just the AVX2 tier and
+keeps SSE2, and @c --noasm @c sse turns the vector code off entirely.
+
+@section vector_dispatch_no_sse4 Why there is no SSE4.1 / SSE4.2 tier
+
+For every routine vectorized here, an SSE4.1 or SSE4.2 implementation is no
+faster than &mdash; and usually slower than &mdash; the SSE2 one. This inverts
+the usual "a newer instruction set is faster" intuition, and the reason is
+specific and measurable.
+
+The largest win is the Huffman table search (@c ix_max(), @c choose_table()):
+find a region's maximum quantized coefficient and sum code lengths over table
+lookups. Every value it touches is bounded by @c IXMAX_VAL @c = @c 8206, which is
+below 2<sup>15</sup> = 32768, so all of it fits in signed 16-bit lanes. That one
+fact inverts the instruction-set ranking:
+
+- <b>SSE2</b> has the packed 16-bit integer operations this needs &mdash;
+  @c pmaxsw (max), @c pminsw (clamp), @c packssdw (pack two 32-bit vectors into
+  one 16-bit vector) and @c pmaddwd (the lookup's index arithmetic in one
+  instruction) &mdash; and processes <b>eight lanes per instruction</b>.
+- <b>SSE4.1</b>'s relevant additions (@c pmaxsd, @c pminsd, @c pmulld,
+  @c pextrd) work on 32-bit lanes: <b>four lanes per instruction</b>. For data
+  that fits in 16 bits, that is half the width for no benefit.
+
+Measured on a Core i7-10700 (GCC 16.1, ns per element at region length 576):
+the region maximum is about a quarter faster in the 8-lane SSE2 form than in
+SSE4.1's @c pmaxsd (0.058 vs 0.082 ns), and the table lookup's manual gather is
+roughly 3.0&times; scalar under SSE2 versus only about 1.8&times; under SSE4.1.
+SSE4.1 loses on both primitives.
+
+SSE4.2 adds only string and CRC instructions (@c pcmpestri, @c pcmpistri,
+@c crc32) over SSE4.1 &mdash; none of them a numeric SIMD operation an audio
+encoder's inner loops can use &mdash; so for this work SSE4.2 is identical to
+SSE4.1, i.e. "nothing over SSE2". This is not academic: the project's FreeBSD
+validation host is a Westmere Xeon (SSE4.2, no AVX at all), and it receives the
+entire table-search win because that win lives at the SSE2 baseline and needs
+nothing above it.
+
+The float routines (@c quantize_lines_xrpow(), @c calc_sfb_noise_x34()) do not
+need SSE4.x either: SSE2 already has the full single-precision float instruction
+set (@c mulps, @c addps, @c subps, @c cvttps2dq), and SSE4.1's float additions
+(@c dpps, @c blendps, @c roundps, @c insertps) buy nothing here &mdash; there is
+no dot product, no blend, and the truncation is @c cvttps (SSE2), not a
+rounding-mode @c roundps.
+
+@subsection vector_dispatch_saturation The 16-bit correctness constraint
+
+@c packssdw saturates at 32767, so the 16-bit maximum is a drop-in for
+@c ix_max() only <em>as @c choose_table() uses it</em>: the result is only ever
+tested against @c IXMAX_VAL and a @c linbits bucket, and @c IXMAX_VAL @c = @c 8206
+is far below the saturation point. Values that matter are therefore exact, and
+anything larger clamps to 32767, which still lands in the "> @c IXMAX_VAL, give
+up" branch. A compile-time assertion beside @c ix_max_sse2() (in @c takehiro.c)
+fails the build if @c IXMAX_VAL is ever raised past the saturation point. The
+trick is correct for this one caller, not in general.
+
+@section vector_dispatch_no_vbr_avx2 Why calc_sfb_noise_x34() has no AVX2 tier
+
+@c calc_sfb_noise_x34() estimates per-scalefactor-band quantization noise; it is
+a variable-bitrate routine (the constant-bitrate path never calls it). An AVX2
+version was written, measured, and dropped: on a Core i7-10700 it ran at
+1.00&times; &plusmn; 0.01 over the SSE2 tier for a whole VBR encode on both GCC
+and MSVC &mdash; inside the measurement noise, against a real 6&ndash;8% the same
+AVX2 tier delivers on the constant-bitrate routines. Three reasons compound:
+
+1. <b>Gather-bound.</b> Each four-element block does two data-dependent table
+   lookups (@c adj43[] in the quantizer step, @c pow43[] in the noise step). AVX2
+   would do them as one eight-wide @c vgatherdps, but on Skylake-family and older
+   cores @c vgatherdps is microcoded &mdash; roughly one element loaded per cycle
+   internally, i.e. the same scalar loads wearing one opcode. It removes the
+   reassembly shuffles, which were never the cost.
+
+2. <b>The reduction is pinned to a four-block.</b> To keep every CPU of an
+   architecture bit-identical, the sum of squares is reduced as
+   (x0&sup2;+x2&sup2;)+(x1&sup2;+x3&sup2;) per four elements into a running
+   scalar. An AVX2 tier processing eight at a time must still reduce its two
+   halves separately, in that order &mdash; it cannot carry an eight-wide
+   accumulator without reassociating the sum and moving the output per-CPU. So
+   width helps only the cheap multiply / subtract / square around the two
+   expensive gathers.
+
+3. <b>Amdahl, twice.</b> The SSE2 vectorization of this routine already moves a
+   whole VBR encode by only about 6% on MSVC and about 0% on GCC (whose compiler
+   auto-vectorizes the scalar loop competently), because VBR spends most of its
+   time in the psychoacoustic model, not here. AVX2's increment is a fraction of
+   that already-small share.
+
+The capability ladder explicitly permits a routine to live at one tier only.
+@c calc_sfb_noise_x34() is the converse of an AVX2-only routine: an SSE2 routine
+with no AVX2 version, because AVX2 has nothing to offer it. Carrying a second
+tier that cannot be shown to do anything is pure cost &mdash; a translation unit,
+a build entry, a dispatch branch and a test path &mdash; so it is not carried.
+
+@section vector_dispatch_consequence Consequence
+
+There is no @c VECTOR_IMPL_SSE41 / @c VECTOR_IMPL_SSE42 enumerator, no configure
+probe and no dispatch branch for them. Every x86-64 CPU, and every 32-bit x86 CPU
+since 2001, receives the full table-search and quantization win at the SSE2
+baseline the build already guarantees; AVX2 adds a further 6&ndash;8% on constant
+bitrate and nothing measurable on variable bitrate.
+*/

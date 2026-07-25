@@ -34,6 +34,7 @@ INPUT                  = @top_srcdir@/include \
                          @top_srcdir@/test/unit \
                          @top_srcdir@/doc/doxygen/internal.md \
                          @top_srcdir@/doc/doxygen/unit_tests.dox \
+                         @top_srcdir@/doc/doxygen/vector-dispatch.dox \
                          @top_srcdir@/doc/maintainer-build-matrix.md \
                          @top_srcdir@/doc/maintainer-perf.md \
                          @top_srcdir@/doc/maintainer-quality.md \

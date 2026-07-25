@@ -970,11 +970,15 @@ has_AVX2(void)
 #endif
 }
 
-/* One place decides which vector routines run, so the dispatch sites and the
+/** @internal
+ * One place decides which vector routines run, so the dispatch sites and the
  * configuration report cannot disagree.  Adding a wider implementation means
  * one more branch here and one more name below.  Highest tier first: the
  * answer is what the machine offers, and a routine that exists only lower
  * down is selected by the comparison at its call site.
+ *
+ * The ladder is scalar -> SSE2 -> AVX2, with no SSE4.1/SSE4.2 rung; see
+ * @ref vector_dispatch for why it stops where it does.
  */
 vector_impl_t
 vector_implementation(lame_internal_flags const *gfc)

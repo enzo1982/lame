@@ -37,11 +37,13 @@
 #if defined( HAVE_SSE2_INTRINSICS )
 #include "vector/lame_intrin.h"
 
-/* The vector routines compare sixteen bits at a time, so a region maximum
+/** @internal
+ * The vector routines compare sixteen bits at a time, so a region maximum
  * comes back exact only while it fits there.  That is enough because the
  * table search rejects anything above IXMAX_VAL, and everything above the
  * saturation point is above IXMAX_VAL too - which stops being true if
- * IXMAX_VAL is ever raised past it.
+ * IXMAX_VAL is ever raised past it.  See @ref vector_dispatch for the wider
+ * rationale (why 16-bit SSE2 beats the 32-bit SSE4.1 path here).
  */
 enum { static_assert_ixmax_val_fits_in_16_bits = 1 / (IXMAX_VAL < 32767 ? 1 : 0) };
 
