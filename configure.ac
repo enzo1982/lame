@@ -1050,18 +1050,26 @@ if test "x$HAVE_GCC" = "xyes" -o "x$HAVE_CLANG" = "xyes"; then
 		LAME_CHECK_LDFLAG([-Wl,-z,noexecstack], [HARDENING_LDFLAGS])
 
 		# Build the frontend programs as position-independent executables,
-		# but only when they are dynamically linked: PIE is incompatible
-		# with the statically-linked default frontend (its libmp3lame
-		# archive objects are not built PIC).  The shared library itself
-		# is already built -fPIC by libtool and needs nothing here.
+		# but only when they will link against the shared library.  PIE
+		# needs position-independent objects, and the libmp3lame archive
+		# is not built PIC - so both --disable-dynamic-frontends (which
+		# links that archive on purpose) and --disable-shared (which
+		# leaves nothing else to link) have to skip it.  The shared
+		# library itself is already built -fPIC by libtool and needs
+		# nothing here.
+		lame_fe_pie=yes
 		case "x${FRONTEND_LDFLAGS}" in
 		*-static*)
-			;;
-		*)
-			LAME_CHECK_CFLAG([-fPIE], [HARDENING_FE_CFLAGS])
-			LAME_CHECK_LDFLAG([-fPIE -pie], [HARDENING_FE_LDFLAGS])
+			lame_fe_pie=no
 			;;
 		esac
+		if test "x${enable_shared}" = "xno"; then
+			lame_fe_pie=no
+		fi
+		if test "x${lame_fe_pie}" = "xyes"; then
+			LAME_CHECK_CFLAG([-fPIE], [HARDENING_FE_CFLAGS])
+			LAME_CHECK_LDFLAG([-fPIE -pie], [HARDENING_FE_LDFLAGS])
+		fi
 
 		CFLAGS="${CFLAGS} ${HARDENING_CFLAGS}"
 		LDFLAGS="${LDFLAGS} ${HARDENING_LDFLAGS}"

@@ -20834,14 +20834,23 @@ fi
 
 
 		# Build the frontend programs as position-independent executables,
-		# but only when they are dynamically linked: PIE is incompatible
-		# with the statically-linked default frontend (its libmp3lame
-		# archive objects are not built PIC).  The shared library itself
-		# is already built -fPIC by libtool and needs nothing here.
+		# but only when they will link against the shared library.  PIE
+		# needs position-independent objects, and the libmp3lame archive
+		# is not built PIC - so both --disable-dynamic-frontends (which
+		# links that archive on purpose) and --disable-shared (which
+		# leaves nothing else to link) have to skip it.  The shared
+		# library itself is already built -fPIC by libtool and needs
+		# nothing here.
+		lame_fe_pie=yes
 		case "x${FRONTEND_LDFLAGS}" in
 		*-static*)
+			lame_fe_pie=no
 			;;
-		*)
+		esac
+		if test "x${enable_shared}" = "xno"; then
+			lame_fe_pie=no
+		fi
+		if test "x${lame_fe_pie}" = "xyes"; then
 			{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fPIE" >&5
 printf %s "checking whether $CC accepts -fPIE... " >&6; }
 lame_check_flag_save=$CFLAGS
@@ -20905,8 +20914,7 @@ then :
   HARDENING_FE_LDFLAGS="${HARDENING_FE_LDFLAGS} -fPIE -pie"
 fi
 
-			;;
-		esac
+		fi
 
 		CFLAGS="${CFLAGS} ${HARDENING_CFLAGS}"
 		LDFLAGS="${LDFLAGS} ${HARDENING_LDFLAGS}"
