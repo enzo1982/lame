@@ -21,7 +21,8 @@ Longer-form notes on how a subsystem is built and why it is built that way:
 
 - @ref vector_dispatch - the run-time SIMD dispatch ladder for the hot
   quantization loops, and why it stops where it does: no SSE4.1/SSE4.2 rung,
-  and no AVX2 tier for the variable-bitrate noise estimate.
+  no AVX2 tier for the variable-bitrate noise estimate, and no AVX-512 tier
+  above AVX2 - the last one built, measured on three machines and rejected.
 
 ## Maintainer guides
 

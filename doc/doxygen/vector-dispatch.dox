@@ -5,11 +5,14 @@
 
 LAME's hottest quantization loops carry hand-written SIMD implementations that
 are chosen at run time from the instruction sets the executing CPU reports. This
-page records the shape of that dispatch ladder and, in particular, the two
+page records the shape of that dispatch ladder and, in particular, the three
 decisions that are easy to second-guess later: why the ladder has no SSE4.1 or
-SSE4.2 rung, and why the variable-bitrate noise routine is SSE2-only with no
-AVX2 tier. Both are counter-intuitive, so the reasoning is kept here rather than
-only in the commit history.
+SSE4.2 rung, why the variable-bitrate noise routine is SSE2-only with no AVX2
+tier, and why it stops at AVX2 rather than carrying an AVX-512 tier above it.
+All three are counter-intuitive, so the reasoning is kept here rather than only
+in the commit history &mdash; the last of them because the code was written and
+the answer still turned out to be no, which is exactly the kind of result that
+gets repeated if it is not written down.
 
 @section vector_dispatch_ladder The ladder
 
@@ -117,6 +120,159 @@ with no AVX2 version, because AVX2 has nothing to offer it. Carrying a second
 tier that cannot be shown to do anything is pure cost &mdash; a translation unit,
 a build entry, a dispatch branch and a test path &mdash; so it is not carried.
 
+@section vector_dispatch_no_avx512 Why there is no AVX-512 tier
+
+An AVX-512 tier above AVX2 was written, taken to hardware that has the
+instruction set, measured end to end on three machines from two vendors, and
+dropped. The SSE4.x decision above rests on microbenchmarks and an
+instruction-count argument; this one rests on timed encodes of the finished
+code, and the timing said no.
+
+@subsection vector_dispatch_avx512_built What was built
+
+Two stages, separate because they carried different risks:
+
+- <b>Stage 1</b> &mdash; the run-time rung, plus AVX-512 forms of the Huffman
+  table search (@c ix_max(), @c choose_table()) and the quantization loop
+  (@c quantize_lines_xrpow()). These are elementwise, or reduce with an
+  order-independent maximum, so widening them cannot move the output. This is
+  the stage where the extra width was free of any correctness tax.
+- <b>Stage 2</b> &mdash; @c calc_sfb_noise_x34(), in two reduction orders: one
+  reproducing the narrower tier's pinned per-four-block association exactly, and
+  an opt-in freely-reducing form built only to price what that pinning costs.
+
+The tier was confined to alpha builds and disabled itself once the version type
+moved on, so it could not reach a release while the question was open.
+
+No machine in the project has AVX-512 and QEMU's TCG does not emulate it, so
+none of it could be executed here. It was compiled by four toolchains,
+disassembled and read instruction by instruction, and covered by unit tests
+&mdash; and then sent to lame-dev as a test kit, because what was left genuinely
+needed the hardware.
+
+@subsection vector_dispatch_avx512_tested What was tested, and where
+
+Three machines ran the kit, on Linux, encoding 16-bit stereo 44.1&nbsp;kHz
+music &mdash; between them the first execution of these instructions anywhere:
+
+| CPU | microarchitecture | compiler | what it ran |
+| :--- | :--- | :--- | :--- |
+| AMD Ryzen 9 7950X3D | Zen 4 | GCC 13.3 | both stages, tests and timings |
+| Intel Core i5-1035G1 | Ice Lake, client | GCC 14.2 | both stages, tests and timings |
+| AMD Ryzen 9 9950X3D | Zen 5 | GCC 15 | stage 1, timings only |
+
+- <b>Unit tests, stage 1: pass</b> on both machines that ran them. The kernels
+  agree with the scalar reference across every region length, threshold and
+  clamp boundary, index extreme and odd-length tail.
+- <b>Encoder output, stage 1: bit-identical</b> on both machines that ran it, at
+  @c -V2 and at @c -b @c 320. A full encode with the tier active matched the
+  same build with @c --noasm @c avx512, which is the check that covers the seams
+  unit tests do not &mdash; notably @c count_bit_ESC()'s clamped-count
+  accounting. Stage 1 is correct.
+- <b>Unit tests, stage 2: the same single failure</b> on both, across two
+  vendors and two compilers. @c calc_sfb_noise_x34() does not reproduce the
+  narrower tier's result exactly. This is the routine whose sum chooses a
+  scalefactor, so its test asserts bit-exactness against that tier rather than a
+  tolerance, and the reduction is where the two part company: the pinned
+  per-four-block association did not survive widening to sixteen lanes. A tier
+  that cannot reproduce the existing output is not a candidate, independently of
+  its speed.
+
+Stage 2's <em>encoder</em> output was bit-identical anyway, on both machines.
+That belongs here as a caution rather than as reassurance. The unit test drives
+the routine across inputs an encode does not happen to produce, so it is the
+more sensitive instrument; identical output on one clip is not evidence that two
+tiers agree, and the exact-match test is the one to believe. Its companion test
+&mdash; the one that asserts the harness <em>can</em> report a disagreement
+&mdash; passed on both machines, so the failure is the code and not the
+scaffolding.
+
+@subsection vector_dispatch_avx512_speed The measurement
+
+A whole encode after a warm-up, with @c --noasm @c avx512 selecting the AVX2
+tier as the comparison. Stage 1 only: it is the bit-identical stage, so it is
+the only one whose speed could ever have mattered.
+
+| CPU | @c -V2 | @c -b @c 320 | runs each way |
+| :--- | :--- | :--- | ---: |
+| Zen 4 7950X3D | wash | <b>1.0% slower</b> | 3 |
+| Zen 5 9950X3D | wash | <b>no difference</b> | 25 |
+| Ice Lake i5-1035G1 | wash | <b>7.6% faster</b> | 3 |
+
+@c -V2 is a wash on all three, inside run-to-run noise every time. Constant
+bitrate at 320&nbsp;kbit/s is where the quantization loop does the most work per
+frame, so it is the case with the most for stage 1 to win &mdash; and it is the
+case where the three machines disagree. The disagreement is the result.
+
+The two AMD numbers are the solid ones. On Zen 4 the arms do not overlap: three
+AVX2 runs spanning 24&nbsp;ms, three AVX-512 runs spanning 8&nbsp;ms, every
+AVX-512 run slower than every AVX2 run &mdash; and the same sign and magnitude
+came back from a second run on a different input file, so it is not a property
+of the clip. On Zen 5 the measurement was taken under a benchmarking harness
+over 25 runs each way and returned 1.655&nbsp;s against 1.655&nbsp;s at
+&sigma;&nbsp;0.005&nbsp;s. Not close; equal.
+
+The Intel number is the one that could reopen the question, and its method
+cannot yet carry that weight. Three sequential runs per arm on a 15&nbsp;W
+mobile part, AVX-512 always first, so thermal drift across the measurement is
+aligned with the arm being measured. That machine's own data bounds the drift:
+its AVX2 arm ran identical code in the stage-1 and stage-2 builds and differed
+by 1.6% between them &mdash; five times the spread the desktop part showed under
+a harness. Pushing the other way, Ice Lake reduces clock frequency for 512-bit
+work, so a genuine win there would be a win against a headwind. It is worth
+re-measuring properly rather than either believing or dismissing.
+
+@subsection vector_dispatch_avx512_why Why the width buys nothing
+
+The obvious explanation is the datapath: Zen 4 executes 512-bit operations as
+two 256-bit halves, so a sixteen-wide instruction does no more per cycle than
+the eight-wide one it replaces. That is true of Zen 4, and it is not the reason.
+Zen 5 is not narrower &mdash; its desktop parts are reported to have widened
+that path &mdash; and Zen 5 measured at zero, not at some fraction of a win. If
+width were the binding constraint, relieving it would have shown something.
+
+What remains is a property of the loops rather than of any CPU, which is why it
+is expected to hold on Intel too:
+
+1. <b>The same two constraints as the AVX2 analysis above, unchanged.</b> The
+   table-search kernels are bounded by @c IXMAX_VAL and already run eight 16-bit
+   lanes at the SSE2 baseline; the band-noise kernel is gather-bound and its
+   reduction is pinned to the narrower tier's association. Doubling the register
+   width relieves none of that. Stage 2 is the demonstration: unpinning the
+   reduction is what widening actually requires, and doing so cost the tier its
+   correctness.
+
+2. <b>Amdahl.</b> What was left to win after AVX2 is a small share of the encode,
+   and a fraction of a small share is not measurable against run-to-run spread.
+
+Zen 4's halved datapath is then a third-order detail. It explains why Zen 4
+landed slightly on the wrong side of zero rather than exactly on it.
+
+@subsection vector_dispatch_avx512_open What is still open
+
+One controlled measurement on Intel hardware.
+
+The Ice Lake report is the only Intel number there is, and the caveats under the
+measurement above are the reason it does not settle anything by itself. What
+would settle it is the protocol the Zen 5 report used: many runs each way under
+a harness that reports a spread, on a part that is not thermally constrained, on
+16-bit stereo 44.1&nbsp;kHz music. If a gain of that size reproduces, the ladder
+grows a rung and this section is wrong. If it collapses towards zero, the
+question is closed.
+
+The reasoning predicts zero. Intel's full-width parts remove the datapath
+argument &mdash; but the Zen 5 result has already shown that argument was not
+the binding one, and what is left is the two loop-level constraints above.
+
+Two notes on scope. Intel's client parts have carried AVX-512 only within a
+window &mdash; Ice Lake through Tiger Lake and Rocket Lake, withdrawn from Alder
+Lake onwards, and not returning until AVX10 &mdash; so the machine that produced
+the outlying number is from that window rather than representative of current
+client hardware, and Zen 4 and Zen 5 remain most of the population such a tier
+would reach. And the stage-2 failure is not a performance question at all: it
+would have to be resolved before any Intel number could put the band-noise
+routine back on the table, however fast it ran.
+
 @section vector_dispatch_consequence Consequence
 
 There is no @c VECTOR_IMPL_SSE41 / @c VECTOR_IMPL_SSE42 enumerator, no configure
@@ -124,4 +280,10 @@ probe and no dispatch branch for them. Every x86-64 CPU, and every 32-bit x86 CP
 since 2001, receives the full table-search and quantization win at the SSE2
 baseline the build already guarantees; AVX2 adds a further 6&ndash;8% on constant
 bitrate and nothing measurable on variable bitrate.
+
+There is no @c VECTOR_IMPL_AVX512 enumerator either, for a different reason: not
+that the case was never made, but that it was built, taken to three machines and
+measured, and came back at zero on the two that could measure it precisely.
+AVX2 is the top of the ladder, with one controlled Intel measurement outstanding
+against that.
 */
