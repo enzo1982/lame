@@ -1,13 +1,20 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Regression test for the AIFF FORM-size integer-underflow guard in
+ * @brief Regression tests for two ways a crafted AIFF header is rejected by
  *        @c parse_aiff_header() (@c frontend/get_audio.c).
  *
  * A crafted AIFF/AIFC whose FORM chunk size is < 4 underflowed
  * @c ui32_ChunkSize on the first "- 4" accounting step, wrapping it to ~4.29e9
  * and driving the chunk loop through ~1e9 iterations (one @c fread each) before
  * returning -1. The guard rejects such a file up front.
+ *
+ * A COMM chunk's 80-bit extended sample rate reaches lame as an @c int, and the
+ * conversion is undefined for anything outside that type's range: an infinity,
+ * a finite value that is merely too large, or a negative one. Each is rejected
+ * as a malformed field. The rates below are read back from a stream at run
+ * time rather than written as constants, so the fast floating point maths the
+ * frontend is built with cannot fold one away before the parser sees it.
  *
  * @c parse_aiff_header() is static, so the reader is compiled directly into the
  * test. @c fread() is wrapped because its return value alone cannot distinguish
@@ -104,6 +111,36 @@ put_be32(unsigned char *p, uint32_t v)
     p[3] = (unsigned char) (v);
 }
 
+/* --- fixtures ---------------------------------------------------------- */
+
+/** @brief Offset of the 80-bit extended sample rate within ::valid_aiff. */
+#define AIFF_RATE_OFFSET 24
+
+/**
+ * @brief A minimal well-formed AIFF, from just past the "FORM" magic.
+ *
+ * Post-"FORM" bytes: size + "AIFF" + COMM(18) + SSND(8) = 46 bytes.
+ */
+static const unsigned char valid_aiff[] = {
+    0x00, 0x00, 0x00, 0x2e,                         /* FORM size = 46 */
+    'A', 'I', 'F', 'F',
+    'C', 'O', 'M', 'M',
+    0x00, 0x00, 0x00, 0x12,                         /* cksize = 18 */
+    0x00, 0x02,                                     /* numChannels = 2 */
+    0x00, 0x00, 0x00, 0x04,                         /* numSampleFrames */
+    0x00, 0x10,                                     /* sampleSize = 16 */
+    0x40, 0x0e, 0xac, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* 44100 */
+    'S', 'S', 'N', 'D',
+    0x00, 0x00, 0x00, 0x08,                         /* cksize = 8 */
+    0x00, 0x00, 0x00, 0x00,                         /* offset = 0 */
+    0x00, 0x00, 0x00, 0x00                          /* blockSize = 0 */
+};
+
+/** @brief The rate ::valid_aiff declares, so ::AIFF_RATE_OFFSET stays anchored. */
+static const unsigned char rate_44100[10] = {
+    0x40, 0x0e, 0xac, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
 /* --- tests ------------------------------------------------------------- */
 
 /**
@@ -147,22 +184,7 @@ static void
 test_valid_aiff_accepted(void **state)
 {
     lame_t gfp = (lame_t) *state;
-    /* post-"FORM" bytes: size + "AIFF" + COMM(18) + SSND(8) = 46 bytes */
-    static const unsigned char aiff[] = {
-        0x00, 0x00, 0x00, 0x2e,                         /* FORM size = 46 */
-        'A', 'I', 'F', 'F',
-        'C', 'O', 'M', 'M',
-        0x00, 0x00, 0x00, 0x12,                         /* cksize = 18 */
-        0x00, 0x02,                                     /* numChannels = 2 */
-        0x00, 0x00, 0x00, 0x04,                         /* numSampleFrames */
-        0x00, 0x10,                                     /* sampleSize = 16 */
-        0x40, 0x0e, 0xac, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* 44100 */
-        'S', 'S', 'N', 'D',
-        0x00, 0x00, 0x00, 0x08,                         /* cksize = 8 */
-        0x00, 0x00, 0x00, 0x00,                         /* offset = 0 */
-        0x00, 0x00, 0x00, 0x00                          /* blockSize = 0 */
-    };
-    FILE *sf = aiff_stream(aiff, sizeof aiff);
+    FILE *sf = aiff_stream(valid_aiff, sizeof valid_aiff);
     int   r;
 
     fread_calls = 0;
@@ -175,6 +197,64 @@ test_valid_aiff_accepted(void **state)
         fail_msg("parse_aiff_header spun on a valid AIFF header");
     }
     fclose(sf);
+}
+
+/**
+ * @brief A sample rate that cannot become an @c int must be rejected.
+ *
+ * Each case is ::valid_aiff with only the rate field replaced, so the header is
+ * acceptable in every other respect and the rate is the sole reason for the
+ * refusal. Without the range check the value is handed to @c (int) instead,
+ * whose result is undefined, and the header parses far enough to return 0.
+ *
+ * @param state fixture state holding an initialised @c lame_t.
+ */
+static void
+test_unrepresentable_sample_rate_rejected(void **state)
+{
+    lame_t  gfp = (lame_t) *state;
+    static const struct {
+        char const *what;
+        unsigned char rate[10];
+    } cases[] = {
+        /* an all-ones exponent is an infinity */
+        { "infinity",
+          { 0x7f, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
+        /* the same exponent with a mantissa, which the reader also reads as one */
+        { "not a number",
+          { 0x7f, 0xff, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
+        /* finite, but 2^40 Hz is far past INT_MAX */
+        { "2^40 Hz",
+          { 0x40, 0x27, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } },
+        /* an ordinary 44100 with the sign bit set */
+        { "-44100 Hz",
+          { 0xc0, 0x0e, 0xac, 0x44, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } }
+    };
+    size_t  i;
+
+    /* the rate field has not moved out from under this test */
+    assert_memory_equal(valid_aiff + AIFF_RATE_OFFSET, rate_44100,
+                        sizeof rate_44100);
+
+    /* a valid FORM size bounds the chunk loop, so the spin trap is not needed */
+    spin_trap_armed = 0;
+
+    for (i = 0; i < sizeof cases / sizeof cases[0]; ++i) {
+        unsigned char hdr[sizeof valid_aiff];
+        FILE   *sf;
+        int     r;
+
+        memcpy(hdr, valid_aiff, sizeof hdr);
+        memcpy(hdr + AIFF_RATE_OFFSET, cases[i].rate, sizeof cases[i].rate);
+        sf = aiff_stream(hdr, sizeof hdr);
+
+        r = parse_aiff_header(gfp, sf);
+        if (r != -1) {
+            fail_msg("a sample rate of %s was accepted (returned %d)",
+                     cases[i].what, r);
+        }
+        fclose(sf);
+    }
 }
 
 /* --- fixture ----------------------------------------------------------- */
@@ -198,7 +278,7 @@ teardown_lame(void **state)
     return 0;
 }
 
-/** @brief Registers and runs the AIFF-underflow test group. */
+/** @brief Registers and runs the AIFF header-rejection test group. */
 int
 main(void)
 {
@@ -206,6 +286,8 @@ main(void)
         cmocka_unit_test_setup_teardown(test_undersized_form_size_rejected,
                                         setup_lame, teardown_lame),
         cmocka_unit_test_setup_teardown(test_valid_aiff_accepted,
+                                        setup_lame, teardown_lame),
+        cmocka_unit_test_setup_teardown(test_unrepresentable_sample_rate_rejected,
                                         setup_lame, teardown_lame),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);

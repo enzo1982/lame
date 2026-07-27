@@ -1705,6 +1705,13 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
                 || read_16_bits_high_low(sf, &ui16_sampleSize)
                 || read_ieee_extended_high_low(sf, &aiff_info.sampleRate))
                 return -1;
+            /* The rate reaches lame as an int below, and a value outside that
+               range has no defined conversion - including the infinity an
+               all-ones exponent decodes to. INT_MAX is exact as a double on
+               any target with an int of 53 bits or fewer. */
+            if (!(aiff_info.sampleRate >= 1
+                  && aiff_info.sampleRate <= (double) INT_MAX))
+                return -1;
             aiff_info.numChannels = (short) ui16_numChannels;
             aiff_info.numSampleFrames = ui32_numSampleFrames;
             aiff_info.sampleSize = (short) ui16_sampleSize;
