@@ -16,7 +16,7 @@ opened. The solution "vs_lame.slnx" contains the following projects:
 - libmp3lame: The dynamic library libmp3lame.dll
 - libmp3lame-static: The static library variant of the above
 - mp3rtp: command line tool to stream mp3 via RTP protocol
-- mp3x: mp3 frame analyzer tool using GTK1 (see below)
+- mp3x: mp3 frame analyzer tool using GTK 4 (see below)
 
 The solution "vs_lame_clients.slnx" contains several more projects:
 
@@ -101,24 +101,37 @@ version of libmpg123. Alternatively you can use the `HaveMpg123` as is
 archives for 32-bit and 64-bit into the "vc_solution\mpg123\Win32\" and
 "vc_solution\mpg123\x64\" folders.
 
-### GTK1
+### GTK 4
 
-The mp3x graphical frame analyzer uses GTK1 for the user interface. One of the
-few still available ports to Windows is "GTK1 for Windows", which can be used
-to compile mp3x. You can download version 1.4 here:
-https://sourceforge.net/projects/gtk1-win/
+The mp3x graphical frame analyzer uses GTK 4 for the user interface, and needs
+version 4.10 or later. GTK 4 is not distributed as a ready-made MSVC SDK; the
+practical way to get one is gvsbuild, which builds GTK and its dependencies
+with MSVC and installs them under a single prefix:
+https://github.com/wingtk/gvsbuild
 
-Extract the zip archive in any folder; it holds a `gtk` folder with the `gdk`,
-`glib` and `gtk` subfolders inside. Open the file
-"lame/vc_solution/vs_gtk_config.props" and edit the following two user macro
-parameters:
+Its releases page also publishes the finished build as an archive, whose root
+already is such a prefix - `include`, `lib` and `bin` directly inside - so
+unpacking it is the whole setup and no source build is needed.
+
+Extract it into the "vc_solution\gtk4\x64\" folder, the same way as mpg123 and
+libsndfile above. Then open the file "lame/vc_solution/vs_gtk_config.props" and
+edit the following two user macro parameters:
 
 - The value of `HaveGtk` can be set to false or true, and specifies whether
-  GTK1 is available and mp3x can be built. mp3x is not selected for building in
-  the solution by default, since it needs this download.
-- `WinGtkPath` specifies the path to the folder that contains the `gtk` folder,
-  ending the path with a backslash. The default is `.\WinGtk\`, so extracting
-  the archive into "vc_solution\WinGtk\" needs no change.
+  GTK 4 is available and mp3x can be built. mp3x is not selected for building
+  in the solution by default, since it needs this build.
+- `Gtk4Path` specifies the install prefix (the default value is
+  `.\gtk4\$(Platform)`) if you keep GTK 4 elsewhere. Do not end it with a
+  backslash: the paths built from it supply their own separator, so that the
+  value can be quoted against spaces.
+
+The build copies the DLLs from the prefix's `bin` folder next to mp3x.exe, so
+the analyzer runs without a separate PATH setting.
+
+mp3x is built for x64 only. gvsbuild publishes GTK 4 for x64 and for no other
+architecture, so a 32-bit mp3x would have nothing to link against. For the
+same reason Makefile.MSVC, which targets 32-bit x86, does not build mp3x at
+all; use this solution or the autotools build for the analyzer.
 
 As described above, you can also use the Property Manager view to change the
 values.

@@ -125,8 +125,9 @@ to point it at the toolchain.
 The Windows cells cover:
 
 - **nmake** (`Makefile.MSVC`): a default build, plus one build per optional
-  library that is present &mdash; the decoder (`MPG123=YES`), libsndfile
-  (`SNDFILE=YES`), and the mp3x analyzer (`GTK=YES`). These build
+  library that is present &mdash; the decoder (`MPG123=YES`) and libsndfile
+  (`SNDFILE=YES`). It has no analyzer cell: `Makefile.MSVC` is 32-bit and GTK 4
+  is published for x64 only, so it does not build mp3x at all. These build
   **out-of-tree** inside the cell directory: `Makefile.MSVC` accepts
   `srcdir=<path>` and writes all intermediates into the build directory, so
   nothing lands in the source tree. This is the 32-bit build (`Makefile.MSVC`'s
@@ -146,9 +147,21 @@ The optional libraries are looked for under `vc_solution` where
 simply drops its cells, so the matrix runs with whatever is installed.
 
 The solution carries the `mp3x` analyzer project but leaves it unselected,
-since it needs GTK1, which LAME does not ship. When a GTK1 build is present the
-generator builds the project on its own (Win32 only) rather than through the
+since it needs a GTK build that LAME does not ship. When one is present the
+generator builds the project on its own (x64 only) rather than through the
 solution, so the analyzer is exercised without being forced on everyone else.
+
+`mp3x` is the same GTK 4 program on every toolchain, and on Windows it is built
+by the Visual Studio solution alone. It is **x64 only**: gvsbuild publishes GTK 4
+for x64 and for no other architecture, so a 32-bit analyzer would have nothing
+to link against &mdash; which is also why `Makefile.MSVC`, whose native target is
+32-bit x86, no longer builds it.
+
+Getting a GTK 4 for MSVC does not require building one. The gvsbuild releases
+page publishes the finished x64 build as an archive whose root is already an
+install prefix, so unpacking it into `vc_solution\gtk4\x64` &mdash; the same
+place and the same way as mpg123 and libsndfile &mdash; is the whole setup, and
+`setup-windows-deps.ps1` does exactly that.
 
 The decoder-on nmake cell needs an import library beside `mpg123.h`, not just
 the header; the generator says so and skips that one cell when only the header

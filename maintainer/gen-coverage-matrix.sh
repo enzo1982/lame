@@ -160,13 +160,12 @@ else
 	echo "$prog:          optional dependencies; generating all cells." >&2
 fi
 
-# GTK for the mp3x analyzer frontend. configure.ac uses AM_PATH_GTK(1.2.0),
-# the GTK *1.2* macro, which discovers through gtk-config rather than
-# pkg-config - probing for a pkg-config gtk+-N.0 package answers a different
-# question and always answers it wrongly.
-have_gtk=no
-if command -v gtk-config >/dev/null 2>&1; then
-	have_gtk=yes
+# GTK for the mp3x analyzer frontend. Ask exactly what configure.ac asks:
+# PKG_CHECK_MODULES([GTK], [gtk4 >= 4.10]). Probing for a bare gtk4 answers a
+# different question than the one that decides whether the cell can build.
+have_gtk=unknown
+if [ -n "$pkgconf" ]; then
+	"$pkgconf" --exists 'gtk4 >= 4.10' 2>/dev/null && have_gtk=yes || have_gtk=no
 fi
 
 # --- configuration cells ----------------------------------------------------
@@ -190,7 +189,7 @@ fi
 #             default in every build on every platform, so it is otherwise
 #             never exercised anywhere.
 # mp3rtp      the mp3rtp frontend, not built by default.
-# mp3x        the GTK frame analyzer, not built by default. Needs GTK 1.2 and
+# mp3x        the GTK frame analyzer, not built by default. Needs GTK 4 and
 #             the analyzer hooks, so it is mutually exclusive with noanalyzer.
 # debug       debug-only code paths (--enable-debug=alot).
 #
@@ -276,7 +275,7 @@ info="$master_abs/matrix-info.txt"
 	echo "libmpg123 present  = $have_mpg123"
 	echo "libsndfile present = $have_sndfile"
 	echo "cmocka present     = $have_cmocka"
-	echo "GTK 1.2 (gtk-config) present = $have_gtk"
+	echo "GTK 4 (>= 4.10) present = $have_gtk"
 	echo "cells:"
 } > "$info"
 
@@ -291,7 +290,7 @@ cells | while IFS='|' read -r cell args; do
 	elif cell_needs_sndfile "$args" && [ "$have_sndfile" = no ]; then
 		skip_reason="libsndfile missing"
 	elif cell_needs_gtk "$args" && [ "$have_gtk" = no ]; then
-		skip_reason="GTK 1.2 missing (AM_PATH_GTK/gtk-config); this frontend is then not coverable on this host at all"
+		skip_reason="GTK 4 >= 4.10 missing; this frontend is then not coverable on this host at all"
 	fi
 	if [ -n "$skip_reason" ]; then
 		echo "  [skip] $cell ($skip_reason)" >> "$info"
@@ -393,7 +392,7 @@ echo "Matrix info: $info"
 
 if [ "$have_gtk" = no ]; then
 	echo
-	echo "NOTE: GTK 1.2 not found (configure uses AM_PATH_GTK/gtk-config)."
+	echo "NOTE: GTK 4 >= 4.10 not found (configure uses PKG_CHECK_MODULES)."
 	echo "      The mp3x frontend cannot be built or covered on this host."
 fi
 

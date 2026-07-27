@@ -20,7 +20,6 @@ EXTRA_DIST = \
 	LICENSE \
 	Makefile.MSVC \
 	Makefile.am.global \
-	README.WINGTK \
 	STYLEGUIDE \
 	USAGE \
 	configMS.h \

@@ -4,15 +4,17 @@
   nmake builds look for them, from archives you have already downloaded.
 
 .DESCRIPTION
-  libsndfile, mpg123 and GTK1 are each distributed as a zip that unpacks into a
-  versioned wrapper folder. The build instead looks in a fixed place per
-  dependency and platform (vc_solution\libsndfile\<Platform>,
-  vc_solution\mpg123\<Platform>, vc_solution\WinGtk). This script extracts each
-  archive it is given into that place, dropping the wrapper.
+  libsndfile, mpg123 and GTK 4 are each distributed as a zip. The build looks
+  in a fixed place per dependency and platform (vc_solution\libsndfile\
+  <Platform>, vc_solution\mpg123\<Platform>, vc_solution\gtk4\<Platform>). This
+  script extracts each archive it is given into that place, dropping the
+  wrapper folder where the archive has one.
+
+  GTK 4 is published for x64 only, which is why mp3x is built for x64 only.
 
   Nothing is downloaded. Pass the folder holding the archives you fetched; for
   any dependency whose archive is not there, the script prints where to get it.
-  All three destinations are git-ignored and never committed.
+  All destinations are git-ignored and never committed.
 
   The per-platform folders are named Win32 and x64 to match the build's
   $(Platform); the casing is only for readability, since the Windows file
@@ -37,8 +39,8 @@ $Dest = (Resolve-Path $Dest).Path
 $From = (Resolve-Path $From).Path
 
 # name | download URL | archive glob in $From | destination under $Dest | flatten
-#   flatten strips the single wrapper folder the archive unpacks into; GTK is
-#   laid down whole because the build path includes its wrapper (gtk\).
+#   flatten strips the single wrapper folder the archive unpacks into; the
+#   gvsbuild archive needs none, its root already is the install prefix.
 $deps = @(
 	@{ Name = "libsndfile (32-bit)"; Url = "https://libsndfile.github.io/libsndfile/"
 	   Glob = "libsndfile-*-win32.zip"; To = "libsndfile\Win32"; Flatten = $true }
@@ -48,8 +50,8 @@ $deps = @(
 	   Glob = "mpg123-*-x86.zip";     To = "mpg123\Win32";       Flatten = $true }
 	@{ Name = "mpg123 (64-bit)";     Url = "https://mpg123.de/download/win32/"
 	   Glob = "mpg123-*-x86-64.zip";  To = "mpg123\x64";         Flatten = $true }
-	@{ Name = "GTK1 for Windows";    Url = "https://sourceforge.net/projects/gtk1-win/"
-	   Glob = "gtkwin-*.zip";         To = "WinGtk";             Flatten = $false }
+	@{ Name = "GTK 4 (64-bit)";      Url = "https://github.com/wingtk/gvsbuild/releases"
+	   Glob = "GTK4_Gvsbuild_*_x64.zip"; To = "gtk4\x64";        Flatten = $false }
 )
 
 function Place-Dep($dep) {

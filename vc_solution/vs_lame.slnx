@@ -15,7 +15,7 @@
     <Build Solution="*|x64" Project="false" />
   </Project>
   <Project Path="vs_lame_mp3x.vcxproj">
-    <Platform Project="Win32" />
+    <Platform Project="x64" />
     <Build Project="false" />
   </Project>
   <Project Path="vs_libmp3lame.vcxproj">

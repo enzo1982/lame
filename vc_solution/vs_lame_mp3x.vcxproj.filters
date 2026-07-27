@@ -20,19 +20,22 @@
     <ClCompile Include="..\frontend\get_audio.c">
       <Filter>Source</Filter>
     </ClCompile>
-    <ClCompile Include="..\frontend\gpkplotting.c">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="..\frontend\gtkanal.c">
-      <Filter>Source</Filter>
-    </ClCompile>
     <ClCompile Include="..\frontend\lametime.c">
       <Filter>Source</Filter>
     </ClCompile>
     <ClCompile Include="..\frontend\main.c">
       <Filter>Source</Filter>
     </ClCompile>
-    <ClCompile Include="..\frontend\mp3x.c">
+    <ClCompile Include="..\frontend\mp3x_core.c">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\frontend\mp3x_plot.c">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\frontend\mp3x_session.c">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\frontend\mp3x_ui.c">
       <Filter>Source</Filter>
     </ClCompile>
     <ClCompile Include="..\frontend\parse.c">
@@ -55,13 +58,19 @@
     <ClInclude Include="..\frontend\get_audio.h">
       <Filter>Include</Filter>
     </ClInclude>
-    <ClInclude Include="..\frontend\gpkplotting.h">
-      <Filter>Include</Filter>
-    </ClInclude>
     <ClInclude Include="..\frontend\lametime.h">
       <Filter>Include</Filter>
     </ClInclude>
     <ClInclude Include="..\frontend\main.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\frontend\mp3x_core.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\frontend\mp3x_plot.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\frontend\mp3x_session.h">
       <Filter>Include</Filter>
     </ClInclude>
     <ClInclude Include="..\frontend\parse.h">
@@ -75,6 +84,5 @@
     <ResourceCompile Include="..\libmp3lame\lame.rc" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\README.WINGTK" />
   </ItemGroup>
 </Project>

@@ -13,9 +13,11 @@ and analyzer hooks:
     make
     ./frontend/mp3x [LAME options] [input.wav|input.aiff|input.mp3|-]
 
-The legacy GTK 1.2 sources remain in release archives through `EXTRA_DIST`,
-but are not compiled. `mp3x_ui.c`, `mp3x_plot.c`, `mp3x_core.c`, and
-`mp3x_session.c` are the only implementation units for the GTK4 executable.
+`mp3x_ui.c`, `mp3x_plot.c`, `mp3x_core.c`, and `mp3x_session.c` are the only
+implementation units. Comments in them cite `gtkanal.c` and `gpkplotting.c`
+where a constant, a default, or a transform reproduces the behaviour of the
+predecessor those files implemented; the files themselves are gone from the
+tree and are reachable through the version history.
 
 Architecture and lifetime
 -------------------------

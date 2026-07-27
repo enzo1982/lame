@@ -20,8 +20,6 @@ noinst_HEADERS = \
 	brhist.h \
 	console.h \
 	get_audio.h \
-	gtkanal.h \
-	gpkplotting.h \
 	mp3x_core.h \
 	mp3x_plot.h \
 	mp3x_session.h \
@@ -33,20 +31,13 @@ noinst_HEADERS = \
 
 lame_SOURCES = lame_main.c $(common_sources)
 mp3rtp_SOURCES = mp3rtp.c rtp.c $(common_sources)
-# The frame analyzer is now the GTK4 frontend (mp3x_ui.c + mp3x_plot.c)
-# driving the toolkit-independent analyzer engine (mp3x_core.c).  The
-# per-file session lifecycle (open/close/replace, async File dialog
-# integration, frontend-global baseline management) lives in
-# mp3x_session.c.  The program keeps its name, so
-# "configure --enable-mp3x && make && ./mp3x" is unchanged for anyone
-# building it.
+# The frame analyzer is the GTK4 frontend (mp3x_ui.c + mp3x_plot.c) driving
+# the toolkit-independent analyzer engine (mp3x_core.c).  The per-file
+# session lifecycle (open/close/replace, async File dialog integration,
+# frontend-global baseline management) lives in mp3x_session.c.
 mp3x_SOURCES = mp3x_ui.c mp3x_plot.c mp3x_core.c mp3x_session.c $(common_sources)
 
-# The superseded GTK 1.2 implementation.  It is no longer compiled, but it
-# is still shipped: naming it here keeps "make dist" including it, since
-# automake only distributes files some target actually mentions.  Dropping
-# this line would remove GTK1 support from the tarball by accident.
-EXTRA_DIST = mp3x.c gtkanal.c gpkplotting.c README.mp3x-gtk4
+EXTRA_DIST = README.mp3x-gtk4
 
 CFLAGS = @CFLAGS@ @GTK_CFLAGS@ @FRONTEND_CFLAGS@ @SNDFILE_CFLAGS@
 LDFLAGS = @LDFLAGS@ @FRONTEND_LDFLAGS@ @FRONTEND_UNICODE_LDFLAGS@ @SNDFILE_LIBS@

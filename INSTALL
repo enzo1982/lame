@@ -155,8 +155,9 @@ There are MSVC project files, and a Makefile.MSVC included with the
 project.  For production use, be sure to compile a "Release" target, 
 with the "maximum speed" compile option.   
 
-It is possible to compile the GTK frame analyzer under windows, see
-README.WINGTK
+The GTK frame analyzer mp3x is built from the Visual Studio solution in
+vc_solution, which needs GTK 4; see vc_solution/README.vs.txt. Makefile.MSVC
+does not build it.
 
 Various build options can be set in configMS.h
 

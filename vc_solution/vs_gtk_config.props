@@ -1,31 +1,40 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="UserMacros">
-    <!-- GTK1 for the mp3x analyzer; set HaveGtk to true and adjust the path,
-         ending with a backslash. WinGtkPath holds the gtk1-win tree: a gtk
-         folder with gdk, glib and gtk inside. -->
+    <!-- GTK 4 for the mp3x analyzer; set HaveGtk to true and extract a GTK 4
+         install prefix into vc_solution\gtk4\x64, or point Gtk4Path elsewhere.
+         The layout expected is the one gvsbuild
+         (https://github.com/wingtk/gvsbuild) produces - include\ and lib\
+         directly under the prefix, DLLs in bin\ - and its releases page
+         publishes that as a ready-made archive. mp3x is x64 only, because
+         that is the only architecture GTK 4 for MSVC is published for.
+
+         The paths below supply their own separator, so that Gtk4Path can be
+         quoted against spaces: a path quoted with a trailing backslash would
+         escape the closing quote. That is not hypothetical - it is exactly how
+         a /p:Gtk4Path="...\" on an MSBuild command line silently loses the
+         value and the build then cannot find gtk/gtk.h. -->
     <HaveGtk>false</HaveGtk>
-    <WinGtkPath>./WinGtk/</WinGtkPath>
+    <Gtk4Path>.\gtk4\$(Platform)</Gtk4Path>
   </PropertyGroup>
   <ItemGroup>
     <BuildMacro Include="HaveGtk">
       <Value>$(HaveGtk)</Value>
     </BuildMacro>
-    <BuildMacro Include="WinGtkPath">
-      <Value>$(WinGtkPath)</Value>
+    <BuildMacro Include="Gtk4Path">
+      <Value>$(Gtk4Path)</Value>
     </BuildMacro>
   </ItemGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories Condition="$(HaveGtk) == 'true'">$(WinGtkPath)gtk;$(WinGtkPath)gtk\glib;$(WinGtkPath)gtk\gdk;$(WinGtkPath)gtk\glib\glib;$(WinGtkPath)gtk\build\vcpp\glib;$(WinGtkPath)gtk\build\vcpp\gdk</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="$(HaveGtk) == 'true'">$(Gtk4Path)\include\gtk-4.0;$(Gtk4Path)\include\glib-2.0;$(Gtk4Path)\lib\glib-2.0\include;$(Gtk4Path)\include\pango-1.0;$(Gtk4Path)\include\cairo;$(Gtk4Path)\include\gdk-pixbuf-2.0;$(Gtk4Path)\include\graphene-1.0;$(Gtk4Path)\lib\graphene-1.0\include;$(Gtk4Path)\include\harfbuzz;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <!-- Deliberately only use the Debug version of gtk1-win, since the release libs have some missing symbols -->
-      <AdditionalLibraryDirectories Condition="$(HaveGtk) == 'true'">$(WinGtkPath)gtk\build\vcpp\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies Condition="$(HaveGtk) == 'true'">gdk.lib;gtk.lib;glib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories Condition="$(HaveGtk) == 'true'">$(Gtk4Path)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies Condition="$(HaveGtk) == 'true'">gtk-4.lib;gobject-2.0.lib;glib-2.0.lib;gio-2.0.lib;cairo.lib;pango-1.0.lib;pangocairo-1.0.lib;gdk_pixbuf-2.0.lib;graphene-1.0.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command Condition="$(HaveGtk) == 'true'">xcopy /y "$(WinGtkPath)gtk\build\vcpp\Debug\*.dll" "$(OutputPath)"</Command>
+      <Command Condition="$(HaveGtk) == 'true'">xcopy /y /d "$(Gtk4Path)\bin\*.dll" "$(OutputPath)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
 </Project>

@@ -8,7 +8,7 @@
 
 #__ readme ____________________________________________________________________
 #	nmake -f Makefile.MSVC
-#		-> build lame, but not mp3x
+#		-> build lame
 #		-> use Robert's code modifications
 #		-> assume MSVC 6.0 compiler available
 #		-> no compiler warnings
@@ -21,12 +21,16 @@
 #	CPU=P1                     ->  optimize for Pentium instead of P II/III
 #	CPU=P2                     ->  optimize for Pentium II/III, you need a PII or better
 #	CPU=P3                     ->  optimize for Pentium III, you need a PIII or better
-#	GTK=YES                    ->  have GTK, adds mp3x to default targets
 #	PREC=<anything but SINGLE> ->  use double instead of single float
 #	SNDFILE=<anything but YES> ->  do not use LibSndfile for reading input files
 #
 #	Example:
-#	nmake -f Makefile.MSVC CPU=P1 GTK=YES
+#	nmake -f Makefile.MSVC CPU=P1
+#
+#	This makefile does not build the mp3x frame analyzer. mp3x needs GTK 4,
+#	and the only GTK 4 published for MSVC is 64-bit, while the link options
+#	below target 32-bit x86. Build mp3x from the Visual Studio solution in
+#	vc_solution\ (x64), or with the autotools build.
 #____________________________________________________________________ readme __
 
 
@@ -42,7 +46,6 @@ srcdir = .
 #	targets <-> DOS filenames
 
 T_LAME = lame.exe
-T_MP3X = mp3x.exe
 T_MP3RTP = mp3rtp.exe
 T_DLL = libmp3lame.dll
 T_LIB_DYNAMIC = libmp3lame.lib
@@ -59,9 +62,6 @@ PGM = $(T_LAME)
 
 !	IF "$(MSVCVER)" != ""
 COMP = MS
-!	IF "$(MSVCVER)" == "Win64"
-GTK = NO
-!	ENDIF
 !	ELSE
 !	IF "$(COMP)" == ""
 COMP = MSVC
@@ -100,9 +100,6 @@ LIB_OPTS = /nologo $(MACHINE)
 !	 MESSAGE building LAME
 !	ELSE
 !	 MESSAGE building LAME featuring $(CFG)
-!	ENDIF
-!	IF "$(GTK)" == "YES"
-!	 MESSAGE + GTK
 !	ENDIF
 !	IF "$(COMP)" == "INTEL"
 !	 MESSAGE using INTEL COMPILER
@@ -377,33 +374,6 @@ CPP_OPTS = /DHAVE_CONFIG_H -I.
 
 
 
-#__ FRAME ANALYZER SUPPORT ____________________________________________________
-#
-#	The mp3x frame analyzer needs GTK1. Point GTK_DIR at the gtk folder of an
-#	unpacked gtk1-win tree (https://sourceforge.net/projects/gtk1-win/), e.g.:
-#	    nmake -f Makefile.MSVC GTK=YES GTK_DIR=.\vc_solution\WinGtk\gtk
-#	Only the Debug import libraries are usable; the release ones are missing
-#	symbols. The paths supply their own separator so GTK_DIR can be quoted
-#	against spaces, as MPG123_DIR does below.
-#
-!	IF "$(GTK)" == "YES"
-GTK_OPTS = -I"$(GTK_DIR)\." -I"$(GTK_DIR)\glib\." -I"$(GTK_DIR)\gdk\." \
-           -I"$(GTK_DIR)\glib\glib\." -I"$(GTK_DIR)\build\vcpp\glib\." \
-           -I"$(GTK_DIR)\build\vcpp\gdk\."
-GTK_LIBS = "$(GTK_DIR)\build\vcpp\Debug\gtk.lib" \
-           "$(GTK_DIR)\build\vcpp\Debug\gdk.lib" \
-           "$(GTK_DIR)\build\vcpp\Debug\glib.lib"
-
-PGM = $(T_MP3X) $(PGM)
-!	ELSE
-!	IF "$(GTK)" == ""
-!	MESSAGE Pass GTK=YES to build the frame analyzer. (requires installed GTK)
-!	ENDIF
-!	ENDIF
-#____________________________________________________ FRAME ANALYZER SUPPORT __
-
-
-
 #__ mpg123 DECODING ___________________________________________________________
 #
 #	Decoding support uses the external libmpg123 library (the internal
@@ -456,11 +426,6 @@ LN_SWITCHES = $(LN_OPTS) $(SECURITY_LN_OPTS)
 lame_sources = \
 	frontend/lame_main.c
 
-mpx_sources = \
-	frontend/gpkplotting.c \
-	frontend/gtkanal.c \
-	frontend/mp3x.c
-
 mp3rtp_sources = \
 	frontend/rtp.c \
 	frontend/mp3rtp.c
@@ -512,13 +477,10 @@ ADDL_OBJ = bufferoverflowU.lib
 LIB_OBJ = $(lamelib_sources:.c=.obj)
 CMMN_OBJ = $(common_sources:.c=.obj)
 LAME_OBJ = $(lame_sources:.c=.obj)
-MPX_OBJ = $(mpx_sources:.c=.obj)
 MPRTP_OBJ = $(mp3rtp_sources:.c=.obj)
 DLL_OBJ = $(dll_sources:.c=.obj)
 
-# GTK1 comes last: gtk1-win ships like-named headers (version.h, config.h),
-# so LAME's own must be found first.
-INCLUDES = -I. -I$(srcdir) -I$(srcdir)/include -I$(srcdir)/libmp3lame -I$(srcdir)/mpglib $(GTK_OPTS)
+INCLUDES = -I. -I$(srcdir) -I$(srcdir)/include -I$(srcdir)/libmp3lame -I$(srcdir)/mpglib
 
 #	One path-mapped rule per source subdirectory: sources are read from
 #	$(srcdir)\<sub>\ and the objects are written into .\<sub>\ (the build
@@ -569,9 +531,6 @@ lame.res: $(srcdir)/libmp3lame/lame.rc
 mp3rtp.res: $(srcdir)/libmp3lame/lame.rc
 	@rc.exe /d "NDEBUG" /d "_APP=mp3rtp.exe" /l 0x409 /fo"./frontend/mp3rtp.res" "$(srcdir)/libmp3lame/lame.rc"
 
-mp3x.res: $(srcdir)/libmp3lame/lame.rc
-	@rc.exe /d "NDEBUG" /d "_APP=mp3x.exe" /l 0x409 /fo"./frontend/mp3x.res" "$(srcdir)/libmp3lame/lame.rc"
-
 lame_enc.res: $(srcdir)/libmp3lame/lame.rc
 	@rc.exe /d "NDEBUG" /d "_DLL=lame_enc.dll" /l 0x409 /fo"./frontend/lame_enc.res" "$(srcdir)/libmp3lame/lame.rc"
 
@@ -579,14 +538,6 @@ $(T_LAME) : target_directory config.h $(T_LIB_STATIC) common $(LAME_OBJ) lame.re
 	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(LIBSNDFILE) $(MPG123_LIB) \
 	       $(TARGET_DIR)$(T_LIB_STATIC) $(CMMN_OBJ) $(LAME_OBJ) $(ADDL_OBJ) \
 	       ./frontend/lame.res
-	@echo.
-	@echo --=*  $(TARGET_DIR)$@ ready  *=--
-	@echo.
-
-$(T_MP3X) : target_directory config.h $(T_LIB_STATIC) common $(MPX_OBJ) mp3x.res
-	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(GTK_LIBS) $(LIBSNDFILE) $(MPG123_LIB) \
-	       $(TARGET_DIR)$(T_LIB_STATIC) $(CMMN_OBJ) $(MPX_OBJ) $(ADDL_OBJ) \
-	       ./frontend/mp3x.res
 	@echo.
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
@@ -630,7 +581,6 @@ config.h : $(srcdir)/configMS.h
 
 clean:
 	@-del $(TARGET_DIR)$(T_LAME)
-	@-del $(TARGET_DIR)$(T_MP3X)
 	@-del $(TARGET_DIR)$(T_MP3RTP)
 	@-del $(TARGET_DIR)$(T_DLL)
 	@-del $(TARGET_DIR)$(T_LIB_STATIC)
@@ -653,8 +603,7 @@ rebuild: clean all
 
 lame	:	$(T_LAME)
 lame_enc:	$(T_LEGACY_DLL)
-dll 	:	$(T_DLL) $(T_LEGACY_DLL) 
-mp3x	:	$(T_MP3X)
+dll 	:	$(T_DLL) $(T_LEGACY_DLL)
 mp3rtp	:	$(T_MP3RTP)
 
 

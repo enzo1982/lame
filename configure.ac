@@ -576,13 +576,9 @@ CONFIG_MATH_LIB="${USE_LIBM}"
 
 dnl configure use of features
 
-dnl The frame analyzer (mp3x) is a GTK4 program.  It was originally written
-dnl against GTK 1.2 and probed with AM_PATH_GTK, which drives the obsolete
-dnl gtk-config script.  GTK4 ships pkg-config metadata instead, and
-dnl PKG_CHECK_MODULES substitutes the very same GTK_CFLAGS/GTK_LIBS names
-dnl frontend/Makefile.am already consumes, so nothing downstream of this
-dnl line has to change.  An absent GTK4 must stay non-fatal - it only
-dnl disables mp3x, checked below - hence the explicit not-found action.
+dnl The frame analyzer (mp3x) is a GTK4 program.  An absent GTK4 must stay
+dnl non-fatal - it only disables mp3x, checked below - hence the explicit
+dnl not-found action.
 PKG_CHECK_MODULES([GTK], [gtk4 >= 4.10], [HAVE_GTK="yes"], [HAVE_GTK="no"])
 
 dnl ElectricFence malloc debugging
@@ -677,7 +673,7 @@ AC_MSG_RESULT($CONFIG_ANALYZER)
 
 dnl mpg123 decoder
 AC_ARG_ENABLE(mp3x,
-  [  --enable-mp3x           Build GTK frame analyzer [default=no]],
+  [  --enable-mp3x           Build GTK4 frame analyzer [default=no]],
     enable_mp3x="${enableval}", enable_mp3x=no)
 
 PKG_CHECK_MODULES([mpg123], [libmpg123 >= 1.26.0], [HAVE_MPG123="yes"], [HAVE_MPG123="no"])
@@ -1287,15 +1283,6 @@ if test "$UNAME" = "OS/2"; then
    # please  give feedback!
    #FILE_EXTENSION=".exe"
 
-# Uncomment & inspect the GTK lines to use MP3x GTK frame analyzer.
-# Properly installed XFree86/devlibs & GTK+ is a prerequisite.
-# The following works for me using Xfree86/OS2 3.3.5 and GTK+ 1.2.3:
-#   AC_DEFINE(HAVE_GTK, 1, have GTK)
-#   AC_DEFINE(__ST_MT_ERRNO__, 1)
-#   INCLUDES="-IC:/XFree86/include/gtk12 -IC:/XFree86/include/glib12 \
-#             -IC:/XFree86/include $INCLUDES"
-#   FRONTEND_LDFLAGS="-LC:/XFree86/lib -lgtk12 -lgdk12 -lgmodule -lglib12 \
-#             -lXext -lX11 -lshm -lbsd -lsocket -lm $FRONTEND_LDFLAGS"
 #   FRONTEND_CFLAGS="-Zmtd -Zsysv-signals -Zbin-files $FRONTEND_CFLAGS"
 fi
 

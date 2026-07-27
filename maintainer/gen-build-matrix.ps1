@@ -19,7 +19,7 @@
   Visual Studio is located without an exhaustive disk crawl: -VsPath, else
   vswhere.exe, else an already-initialized developer environment.
 
-  The optional libraries (mpg123, libsndfile, GTK1) each add a cell when they
+  The optional libraries (mpg123, libsndfile, GTK 4) each add a cell when they
   are present. They are looked for under vc_solution (where
   setup-windows-deps.ps1 lays them out), or wherever a -<name>Dir override
   points; a missing one just drops its cell.
@@ -40,8 +40,8 @@
   libsndfile folder with lib\sndfile.lib, overriding the default
   vc_solution\libsndfile\Win32; enables the libsndfile cells.
 .PARAMETER GtkDir
-  gtk1-win gtk folder with build\vcpp\Debug\gtk.lib, overriding the default
-  vc_solution\WinGtk\gtk; enables the mp3x analyzer cells.
+  GTK 4 install prefix with lib\gtk-4.lib (a gvsbuild tree), overriding the
+  default vc_solution\gtk4\x64; enables the mp3x analyzer cell.
 .PARAMETER Config
   MSBuild configurations, comma-separated (default "Release,Debug").
 .PARAMETER Arch
@@ -113,7 +113,7 @@ $sln = Get-ChildItem (Join-Path $SrcDir "vc_solution\*.sln*") -ErrorAction Silen
 if (-not $sln) { Fail "No main solution found under vc_solution\." }
 
 # the mp3x analyzer project, built on its own because the solution leaves it
-# unselected (it needs GTK1, which is not shipped)
+# unselected (it needs GTK 4, which is not shipped)
 $mp3x = Join-Path $SrcDir "vc_solution\vs_lame_mp3x.vcxproj"
 
 # Probe the optional libraries, so that only locally buildable cells are
@@ -139,7 +139,7 @@ if ($mpg123 -and -not $mpg123HasLib) {
 }
 
 $sndfile = Probe-Dep $LibsndfileDir (Join-Path $vcsol "libsndfile\Win32") "lib\sndfile.lib"
-$gtk     = Probe-Dep $GtkDir        (Join-Path $vcsol "WinGtk\gtk")       "build\vcpp\Debug\gtk.lib"
+$gtk     = Probe-Dep $GtkDir        (Join-Path $vcsol "gtk4\x64")        "lib\gtk-4.lib"
 
 # --- master directory -------------------------------------------------------
 
@@ -157,7 +157,7 @@ $info = Join-Path $master "matrix-info.txt"
 	"solution = $sln"
 	"mpg123     = $(if ($mpg123) { $mpg123 } else { '(none - decoder cells skipped)' })"
 	"libsndfile = $(if ($sndfile) { $sndfile } else { '(none - libsndfile cells skipped)' })"
-	"gtk1       = $(if ($gtk) { $gtk } else { '(none - mp3x cells skipped)' })"
+	"gtk4       = $(if ($gtk) { $gtk } else { '(none - mp3x cells skipped)' })"
 	"config   = $Config"
 	"arch     = $Arch"
 	"cells:"
@@ -181,11 +181,8 @@ if ($mpg123 -and $mpg123HasLib) {
 if ($sndfile) {
 	$cells += @{ Name = "nmake-sndfile"; Cmd = "$nmakeCommon SNDFILE=YES SNDFILE_DIR=`"$sndfile`" all" }
 }
-if ($gtk) {
-	# The analyzer is 32-bit and unselected in the solution, so nmake builds it
-	# through its own target with GTK enabled.
-	$cells += @{ Name = "nmake-mp3x"; Cmd = "$nmakeCommon SNDFILE=NO GTK=YES GTK_DIR=`"$gtk`" mp3x" }
-}
+# No nmake mp3x cell: Makefile.MSVC is 32-bit and GTK 4 is published for x64
+# only, so the analyzer is an MSBuild-only target on Windows.
 
 # --- MSBuild cells (Configuration x Platform) -------------------------------
 
@@ -224,10 +221,13 @@ if (Test-Path (Join-Path $vcsol "libsndfile\$p0\lib\sndfile.lib")) {
 		Cmd = "$msbBase /p:HaveLibsndfile=true $msbDirs" }
 }
 if ($gtk) {
-	# The analyzer builds Win32 only and is not in the solution, so build its
-	# project directly with GTK enabled.
-	$cells += @{ Name = "msbuild-Release-Win32-mp3x"
-		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$mp3x`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 /p:HaveGtk=true $msbDirs" }
+	# The analyzer builds x64 only - the published GTK 4 for MSVC is x64 - and
+	# is not selected in the solution, so build its project directly with GTK
+	# enabled and its prefix passed through.
+	$cells += @{ Name = "msbuild-Release-x64-mp3x"
+		# No trailing separator on Gtk4Path: quoted, it would escape the
+		# closing quote and MSBuild would receive no usable value at all.
+		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$mp3x`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=x64 /p:HaveGtk=true /p:Gtk4Path=`"$gtk`" $msbDirs" }
 }
 
 # --- emit cell build.cmd files ----------------------------------------------
@@ -292,7 +292,7 @@ Write-Host "Matrix info: $info"
 $absent = @()
 if (-not $mpg123) { $absent += "mpg123 (decoder)" }
 if (-not $sndfile) { $absent += "libsndfile" }
-if (-not $gtk)     { $absent += "GTK1 (mp3x analyzer)" }
+if (-not $gtk)     { $absent += "GTK4 (mp3x analyzer)" }
 if ($absent.Count -gt 0) {
 	Write-Host ""
 	Write-Host "NOTE: not found, cells skipped: $($absent -join ', ')."

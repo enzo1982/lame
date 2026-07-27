@@ -1,13 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|Win32">
+    <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
-      <Platform>Win32</Platform>
+      <Platform>x64</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|Win32">
+    <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
-      <Platform>Win32</Platform>
+      <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -17,13 +17,13 @@
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
     <PlatformToolset>v145</PlatformToolset>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
@@ -32,20 +32,20 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="vs_gtk_config.props" />
     <Import Project="vs_libmpg123_config.props" />
     <Import Project="vs_lame_config.props" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="vs_gtk_config.props" />
     <Import Project="vs_libmpg123_config.props" />
     <Import Project="vs_lame_config.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>../include;../libmp3lame;../mp3x;../frontend;..;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -60,7 +60,7 @@
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <Optimization>Full</Optimization>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
@@ -82,11 +82,12 @@
     <ClCompile Include="..\frontend\brhist.c" />
     <ClCompile Include="..\frontend\console.c" />
     <ClCompile Include="..\frontend\get_audio.c" />
-    <ClCompile Include="..\frontend\gpkplotting.c" />
-    <ClCompile Include="..\frontend\gtkanal.c" />
     <ClCompile Include="..\frontend\lametime.c" />
     <ClCompile Include="..\frontend\main.c" />
-    <ClCompile Include="..\frontend\mp3x.c" />
+    <ClCompile Include="..\frontend\mp3x_core.c" />
+    <ClCompile Include="..\frontend\mp3x_plot.c" />
+    <ClCompile Include="..\frontend\mp3x_session.c" />
+    <ClCompile Include="..\frontend\mp3x_ui.c" />
     <ClCompile Include="..\frontend\parse.c" />
     <ClCompile Include="..\frontend\timestatus.c" />
   </ItemGroup>
@@ -95,17 +96,16 @@
     <ClInclude Include="..\configMS.h" />
     <ClInclude Include="..\frontend\console.h" />
     <ClInclude Include="..\frontend\get_audio.h" />
-    <ClInclude Include="..\frontend\gpkplotting.h" />
     <ClInclude Include="..\frontend\lametime.h" />
     <ClInclude Include="..\frontend\main.h" />
+    <ClInclude Include="..\frontend\mp3x_core.h" />
+    <ClInclude Include="..\frontend\mp3x_plot.h" />
+    <ClInclude Include="..\frontend\mp3x_session.h" />
     <ClInclude Include="..\frontend\parse.h" />
     <ClInclude Include="..\frontend\timestatus.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\libmp3lame\lame.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\README.WINGTK" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="vs_libmp3lame.vcxproj">

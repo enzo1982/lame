@@ -28,8 +28,8 @@ to run under them.
 - **lcov** (1.x or 2.x) and **genhtml** for the HTML report.
 - **python3** for the input generator and the analysis.
 - Optional, gating individual cells: **libmpg123**, **libsndfile**,
-  **cmocka** (unit tests), **GTK 1.2** (the mp3x analyzer frontend —
-  `configure` finds it through `gtk-config`, not pkg-config).
+  **cmocka** (unit tests), **GTK 4** (>= 4.10, the mp3x analyzer frontend,
+  found through pkg-config).
 
 ## Running it
 
