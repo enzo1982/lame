@@ -40,3 +40,6 @@ was written in. Each has a guide of its own:
 - @ref maintainer_abi - checking the library's exported interface against the
   contract committed in the source tree, so that a change to it is a decision
   rather than an accident.
+- @ref maintainer_check_dist - validating a finished distribution tarball
+  before it is announced: does it unpack, build in every configuration this
+  machine can build, pass its tests, and still describe itself correctly.

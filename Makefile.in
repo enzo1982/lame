@@ -401,6 +401,8 @@ EXTRA_DIST = \
 	testcase.wav \
 	maintainer/abicheck.sh \
 	maintainer/abi/libmp3lame.abi \
+	maintainer/check-dist.sh \
+	maintainer/check-dist.ps1 \
 	maintainer/gen-build-matrix.sh \
 	maintainer/gen-build-matrix.ps1 \
 	maintainer/setup-windows-deps.ps1 \

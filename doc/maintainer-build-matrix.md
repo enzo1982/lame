@@ -78,6 +78,14 @@ sh DIR/build-all.sh
 | `-s SRCDIR` | source dir containing `configure` (default: parent of the script)   |
 | `-c LIST`   | comma-separated compiler list instead of autodetection              |
 | `-j N`      | parallel make jobs per build (default: detected CPU count)          |
+| `-x ARGS`   | extra `configure` arguments appended to every cell                  |
+
+`-x` adds the same option to all cells, after each cell's own arguments &mdash;
+`-x --enable-unit-tests` is the case it was written for, so that every
+configuration can be tested and not just built (@ref maintainer_check_dist uses
+it that way). Nothing there is probed for: if the option needs a library that is
+not installed, `configure` fails in **every** cell rather than skipping them, so
+check the prerequisite before passing it.
 
 Compiler autodetection tries `gcc clang cc` **on `PATH` only** (no filesystem
 search), then de-duplicates by the compiler's `--version` banner, so an alias

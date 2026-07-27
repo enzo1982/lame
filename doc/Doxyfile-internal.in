@@ -39,7 +39,8 @@ INPUT                  = @LAME_SRCDIR@/include \
                          @LAME_SRCDIR@/doc/maintainer-perf.md \
                          @LAME_SRCDIR@/doc/maintainer-quality.md \
                          @LAME_SRCDIR@/doc/maintainer-coverage.md \
-                         @LAME_SRCDIR@/doc/maintainer-abi.md
+                         @LAME_SRCDIR@/doc/maintainer-abi.md \
+                         @LAME_SRCDIR@/doc/maintainer-check-dist.md
 
 # Surface the internals: static functions, otherwise-undocumented entities and
 # @internal-marked notes, plus cross-referenced source and call relations.
