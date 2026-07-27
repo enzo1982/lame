@@ -1286,7 +1286,18 @@ lame_get_compression_ratio(const lame_global_flags * gfp)
  * frame parameters
  */
 
-/* Mark as copyright protected. */
+/*! Set the copyright bit in the frame header. */
+/*!
+  One of the four flag bits every MPEG audio frame header carries. LAME writes
+  it and nothing else acts on it: it is a declaration to whoever reads the
+  file, not a restriction the encoder or a decoder enforces. The same value is
+  copied into the header of the VBR tag frame.
+
+  \param gfp        the encoder instance.
+  \param copyright  1 to set the bit, 0 to clear it. Default 0.
+  \return 0 on success, -1 if the instance is not usable or \a copyright is
+          neither 0 nor 1.
+*/
 int
 lame_set_copyright(lame_global_flags * gfp, int copyright)
 {
@@ -1304,6 +1315,11 @@ lame_set_copyright(lame_global_flags * gfp, int copyright)
     return -1;
 }
 
+/*! Get the copyright bit. */
+/*!
+  \param gfp the encoder instance.
+  \return 0 or 1; 0 if the instance is not usable, which is also the default.
+*/
 int
 lame_get_copyright(const lame_global_flags * gfp)
 {
@@ -1315,7 +1331,20 @@ lame_get_copyright(const lame_global_flags * gfp)
 }
 
 
-/* Mark as original. */
+/*! Set the original bit in the frame header. */
+/*!
+  The companion of \c lame_set_copyright(): the bit that says this is an
+  original recording rather than a copy. LAME writes it into every frame
+  header and into the VBR tag frame, and nothing reads it back.
+
+  Note the default is 1, not 0 - an encode that says nothing claims to be an
+  original.
+
+  \param gfp       the encoder instance.
+  \param original  1 to set the bit, 0 to clear it. Default 1.
+  \return 0 on success, -1 if the instance is not usable or \a original is
+          neither 0 nor 1.
+*/
 int
 lame_set_original(lame_global_flags * gfp, int original)
 {
@@ -1333,6 +1362,12 @@ lame_set_original(lame_global_flags * gfp, int original)
     return -1;
 }
 
+/*! Get the original bit. */
+/*!
+  \param gfp the encoder instance.
+  \return 0 or 1. 0 if the instance is not usable - and since the default is
+          1, a 0 here is worth a second look.
+*/
 int
 lame_get_original(const lame_global_flags * gfp)
 {
@@ -1344,10 +1379,23 @@ lame_get_original(const lame_global_flags * gfp)
 }
 
 
-/*
- * error_protection.
- * Use 2 bytes from each frame for CRC checksum.
- */
+/*! Add a CRC checksum to every frame. */
+/*!
+  Turns on the optional 16-bit CRC over the frame header and side information.
+  It costs **two bytes per frame**, taken out of the space available for audio
+  data, so at a fixed bitrate the audio is encoded slightly more coarsely; it
+  buys a decoder the ability to notice a corrupted frame and mute it instead
+  of playing noise.
+
+  The frame header bit has inverted sense - it is written as *no protection* -
+  so a caller inspecting a bitstream by hand should expect a 0 here to mean
+  the CRC is present.
+
+  \param gfp               the encoder instance.
+  \param error_protection  1 to add the checksum, 0 for none. Default 0.
+  \return 0 on success, -1 if the instance is not usable or the value is
+          neither 0 nor 1.
+*/
 int
 lame_set_error_protection(lame_global_flags * gfp, int error_protection)
 {
@@ -1365,6 +1413,11 @@ lame_set_error_protection(lame_global_flags * gfp, int error_protection)
     return -1;
 }
 
+/*! Get the CRC setting. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 if frames carry a CRC, 0 if not or if the instance is not usable.
+*/
 int
 lame_get_error_protection(const lame_global_flags * gfp)
 {
@@ -1383,12 +1436,23 @@ Padding_type CDECL lame_get_padding_type(const lame_global_flags *);
 #else
 #endif
 
-/*
- * padding_type.
- *  PAD_NO     = pad no frames
- *  PAD_ALL    = pad all frames
- *  PAD_ADJUST = adjust padding
- */
+/*! Choose how frames are padded. */
+/*!
+  \deprecated Obsolete and inert. Padding is not a choice any more: the encoder
+  works out per frame whether a padding slot is needed to keep the average
+  bitrate exact, which is what \c PAD_ADJUST used to name. \c PAD_NO and
+  \c PAD_ALL are gone with it. The declaration is compiled out of the installed
+  header; the definition remains so that programs linked against an older
+  release still resolve it.
+
+  Unlike the other setters this one **reports success unconditionally** -
+  including for an unusable instance - because there is nothing it could fail
+  at.
+
+  \param gfp           ignored.
+  \param padding_type  ignored.
+  \return always 0.
+*/
 int
 lame_set_padding_type(lame_global_flags * gfp, Padding_type padding_type)
 {
@@ -1397,6 +1461,12 @@ lame_set_padding_type(lame_global_flags * gfp, Padding_type padding_type)
     return 0;
 }
 
+/*! Get the padding mode. */
+/*!
+  \deprecated Obsolete; see \c lame_set_padding_type().
+  \param gfp  ignored.
+  \return always \c PAD_ADJUST, whatever was set.
+*/
 Padding_type
 lame_get_padding_type(const lame_global_flags * gfp)
 {
@@ -1405,7 +1475,19 @@ lame_get_padding_type(const lame_global_flags * gfp)
 }
 
 
-/* MP3 'private extension' bit. Meaningless. */
+/*! Set the private bit in the frame header. */
+/*!
+  The fourth header flag, reserved by the standard for private use and given
+  no meaning by it. LAME writes it through to every frame header and to the VBR
+  tag frame, and never looks at it. An application may use it to smuggle one
+  bit past a decoder, at the risk that some other application has already
+  chosen a different meaning for it.
+
+  \param gfp        the encoder instance.
+  \param extension  1 to set the bit, 0 to clear it. Default 0.
+  \return 0 on success, -1 if the instance is not usable or the value is
+          neither 0 nor 1.
+*/
 int
 lame_set_extension(lame_global_flags * gfp, int extension)
 {
@@ -1422,6 +1504,11 @@ lame_set_extension(lame_global_flags * gfp, int extension)
     return -1;
 }
 
+/*! Get the private bit. */
+/*!
+  \param gfp the encoder instance.
+  \return 0 or 1; 0 if the instance is not usable, which is also the default.
+*/
 int
 lame_get_extension(const lame_global_flags * gfp)
 {
@@ -1433,7 +1520,31 @@ lame_get_extension(const lame_global_flags * gfp)
 }
 
 
-/* Enforce strict ISO compliance. */
+/*! Choose how large a bit reservoir the bitstream may rely on. */
+/*!
+  Despite the name this is **not a flag** but a three-way choice from
+  \c buffer_constraint, and it governs exactly one thing: the ceiling LAME
+  respects for `main_data_begin`, i.e. how far back into earlier frames a
+  frame's audio data may reach.
+
+  - \c MDB_DEFAULT - a practical ceiling every decoder in circulation copes
+    with, the size of a 320 kbps 32 kHz frame.
+  - \c MDB_STRICT_ISO - the ceiling the ISO document allows for the layout
+    actually in use. Choose this if the output has to satisfy a conformance
+    checker.
+  - \c MDB_MAXIMUM - the largest the format can express, 7680 bits per
+    granule. Gives the bit allocator the most room, and is what LAME uses
+    unless told otherwise.
+
+  Note that the default is \c MDB_MAXIMUM, **not 0**. The name invites the
+  opposite assumption, and so does the comment in the public header, which
+  predates the choice becoming three-way.
+
+  \param gfp  the encoder instance.
+  \param val  one of the \c buffer_constraint values.
+  \return 0 on success, -1 if the instance is not usable or \a val is outside
+          the enumeration.
+*/
 int
 lame_set_strict_ISO(lame_global_flags * gfp, int val)
 {
@@ -1450,6 +1561,13 @@ lame_set_strict_ISO(lame_global_flags * gfp, int val)
     return -1;
 }
 
+/*! Get the bit reservoir constraint. */
+/*!
+  \param gfp the encoder instance.
+  \return one of the \c buffer_constraint values. An unusable instance yields
+          \c MDB_DEFAULT, which is a legitimate setting but never the default
+          one - see \c lame_set_strict_ISO().
+*/
 int
 lame_get_strict_ISO(const lame_global_flags * gfp)
 {
@@ -1466,7 +1584,24 @@ lame_get_strict_ISO(const lame_global_flags * gfp)
  * quantization/noise shaping 
  ***********************************************************************/
 
-/* Disable the bit reservoir. For testing only. */
+/*! Forbid frames from borrowing space from earlier ones. */
+/*!
+  The bit reservoir lets a frame that needs more bits than its share take them
+  from the unused tail of frames already written. Switching it off makes every
+  frame stand on its own, which costs quality at a given bitrate - a demanding
+  passage can no longer be given extra bits - and buys the property that each
+  frame decodes without its predecessors.
+
+  One thing sets it without being asked: \c lame_set_brate() above 320 kbps
+  turns it on and reports nothing. Reading this getter back is the only way to
+  notice.
+
+  \param gfp                the encoder instance.
+  \param disable_reservoir  1 to forbid the reservoir, 0 to allow it.
+                            Default 0.
+  \return 0 on success, -1 if the instance is not usable or the value is
+          neither 0 nor 1.
+*/
 int
 lame_set_disable_reservoir(lame_global_flags * gfp, int disable_reservoir)
 {
@@ -1484,6 +1619,12 @@ lame_set_disable_reservoir(lame_global_flags * gfp, int disable_reservoir)
     return -1;
 }
 
+/*! Get the bit reservoir setting. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 if the reservoir is off, 0 if it is available or the instance is
+          not usable.
+*/
 int
 lame_get_disable_reservoir(const lame_global_flags * gfp)
 {
@@ -1497,6 +1638,17 @@ lame_get_disable_reservoir(const lame_global_flags * gfp)
 
 
 
+/*! Set both quantization comparison functions at once. */
+/*!
+  Kept for compatibility with code written before the long-block and
+  short-block choices were separated. It sets \c lame_set_quant_comp() and
+  \c lame_set_quant_comp_short() to the same value; new code should set the
+  two directly, because they are usually wanted at different settings.
+
+  \param gfp            the encoder instance.
+  \param experimentalX  the comparison function, applied to both.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_experimentalX(lame_global_flags * gfp, int experimentalX)
 {
@@ -1508,6 +1660,15 @@ lame_set_experimentalX(lame_global_flags * gfp, int experimentalX)
     return -1;
 }
 
+/*! Get the long-block quantization comparison function. */
+/*!
+  Asymmetric with its setter: the setter writes both values, this reads only
+  the long-block one. If the short-block value was changed afterwards, this
+  does not say so.
+
+  \param gfp the encoder instance.
+  \return what \c lame_get_quant_comp() returns.
+*/
 int
 lame_get_experimentalX(const lame_global_flags * gfp)
 {
@@ -1515,7 +1676,26 @@ lame_get_experimentalX(const lame_global_flags * gfp)
 }
 
 
-/* Select a different "best quantization" function. default = 0 */
+/*! Choose how two candidate quantizations are compared. */
+/*!
+  The inner loop tries several quantizations of a granule and keeps the one it
+  judges best. This selects the yardstick: which of *number of distorted
+  scalefactor bands*, *total noise*, *peak noise* and a few weighted
+  combinations of them decides the winner. It changes what the encoder
+  considers good, not how hard it works - that is \c lame_set_quality().
+
+  Values 0 to 9 name the strategies; anything else behaves as 9. There is no
+  ordering among them, so this is a knob for experiments, not a dial to turn up.
+
+  The default is -1, meaning *unset*: \c lame_init_params() then picks 1 for
+  long blocks. So a getter call before initialization returns -1, and the same
+  call afterwards returns something else without anyone having set it.
+
+  \param gfp         the encoder instance.
+  \param quant_type  the strategy, 0 to 9. **Not validated** - the value is
+                     stored as given.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_quant_comp(lame_global_flags * gfp, int quant_type)
 {
@@ -1526,6 +1706,13 @@ lame_set_quant_comp(lame_global_flags * gfp, int quant_type)
     return -1;
 }
 
+/*! Get the long-block quantization comparison. */
+/*!
+  \param gfp the encoder instance.
+  \return the strategy, or -1 while it is still unset. 0 if the instance is
+          not usable - which is a legitimate strategy, so it does not signal
+          anything.
+*/
 int
 lame_get_quant_comp(const lame_global_flags * gfp)
 {
@@ -1536,7 +1723,18 @@ lame_get_quant_comp(const lame_global_flags * gfp)
 }
 
 
-/* Select a different "best quantization" function. default = 0 */
+/*! Choose the comparison used for short blocks. */
+/*!
+  As \c lame_set_quant_comp(), applied to granules encoded as short blocks -
+  the ones covering a transient, where a different yardstick is often wanted.
+  Same value range, same absence of validation.
+
+  Its unset default resolves to 0, not to the 1 the long-block setting gets.
+
+  \param gfp         the encoder instance.
+  \param quant_type  the strategy, 0 to 9.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_quant_comp_short(lame_global_flags * gfp, int quant_type)
 {
@@ -1547,6 +1745,12 @@ lame_set_quant_comp_short(lame_global_flags * gfp, int quant_type)
     return -1;
 }
 
+/*! Get the short-block quantization comparison. */
+/*!
+  \param gfp the encoder instance.
+  \return the strategy, or -1 while it is still unset. 0 if the instance is
+          not usable.
+*/
 int
 lame_get_quant_comp_short(const lame_global_flags * gfp)
 {
@@ -1557,7 +1761,18 @@ lame_get_quant_comp_short(const lame_global_flags * gfp)
 }
 
 
-/* Another experimental option. For testing only. */
+/*! Suppress the extra bits normally spent above 16 kHz. */
+/*!
+  Non-zero stops LAME from giving scalefactor band 21 - the topmost band, above
+  roughly 16 kHz - the additional bits it otherwise gets on MPEG-1 material
+  sampled above 44 kHz. The result is a smaller file whose top octave is
+  coarser.
+
+  \param gfp            the encoder instance.
+  \param experimentalY  non-zero to suppress the extra bits. Default 0.
+  \return 0 on success, -1 if the instance is not usable. No value is
+          rejected.
+*/
 int
 lame_set_experimentalY(lame_global_flags * gfp, int experimentalY)
 {
@@ -1568,6 +1783,12 @@ lame_set_experimentalY(lame_global_flags * gfp, int experimentalY)
     return -1;
 }
 
+/*! Get the sfb21 suppression setting. */
+/*!
+  \param gfp the encoder instance.
+  \return the value last set; 0 if the instance is not usable, which is also
+          the default.
+*/
 int
 lame_get_experimentalY(const lame_global_flags * gfp)
 {
@@ -1578,6 +1799,21 @@ lame_get_experimentalY(const lame_global_flags * gfp)
 }
 
 
+/*! Compute short-block masking thresholds even where they are not needed. */
+/*!
+  The psychoacoustic model normally skips the short-block analysis for a
+  granule it has already decided to encode as a long block. Non-zero makes it
+  do the work anyway, so the thresholds exist for every granule. Slower, and
+  intended for comparing the two paths rather than for production encoding.
+
+  Read once, when the psychoacoustic model is set up during
+  \c lame_init_params(); changing it afterwards does nothing.
+
+  \param gfp            the encoder instance.
+  \param experimentalZ  non-zero to force the computation. Default 0.
+  \return 0 on success, -1 if the instance is not usable. No value is
+          rejected.
+*/
 int
 lame_set_experimentalZ(lame_global_flags * gfp, int experimentalZ)
 {
@@ -1588,6 +1824,12 @@ lame_set_experimentalZ(lame_global_flags * gfp, int experimentalZ)
     return -1;
 }
 
+/*! Get the forced short-block analysis setting. */
+/*!
+  \param gfp the encoder instance.
+  \return the value last set; 0 if the instance is not usable, which is also
+          the default.
+*/
 int
 lame_get_experimentalZ(const lame_global_flags * gfp)
 {
@@ -1598,7 +1840,35 @@ lame_get_experimentalZ(const lame_global_flags * gfp)
 }
 
 
-/* Naoki's psycho acoustic model. */
+/*! Set the packed psychoacoustic tuning word. */
+/*!
+  Not a flag, despite the name and the header comment: a single \c int in
+  which several unrelated settings are packed. \c lame_init_params() unpacks
+  it as
+
+  | bits | meaning |
+  |------|---------|
+  | 0    | currently unused. Reserved for selecting a psychoacoustic model, should a second one be offered again. |
+  | 1    | safe joint stereo. Honoured only when the mode really is joint stereo. |
+  | 2-7  | bass adjustment |
+  | 8-13 | alto, i.e. mid-range, adjustment |
+  | 14-19| treble adjustment |
+  | 20-25| additional adjustment for the topmost scalefactor band, **added on top of** the treble one |
+
+  Each adjustment is a 6-bit two's complement number in quarter-decibel steps,
+  so -32 to 31 quarter-dB, i.e. **-8.00 to +7.75 dB**. Negative values give
+  that range less weight in the masking calculation.
+
+  This is the interface the frontend's tuning switches are built on. Compose
+  the value with a bitwise OR against what is already there, the way the
+  presets do - a bare assignment silently clears the fields a preset set.
+  Passing 1 to mean "on" sets bit 0 alone, which selects nothing.
+
+  \param gfp            the encoder instance.
+  \param exp_nspsytune  the packed word. **Not validated**; bits above the
+                        fields listed are ignored.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_exp_nspsytune(lame_global_flags * gfp, int exp_nspsytune)
 {
@@ -1610,6 +1880,12 @@ lame_set_exp_nspsytune(lame_global_flags * gfp, int exp_nspsytune)
     return -1;
 }
 
+/*! Get the packed psychoacoustic tuning word. */
+/*!
+  \param gfp the encoder instance.
+  \return the packed word, to be modified and set back. 0 if the instance is
+          not usable, which is also the default and therefore says nothing.
+*/
 int
 lame_get_exp_nspsytune(const lame_global_flags * gfp)
 {
