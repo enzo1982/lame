@@ -1902,7 +1902,29 @@ lame_get_exp_nspsytune(const lame_global_flags * gfp)
  * VBR control
  ***********************************************************************/
 
-/* Types of VBR.  default = vbr_off = CBR */
+/*! Choose between constant, average and variable bitrate. */
+/*!
+  - \c vbr_off - constant bitrate. Every frame gets the rate given to
+    \c lame_set_brate().
+  - \c vbr_abr - average bitrate. The rate varies per frame but is steered
+    towards the target given to \c lame_set_VBR_mean_bitrate_kbps().
+  - \c vbr_mtrh - variable bitrate. Each frame gets what the quality level from
+    \c lame_set_VBR_quality() asks for; the resulting rate is whatever the
+    material needs. This is \c vbr_default.
+  - \c vbr_rh - the older variable bitrate implementation, kept because it
+    still produces the output some listeners prefer.
+  - \c vbr_mt - an obsolete spelling of \c vbr_mtrh, retained so old code
+    still compiles.
+
+  The default is \c vbr_off, so a caller who wants variable bitrate has to ask
+  for it. Which of the other settings matter depends on what is chosen here,
+  and the ones that do not apply are simply not read.
+
+  \param gfp  the encoder instance.
+  \param VBR  one of the \c vbr_mode values, excluding \c vbr_max_indicator.
+  \return 0 on success, -1 if the instance is not usable or \a VBR is outside
+          the enumeration.
+*/
 int
 lame_set_VBR(lame_global_flags * gfp, vbr_mode VBR)
 {
@@ -1916,6 +1938,12 @@ lame_set_VBR(lame_global_flags * gfp, vbr_mode VBR)
     return -1;
 }
 
+/*! Get the bitrate mode. */
+/*!
+  \param gfp the encoder instance.
+  \return the mode; \c vbr_off if the instance is not usable, which is also
+          the default.
+*/
 vbr_mode
 lame_get_VBR(const lame_global_flags * gfp)
 {
@@ -1927,11 +1955,26 @@ lame_get_VBR(const lame_global_flags * gfp)
 }
 
 
-/*
- * VBR quality level.
- *  0 = highest
- *  9 = lowest 
- */
+/*! Set the variable bitrate quality level, as a whole number. */
+/*!
+  The level the variable bitrate modes encode to: **0 is the best quality and
+  the largest file, 9 the worst and the smallest**, the opposite direction to
+  a bitrate. Default 4.
+
+  This is the same setting as \c lame_set_VBR_quality(), which can express
+  levels in between; setting it here discards any fractional part previously
+  given.
+
+  Out-of-range values are **clamped and reported**: the value is stored at the
+  nearest end of the range and -1 is returned anyway. So a -1 from this
+  function does not mean nothing happened, and the instance is left in a
+  perfectly usable state.
+
+  \param gfp    the encoder instance.
+  \param VBR_q  quality level, 0 to 9.
+  \return 0 on success, -1 if the instance is not usable, or if \a VBR_q was
+          out of range and has been clamped.
+*/
 int
 lame_set_VBR_q(lame_global_flags * gfp, int VBR_q)
 {
@@ -1953,6 +1996,13 @@ lame_set_VBR_q(lame_global_flags * gfp, int VBR_q)
     return -1;
 }
 
+/*! Get the variable bitrate quality level, rounded down. */
+/*!
+  \param gfp the encoder instance.
+  \return the whole part of the level, 0 to 9; any fraction set through
+          \c lame_set_VBR_quality() is not reported here. 0 if the instance
+          is not usable - and 0 is the best quality, not a neutral value.
+*/
 int
 lame_get_VBR_q(const lame_global_flags * gfp)
 {
@@ -1963,6 +2013,23 @@ lame_get_VBR_q(const lame_global_flags * gfp)
     return 0;
 }
 
+/*! Set the variable bitrate quality level, with a fraction. */
+/*!
+  The same setting as \c lame_set_VBR_q(), expressed finely: 2.5 sits between
+  quality levels 2 and 3. The whole part selects the level and the fraction
+  interpolates within it, which is how the frontend's fractional quality
+  arguments reach the encoder.
+
+  The upper bound is 9.999, not 9 - one whole level short of a tenth beyond
+  it - because the value is split into a level and a remainder. As with
+  \c lame_set_VBR_q(), an out-of-range value is clamped and -1 is returned
+  even though the setting took effect.
+
+  \param gfp    the encoder instance.
+  \param VBR_q  quality level, 0 to 9.999.
+  \return 0 on success, -1 if the instance is not usable, or if \a VBR_q was
+          out of range and has been clamped.
+*/
 int
 lame_set_VBR_quality(lame_global_flags * gfp, float VBR_q)
 {
@@ -1986,6 +2053,12 @@ lame_set_VBR_quality(lame_global_flags * gfp, float VBR_q)
     return -1;
 }
 
+/*! Get the variable bitrate quality level, fraction included. */
+/*!
+  \param gfp the encoder instance.
+  \return the level and its fraction added together. 0 if the instance is not
+          usable, which is the best quality rather than a neutral value.
+*/
 float
 lame_get_VBR_quality(const lame_global_flags * gfp)
 {
@@ -1996,7 +2069,27 @@ lame_get_VBR_quality(const lame_global_flags * gfp)
 }
 
 
-/* Ignored except for VBR = vbr_abr (ABR mode) */
+/*! Set the target average bitrate. */
+/*!
+  The rate the average bitrate mode aims at over the whole stream, in kbps.
+  Default 128.
+
+  It is not read only by that mode, despite what the setting's name suggests.
+  Under constant bitrate, an instance that was given an average here but no
+  \c lame_set_brate() encodes at this rate instead - the two settings meet, and
+  which one wins depends on which was left alone.
+
+  \c lame_init_params() adjusts the value rather than rejecting it: it is first
+  clamped to what the MPEG version in use can carry, then to the window left by
+  \c lame_set_VBR_min_bitrate_kbps() and \c lame_set_VBR_max_bitrate_kbps().
+  The getter reports the adjusted figure afterwards.
+
+  \param gfp                     the encoder instance.
+  \param VBR_mean_bitrate_kbps   target average, in kbps. **Not validated
+                                 here**; an impossible value is corrected
+                                 later rather than refused.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_VBR_mean_bitrate_kbps(lame_global_flags * gfp, int VBR_mean_bitrate_kbps)
 {
@@ -2007,6 +2100,13 @@ lame_set_VBR_mean_bitrate_kbps(lame_global_flags * gfp, int VBR_mean_bitrate_kbp
     return -1;
 }
 
+/*! Get the target average bitrate. */
+/*!
+  \param gfp the encoder instance.
+  \return the target in kbps - as set before \c lame_init_params(), as
+          actually used after it. 0 if the instance is not usable, which is
+          not a rate any encode uses.
+*/
 int
 lame_get_VBR_mean_bitrate_kbps(const lame_global_flags * gfp)
 {
@@ -2016,6 +2116,25 @@ lame_get_VBR_mean_bitrate_kbps(const lame_global_flags * gfp)
     return 0;
 }
 
+/*! Set the lowest bitrate a variable bitrate encode may use. */
+/*!
+  A floor for the per-frame rate, in kbps, for the variable and average
+  bitrate modes. **0 means no floor was requested**, not a floor of zero;
+  the encoder then allows the lowest rate the format offers.
+
+  MP3 has a fixed set of bitrates, so an arbitrary number cannot be honoured:
+  \c lame_init_params() replaces the value with the nearest tabulated rate for
+  the MPEG version and sample rate actually chosen, and the getter reports
+  that from then on. Setting 100 and reading back 96 is this, not an error.
+
+  The floor is a preference, not a guarantee - passages of near-silence go
+  below it unless \c lame_set_VBR_hard_min() says otherwise.
+
+  \param gfp                   the encoder instance.
+  \param VBR_min_bitrate_kbps  the floor in kbps, or 0 for none. Not
+                               validated here.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_VBR_min_bitrate_kbps(lame_global_flags * gfp, int VBR_min_bitrate_kbps)
 {
@@ -2026,6 +2145,13 @@ lame_set_VBR_min_bitrate_kbps(lame_global_flags * gfp, int VBR_min_bitrate_kbps)
     return -1;
 }
 
+/*! Get the lowest bitrate a variable bitrate encode may use. */
+/*!
+  \param gfp the encoder instance.
+  \return the floor in kbps - as requested before \c lame_init_params(),
+          snapped to a real bitrate after it. 0 before initialization means
+          no floor was asked for; 0 also means the instance is not usable.
+*/
 int
 lame_get_VBR_min_bitrate_kbps(const lame_global_flags * gfp)
 {
@@ -2035,6 +2161,23 @@ lame_get_VBR_min_bitrate_kbps(const lame_global_flags * gfp)
     return 0;
 }
 
+/*! Set the highest bitrate a variable bitrate encode may use. */
+/*!
+  A ceiling for the per-frame rate, in kbps, and the usual way to keep a
+  variable bitrate file within a size or a decoder's limits. **0 means no
+  ceiling was requested**; the encoder then allows the highest rate the
+  format offers - 320 kbps for MPEG-1, less for the lower sample rates.
+
+  Snapped to the nearest tabulated bitrate by \c lame_init_params(), the same
+  way as the floor, and reported in that form afterwards. A ceiling below what
+  the quality level wants is not an error: it is respected, and the quality
+  suffers at the passages that would have wanted more.
+
+  \param gfp                   the encoder instance.
+  \param VBR_max_bitrate_kbps  the ceiling in kbps, or 0 for none. Not
+                               validated here.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_VBR_max_bitrate_kbps(lame_global_flags * gfp, int VBR_max_bitrate_kbps)
 {
@@ -2045,6 +2188,13 @@ lame_set_VBR_max_bitrate_kbps(lame_global_flags * gfp, int VBR_max_bitrate_kbps)
     return -1;
 }
 
+/*! Get the highest bitrate a variable bitrate encode may use. */
+/*!
+  \param gfp the encoder instance.
+  \return the ceiling in kbps - as requested before \c lame_init_params(),
+          snapped to a real bitrate after it. 0 before initialization means
+          no ceiling was asked for; 0 also means the instance is not usable.
+*/
 int
 lame_get_VBR_max_bitrate_kbps(const lame_global_flags * gfp)
 {
@@ -2055,10 +2205,23 @@ lame_get_VBR_max_bitrate_kbps(const lame_global_flags * gfp)
 }
 
 
-/*
- * Strictly enforce VBR_min_bitrate.
- * Normally it will be violated for analog silence.
- */
+/*! Make the minimum bitrate absolute. */
+/*!
+  By default the floor set with \c lame_set_VBR_min_bitrate_kbps() is a
+  preference the encoder abandons where the material does not justify it -
+  silence and near-silence are encoded at whatever tiny rate they need, which
+  is the point of variable bitrate. Turning this on makes the floor hold for
+  every frame instead, at the cost of spending bits on nothing.
+
+  Worth setting when the file has to satisfy a minimum-bitrate requirement
+  imposed from outside, and not otherwise.
+
+  \param gfp           the encoder instance.
+  \param VBR_hard_min  1 to hold the floor everywhere, 0 to let silence fall
+                       below it. Default 0.
+  \return 0 on success, -1 if the instance is not usable or the value is
+          neither 0 nor 1.
+*/
 int
 lame_set_VBR_hard_min(lame_global_flags * gfp, int VBR_hard_min)
 {
@@ -2078,6 +2241,12 @@ lame_set_VBR_hard_min(lame_global_flags * gfp, int VBR_hard_min)
     return -1;
 }
 
+/*! Get whether the minimum bitrate is absolute. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 if the floor holds everywhere, 0 if silence may fall below it or
+          the instance is not usable.
+*/
 int
 lame_get_VBR_hard_min(const lame_global_flags * gfp)
 {
@@ -2093,11 +2262,29 @@ lame_get_VBR_hard_min(const lame_global_flags * gfp)
  * Filtering control
  ***********************************************************************/
 
-/*
- * Freqency in Hz to apply lowpass.
- *   0 = default = lame chooses
- *  -1 = disabled
- */
+/*! Set the lowpass cutoff. */
+/*!
+  Everything above this frequency is discarded before encoding, so the bits it
+  would have cost go to the rest of the spectrum. At low bitrates this is what
+  makes the difference between a dull encode and a watery one.
+
+  - a positive value in Hz is the cutoff;
+  - **0 means LAME chooses** one from the bitrate, or from the quality level in
+    the variable bitrate modes;
+  - -1 disables the lowpass.
+
+  Choosing it has a consequence that is easy to miss: when no output sample
+  rate was set, LAME picks the lowest rate that still carries the cutoff. So
+  asking for a low lowpass can resample the output. The value is also capped
+  during \c lame_init_params() - to half the output sample rate, and to 20500
+  Hz, or 24000 Hz for \c vbr_mtrh - and the capped figure is what the getter
+  reports afterwards.
+
+  \param gfp          the encoder instance.
+  \param lowpassfreq  cutoff in Hz, 0 to choose automatically, -1 for none.
+                      Not validated here.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_lowpassfreq(lame_global_flags * gfp, int lowpassfreq)
 {
@@ -2108,6 +2295,13 @@ lame_set_lowpassfreq(lame_global_flags * gfp, int lowpassfreq)
     return -1;
 }
 
+/*! Get the lowpass cutoff. */
+/*!
+  \param gfp the encoder instance.
+  \return the cutoff in Hz - the request before \c lame_init_params(), the
+          cutoff actually in force after it, which is the useful one to read.
+          0 if the instance is not usable, and 0 also means "choose one".
+*/
 int
 lame_get_lowpassfreq(const lame_global_flags * gfp)
 {
@@ -2118,10 +2312,21 @@ lame_get_lowpassfreq(const lame_global_flags * gfp)
 }
 
 
-/*
- * Width of transition band (in Hz).
- *  default = one polyphase filter band
- */
+/*! Set the width of the lowpass transition band. */
+/*!
+  How far below the cutoff the roll-off starts, in Hz. A negative value, the
+  default, lets LAME decide.
+
+  The filter is a 32-band polyphase filter, so the transition it can actually
+  realize is quantized to band boundaries: a width finer than one band is
+  rounded to what the filter can do, and the request is a preference rather
+  than a specification.
+
+  \param gfp           the encoder instance.
+  \param lowpasswidth  width in Hz, or a negative value to let LAME choose.
+                       Not validated here.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_lowpasswidth(lame_global_flags * gfp, int lowpasswidth)
 {
@@ -2132,6 +2337,14 @@ lame_set_lowpasswidth(lame_global_flags * gfp, int lowpasswidth)
     return -1;
 }
 
+/*! Get the width of the lowpass transition band. */
+/*!
+  \param gfp the encoder instance.
+  \return the width in Hz as requested, or a negative value if LAME is
+          choosing. Unlike the cutoff this is **not** rewritten during
+          initialization, so it never reports the width the filter really
+          implements. 0 if the instance is not usable.
+*/
 int
 lame_get_lowpasswidth(const lame_global_flags * gfp)
 {
@@ -2142,11 +2355,25 @@ lame_get_lowpasswidth(const lame_global_flags * gfp)
 }
 
 
-/*
- * Frequency in Hz to apply highpass.
- *   0 = default = lame chooses
- *  -1 = disabled
- */
+/*! Set the highpass cutoff. */
+/*!
+  Discards everything below this frequency, the counterpart of
+  \c lame_set_lowpassfreq(). Useful against rumble and DC offset in material
+  that has them, and best left alone otherwise - the bottom octave is where a
+  lot of the audible energy is.
+
+  There is **no automatic highpass**, and this is where the symmetry
+  with \c lame_set_lowpassfreq() ends. For the lowpass, 0 asks LAME to choose a
+  cutoff and -1 disables the filter; here **0 and -1 mean the same thing, no
+  highpass at all**, and so does any other value at or below zero. Nothing in
+  the library derives a highpass frequency, so the filter exists only if a
+  caller names one.
+
+  \param gfp           the encoder instance.
+  \param highpassfreq  cutoff in Hz, or 0 - equivalently -1 - for none. Not
+                       validated here.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_highpassfreq(lame_global_flags * gfp, int highpassfreq)
 {
@@ -2157,6 +2384,13 @@ lame_set_highpassfreq(lame_global_flags * gfp, int highpassfreq)
     return -1;
 }
 
+/*! Get the highpass cutoff. */
+/*!
+  \param gfp the encoder instance.
+  \return the cutoff in Hz, or 0 or -1 if no highpass was asked for; 0 also if
+          the instance is not usable. Unlike the lowpass cutoff this is never
+          rewritten during initialization, because there is nothing to resolve.
+*/
 int
 lame_get_highpassfreq(const lame_global_flags * gfp)
 {
@@ -2167,10 +2401,19 @@ lame_get_highpassfreq(const lame_global_flags * gfp)
 }
 
 
-/*
- * Width of transition band (in Hz).
- *  default = one polyphase filter band
- */
+/*! Set the width of the highpass transition band. */
+/*!
+  How far above the cutoff the roll-off finishes, in Hz. A negative value, the
+  default, lets LAME decide. Only consulted when a highpass cutoff was actually
+  named - which, since there is no automatic highpass, means only when the
+  caller named one. Subject to the same polyphase quantization as
+  \c lame_set_lowpasswidth().
+
+  \param gfp            the encoder instance.
+  \param highpasswidth  width in Hz, or a negative value to let LAME choose.
+                        Not validated here.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_highpasswidth(lame_global_flags * gfp, int highpasswidth)
 {
@@ -2181,6 +2424,12 @@ lame_set_highpasswidth(lame_global_flags * gfp, int highpasswidth)
     return -1;
 }
 
+/*! Get the width of the highpass transition band. */
+/*!
+  \param gfp the encoder instance.
+  \return the width in Hz as requested, or a negative value if LAME is
+          choosing. 0 if the instance is not usable.
+*/
 int
 lame_get_highpasswidth(const lame_global_flags * gfp)
 {
