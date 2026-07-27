@@ -37,3 +37,6 @@ was written in. Each has a guide of its own:
 - @ref maintainer_coverage - measuring which source lines the test material
   reaches, and which configurations and invocations are worth running under
   the sanitizers.
+- @ref maintainer_abi - checking the library's exported interface against the
+  contract committed in the source tree, so that a change to it is a decision
+  rather than an accident.

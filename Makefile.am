@@ -4,7 +4,7 @@ include $(top_srcdir)/Makefile.am.global
 
 ACLOCAL_AMFLAGS=-I m4
 
-.PHONY: test
+.PHONY: test abicheck
 
 SUBDIRS = mpglib libmp3lame frontend Dll doc include misc dshow ACM \
 	mac vc_solution test
@@ -30,6 +30,8 @@ EXTRA_DIST = \
 	lame.spec \
 	testcase.mp3 \
 	testcase.wav \
+	maintainer/abicheck.sh \
+	maintainer/abi/libmp3lame.abi \
 	maintainer/gen-build-matrix.sh \
 	maintainer/gen-build-matrix.ps1 \
 	maintainer/setup-windows-deps.ps1 \
@@ -60,6 +62,18 @@ test: testcase.mp3 testcase.new.mp3
 
 testupdate: testcase.new.mp3
 	cp testcase.new.mp3 $(top_srcdir)/testcase.mp3
+
+#
+# Check the exported ABI of the library that was just built against the
+# contract committed in the source tree. Needs no audio input and no reference
+# build; the deepest of its checks additionally wants libabigail and a build
+# carrying debug information, and reports itself skipped without them.
+#
+abicheck:
+	@$(SHELL) $(top_srcdir)/maintainer/abicheck.sh \
+		-b $(top_builddir)/libmp3lame/.libs \
+		-i $(top_srcdir)/include \
+		-a $(top_srcdir)/maintainer/abi/libmp3lame.abi
 
 testg: frontend/mp3x$(EXEEXT) $(top_srcdir)/../test/castanets.wav
 	frontend/mp3x$(EXEEXT) -h $(top_srcdir)/../test/castanets.wav

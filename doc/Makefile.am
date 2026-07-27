@@ -46,6 +46,7 @@ EXTRA_DIST = Doxyfile.in Doxyfile-common.in Doxyfile-internal.in \
 	maintainer-perf.md \
 	maintainer-quality.md \
 	maintainer-coverage.md \
+	maintainer-abi.md \
 	doxygen/mainpage.md \
 	doxygen/internal.md \
 	doxygen/unit_tests.dox \

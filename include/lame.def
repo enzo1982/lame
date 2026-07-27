@@ -309,3 +309,29 @@ id3tag_v2_4_UTF8_only @2030
 
 ; UTF-8 field-value setter (companion to id3tag_set_fieldvalue_utf16)
 id3tag_set_fieldvalue_utf8 @2031
+
+; Latin-1 tag setters, the counterparts of the ucs2 pair above
+id3tag_set_textinfo_latin1 @2032
+id3tag_set_comment_latin1 @2033
+
+; Decoder analysis hooks. The frontends call these across the library
+; boundary - get_audio.c and the mp3x analyzer - so a dynamically linked
+; build does not link without them.
+hip_set_pinfo @2034
+hip_finish_pinfo @2035
+
+; Deprecated and obsolete entry points. Their declarations are compiled out of
+; lame.h, so nothing new can call them, but the definitions are still built and
+; the shared library still exports them. The two lists describe the same code
+; and these leave both of them together, when the code itself goes.
+lame_set_ogg @2036
+lame_get_ogg @2037
+lame_set_mode_automs @2038
+lame_get_mode_automs @2039
+lame_set_ReplayGain_input @2040
+lame_get_ReplayGain_input @2041
+lame_set_ReplayGain_decode @2042
+lame_get_ReplayGain_decode @2043
+lame_set_findPeakSample @2044
+lame_get_findPeakSample @2045
+lame_encode_finish @2046
