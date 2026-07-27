@@ -22,6 +22,24 @@
 
 /* $Id$ */
 
+/*!
+  \file   set_get.c
+  \brief  The parameter interface of the public API.
+
+  Every encoder setting a caller can change lives here as a set/get pair. The
+  setters record a value and validate it in isolation; whether the resulting
+  combination is usable is decided later, by \c lame_init_params().
+
+  Two properties hold throughout and are not repeated on each function:
+
+  - a setter returns 0 on success and -1 if the value was rejected or the
+    instance is not usable;
+  - **a getter cannot report an error.** Given an unusable instance it returns
+    0, which for most of these settings is also a legitimate value, so a
+    caller has no way to tell the two apart. Check the instance, not the
+    result.
+*/
+
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
@@ -40,8 +58,22 @@
  */
 
 
-/* number of samples */
-/* it's unlikely for this function to return an error */
+/*! Tell the encoder how many samples the input has. */
+/*!
+  Only used to estimate the total number of frames, which is what
+  \c lame_get_totalframes() reports and what the length field of the VBR
+  header is written from. It does not limit encoding: passing more or fewer
+  samples than announced is allowed, and only the estimate suffers.
+
+  The default, 2^32-1, is the documented "length not known" sentinel rather
+  than a real count, so leaving it alone is the correct thing to do for a
+  stream whose length is not known in advance.
+
+  \param gfp          the encoder instance.
+  \param num_samples  number of samples per channel in the input.
+  \return 0 on success, -1 if the instance is not usable. No value of
+          \a num_samples is rejected.
+*/
 int
 lame_set_num_samples(lame_global_flags * gfp, unsigned long num_samples)
 {
@@ -53,6 +85,12 @@ lame_set_num_samples(lame_global_flags * gfp, unsigned long num_samples)
     return -1;
 }
 
+/*! Get the number of samples the input was announced to have. */
+/*!
+  \param gfp the encoder instance.
+  \return the value last set, or the 2^32-1 "unknown" default. 0 if the
+          instance is not usable, which a caller cannot tell from a real 0.
+*/
 unsigned long
 lame_get_num_samples(const lame_global_flags * gfp)
 {
@@ -63,7 +101,24 @@ lame_get_num_samples(const lame_global_flags * gfp)
 }
 
 
-/* input samplerate */
+/*! Set the sample rate of the input, in Hz. */
+/*!
+  One of the two settings that describe the input to the encoder, the other
+  being \c lame_set_num_channels(). Both have defaults - 44100 Hz and 2
+  channels - so an encoder that is never told about its input initializes
+  successfully and encodes as though it were CD audio. Set them.
+
+  This is the rate of the samples handed to \c lame_encode_buffer(); it is not
+  necessarily the rate written into the stream. If it differs from the output
+  rate (\c lame_set_out_samplerate()), LAME resamples.
+
+  \param gfp             the encoder instance.
+  \param in_samplerate   input sample rate in Hz. Any positive value is
+                         accepted here - whether it can be encoded is settled
+                         by \c lame_init_params().
+  \return 0 on success, -1 if \a in_samplerate is below 1 or the instance is
+          not usable.
+*/
 int
 lame_set_in_samplerate(lame_global_flags * gfp, int in_samplerate)
 {
@@ -77,6 +132,11 @@ lame_set_in_samplerate(lame_global_flags * gfp, int in_samplerate)
     return -1;
 }
 
+/*! Get the input sample rate, in Hz. */
+/*!
+  \param gfp the encoder instance.
+  \return the input sample rate; 0 if the instance is not usable.
+*/
 int
 lame_get_in_samplerate(const lame_global_flags * gfp)
 {
@@ -87,7 +147,22 @@ lame_get_in_samplerate(const lame_global_flags * gfp)
 }
 
 
-/* number of channels in input stream */
+/*! Set the number of channels in the input. */
+/*!
+  The second of the two settings that describe the input; see
+  \c lame_set_in_samplerate() for why leaving both alone is a trap rather than
+  a convenience.
+
+  This is the layout of the buffers handed to the encoder, not the channel
+  mode written into the stream - that is \c lame_set_mode(), and LAME will
+  encode two-channel input as mono if asked to.
+
+  \param gfp           the encoder instance.
+  \param num_channels  1 or 2. More is not supported: the format is MP3 and
+                       LAME implements no multichannel extension.
+  \return 0 on success, -1 if \a num_channels is outside 1..2 or the instance
+          is not usable.
+*/
 int
 lame_set_num_channels(lame_global_flags * gfp, int num_channels)
 {
@@ -102,6 +177,11 @@ lame_set_num_channels(lame_global_flags * gfp, int num_channels)
     return -1;
 }
 
+/*! Get the number of channels in the input. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 or 2; 0 if the instance is not usable.
+*/
 int
 lame_get_num_channels(const lame_global_flags * gfp)
 {
@@ -112,7 +192,21 @@ lame_get_num_channels(const lame_global_flags * gfp)
 }
 
 
-/* scale the input by this amount before encoding (not used for decoding) */
+/*! Scale every input sample by this factor before encoding. */
+/*!
+  Applied to both channels, on top of any per-channel scaling from
+  \c lame_set_scale_left() and \c lame_set_scale_right(). Default 1, meaning
+  no change; it has no effect on decoding.
+
+  Scaling happens before the psychoacoustic model sees the signal, so this is
+  not a volume control on the output - it changes what is encoded, and scaling
+  up far enough will clip.
+
+  \param gfp    the encoder instance.
+  \param scale  the factor. Not range-checked: 0 silences the input and a
+                negative value inverts it, both accepted.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_scale(lame_global_flags * gfp, float scale)
 {
@@ -124,6 +218,12 @@ lame_set_scale(lame_global_flags * gfp, float scale)
     return -1;
 }
 
+/*! Get the overall input scaling factor. */
+/*!
+  \param gfp the encoder instance.
+  \return the factor; 0 if the instance is not usable - and 0 is also a value
+          a caller may have set.
+*/
 float
 lame_get_scale(const lame_global_flags * gfp)
 {
@@ -134,8 +234,15 @@ lame_get_scale(const lame_global_flags * gfp)
 }
 
 
-/* scale the channel 0 (left) input by this amount before 
-   encoding (not used for decoding) */
+/*! Scale the left channel of the input by this factor before encoding. */
+/*!
+  Combines with \c lame_set_scale(), which applies to both channels; the two
+  multiply. Default 1. No effect on decoding, and none at all on mono input.
+
+  \param gfp    the encoder instance.
+  \param scale  the factor, not range-checked. See \c lame_set_scale().
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_scale_left(lame_global_flags * gfp, float scale)
 {
@@ -147,6 +254,12 @@ lame_set_scale_left(lame_global_flags * gfp, float scale)
     return -1;
 }
 
+/*! Get the left-channel input scaling factor. */
+/*!
+  \param gfp the encoder instance.
+  \return the factor; 0 if the instance is not usable, which is also a
+          settable value.
+*/
 float
 lame_get_scale_left(const lame_global_flags * gfp)
 {
@@ -157,8 +270,14 @@ lame_get_scale_left(const lame_global_flags * gfp)
 }
 
 
-/* scale the channel 1 (right) input by this amount before 
-   encoding (not used for decoding) */
+/*! Scale the right channel of the input by this factor before encoding. */
+/*!
+  The counterpart of \c lame_set_scale_left(); the same rules apply.
+
+  \param gfp    the encoder instance.
+  \param scale  the factor, not range-checked. See \c lame_set_scale().
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_scale_right(lame_global_flags * gfp, float scale)
 {
@@ -170,6 +289,12 @@ lame_set_scale_right(lame_global_flags * gfp, float scale)
     return -1;
 }
 
+/*! Get the right-channel input scaling factor. */
+/*!
+  \param gfp the encoder instance.
+  \return the factor; 0 if the instance is not usable, which is also a
+          settable value.
+*/
 float
 lame_get_scale_right(const lame_global_flags * gfp)
 {
@@ -180,7 +305,32 @@ lame_get_scale_right(const lame_global_flags * gfp)
 }
 
 
-/* output sample rate in Hz */
+/*! Set the sample rate written into the MP3 stream, in Hz. */
+/*!
+  Default 0, which is not a rate but an instruction: let LAME choose, based on
+  how much compression the bitrate settings ask for. That is the right answer
+  in most cases; set it by hand only when a specific rate is required in the
+  output.
+
+  If the value differs from \c lame_set_in_samplerate(), LAME resamples. Only
+  the rates the MP3 formats define are accepted, and which ones are available
+  depends on the MPEG version - which this rate itself selects:
+
+  | Version  | Rates (kHz)    |
+  |----------|----------------|
+  | MPEG-1   | 32, 44.1, 48   |
+  | MPEG-2   | 16, 22.05, 24  |
+  | MPEG-2.5 | 8, 11.025, 12  |
+
+  Unlike most setters here, this one really does validate: a rate that is not
+  in the table is refused immediately rather than at \c lame_init_params().
+  It has no effect on decoding.
+
+  \param gfp              the encoder instance.
+  \param out_samplerate   output sample rate in Hz, or 0 to let LAME decide.
+  \return 0 on success, -1 if the rate is not one the format allows, or the
+          instance is not usable.
+*/
 int
 lame_set_out_samplerate(lame_global_flags * gfp, int out_samplerate)
 {
@@ -206,6 +356,15 @@ lame_set_out_samplerate(lame_global_flags * gfp, int out_samplerate)
     return -1;
 }
 
+/*! Get the output sample rate, in Hz. */
+/*!
+  Before \c lame_init_params() this is the requested value, so the default 0
+  means "not chosen yet"; afterwards it is the rate actually in use.
+
+  \param gfp the encoder instance.
+  \return the rate, 0 if it has not been chosen - and also 0 if the instance
+          is not usable.
+*/
 int
 lame_get_out_samplerate(const lame_global_flags * gfp)
 {
