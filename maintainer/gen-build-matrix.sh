@@ -208,6 +208,7 @@ done
 
 have_mpg123=unknown
 have_sndfile=unknown
+have_gtk=unknown
 if [ -n "$pkgconf" ]; then
 	if "$pkgconf" --exists libmpg123 2>/dev/null; then
 		have_mpg123=yes
@@ -218,6 +219,14 @@ if [ -n "$pkgconf" ]; then
 		have_sndfile=yes
 	else
 		have_sndfile=no
+	fi
+	# Ask exactly what configure.ac asks - PKG_CHECK_MODULES([GTK],
+	# [gtk4 >= 4.10]) - so a GTK 4 too old to build the analyzer is reported
+	# as absent here rather than producing a cell that cannot configure.
+	if "$pkgconf" --exists 'gtk4 >= 4.10' 2>/dev/null; then
+		have_gtk=yes
+	else
+		have_gtk=no
 	fi
 else
 	echo "$prog: WARNING: neither pkg-config nor pkgconf found - cannot probe" >&2
@@ -232,6 +241,11 @@ fi
 if [ "$have_sndfile" = no ]; then
 	echo "$prog: WARNING: libsndfile not found via $pkgconf - the sndfile cell" >&2
 	echo "$prog:          will be skipped." >&2
+fi
+if [ "$have_gtk" = no ]; then
+	echo "$prog: WARNING: GTK 4 >= 4.10 not found via $pkgconf - the mp3x cell" >&2
+	echo "$prog:          will be skipped, so the analyzer frontend is not built" >&2
+	echo "$prog:          or linked on this host at all." >&2
 fi
 
 # --- configuration cells (the "star") ---------------------------------------
@@ -248,6 +262,11 @@ fi
 # staticfe    flip the (default-on) dynamic frontends off (static frontends)
 # nohardening flip the (default-on) security hardening off
 # expopt      flip the experimental optimizations on (--enable-expopt=norm)
+# mp3x        flip the (default-off) GTK 4 frame analyzer frontend on. The
+#             only cell that compiles and links mp3x_*.c at all, so without
+#             it the analyzer is never built by this matrix on any platform.
+#             It is the opposite flip to noanalyzer - mp3x needs the analyzer
+#             hooks and the decoder - and is skipped where GTK 4 is absent.
 #
 cells() {
 	cat <<'EOF'
@@ -260,6 +279,7 @@ libonly|--disable-frontend
 staticfe|--disable-dynamic-frontends
 nohardening|--enable-dynamic-frontends --disable-hardening
 expopt|--enable-dynamic-frontends --enable-expopt=norm
+mp3x|--enable-dynamic-frontends --enable-mp3x
 EOF
 }
 
@@ -287,6 +307,18 @@ cell_needs_sndfile() {
 	esac
 }
 
+# A cell needs GTK 4 only when it builds the analyzer frontend.
+cell_needs_gtk() {
+	case " $1 " in
+		*"--enable-mp3x"*)
+			return 0
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
 # --- generate ---------------------------------------------------------------
 
 mkdir -p "$master" || {
@@ -306,6 +338,7 @@ info="$master_abs/matrix-info.txt"
 	echo "extra   =${extra_suffix:- (none)}"
 	echo "libmpg123 present  = $have_mpg123"
 	echo "libsndfile present = $have_sndfile"
+	echo "GTK 4 (>= 4.10)    = $have_gtk"
 	echo "compilers:"
 	for d in $detected; do
 		echo "  ${d%%=*} -> ${d#*=}"
@@ -329,6 +362,8 @@ for d in $detected; do
 			skip_reason="libmpg123 missing"
 		elif cell_needs_sndfile "$args" && [ "$have_sndfile" = no ]; then
 			skip_reason="libsndfile missing"
+		elif cell_needs_gtk "$args" && [ "$have_gtk" = no ]; then
+			skip_reason="GTK 4 >= 4.10 missing"
 		fi
 		if [ -n "$skip_reason" ]; then
 			echo "  [skip] $cname/$cell ($skip_reason)" >> "$info"

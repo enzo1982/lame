@@ -36,6 +36,7 @@ while the build count stays small enough to run routinely.
 | `staticfe`   | `--disable-dynamic-frontends`                     | static (non-default) frontend linking|
 | `nohardening`| `--enable-dynamic-frontends --disable-hardening`  | security hardening off               |
 | `expopt`     | `--enable-dynamic-frontends --enable-expopt=norm` | experimental optimizations on        |
+| `mp3x`       | `--enable-dynamic-frontends --enable-mp3x`        | GTK 4 frame analyzer frontend on     |
 
 Dynamic frontend linking is the default, and the base build spells it out with
 `--enable-dynamic-frontends` on purpose: linking the frontends against the shared
@@ -97,7 +98,15 @@ a note in `matrix-info.txt`, so the driver's failure list stays meaningful:
 
 - every cell except `nodecoder` needs **libmpg123** (the decoder is on by
   default and `configure` errors out if it is absent);
-- the `sndfile` cell additionally needs **libsndfile**.
+- the `sndfile` cell additionally needs **libsndfile**;
+- the `mp3x` cell additionally needs **GTK 4 &ge; 4.10**, probed with exactly
+  the version constraint `configure` applies, so a GTK 4 too old to build the
+  analyzer counts as absent here rather than producing a cell that cannot
+  configure.
+
+The `mp3x` cell is the only one that compiles and links the analyzer sources,
+so where GTK 4 is missing the analyzer frontend is not built at all &mdash; the
+matrix says so in `matrix-info.txt` rather than passing quietly.
 
 ## Windows usage
 
