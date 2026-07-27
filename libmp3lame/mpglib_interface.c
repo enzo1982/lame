@@ -24,6 +24,27 @@
 
 /* $Id$ */
 
+/*!
+  \file   mpglib_interface.c
+  \brief  The decoding side of the public API.
+
+  LAME is an encoder, but it ships a decoder as well, because encoding needs
+  one: measuring what the encoded file will actually sound like means decoding
+  it again. The same decoder is exposed for its own sake through the functions
+  here, whose names all begin with \c hip_.
+
+  Two properties hold throughout and are not repeated on each function:
+
+  - the decoder is **a separate object from the encoder**. It is created by
+    \c hip_decode_init(), passed as the first argument to everything here, and
+    destroyed by \c hip_decode_exit(); an encoder instance is neither needed
+    nor accepted.
+  - **the actual decoding is done by libmpg123**, which is optional. A library
+    built without it cannot decode at all, and says so where it can still be
+    acted on: neither creation call hands back a decoder, so the absence is
+    met before any input has been read.
+*/
+
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
@@ -96,6 +117,16 @@ int CDECL lame_decode1_headersB(
 int CDECL lame_decode_exit(void);
 #endif
 
+/*! Shut the old global decoder down. */
+/*!
+  \deprecated Obsolete and inert. The decoder used to be a single global
+  object; it is now created per caller, so there is nothing to shut down. Use
+  \c hip_decode_exit(). The declaration is compiled out of the installed
+  header; the definition remains so that programs linked against an older
+  release still resolve it.
+
+  \return always 0.
+*/
 int
 lame_decode_exit(void)
 {
@@ -103,6 +134,15 @@ lame_decode_exit(void)
 }
 
 
+/*! Start the old global decoder. */
+/*!
+  \deprecated Obsolete and inert. Use \c hip_decode_init(), which returns the
+  decoder instance the rest of the decoding API needs. This function reports
+  success without creating anything, so a program that only calls it and then
+  decodes gets failures from every later call.
+
+  \return always 0.
+*/
 int
 lame_decode_init(void)
 {
@@ -133,6 +173,15 @@ lame_decode_init(void)
 
 #define OUTSIZE_CLIPPED   (4096*sizeof(short))
 
+/*! Decode one frame through the old global decoder, with delay and padding. */
+/*!
+  \deprecated Obsolete and inert. Use \c hip_decode1_headersB(), which takes
+  the decoder instance this one lacks. **It does not decode**: it returns the
+  error code without looking at its arguments, so a caller that ignores the
+  result reads uninitialized output buffers.
+
+  \return always -1.
+*/
 int
 lame_decode1_headersB(LAME_UNUSED unsigned char *buffer,
                       LAME_UNUSED int len,
@@ -147,14 +196,12 @@ lame_decode1_headersB(LAME_UNUSED unsigned char *buffer,
 
 
 
-/*
- * For lame_decode:  return code
- *  -1     error
- *   0     ok, but need more data before outputing any samples
- *   n     number of samples output.  Will be at most one frame of
- *         MPEG data.  
- */
-
+/*! Decode one frame through the old global decoder, with header data. */
+/*!
+  \deprecated Obsolete and inert; see \c lame_decode1_headersB(). Use
+  \c hip_decode1_headers().
+  \return always -1.
+*/
 int
 lame_decode1_headers(LAME_UNUSED unsigned char *buffer,
                      LAME_UNUSED int len, LAME_UNUSED short pcm_l[],
@@ -164,6 +211,12 @@ lame_decode1_headers(LAME_UNUSED unsigned char *buffer,
 }
 
 
+/*! Decode one frame through the old global decoder. */
+/*!
+  \deprecated Obsolete and inert; see \c lame_decode1_headersB(). Use
+  \c hip_decode1().
+  \return always -1.
+*/
 int
 lame_decode1(LAME_UNUSED unsigned char *buffer, LAME_UNUSED int len,
              LAME_UNUSED short pcm_l[], LAME_UNUSED short pcm_r[])
@@ -172,13 +225,12 @@ lame_decode1(LAME_UNUSED unsigned char *buffer, LAME_UNUSED int len,
 }
 
 
-/*
- * For lame_decode:  return code
- *  -1     error
- *   0     ok, but need more data before outputing any samples
- *   n     number of samples output.  a multiple of 576 or 1152 depending on MP3 file.
- */
-
+/*! Decode through the old global decoder, with header data. */
+/*!
+  \deprecated Obsolete and inert; see \c lame_decode1_headersB(). Use
+  \c hip_decode_headers().
+  \return always -1.
+*/
 int
 lame_decode_headers(LAME_UNUSED unsigned char *buffer,
                     LAME_UNUSED int len, LAME_UNUSED short pcm_l[],
@@ -188,6 +240,12 @@ lame_decode_headers(LAME_UNUSED unsigned char *buffer,
 }
 
 
+/*! Decode through the old global decoder. */
+/*!
+  \deprecated Obsolete and inert; see \c lame_decode1_headersB(). Use
+  \c hip_decode().
+  \return always -1.
+*/
 int
 lame_decode(LAME_UNUSED unsigned char *buffer, LAME_UNUSED int len,
             LAME_UNUSED short pcm_l[], LAME_UNUSED short pcm_r[])
@@ -198,6 +256,24 @@ lame_decode(LAME_UNUSED unsigned char *buffer, LAME_UNUSED int len,
 
 
 
+/*! Create a decoder. */
+/*!
+  The first call of the decoding API. The returned handle is passed to every
+  other \c hip_ function and released with \c hip_decode_exit().
+
+  In a library built without libmpg123 **this fails**, returning NULL rather
+  than a handle that cannot decode anything. Checking the result is therefore
+  enough to find out whether decoding is available, and a program that skips
+  the check meets the same absence one call later instead, as an error from
+  every decode.
+
+  \since LAME 4.1. Before that this call handed back a handle even in a
+         library that could not decode, so a program that has to work against
+         an older libmp3lame as well cannot rely on the check alone.
+
+  \return the decoder handle, or NULL if decoding is unavailable or the handle
+          could not be allocated - two cases a caller cannot tell apart.
+*/
 hip_t hip_decode_init(void)
 {
     hip_t hip = lame_calloc(hip_global_flags, 1);
@@ -222,6 +298,21 @@ hip_t hip_decode_init(void)
     return hip;
 }
 
+/*! Create a decoder that trims the encoder's padding itself. */
+/*!
+  As \c hip_decode_init(), but the decoder honours the gapless information in
+  the file: the silence the encoder added at the start and end is dropped, so
+  the samples that come out are the ones that went in. A plain decoder leaves
+  that to the caller, which is why the other entry points hand back the delay
+  and padding figures.
+
+  This **returns NULL in a library built without libmpg123**, since the
+  trimming is that library's, on the same terms as \c hip_decode_init().
+
+  \return the decoder handle, or NULL if gapless decoding is unavailable or
+          the handle could not be allocated - two cases a caller cannot tell
+          apart.
+*/
 hip_t hip_decode_init_gapless(void)
 {
     hip_t hip = lame_calloc(hip_global_flags, 1);
@@ -249,6 +340,14 @@ hip_t hip_decode_init_gapless(void)
 
 
 
+/*! Destroy a decoder. */
+/*!
+  Releases everything the handle owns. A NULL handle is accepted and ignored,
+  so the failure of \c hip_decode_init() does not need a special case.
+
+  \param hip the decoder handle, or NULL.
+  \return always 0. There is no failure to report.
+*/
 int hip_decode_exit(hip_t hip)
 {
     if(hip) {
@@ -421,14 +520,26 @@ hip_decode1_unclipped(hip_t hip, unsigned char *buffer, size_t len, sample_t pcm
     return 0; /* not -1 ? */
 }
 
-/*
- * For hip_decode:  return code
- *  -1     error
- *   0     ok, but need more data before outputing any samples
- *   n     number of samples output.  Will be at most one frame of
- *         MPEG data.  
- */
+/*! Decode at most one frame, and report what the frame header said. */
+/*!
+  The same as \c hip_decode1(), and additionally fills in \a mp3data from the
+  frame header - sample rate, channel count, bitrate, frame size - which is
+  how a caller learns the format of a stream it did not encode itself. The
+  fields are only meaningful once \c header_parsed is set.
 
+  \param hip      the decoder handle.
+  \param buffer   the encoded bytes to feed in.
+  \param len      how many bytes \a buffer holds; 0 to drain what the decoder
+                  already has.
+  \param pcm_l    receives the left channel; room for a full frame, 1152
+                  samples, is required whatever the return value turns out
+                  to be.
+  \param pcm_r    receives the right channel, on the same terms.
+  \param mp3data  receives the frame description. Cleared on every call that
+                  gets far enough to parse a header.
+  \return the number of samples per channel written, 0 if more input is
+          needed first, or -1 on an error - including a NULL \a hip.
+*/
 int
 hip_decode1_headers(hip_t hip, unsigned char *buffer,
                      size_t len, short pcm_l[], short pcm_r[], mp3data_struct * mp3data)
@@ -444,6 +555,28 @@ hip_decode1_headers(hip_t hip, unsigned char *buffer,
 }
 
 
+/*! Decode at most one frame. */
+/*!
+  Feeds \a len bytes to the decoder and returns whatever samples that produced
+  - **at most one frame's worth**, so a caller with a large buffer keeps
+  calling with a length of 0 until the result is 0, or uses \c hip_decode(),
+  which does that loop itself.
+
+  A return of 0 is the normal state of affairs at the start of a stream: MP3
+  frames depend on the ones before them, so the first call or two produce
+  nothing.
+
+  \param hip     the decoder handle.
+  \param buffer  the encoded bytes to feed in.
+  \param len     how many bytes \a buffer holds; 0 to drain what the decoder
+                 already has.
+  \param pcm_l   receives the left channel; room for a full frame, 1152
+                 samples, is required.
+  \param pcm_r   receives the right channel, on the same terms. Written only
+                 for a stereo stream.
+  \return the number of samples per channel written, 0 if more input is
+          needed first, or -1 on an error.
+*/
 int
 hip_decode1(hip_t hip, unsigned char *buffer, size_t len, short pcm_l[], short pcm_r[])
 {
@@ -458,13 +591,22 @@ hip_decode1(hip_t hip, unsigned char *buffer, size_t len, short pcm_l[], short p
 }
 
 
-/*
- * For hip_decode:  return code
- *  -1     error
- *   0     ok, but need more data before outputing any samples
- *   n     number of samples output.  a multiple of 576 or 1152 depending on MP3 file.
- */
+/*! Decode everything the input yields, and report the frame header. */
+/*!
+  \c hip_decode() with the frame description filled in as well; see
+  \c hip_decode1_headers() for what \a mp3data holds. Since this decodes
+  several frames, \a mp3data describes the **last** one - which matters for a
+  stream whose frames are not all alike.
 
+  \param hip      the decoder handle.
+  \param buffer   the encoded bytes to feed in.
+  \param len      how many bytes \a buffer holds.
+  \param pcm_l    receives the left channel.
+  \param pcm_r    receives the right channel.
+  \param mp3data  receives the description of the last frame decoded.
+  \return the total number of samples per channel written, 0 if more input is
+          needed, or -1 on an error.
+*/
 int
 hip_decode_headers(hip_t hip, unsigned char *buffer,
                     size_t len, short pcm_l[], short pcm_r[], mp3data_struct * mp3data)
@@ -487,6 +629,26 @@ hip_decode_headers(hip_t hip, unsigned char *buffer,
 }
 
 
+/*! Decode everything the input yields. */
+/*!
+  Repeats \c hip_decode1() until the decoder has nothing more to give, so one
+  call turns a buffer of MP3 data into all the samples it contains.
+
+  The convenience has a price the caller must respect: **the output buffers
+  have to be large enough for every frame in the input**, not for one frame.
+  There is no bound the function itself can enforce, and nothing warns. Where
+  the input size is not under the caller's control, \c hip_decode1() and its
+  one-frame-at-a-time contract is the safe choice.
+
+  \param hip     the decoder handle.
+  \param buffer  the encoded bytes to feed in.
+  \param len     how many bytes \a buffer holds.
+  \param pcm_l   receives the left channel; sized by the caller for all the
+                 frames in \a buffer.
+  \param pcm_r   receives the right channel, on the same terms.
+  \return the total number of samples per channel written, 0 if more input is
+          needed, or -1 on an error.
+*/
 int
 hip_decode(hip_t hip, unsigned char *buffer, size_t len, short pcm_l[], short pcm_r[])
 {
@@ -495,6 +657,30 @@ hip_decode(hip_t hip, unsigned char *buffer, size_t len, short pcm_l[], short pc
 }
 
 
+/*! Decode at most one frame, and report the encoder's delay and padding. */
+/*!
+  \c hip_decode1_headers() plus the two figures needed to undo what the
+  encoder added: the samples inserted before the audio and the ones appended
+  after it. Discarding those from the decoded stream restores the original
+  length, which is what gapless playback of a sequence of files requires.
+
+  \c hip_decode_init_gapless() does this trimming inside the decoder instead,
+  and is the simpler choice unless the caller has a reason to see the numbers.
+
+  \param hip          the decoder handle.
+  \param buffer       the encoded bytes to feed in.
+  \param len          how many bytes \a buffer holds.
+  \param pcm_l        receives the left channel; room for a full frame is
+                      required.
+  \param pcm_r        receives the right channel, on the same terms.
+  \param mp3data      receives the frame description.
+  \param enc_delay    receives the encoder delay in samples, or -1 if the
+                      figure does not fit an \c int.
+  \param enc_padding  receives the trailing padding in samples, on the same
+                      terms.
+  \return the number of samples per channel written, 0 if more input is
+          needed first, or -1 on an error - including a NULL \a hip.
+*/
 int
 hip_decode1_headersB(hip_t hip, unsigned char *buffer,
                       size_t len,
@@ -563,6 +749,19 @@ void hip_finish_pinfo(hip_t hip)
 #endif
 }
 
+/*! Route the decoder's error messages. */
+/*!
+  The decoder's counterpart of \c lame_set_errorf(), and **it does nothing**:
+  the callback is accepted and discarded. The decoding is libmpg123's, and its
+  diagnostics are not forwarded, so a caller who wants to know why a decode
+  failed has only the -1.
+
+  Kept because the encoder's reporting functions have decoder-side names to
+  match, and removing it would break programs that set all six.
+
+  \param hip   ignored.
+  \param func  ignored.
+*/
 void hip_set_errorf(LAME_UNUSED hip_t hip, LAME_UNUSED lame_report_function func)
 {
 #ifdef HAVE_MPG123
@@ -570,6 +769,12 @@ void hip_set_errorf(LAME_UNUSED hip_t hip, LAME_UNUSED lame_report_function func
 #endif
 }
 
+/*! Route the decoder's debug messages. */
+/*!
+  Does nothing; see \c hip_set_errorf().
+  \param hip   ignored.
+  \param func  ignored.
+*/
 void hip_set_debugf(LAME_UNUSED hip_t hip, LAME_UNUSED lame_report_function func)
 {
 #ifdef HAVE_MPG123
@@ -577,6 +782,12 @@ void hip_set_debugf(LAME_UNUSED hip_t hip, LAME_UNUSED lame_report_function func
 #endif
 }
 
+/*! Route the decoder's informational messages. */
+/*!
+  Does nothing; see \c hip_set_errorf().
+  \param hip   ignored.
+  \param func  ignored.
+*/
 void hip_set_msgf  (LAME_UNUSED hip_t hip, LAME_UNUSED lame_report_function func)
 {
 #ifdef HAVE_MPG123
