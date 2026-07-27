@@ -43,3 +43,5 @@ was written in. Each has a guide of its own:
 - @ref maintainer_check_dist - validating a finished distribution tarball
   before it is announced: does it unpack, build in every configuration this
   machine can build, pass its tests, and still describe itself correctly.
+- @ref maintainer_gen_api_docs - building this documentation and the public
+  API reference, and putting both where the website can serve them.
