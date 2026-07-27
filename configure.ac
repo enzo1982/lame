@@ -983,7 +983,7 @@ if test "x$HAVE_GCC" = "xyes" -o "x$HAVE_CLANG" = "xyes"; then
 		;;
 	esac
 
-	# Base optimization, applied unless the user passed their own CFLAGS.
+	# Base optimization, always applied.
 	#   -O3                          aggressive optimization
 	#   -fomit-frame-pointer         free a register (implied by -O on most
 	#                                modern targets, useful on older ones)
@@ -993,20 +993,28 @@ if test "x$HAVE_GCC" = "xyes" -o "x$HAVE_CLANG" = "xyes"; then
 	#   -fno-semantic-interposition  let the shared libmp3lame inline its
 	#                                own calls instead of going through the
 	#                                PLT (gcc; harmless no-op elsewhere)
-	if test "x${ac_save_CFLAGS}" = "x"; then
-		LAME_CHECK_CFLAG([-O3], [OPTIMIZATION])
-		LAME_CHECK_CFLAG([-fomit-frame-pointer], [OPTIMIZATION])
-		LAME_CHECK_CFLAG([-ffast-math], [OPTIMIZATION])
-		LAME_CHECK_CFLAG([-fno-semantic-interposition], [OPTIMIZATION])
+	#
+	# A CFLAGS given on the configure line is placed AFTER these rather than
+	# instead of them (see the CFLAGS assignment further down), so it adds to
+	# the build and overrides only what it actually names: CFLAGS='-g' yields
+	# debug information at -O3, CFLAGS='-O2 -g' yields both at -O2, and either
+	# keeps the arithmetic settings the DSP code is validated with. Suppressing
+	# this block instead, as it once did, meant a single flag on the command
+	# line silently dropped -ffast-math and changed the encoder's output.
+	# Anything here can still be countermanded by naming its opposite, since
+	# the later flag wins.
+	LAME_CHECK_CFLAG([-O3], [OPTIMIZATION])
+	LAME_CHECK_CFLAG([-fomit-frame-pointer], [OPTIMIZATION])
+	LAME_CHECK_CFLAG([-ffast-math], [OPTIMIZATION])
+	LAME_CHECK_CFLAG([-fno-semantic-interposition], [OPTIMIZATION])
 
-		case "${CONFIG_EXPOPT}" in
-		norm|yes)
-			# extra, experimental optimization
-			LAME_CHECK_CFLAG([-funroll-loops], [OPTIMIZATION])
-			LAME_CHECK_CFLAG([-fschedule-insns2], [OPTIMIZATION])
-			;;
-		esac
-	fi
+	case "${CONFIG_EXPOPT}" in
+	norm|yes)
+		# extra, experimental optimization
+		LAME_CHECK_CFLAG([-funroll-loops], [OPTIMIZATION])
+		LAME_CHECK_CFLAG([-fschedule-insns2], [OPTIMIZATION])
+		;;
+	esac
 
 	# --enable-native tuning.
 	if test "x${enable_native}" = "xyes"; then

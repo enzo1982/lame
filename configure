@@ -20314,7 +20314,7 @@ if test "x$HAVE_GCC" = "xyes" -o "x$HAVE_CLANG" = "xyes"; then
 		;;
 	esac
 
-	# Base optimization, applied unless the user passed their own CFLAGS.
+	# Base optimization, always applied.
 	#   -O3                          aggressive optimization
 	#   -fomit-frame-pointer         free a register (implied by -O on most
 	#                                modern targets, useful on older ones)
@@ -20324,8 +20324,17 @@ if test "x$HAVE_GCC" = "xyes" -o "x$HAVE_CLANG" = "xyes"; then
 	#   -fno-semantic-interposition  let the shared libmp3lame inline its
 	#                                own calls instead of going through the
 	#                                PLT (gcc; harmless no-op elsewhere)
-	if test "x${ac_save_CFLAGS}" = "x"; then
-		{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -O3" >&5
+	#
+	# A CFLAGS given on the configure line is placed AFTER these rather than
+	# instead of them (see the CFLAGS assignment further down), so it adds to
+	# the build and overrides only what it actually names: CFLAGS='-g' yields
+	# debug information at -O3, CFLAGS='-O2 -g' yields both at -O2, and either
+	# keeps the arithmetic settings the DSP code is validated with. Suppressing
+	# this block instead, as it once did, meant a single flag on the command
+	# line silently dropped -ffast-math and changed the encoder's output.
+	# Anything here can still be countermanded by naming its opposite, since
+	# the later flag wins.
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -O3" >&5
 printf %s "checking whether $CC accepts -O3... " >&6; }
 lame_check_flag_save=$CFLAGS
 CFLAGS="$CFLAGS -O2 -O3 -Werror"
@@ -20356,7 +20365,7 @@ then :
   OPTIMIZATION="${OPTIMIZATION} -O3"
 fi
 
-		{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fomit-frame-pointer" >&5
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fomit-frame-pointer" >&5
 printf %s "checking whether $CC accepts -fomit-frame-pointer... " >&6; }
 lame_check_flag_save=$CFLAGS
 CFLAGS="$CFLAGS -O2 -fomit-frame-pointer -Werror"
@@ -20387,7 +20396,7 @@ then :
   OPTIMIZATION="${OPTIMIZATION} -fomit-frame-pointer"
 fi
 
-		{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -ffast-math" >&5
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -ffast-math" >&5
 printf %s "checking whether $CC accepts -ffast-math... " >&6; }
 lame_check_flag_save=$CFLAGS
 CFLAGS="$CFLAGS -O2 -ffast-math -Werror"
@@ -20418,7 +20427,7 @@ then :
   OPTIMIZATION="${OPTIMIZATION} -ffast-math"
 fi
 
-		{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fno-semantic-interposition" >&5
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fno-semantic-interposition" >&5
 printf %s "checking whether $CC accepts -fno-semantic-interposition... " >&6; }
 lame_check_flag_save=$CFLAGS
 CFLAGS="$CFLAGS -O2 -fno-semantic-interposition -Werror"
@@ -20450,10 +20459,10 @@ then :
 fi
 
 
-		case "${CONFIG_EXPOPT}" in
-		norm|yes)
-			# extra, experimental optimization
-			{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -funroll-loops" >&5
+	case "${CONFIG_EXPOPT}" in
+	norm|yes)
+		# extra, experimental optimization
+		{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -funroll-loops" >&5
 printf %s "checking whether $CC accepts -funroll-loops... " >&6; }
 lame_check_flag_save=$CFLAGS
 CFLAGS="$CFLAGS -O2 -funroll-loops -Werror"
@@ -20484,7 +20493,7 @@ then :
   OPTIMIZATION="${OPTIMIZATION} -funroll-loops"
 fi
 
-			{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fschedule-insns2" >&5
+		{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -fschedule-insns2" >&5
 printf %s "checking whether $CC accepts -fschedule-insns2... " >&6; }
 lame_check_flag_save=$CFLAGS
 CFLAGS="$CFLAGS -O2 -fschedule-insns2 -Werror"
@@ -20515,9 +20524,8 @@ then :
   OPTIMIZATION="${OPTIMIZATION} -fschedule-insns2"
 fi
 
-			;;
-		esac
-	fi
+		;;
+	esac
 
 	# --enable-native tuning.
 	if test "x${enable_native}" = "xyes"; then

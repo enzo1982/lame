@@ -104,8 +104,13 @@ missing:
   this and skips instead.
 
 ```
-../configure CFLAGS='-g -O2' && make && make abicheck
+../configure CFLAGS='-g' && make && make abicheck
 ```
+
+`CFLAGS` on the configure line adds to the build's own flags rather than
+replacing them, so that asks for debug information and nothing else: the
+optimization stays where the project put it, and the resulting tree still
+builds and tests like any other.
 
 ## What it does not check
 
