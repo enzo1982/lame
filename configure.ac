@@ -576,7 +576,14 @@ CONFIG_MATH_LIB="${USE_LIBM}"
 
 dnl configure use of features
 
-AM_PATH_GTK(1.2.0, HAVE_GTK="yes", HAVE_GTK="no")
+dnl The frame analyzer (mp3x) is a GTK4 program.  It was originally written
+dnl against GTK 1.2 and probed with AM_PATH_GTK, which drives the obsolete
+dnl gtk-config script.  GTK4 ships pkg-config metadata instead, and
+dnl PKG_CHECK_MODULES substitutes the very same GTK_CFLAGS/GTK_LIBS names
+dnl frontend/Makefile.am already consumes, so nothing downstream of this
+dnl line has to change.  An absent GTK4 must stay non-fatal - it only
+dnl disables mp3x, checked below - hence the explicit not-found action.
+PKG_CHECK_MODULES([GTK], [gtk4 >= 4.10], [HAVE_GTK="yes"], [HAVE_GTK="no"])
 
 dnl ElectricFence malloc debugging
 AC_MSG_CHECKING(use of ElectricFence malloc debugging)
@@ -669,13 +676,23 @@ AC_MSG_RESULT($CONFIG_ANALYZER)
 
 
 dnl mpg123 decoder
+AC_ARG_ENABLE(mp3x,
+  [  --enable-mp3x           Build GTK frame analyzer [default=no]],
+    enable_mp3x="${enableval}", enable_mp3x=no)
+
 PKG_CHECK_MODULES([mpg123], [libmpg123 >= 1.26.0], [HAVE_MPG123="yes"], [HAVE_MPG123="no"])
 
-AC_MSG_CHECKING(use of external mpg123 decoder)
 AC_ARG_ENABLE(decoder,
   [  --disable-decoder          Exclude mpg123 decoder],
   CONFIG_DECODER="${enableval}", CONFIG_DECODER="yes")
 
+if test "x${enable_mp3x}" = "xyes"; then
+	if test "${HAVE_MPG123}" != "yes" || test "${CONFIG_DECODER}" = "no"; then
+		AC_MSG_ERROR([--enable-mp3x requires enabled libmpg123 decoder support (libmpg123 >= 1.26.0)])
+	fi
+fi
+
+AC_MSG_CHECKING(use of external mpg123 decoder)
 LIB_WITH_DECODER=false
 if test "${HAVE_MPG123}" = "yes" && test "${CONFIG_DECODER}" != "no"; then
 	AC_MSG_RESULT([yes])
@@ -708,10 +725,7 @@ fi
 
 
 AC_MSG_CHECKING(if mp3x is requested)
-AC_ARG_ENABLE(mp3x,
-  [  --enable-mp3x           Build GTK frame analyzer [default=no]],
-    WITH_MP3X="${enableval}", WITH_MP3X=no)
-if test "x${WITH_MP3X}" = "xyes"; then
+if test "x${enable_mp3x}" = "xyes"; then
 	WITH_MP3X=mp3x${ac_exeext}
 	AC_MSG_RESULT(yes)
 else
@@ -719,15 +733,13 @@ else
 	AC_MSG_RESULT(no)
 fi
 
-if test "${HAVE_GTK}" = "no"; then
-	if test "x${WITH_MP3X}" = "xmp3x"; then
-		AC_MSG_WARN(can't build mp3x, no GTK installed)
-		WITH_MP3X=
-	fi
-	if test "x${CONFIG_ANALYZER}" != "xyes"; then
-		AC_MSG_WARN(can't build mp3x because of disabled analyzer hooks)
-		WITH_MP3X=
-	fi
+if test "x${WITH_MP3X}" != "x" && test "${HAVE_GTK}" = "no"; then
+	AC_MSG_WARN([can't build mp3x, no GTK installed])
+	WITH_MP3X=
+fi
+if test "x${WITH_MP3X}" != "x" && test "x${CONFIG_ANALYZER}" != "xyes"; then
+	AC_MSG_WARN([can't build mp3x because of disabled analyzer hooks])
+	WITH_MP3X=
 fi
 
 AC_MSG_CHECKING(if mp3rtp is requested)
@@ -1537,7 +1549,7 @@ echo "    optional libraries"
 echo "      libmpg123 ........... ${HAVE_MPG123:-no}"
 echo "      libsndfile .......... ${sndfile_state}"
 echo "      terminal library .... ${termcap_state}"
-echo "      GTK 1.2 ............. ${HAVE_GTK:-no}"
+echo "      GTK4 (>= 4.10) ...... ${HAVE_GTK:-no}"
 echo ""
 echo "    programs"
 echo "      lame ................ ${prog_lame}"

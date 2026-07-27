@@ -127,8 +127,8 @@ am_mp3rtp_OBJECTS = mp3rtp.$(OBJEXT) rtp.$(OBJEXT) $(am__objects_1)
 mp3rtp_OBJECTS = $(am_mp3rtp_OBJECTS)
 mp3rtp_LDADD = $(LDADD)
 mp3rtp_DEPENDENCIES = $(top_builddir)/libmp3lame/libmp3lame.la
-am_mp3x_OBJECTS = mp3x.$(OBJEXT) gtkanal.$(OBJEXT) \
-	gpkplotting.$(OBJEXT) $(am__objects_1)
+am_mp3x_OBJECTS = mp3x_ui.$(OBJEXT) mp3x_plot.$(OBJEXT) \
+	mp3x_core.$(OBJEXT) mp3x_session.$(OBJEXT) $(am__objects_1)
 mp3x_OBJECTS = $(am_mp3x_OBJECTS)
 am__DEPENDENCIES_1 = $(top_builddir)/libmp3lame/libmp3lame.la
 mp3x_DEPENDENCIES = $(am__DEPENDENCIES_1)
@@ -148,11 +148,12 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/brhist.Po ./$(DEPDIR)/console.Po \
-	./$(DEPDIR)/get_audio.Po ./$(DEPDIR)/gpkplotting.Po \
-	./$(DEPDIR)/gtkanal.Po ./$(DEPDIR)/lame_main.Po \
+	./$(DEPDIR)/get_audio.Po ./$(DEPDIR)/lame_main.Po \
 	./$(DEPDIR)/lametime.Po ./$(DEPDIR)/main.Po \
-	./$(DEPDIR)/mp3rtp.Po ./$(DEPDIR)/mp3x.Po ./$(DEPDIR)/parse.Po \
-	./$(DEPDIR)/rtp.Po ./$(DEPDIR)/timestatus.Po
+	./$(DEPDIR)/mp3rtp.Po ./$(DEPDIR)/mp3x_core.Po \
+	./$(DEPDIR)/mp3x_plot.Po ./$(DEPDIR)/mp3x_session.Po \
+	./$(DEPDIR)/mp3x_ui.Po ./$(DEPDIR)/parse.Po ./$(DEPDIR)/rtp.Po \
+	./$(DEPDIR)/timestatus.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -242,7 +243,6 @@ FRONTEND_LDFLAGS = @FRONTEND_LDFLAGS@
 FRONTEND_UNICODE_LDFLAGS = @FRONTEND_UNICODE_LDFLAGS@
 GREP = @GREP@
 GTK_CFLAGS = @GTK_CFLAGS@
-GTK_CONFIG = @GTK_CONFIG@
 GTK_LIBS = @GTK_LIBS@
 INCLUDES = @INCLUDES@ -I$(top_srcdir)/libmp3lame -I$(top_srcdir)/include \
 	-I$(top_srcdir) -I$(top_builddir)
@@ -383,6 +383,9 @@ noinst_HEADERS = \
 	get_audio.h \
 	gtkanal.h \
 	gpkplotting.h \
+	mp3x_core.h \
+	mp3x_plot.h \
+	mp3x_session.h \
 	lametime.h \
 	main.h \
 	parse.h \
@@ -391,7 +394,20 @@ noinst_HEADERS = \
 
 lame_SOURCES = lame_main.c $(common_sources)
 mp3rtp_SOURCES = mp3rtp.c rtp.c $(common_sources)
-mp3x_SOURCES = mp3x.c gtkanal.c gpkplotting.c $(common_sources)
+# The frame analyzer is now the GTK4 frontend (mp3x_ui.c + mp3x_plot.c)
+# driving the toolkit-independent analyzer engine (mp3x_core.c).  The
+# per-file session lifecycle (open/close/replace, async File dialog
+# integration, frontend-global baseline management) lives in
+# mp3x_session.c.  The program keeps its name, so
+# "configure --enable-mp3x && make && ./mp3x" is unchanged for anyone
+# building it.
+mp3x_SOURCES = mp3x_ui.c mp3x_plot.c mp3x_core.c mp3x_session.c $(common_sources)
+
+# The superseded GTK 1.2 implementation.  It is no longer compiled, but it
+# is still shipped: naming it here keeps "make dist" including it, since
+# automake only distributes files some target actually mentions.  Dropping
+# this line would remove GTK1 support from the tarball by accident.
+EXTRA_DIST = mp3x.c gtkanal.c gpkplotting.c README.mp3x-gtk4
 
 # --enable-internal exposes the developer tuning options in parse.c. The macro
 # is defined here (frontend only), not globally, so other consumers of parse.c
@@ -511,13 +527,14 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/brhist.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/console.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_audio.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gpkplotting.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gtkanal.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lame_main.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lametime.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3rtp.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x_core.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x_plot.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x_session.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x_ui.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/parse.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rtp.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/timestatus.Po@am__quote@ # am--include-marker
@@ -686,13 +703,14 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/brhist.Po
 	-rm -f ./$(DEPDIR)/console.Po
 	-rm -f ./$(DEPDIR)/get_audio.Po
-	-rm -f ./$(DEPDIR)/gpkplotting.Po
-	-rm -f ./$(DEPDIR)/gtkanal.Po
 	-rm -f ./$(DEPDIR)/lame_main.Po
 	-rm -f ./$(DEPDIR)/lametime.Po
 	-rm -f ./$(DEPDIR)/main.Po
 	-rm -f ./$(DEPDIR)/mp3rtp.Po
-	-rm -f ./$(DEPDIR)/mp3x.Po
+	-rm -f ./$(DEPDIR)/mp3x_core.Po
+	-rm -f ./$(DEPDIR)/mp3x_plot.Po
+	-rm -f ./$(DEPDIR)/mp3x_session.Po
+	-rm -f ./$(DEPDIR)/mp3x_ui.Po
 	-rm -f ./$(DEPDIR)/parse.Po
 	-rm -f ./$(DEPDIR)/rtp.Po
 	-rm -f ./$(DEPDIR)/timestatus.Po
@@ -744,13 +762,14 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/brhist.Po
 	-rm -f ./$(DEPDIR)/console.Po
 	-rm -f ./$(DEPDIR)/get_audio.Po
-	-rm -f ./$(DEPDIR)/gpkplotting.Po
-	-rm -f ./$(DEPDIR)/gtkanal.Po
 	-rm -f ./$(DEPDIR)/lame_main.Po
 	-rm -f ./$(DEPDIR)/lametime.Po
 	-rm -f ./$(DEPDIR)/main.Po
 	-rm -f ./$(DEPDIR)/mp3rtp.Po
-	-rm -f ./$(DEPDIR)/mp3x.Po
+	-rm -f ./$(DEPDIR)/mp3x_core.Po
+	-rm -f ./$(DEPDIR)/mp3x_plot.Po
+	-rm -f ./$(DEPDIR)/mp3x_session.Po
+	-rm -f ./$(DEPDIR)/mp3x_ui.Po
 	-rm -f ./$(DEPDIR)/parse.Po
 	-rm -f ./$(DEPDIR)/rtp.Po
 	-rm -f ./$(DEPDIR)/timestatus.Po

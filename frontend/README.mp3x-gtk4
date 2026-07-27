@@ -1,0 +1,126 @@
+GTK4 mp3x maintainer notes
+==========================
+
+Scope and build
+---------------
+
+`mp3x` is the GTK4 frame-analyzer frontend. It is optional and requires
+GTK 4.10 or newer, libmpg123 1.26 or newer with decoder support enabled,
+and analyzer hooks:
+
+    autoreconf -fi
+    ./configure --enable-mp3x
+    make
+    ./frontend/mp3x [LAME options] [input.wav|input.aiff|input.mp3|-]
+
+The legacy GTK 1.2 sources remain in release archives through `EXTRA_DIST`,
+but are not compiled. `mp3x_ui.c`, `mp3x_plot.c`, `mp3x_core.c`, and
+`mp3x_session.c` are the only implementation units for the GTK4 executable.
+
+Architecture and lifetime
+-------------------------
+
+`Mp3xDriver` is process/UI lifetime state. It borrows the application and
+window, owns the current session, menu model, CSS provider, view preferences,
+async-request identity slots, session-generation counter, and the cumulative
+analysis-failure exit latch.
+
+`Mp3xSession` is one open input. It owns its `lame_t`, path/display-name, and
+transport state. Closing removes its idle source first, shuts down the core
+decoder, calls `close_infile()`, closes the LAME handle, and frees its strings.
+Opening another file restores the captured startup frontend-global baseline,
+so CLI raw/format options cannot leak into a later GUI-selected file.
+
+Each file-dialog request owns a strong driver reference, dialog, cancellable,
+and one matching `g_application_hold()`. Its completion route releases all four
+on completion. Each idle source owns a strong driver reference plus the captured
+session pointer/generation and frees them in its destroy notify. A stale async
+callback must match both the driver state epoch and session generation before
+using session state.
+
+The GUI prevalidates a selected `GFile` before retiring the
+current session. A successful `Mp3xPrevalidateResult` owns its three strings
+until they are either cleared or stolen by the replacement session.
+
+Transport and EOF
+-----------------
+
+Input exhaustion and display completion are different states. For PCM input,
+the first `mp3x_core_step()` returning zero has already shifted the ring, called
+`lame_encode_flush()` once, fed its complete output to HIP, and decoded at most
+one queued frame. The session then performs exactly `READ_AHEAD - 1`
+`mp3x_core_drain_step()` shifts. Their first calls collect any remaining HIP
+output already queued by the encoder flush; once HIP needs more data they shift
+invalid sentinels. Drain steps do no input, encoding, or statistics work.
+Completion is set only when the final real frame reaches the display position.
+Play, repeated Step, and Last/Advance therefore reach the same final frame with
+its correctly mapped Re-synthesis companion.
+
+`frames_done` counts real analyzed frames only. Every real plotting slot stores
+`totbits == sum(mainbits[gr][ch])`. A negative core result stops the session and
+latches process exit status 1; a later successful open does not erase it.
+
+CLI behavior
+------------
+
+Initial command-line parsing happens before `GtkApplication` is created.
+The existing parser's informational result (`-2`) prints help, version,
+license, usage, long-help, or genre-list output once and exits 0 without a
+window. Parser/open failures exit nonzero. A successfully opened CLI session is
+installed when GTK activates. Subsequent GUI Opens use documented clean
+defaults rather than replaying the initial argv.
+
+Plotting and export
+-------------------
+
+On-screen titles use a Pango layout created from the drawing widget, inheriting
+its font map, font description, direction, DPI, and desktop text scaling.
+Offscreen PNGs use a deterministic PangoCairo `Sans 11` layout. A measured title
+band is excluded from every graph's data mapping. Drawing areas publish
+accessible labels.
+
+Every PNG writer checks the image surface, Cairo context, and
+`cairo_surface_write_to_png()` status. Interactive Save/Export reports the
+returned error instead of claiming success.
+
+Test-only instrumentation
+-------------------------
+
+Production builds contain no environment-variable automation behavior. To
+compile the opt-in validation hooks:
+
+    ./configure --enable-mp3x CPPFLAGS=-DMP3X_ENABLE_TEST_HOOKS
+    make
+
+Only that build recognizes:
+
+* `MP3X_START_PAUSED` - analyze one transition, then wait.
+* `MP3X_STEP_TO_END` - exercise repeated paused Step transitions to completion.
+* `MP3X_ADVANCE_TO_END` - exercise Last/Advance-to-end.
+* `MP3X_QUIT_WHEN_DONE` - quit after completion or injected failure.
+* `MP3X_FAIL_AFTER=N` - inject an analyzer failure after N real frames.
+* `MP3X_STATE_REPORT=path` - write final frame/drain/totbits invariants plus
+  the final Re-synthesis companion offset and decoded PCM peak.
+* `MP3X_SHOT`, `MP3X_SHOT_RESYNTH`, `MP3X_SHOT_MDCT`,
+  `MP3X_SHOT_MDCT1`, `MP3X_SHOT_PSY`, `MP3X_SHOT_PSY1`,
+  `MP3X_SHOT_SFB`, `MP3X_SHOT_SFB1`, `MP3X_SHOT_COMPOSITE` - save all
+  nine final plot artifacts.
+* `MP3X_CHANNEL`, `MP3X_MS`, `MP3X_DIFF`, `MP3X_SOURCE`,
+  `MP3X_NOSFBLINES`, `MP3X_KBFLAG` - override display choices.
+
+Suggested regression matrix
+---------------------------
+
+1. Fresh normal and instrumented builds; changed files warning-clean.
+2. Timeout-bound every informational CLI route and one invalid option.
+3. WAV, AIFF, and MP3 inputs shorter than and longer than `READ_AHEAD`.
+4. Play, repeated Step, and Last/Advance to the same final displayed frame.
+5. Verify every reported `totbits` against the four `mainbits` fields, and
+   require a Re-synthesis companion for every displayed final frame (a silent
+   fixture may legitimately report a zero decoded PCM peak).
+6. Empty, directory, missing, unreadable, and nonregular selections.
+7. Repeated Open/Recent/Close/cancel/save cycles under the platform leak tool.
+8. All nine PNG save routes, including an unwritable destination.
+9. Channel/source/difference/SFB/subblock/spectrum controls, statistics,
+   keyboard transport, fullscreen, and file replacement.
+10. Confirm a normal binary contains none of the `MP3X_*` hook strings.
