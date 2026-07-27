@@ -77,8 +77,10 @@ char   *strchr(), *strrchr();
 # include <kernel.h>
 # include <sys/swis.h>
 #elif defined(_WIN32)
+# include <io.h>
 # include <sys/types.h>
 # include <sys/stat.h>
+# include <windows.h>
 #else
 # include <sys/stat.h>
 #endif
@@ -2071,6 +2073,13 @@ static mpg123_ssize_t lame123_read_from_file(void* handle, void* buffer, size_t 
 
 static off_t lame123_seek_in_file(void* handle, off_t offset, int direction)
 {
+   HANDLE const os_handle =
+       (HANDLE) _get_osfhandle(_fileno((FILE*) handle));
+
+   /* fseek() has undefined behavior for non-seeking Windows devices. */
+   if (os_handle == INVALID_HANDLE_VALUE ||
+       GetFileType(os_handle) != FILE_TYPE_DISK)
+      return (off_t)-1;
    if (fseek((FILE*)handle, offset, direction) != 0)
       return (off_t)-1;
    return ftell((FILE*)handle);
