@@ -185,6 +185,18 @@
 			        than read past the buffer, for the sake of any
 			        other caller that makes this mistake. Bug ticket
 			        <i class="ticket">[ #522 ]</i>.</span></li>
+			    <li>A library built without libmpg123 now refuses to
+			        create a decoder instead of handing back one that
+			        fails on every use. Such a build cannot decode at
+			        all, but only the gapless entry point said so; the
+			        plain one returned a decoder whose first use failed,
+			        which looks like a problem with the input rather
+			        than with the build. Both now return nothing, so a
+			        caller learns it before reading any data. Programs
+			        that check the result of <i>hip_decode_init()</i>
+			        need no change; one that does not will fail at the
+			        same place it did before. A small memory leak on
+			        that path is gone with it.</li>
 			    <li>Removed the unused bundled mpglib and Amiga MPEGA
 			        decoder paths. Decoding has gone through libmpg123
 			        since 3.101, so no build still selected them.

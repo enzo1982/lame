@@ -294,6 +294,11 @@ hip_t hip_decode_init(void)
         free(hip);
         hip = NULL;
     }
+#else
+    /* Nothing here can decode, so refuse to hand out a decoder at all rather
+       than one that fails on every later call. */
+    free(hip);
+    hip = NULL;
 #endif
     return hip;
 }
@@ -333,6 +338,7 @@ hip_t hip_decode_init_gapless(void)
         hip = NULL;
     }
 #else
+    free(hip);
     hip = NULL;
 #endif
     return hip;
