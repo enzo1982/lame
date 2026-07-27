@@ -559,7 +559,9 @@ done
 LIBS="${lame_termcap_save_LIBS}"
 AC_CHECK_HEADERS(langinfo.h, AC_CHECK_FUNCS(nl_langinfo))
 
-AM_ICONV
+dnl AM_ICONV runs further down, once the optional libraries have been located.
+dnl It has to see the same header and library search paths the frontend is
+dnl built with, and here it would run before any of them exist.
 
 dnl math lib
 AC_CHECK_LIB(m, cos, USE_LIBM="-lm")
@@ -1398,6 +1400,70 @@ if test "x$USE_MAINTAINER_MODE" = xyes; then
 	LAME_CHECK_CFLAG([-Werror], [CFLAGS])
 fi
 
+dnl iconv, deliberately last.
+dnl
+dnl Every frontend translation unit is compiled with the include paths
+dnl pkg-config reported for GTK, the decoder and libsndfile - frontend's
+dnl Makefile.am applies them to the whole directory, not just to the analyzer.
+dnl Where those paths lead to a GNU libiconv installed beside the C library's
+dnl iconv, its <iconv.h> renames iconv_open to libiconv_open, and the frontend
+dnl then needs that library.  AM_ICONV must therefore be asked the question the
+dnl frontend actually asks, which means running it after those paths are known
+dnl and with them in effect, not before they exist.
+dnl
+dnl The search directories are taken from what pkg-config reported, never
+dnl assumed: an installation prefix is configurable and is not always the
+dnl conventional one, so the -L options that located GTK and the decoder are
+dnl also the ones that locate the iconv beside them.  Only -I and -L options
+dnl are carried over.  The link options are not: they are written for libtool,
+dnl which links the frontend, and include flags such as -R that a bare compiler
+dnl rejects outright - which would turn a working iconv into a configure error.
+dnl
+dnl Where no such paths exist the loops below contribute nothing and the check
+dnl behaves exactly as it always did.  That is the self-limiting property worth
+dnl keeping: nothing can drag in a foreign <iconv.h> without also telling us
+dnl where its library lives.
+lame_iconv_incs=
+for lame_iconv_opt in ${GTK_CFLAGS} ${mpg123_CFLAGS} ${SNDFILE_CFLAGS}; do
+	case ${lame_iconv_opt} in
+	-I*)
+		case " ${lame_iconv_incs} " in
+		*" ${lame_iconv_opt} "*) ;;
+		*) lame_iconv_incs="${lame_iconv_incs} ${lame_iconv_opt}" ;;
+		esac
+		;;
+	esac
+done
+lame_iconv_libdirs=
+for lame_iconv_opt in ${GTK_LIBS} ${mpg123_LIBS} ${SNDFILE_LIBS}; do
+	case ${lame_iconv_opt} in
+	-L*)
+		case " ${lame_iconv_libdirs} " in
+		*" ${lame_iconv_opt} "*) ;;
+		*) lame_iconv_libdirs="${lame_iconv_libdirs} ${lame_iconv_opt}" ;;
+		esac
+		;;
+	esac
+done
+
+lame_iconv_save_CPPFLAGS="${CPPFLAGS}"
+lame_iconv_save_LDFLAGS="${LDFLAGS}"
+CPPFLAGS="${CPPFLAGS}${lame_iconv_incs}"
+LDFLAGS="${LDFLAGS}${lame_iconv_libdirs}"
+AM_ICONV
+CPPFLAGS="${lame_iconv_save_CPPFLAGS}"
+LDFLAGS="${lame_iconv_save_LDFLAGS}"
+
+if test "x${am_func_iconv}" = "xyes"; then
+	if test "x${am_cv_lib_iconv}" = "xyes"; then
+		iconv_state="yes (separate library)"
+	else
+		iconv_state="yes (C library)"
+	fi
+else
+	iconv_state="no - tags are not transliterated"
+fi
+
 LDADD="${LDADD}"
 FRONTEND_CFLAGS="${INCICONV} ${FRONTEND_CFLAGS}"
 FRONTEND_LDADD="${FRONTEND_LDADD} ${LTLIBICONV} ${CONFIG_MATH_LIB}"
@@ -1537,6 +1603,7 @@ echo "      libmpg123 ........... ${HAVE_MPG123:-no}"
 echo "      libsndfile .......... ${sndfile_state}"
 echo "      terminal library .... ${termcap_state}"
 echo "      GTK4 (>= 4.10) ...... ${HAVE_GTK:-no}"
+echo "      iconv ............... ${iconv_state}"
 echo ""
 echo "    programs"
 echo "      lame ................ ${prog_lame}"
