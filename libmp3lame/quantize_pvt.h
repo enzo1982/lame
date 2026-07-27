@@ -69,6 +69,7 @@ typedef struct calc_noise_result_t {
 
 
 /**
+* \internal
 * allows re-use of previously
 * computed noise values
 */

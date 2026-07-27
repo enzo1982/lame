@@ -50,6 +50,9 @@ EXTRA_DIST = Doxyfile.in Doxyfile-common.in Doxyfile-internal.in \
 	maintainer-check-dist.md \
 	maintainer-gen-api-docs.md \
 	doxygen/mainpage.md \
+	doxygen/maintainer.md \
+	doxygen/DoxygenLayout.xml \
+	doxygen/DoxygenLayout-internal.xml \
 	doxygen/internal.md \
 	doxygen/unit_tests.dox \
 	doxygen/vector-dispatch.dox \

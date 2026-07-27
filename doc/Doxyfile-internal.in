@@ -33,6 +33,7 @@ INPUT                  = @LAME_SRCDIR@/include \
                          @LAME_SRCDIR@/ACM \
                          @LAME_SRCDIR@/test/unit \
                          @LAME_SRCDIR@/doc/doxygen/internal.md \
+                         @LAME_SRCDIR@/doc/doxygen/maintainer.md \
                          @LAME_SRCDIR@/doc/doxygen/unit_tests.dox \
                          @LAME_SRCDIR@/doc/doxygen/vector-dispatch.dox \
                          @LAME_SRCDIR@/doc/maintainer-build-matrix.md \
@@ -42,6 +43,12 @@ INPUT                  = @LAME_SRCDIR@/include \
                          @LAME_SRCDIR@/doc/maintainer-abi.md \
                          @LAME_SRCDIR@/doc/maintainer-check-dist.md \
                          @LAME_SRCDIR@/doc/maintainer-gen-api-docs.md
+
+# The stock navigation offers no place for the maintainer harnesses, so they
+# end up scattered through "Related Pages" beside everything else. This layout
+# is Doxygen's own default plus one entry pointing at their parent page. Only
+# this configuration reads the maintainer documents, so only this one sets it.
+LAYOUT_FILE            = @LAME_SRCDIR@/doc/doxygen/DoxygenLayout-internal.xml
 
 # Surface the internals: static functions, otherwise-undocumented entities and
 # @internal-marked notes, plus cross-referenced source and call relations.

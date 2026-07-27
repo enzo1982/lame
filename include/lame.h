@@ -21,6 +21,20 @@
 
 /* $Id$ */
 
+/**
+ *  \file lame.h
+ *  \brief The public libmp3lame interface.
+ *
+ *  Everything a program linking against libmp3lame may use is declared here.
+ *  Nothing else in the source tree is part of the interface, and no other
+ *  header is installed.
+ *
+ *  The functions below appear in the order a program uses them: create an
+ *  encoder, describe the input and choose the encoding parameters, call
+ *  lame_init_params(), then feed audio and collect MP3 frames.
+ */
+
+
 #ifndef LAME_LAME_H
 #define LAME_LAME_H
 
@@ -626,6 +640,7 @@ float CDECL lame_get_noclipScale(const lame_global_flags *);
 /* returns the limit of PCM samples, which one can pass in an encode call
    under the constrain of a provided buffer of size buffer_size */
 int CDECL lame_get_maximum_number_of_samples(lame_t gfp, size_t buffer_size);
+
 
 
 
@@ -1403,6 +1418,11 @@ int CDECL lame_get_samplerate(int mpeg_version, int table_index);
 #define LAME_MAXMP3BUFFER   (16384 + LAME_MAXALBUMART)
 
 
+/**
+ *  Status values returned by the encoding and decoding calls. A negative
+ *  value is an error; the `FRONTEND_` codes are produced by the command line
+ *  tools rather than by the library.
+ */
 typedef enum {
     LAME_OKAY             =   0,
     LAME_NOERROR          =   0,

@@ -160,6 +160,7 @@ extern  "C" {
 
 
     /**
+     *  \internal
      *  ATH related stuff, if something new ATH related has to be added,
      *  please plugg it here into the ATH_t struct
      */
@@ -182,6 +183,7 @@ extern  "C" {
     } ATH_t;
 
     /**
+     *  \internal
      *  PSY Model related stuff
      */
 
@@ -204,6 +206,7 @@ extern  "C" {
 
 
     /**
+     *  \internal
      *  global data constants
      */
     typedef struct {
