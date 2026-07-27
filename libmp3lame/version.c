@@ -47,8 +47,16 @@
 
 /*! Get the LAME version string. */
 /*!
-  \param void
-  \return a pointer to a string which describes the version of LAME.
+  The full form, meant for a screen report: for an alpha or beta build it
+  carries the build date, and for an alpha the build time as well, so two
+  builds of identical sources do not necessarily produce the same string.
+  Nothing about the layout is guaranteed - to compare versions, use
+  \c get_lame_version_numerical(); to put a version into an encoded stream,
+  use \c get_lame_short_version(), which never varies between builds.
+
+  \return a pointer to a static, never-NULL string describing the version of
+          LAME. It belongs to the library and must not be freed or modified;
+          it stays valid for the lifetime of the process.
 */
 const char *
 get_lame_version(void)
@@ -77,10 +85,14 @@ get_lame_version(void)
 
 /*! Get the short LAME version string. */
 /*!
-  It's mainly for inclusion into the MP3 stream.
+  The same version as \c get_lame_version() with the build date and time left
+  out, so two builds of identical sources produce identical output. That is
+  what makes it the form to embed in an encoded stream, and what makes an
+  encoder's output reproducible.
 
-  \param void   
-  \return a pointer to the short version of the LAME version string.
+  \return a pointer to a static, never-NULL string holding the version of
+          LAME. It belongs to the library and must not be freed or modified;
+          it stays valid for the lifetime of the process.
 */
 const char *
 get_lame_short_version(void)
@@ -107,10 +119,20 @@ get_lame_short_version(void)
 
 /*! Get the _very_ short LAME version string. */
 /*!
-  It's used in the LAME VBR tag only.
+  The most compact form: `"LAME"` followed by the major and minor version, a
+  one-character build type (`'a'` alpha, `'b'` beta, `'r'` a patched release,
+  `' '` otherwise) and, for a patched release, the patch level. Provided for a
+  caller that has very little room; the library itself does not use it, and
+  the encoder writes its own version into the LAME tag through a separate
+  internal function whose width is fixed for binary compatibility.
 
-  \param void   
-  \return a pointer to the short version of the LAME version string.
+  Unlike that one, this string has **no guaranteed maximum length** - it grows
+  with the version numbers - so a caller copying it into a fixed-size field
+  must bound the copy itself.
+
+  \return a pointer to a static, never-NULL string holding the version of
+          LAME. It belongs to the library and must not be freed or modified;
+          it stays valid for the lifetime of the process.
 */
 const char *
 get_lame_very_short_version(void)
@@ -136,10 +158,21 @@ get_lame_very_short_version(void)
     return str;
 }
 
-/*! Get the _very_ short LAME version string. */
 /*!
-  It's used in the LAME VBR tag only, limited to 9 characters max.
-  Due to some 3rd party HW/SW decoders, it has to start with LAME.
+  \internal
+  Get the encoder version string written into the LAME tag.
+
+  Not part of the public API - it is not exported, and the field it fills is
+  fixed by the tag format rather than by anything a caller chooses. Library
+  users wanting a compact version string want
+  \c get_lame_very_short_version() instead.
+
+  The whole comment sits inside \c \\internal on purpose: the marker runs to
+  the end of its comment block, so a brief in a block of its own would survive
+  into the public documentation and reintroduce the name there.
+
+  Limited to 9 characters max. Due to some 3rd party HW/SW decoders, it has to
+  start with LAME.
 
   \par Field width and format (fixed, binary-compatibility critical)
   This string is copied into a **fixed 9-byte** field of the LAME tag that
@@ -161,7 +194,6 @@ get_lame_very_short_version(void)
   (`compiletime_assert`) - if it ever trips, the version numbers (not this
   field's width or format) are what needs to change.
 
-  \param void
   \return a pointer to the short version of the LAME version string.
  */
 const char*
@@ -181,8 +213,15 @@ compiletime_assert(sizeof("LAME" STR(LAME_MAJOR_VERSION) "." STR(LAME_MINOR_VERS
 
 /*! Get the version string for GPSYCHO. */
 /*!
-  \param void
-  \return a pointer to a string which describes the version of GPSYCHO.
+  GPSYCHO is the psychoacoustic model LAME encodes with; it carries its own
+  version, which moves independently of LAME's. As with
+  \c get_lame_version(), an alpha or beta build embeds the build date, so the
+  string is not a comparable value - \c get_lame_version_numerical() reports
+  the same numbers in comparable form.
+
+  \return a pointer to a static, never-NULL string describing the version of
+          GPSYCHO. It belongs to the library and must not be freed or
+          modified; it stays valid for the lifetime of the process.
 */
 const char *
 get_psy_version(void)
@@ -206,8 +245,12 @@ get_psy_version(void)
 
 /*! Get the URL for the LAME website. */
 /*!
-  \param void
-  \return a pointer to a string which is a URL for the LAME website.
+  Fixed at compile time. Offered so a program reporting the encoder can point
+  its users at the project without hard-coding an address that may move.
+
+  \return a pointer to a static, never-NULL string holding the project's URL.
+          It belongs to the library and must not be freed or modified; it
+          stays valid for the lifetime of the process.
 */
 const char *
 get_lame_url(void)
@@ -220,10 +263,26 @@ get_lame_url(void)
 
 /*! Get the numerical representation of the version. */
 /*!
-  Writes the numerical representation of the version of LAME and
-  GPSYCHO into lvp.
+  The comparable form of everything the version strings report: LAME's own
+  version and the psychoacoustic model's, each as separate integers, so a
+  caller can test for a minimum version instead of parsing text.
 
-  \param lvp    
+  \c alpha and \c beta hold the patch level of an alpha or beta build and are
+  0 otherwise; at most one of them is ever non-zero. \c features is retained
+  for compatibility and is always the empty string - make no assumptions about
+  its contents.
+
+  \code
+      lame_version_t v;
+      get_lame_version_numerical(&v);
+      if (v.major > 3 || (v.major == 3 && v.minor >= 100)) {
+          / * a 3.100-or-later feature is available * /
+      }
+  \endcode
+
+  \param lvp  the structure to fill in. Must not be NULL - it is written
+              unconditionally, and every field is assigned, so it need not be
+              initialised first.
 */
 void
 get_lame_version_numerical(lame_version_t * lvp)
@@ -257,6 +316,17 @@ get_lame_version_numerical(lame_version_t * lvp)
 }
 
 
+/*! Get the pointer width the library was built for. */
+/*!
+  Reports the build, not the operating system: it is derived from the size of
+  a pointer in this translation unit, so a 32-bit library on a 64-bit system
+  reports 32 bits. Intended for a version banner alongside
+  \c get_lame_version().
+
+  \return \c "32bits" or \c "64bits", or the empty string on a target whose
+          pointers are neither 4 nor 8 bytes wide - never NULL. The string
+          belongs to the library and must not be freed or modified.
+*/
 const char *
 get_lame_os_bitness(void)
 {

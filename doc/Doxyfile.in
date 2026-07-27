@@ -20,6 +20,16 @@
 # test list to collect.
 GENERATE_TESTLIST      = NO
 
+# Public and internal functions live side by side in the same files and are
+# told apart by the \internal marker rather than by excluding directories -
+# excluding libmp3lame would drop the public API itself, which is defined
+# there. INTERNAL_DOCS=NO already strips the body of an \internal comment, but
+# that alone leaves the entity behind as an undocumented member, so its name
+# would still appear here. Hiding undocumented members is what completes the
+# split. The internal configuration does not override the common NO, so it
+# goes on showing everything.
+HIDE_UNDOC_MEMBERS     = YES
+
 # Call graphs need Graphviz/dot and slow the build; off for the public docs.
 CALL_GRAPH             = NO
 CALLER_GRAPH           = NO

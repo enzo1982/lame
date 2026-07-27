@@ -650,25 +650,28 @@ const char*  CDECL get_psy_version        ( void );
 const char*  CDECL get_lame_url           ( void );
 const char*  CDECL get_lame_os_bitness    ( void );
 
-/*
- * OPTIONAL:
- * get the version numbers in numerical form.
+/**
+ * The version of LAME and of its psychoacoustic model in comparable form.
+ *
+ * Filled in by get_lame_version_numerical(). Every field is an integer, so a
+ * caller can test for a minimum version without parsing a version string.
  */
 typedef struct {
     /* generic LAME version */
-    int major;
-    int minor;
-    int alpha;               /* 0 if not an alpha version                  */
-    int beta;                /* 0 if not a beta version                    */
+    int major;               /**< major version number                      */
+    int minor;               /**< minor version number                      */
+    int alpha;               /**< alpha patch level, 0 if not an alpha version */
+    int beta;                /**< beta patch level, 0 if not a beta version */
 
     /* version of the psy model */
-    int psy_major;
-    int psy_minor;
-    int psy_alpha;           /* 0 if not an alpha version                  */
-    int psy_beta;            /* 0 if not a beta version                    */
+    int psy_major;           /**< major version of the psychoacoustic model */
+    int psy_minor;           /**< minor version of the psychoacoustic model */
+    int psy_alpha;           /**< 0 if not an alpha version                 */
+    int psy_beta;            /**< 0 if not a beta version                   */
 
     /* compile time features */
-    const char *features;    /* Don't make assumptions about the contents! */
+    const char *features;    /**< retained for compatibility, always empty.
+                                  Don't make assumptions about the contents! */
 } lame_version_t;
 void CDECL get_lame_version_numerical(lame_version_t *);
 
