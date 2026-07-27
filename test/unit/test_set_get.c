@@ -39,7 +39,7 @@
  * set_get.c, so we declare them locally to pin their fixed-answer behaviour
  * rather than leave that slice of the ABI untested. New code must not call
  * these. (Setters/getters that are neither exported nor reachable from the
- * frontend are dead code slated for removal - ISSUES.md - and are not tested.)
+ * frontend are dead code slated for removal and are therefore not tested.)
  */
 extern int          lame_set_mode_automs(lame_global_flags *, int);
 extern int          lame_get_mode_automs(const lame_global_flags *);
@@ -94,7 +94,7 @@ gfp_teardown(void **state)
 /* A value like 0.5 is exactly representable, so a stored-then-read float
    round-trips bit-for-bit and can be compared with ==. Computed results use an
    epsilon instead. (assert_float_equal is CMocka 2.0-only; the tree still
-   targets 1.1.x, so we do not use it - see guidance/testing.md.) */
+   targets 1.1.x, so we do not use it.) */
 #define ASSERT_FLT_EXACT(got, want) assert_true((got) == (float) (want))
 #define ASSERT_FLT_NEAR(got, want)  assert_true(fabs((double) (got) - (double) (want)) < 1e-6)
 
