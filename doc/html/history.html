@@ -30,6 +30,20 @@
 	        Alexander Leidinger
 		<ul>
 		    <li>Add a cmocka based unit test infrastructur.</li>
+			    <li>The <i>mp3x</i> frame analyzer has been migrated from
+			        GTK&nbsp;1.2 to GTK&nbsp;4 (4.10 or later). It keeps
+			        all existing features and gains opening and replacing a
+			        file from within the program, a list of recent files,
+			        and PNG export of the graphs. On Windows it is only
+			        buildable with Visual Studio, for 64&nbsp;bit.
+			        Patch by Maya R. Odinezenko, patch ticket
+			        <i class="ticket">[ #104 ]</i>.</li>
+			    <li>On Windows, the command line tools built with MinGW
+			        lost characters outside the active code page, both in
+			        the command line itself and in filenames, so a file the
+			        user can see could not be opened by name. Patch by
+			        Maya R. Odinezenko, patch ticket
+			        <i class="ticket">[ #104 ]</i>.</li>
 			    <li><span class="quality">On Windows, decoding an MP3
 			        piped into the command line tools produced wrong
 			        audio without reporting an error: the pipe was
