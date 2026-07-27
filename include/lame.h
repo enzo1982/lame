@@ -1101,6 +1101,28 @@ void CDECL hip_set_errorf(hip_t gfp, lame_report_function f);
 void CDECL hip_set_debugf(hip_t gfp, lame_report_function f);
 void CDECL hip_set_msgf  (hip_t gfp, lame_report_function f);
 
+/* Analysis hooks, for a frontend that plots what the decoder saw.
+
+   plotting_data stays an incomplete type here: its layout is internal and
+   changes with the encoder, so it is only ever passed by pointer. A caller
+   that needs the fields includes the internal header and accepts that it is
+   not covered by the API guarantee; a caller that only wires the hooks up
+   does not need them at all.
+
+   hip_set_pinfo installs the block the decoder fills in, and must be called
+   before decoding starts. hip_finish_pinfo completes the last frame's data
+   once the input ends, and does nothing if no block was installed.
+
+   Both are no-ops unless the library was built with the mpg123 decoder. */
+#ifndef plotting_data_defined
+#define plotting_data_defined
+struct plotting_data;
+typedef struct plotting_data plotting_data;
+#endif
+
+void CDECL hip_set_pinfo(hip_t gfp, plotting_data* pinfo);
+void CDECL hip_finish_pinfo(hip_t gfp);
+
 /*********************************************************************
  * input 1 mp3 frame, output (maybe) pcm data.
  *
