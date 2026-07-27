@@ -20,25 +20,25 @@ PROJECT_BRIEF          = "Internal / development documentation - static internal
 OUTPUT_DIRECTORY       = doxygen-internal
 
 # Use the internal front page as the main page in place of the public one.
-USE_MDFILE_AS_MAINPAGE = @top_srcdir@/doc/doxygen/internal.md
+USE_MDFILE_AS_MAINPAGE = @LAME_SRCDIR@/doc/doxygen/internal.md
 
 # Everything the public docs cover, plus the Windows-only components (the Blade
 # encoder DLL, the DirectShow filter and the ACM codec), the unit tests and an
 # internal-only front page in place of the public main page.
-INPUT                  = @top_srcdir@/include \
-                         @top_srcdir@/libmp3lame \
-                         @top_srcdir@/frontend \
-                         @top_srcdir@/Dll \
-                         @top_srcdir@/dshow \
-                         @top_srcdir@/ACM \
-                         @top_srcdir@/test/unit \
-                         @top_srcdir@/doc/doxygen/internal.md \
-                         @top_srcdir@/doc/doxygen/unit_tests.dox \
-                         @top_srcdir@/doc/doxygen/vector-dispatch.dox \
-                         @top_srcdir@/doc/maintainer-build-matrix.md \
-                         @top_srcdir@/doc/maintainer-perf.md \
-                         @top_srcdir@/doc/maintainer-quality.md \
-                         @top_srcdir@/doc/maintainer-coverage.md
+INPUT                  = @LAME_SRCDIR@/include \
+                         @LAME_SRCDIR@/libmp3lame \
+                         @LAME_SRCDIR@/frontend \
+                         @LAME_SRCDIR@/Dll \
+                         @LAME_SRCDIR@/dshow \
+                         @LAME_SRCDIR@/ACM \
+                         @LAME_SRCDIR@/test/unit \
+                         @LAME_SRCDIR@/doc/doxygen/internal.md \
+                         @LAME_SRCDIR@/doc/doxygen/unit_tests.dox \
+                         @LAME_SRCDIR@/doc/doxygen/vector-dispatch.dox \
+                         @LAME_SRCDIR@/doc/maintainer-build-matrix.md \
+                         @LAME_SRCDIR@/doc/maintainer-perf.md \
+                         @LAME_SRCDIR@/doc/maintainer-quality.md \
+                         @LAME_SRCDIR@/doc/maintainer-coverage.md
 
 # Surface the internals: static functions, otherwise-undocumented entities and
 # @internal-marked notes, plus cross-referenced source and call relations.
