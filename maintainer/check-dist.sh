@@ -273,7 +273,15 @@ cfg_version=$(sed -n 's/^AC_INIT(\[*lame\]*,[ ]*\[*\([^],)]*\).*/\1/p' \
 	"$srcdir/configure.ac" 2>/dev/null | head -1)
 [ -n "$cfg_version" ] || cfg_version=$(sed -n "s/^PACKAGE_VERSION='\(.*\)'/\1/p" \
 	"$srcdir/configure" 2>/dev/null | head -1)
-tar_version=$(basename "$tarball" | sed 's/^lame-//; s/\.tar\.\(gz\|bz2\|xz\|Z\)$//; s/\.tgz$//')
+# One plain expression per suffix rather than a \(a\|b\) alternation: \| is a
+# GNU extension to basic regular expressions, so on a BSD sed the suffix was
+# never stripped and this check reported every tarball as misnamed.
+tar_version=$(basename "$tarball" | sed 's/^lame-//
+	s/\.tar\.gz$//
+	s/\.tar\.bz2$//
+	s/\.tar\.xz$//
+	s/\.tar\.Z$//
+	s/\.tgz$//')
 echo "          tarball name : $tar_version"
 echo "          configure    : ${cfg_version:-<not found>}"
 echo "          version.h    : $version"
