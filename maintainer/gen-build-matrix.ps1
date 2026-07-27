@@ -212,9 +212,15 @@ $c0 = $configs[0]; $a0 = $archs[0]; $p0 = To-Platform $a0
 $msbBase = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$sln`" /nologo /m /t:Rebuild /p:Configuration=$c0 /p:Platform=$p0"
 $msbDirs = "/p:OutDirBase=%~dp0bin\ /p:IntDirBase=%~dp0obj\"
 
-if ($mpg123) {
+# Only the switch, never the path: $mpg123 is the 32-bit library the nmake
+# cells need, and handing it to an MSBuild cell built for another platform
+# produces a link that cannot resolve a single decoder symbol. The .props file
+# already resolves .\mpg123\$(Platform) per configuration, which is the right
+# answer for every platform this cell can be generated for - exactly as the
+# libsndfile cell below flips its switch and leaves its path alone.
+if (Test-Path (Join-Path $vcsol "mpg123\$p0\mpg123.h")) {
 	$cells += @{ Name = "msbuild-$c0-$a0-mpg123"
-		Cmd = "$msbBase /p:HaveMpg123=true /p:Mpg123Path=`"$mpg123`" $msbDirs" }
+		Cmd = "$msbBase /p:HaveMpg123=true $msbDirs" }
 }
 if (Test-Path (Join-Path $vcsol "libsndfile\$p0\lib\sndfile.lib")) {
 	$cells += @{ Name = "msbuild-$c0-$a0-sndfile"
