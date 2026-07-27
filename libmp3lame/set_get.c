@@ -381,7 +381,17 @@ lame_get_out_samplerate(const lame_global_flags * gfp)
  * general control parameters
  */
 
-/* collect data for an MP3 frame analzyer */
+/*! Collect the per-frame data an MP3 frame analyzer displays. */
+/*!
+  Makes the encoder fill the \c plotting_data structure as it works, which is
+  what the bundled \c mp3x analyzer reads. It costs time and memory and is of
+  no use to an ordinary encode; default off.
+
+  \param gfp       the encoder instance.
+  \param analysis  1 to collect, 0 not to.
+  \return 0 on success, -1 if \a analysis is not 0 or 1, or the instance is
+          not usable.
+*/
 int
 lame_set_analysis(lame_global_flags * gfp, int analysis)
 {
@@ -399,6 +409,11 @@ lame_set_analysis(lame_global_flags * gfp, int analysis)
     return -1;
 }
 
+/*! Get whether frame-analyzer data is being collected. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 or 0; 0 if the instance is not usable.
+*/
 int
 lame_get_analysis(const lame_global_flags * gfp)
 {
@@ -410,7 +425,20 @@ lame_get_analysis(const lame_global_flags * gfp)
 }
 
 
-/* write a Xing VBR header frame */
+/*! Write the Xing/LAME header frame at the front of the stream. */
+/*!
+  That frame carries the VBR table a player seeks with, the length, the encoder
+  delay and padding, and the replay-gain values. Without it a VBR file cannot
+  be seeked accurately and its duration is guessed from the first frame.
+
+  Default on for VBR and ABR, off for CBR. Turning it off is for callers who
+  must not have a leading non-audio frame; there is no benefit otherwise.
+
+  \param gfp           the encoder instance.
+  \param bWriteVbrTag  1 to write the header, 0 not to.
+  \return 0 on success, -1 if the value is not 0 or 1, or the instance is not
+          usable.
+*/
 int
 lame_set_bWriteVbrTag(lame_global_flags * gfp, int bWriteVbrTag)
 {
@@ -428,6 +456,11 @@ lame_set_bWriteVbrTag(lame_global_flags * gfp, int bWriteVbrTag)
     return -1;
 }
 
+/*! Get whether the Xing/LAME header frame will be written. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 or 0; 0 if the instance is not usable.
+*/
 int
 lame_get_bWriteVbrTag(const lame_global_flags * gfp)
 {
@@ -440,7 +473,17 @@ lame_get_bWriteVbrTag(const lame_global_flags * gfp)
 
 
 
-/* decode only, use lame/mpglib to convert mp3 to wav */
+/*! Use this instance to decode rather than encode. */
+/*!
+  A flag for the front end, not for the library: it records that this run is an
+  MP3-to-WAV decode so the frontend takes that path. The encoding API itself
+  does not consult it, and the decoder proper is the separate \c hip_* family.
+
+  \param gfp          the encoder instance.
+  \param decode_only  1 for decoding, 0 for encoding.
+  \return 0 on success, -1 if the value is not 0 or 1, or the instance is not
+          usable.
+*/
 int
 lame_set_decode_only(lame_global_flags * gfp, int decode_only)
 {
@@ -458,6 +501,11 @@ lame_set_decode_only(lame_global_flags * gfp, int decode_only)
     return -1;
 }
 
+/*! Get whether this instance is marked as decode-only. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 or 0; 0 if the instance is not usable.
+*/
 int
 lame_get_decode_only(const lame_global_flags * gfp)
 {
@@ -477,8 +525,17 @@ int CDECL lame_get_ogg(const lame_global_flags *);
 #else
 #endif
 
-/* encode a Vorbis .ogg file */
-/* DEPRECATED */
+/*! Encode a Vorbis .ogg file. */
+/*!
+  \deprecated Obsolete and inert. LAME once bundled a Vorbis encoder; it does
+  not, and this cannot be switched on. The function is kept so that programs
+  linked against an older release still resolve it, and its declaration is
+  compiled out of the installed header.
+
+  \param gfp  ignored.
+  \param ogg  ignored.
+  \return always -1.
+*/
 int
 lame_set_ogg(lame_global_flags * gfp, int ogg)
 {
@@ -487,6 +544,12 @@ lame_set_ogg(lame_global_flags * gfp, int ogg)
     return -1;
 }
 
+/*! Get the Vorbis .ogg setting. */
+/*!
+  \deprecated Obsolete; see \c lame_set_ogg().
+  \param gfp  ignored.
+  \return always 0.
+*/
 int
 lame_get_ogg(const lame_global_flags * gfp)
 {
@@ -504,6 +567,28 @@ lame_get_ogg(const lame_global_flags * gfp)
  *               5     good quality, fast
  *               7     ok quality, really fast
  */
+/*! Choose how much effort the encoder spends, 0 (most) to 9 (least). */
+/*!
+  This is not the audio quality setting - that is the bitrate, or
+  \c lame_set_VBR_quality(). What it selects is how expensive an algorithm
+  LAME uses to reach that bitrate, so it trades encoding *time* against how
+  well the chosen bitrate is spent.
+
+  | Value | Meaning                          |
+  |-------|----------------------------------|
+  | 0     | best, very slow                  |
+  | 3     | near-best, not too slow          |
+  | 5     | good, fast                       |
+  | 7     | acceptable, really fast          |
+  | 9     | worst                            |
+
+  Unlike most setters here, this one **clamps instead of rejecting**: a value
+  below 0 becomes 0 and above 9 becomes 9, and the call still reports success.
+
+  \param gfp      the encoder instance.
+  \param quality  0..9; out-of-range values are clamped, not refused.
+  \return 0 on success, -1 only if the instance is not usable.
+*/
 int
 lame_set_quality(lame_global_flags * gfp, int quality)
 {
@@ -522,6 +607,12 @@ lame_set_quality(lame_global_flags * gfp, int quality)
     return -1;
 }
 
+/*! Get the algorithm-effort setting. */
+/*!
+  \param gfp the encoder instance.
+  \return 0..9, or -1 before \c lame_init_params() if it was never set (LAME
+          picks a default there); 0 if the instance is not usable.
+*/
 int
 lame_get_quality(const lame_global_flags * gfp)
 {
@@ -532,7 +623,23 @@ lame_get_quality(const lame_global_flags * gfp)
 }
 
 
-/* mode = STEREO, JOINT_STEREO, DUAL_CHANNEL (not supported), MONO */
+/*! Set the channel mode written into the stream. */
+/*!
+  \c STEREO encodes the two channels independently; \c JOINT_STEREO lets the
+  encoder use mid/side coding where it pays, which is what makes stereo
+  affordable at lower bitrates; \c MONO downmixes. \c DUAL_CHANNEL is in the
+  enumeration because the format has it, but LAME does not implement it.
+
+  The default is \c NOT_SET, meaning LAME decides from the input channel count
+  and the compression ratio at \c lame_init_params(). This is independent of
+  \c lame_set_num_channels(), which describes the input rather than the output.
+
+  \param gfp   the encoder instance.
+  \param mode  one of the \c MPEG_mode values.
+  \return 0 on success, -1 if \a mode is not a known value or the instance is
+          not usable. \c DUAL_CHANNEL is a known value and is accepted, so
+          nothing reports that LAME does not implement it - do not set it.
+*/
 int
 lame_set_mode(lame_global_flags * gfp, MPEG_mode mode)
 {
@@ -547,6 +654,14 @@ lame_set_mode(lame_global_flags * gfp, MPEG_mode mode)
     return -1;
 }
 
+/*! Get the channel mode. */
+/*!
+  Before \c lame_init_params() this is the request, so \c NOT_SET means "LAME
+  will decide"; afterwards it is the mode actually in use.
+
+  \param gfp the encoder instance.
+  \return the mode; \c NOT_SET if the instance is not usable.
+*/
 MPEG_mode
 lame_get_mode(const lame_global_flags * gfp)
 {
@@ -569,8 +684,20 @@ int CDECL lame_get_mode_automs(const lame_global_flags *);
 #else
 #endif
 
-/* Us a M/S mode with a switching threshold based on compression ratio */
-/* DEPRECATED */
+/*! Use an M/S mode with a threshold based on the compression ratio. */
+/*!
+  \deprecated Obsolete, and it no longer does what its name says. Whatever
+  value is passed - including 0 - it simply selects \c JOINT_STEREO, which is
+  what LAME does by default anyway; the argument is validated and then
+  discarded. Call \c lame_set_mode() instead. The declaration is compiled out
+  of the installed header; the definition remains for programs linked against
+  an older release.
+
+  \param gfp          the encoder instance.
+  \param mode_automs  0 or 1. Validated, then ignored.
+  \return 0 on success, -1 if the value is not 0 or 1, or the instance is not
+          usable.
+*/
 int
 lame_set_mode_automs(lame_global_flags * gfp, int mode_automs)
 {
@@ -588,6 +715,13 @@ lame_set_mode_automs(lame_global_flags * gfp, int mode_automs)
     return -1;
 }
 
+/*! Get the automatic-M/S setting. */
+/*!
+  \deprecated Obsolete; see \c lame_set_mode_automs(). It reports nothing about
+  the instance.
+  \param gfp  ignored.
+  \return always 1.
+*/
 int
 lame_get_mode_automs(const lame_global_flags * gfp)
 {
@@ -600,6 +734,18 @@ lame_get_mode_automs(const lame_global_flags * gfp)
  * Force M/S for all frames.  For testing only.
  * Requires mode = 1.
  */
+/*! Force mid/side coding on every frame. */
+/*!
+  Removes the encoder's per-frame choice between L/R and M/S, which is a
+  psychoacoustic decision, so this is a testing lever rather than a quality
+  one: it will hurt material the encoder would have coded L/R. Requires
+  \c JOINT_STEREO. Default off.
+
+  \param gfp       the encoder instance.
+  \param force_ms  1 to force M/S, 0 to let the encoder choose.
+  \return 0 on success, -1 if the value is not 0 or 1, or the instance is not
+          usable.
+*/
 int
 lame_set_force_ms(lame_global_flags * gfp, int force_ms)
 {
@@ -617,6 +763,11 @@ lame_set_force_ms(lame_global_flags * gfp, int force_ms)
     return -1;
 }
 
+/*! Get whether mid/side coding is forced on every frame. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 or 0; 0 if the instance is not usable.
+*/
 int
 lame_get_force_ms(const lame_global_flags * gfp)
 {
@@ -628,7 +779,19 @@ lame_get_force_ms(const lame_global_flags * gfp)
 }
 
 
-/* Use free_format. */
+/*! Use the free-format bitrate. */
+/*!
+  Free format lets a frame carry any bitrate rather than one of the values the
+  standard tabulates, so a rate between or above the table's entries becomes
+  possible. Many decoders do not implement it, and LAME warns about rates above
+  320 kbps for that reason; a free-format file is not safe to distribute.
+  Default off.
+
+  \param gfp          the encoder instance.
+  \param free_format  1 to use free format, 0 for a tabulated bitrate.
+  \return 0 on success, -1 if the value is not 0 or 1, or the instance is not
+          usable.
+*/
 int
 lame_set_free_format(lame_global_flags * gfp, int free_format)
 {
@@ -646,6 +809,11 @@ lame_set_free_format(lame_global_flags * gfp, int free_format)
     return -1;
 }
 
+/*! Get whether the free-format bitrate is in use. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 or 0; 0 if the instance is not usable.
+*/
 int
 lame_get_free_format(const lame_global_flags * gfp)
 {
@@ -658,7 +826,21 @@ lame_get_free_format(const lame_global_flags * gfp)
 
 
 
-/* Perform ReplayGain analysis */
+/*! Measure ReplayGain while encoding. */
+/*!
+  Runs the ReplayGain analysis over the input as it is encoded, so that the
+  track gain can be written into the LAME header. Read the results afterwards
+  with \c lame_get_RadioGain() and \c lame_get_AudiophileGain().
+
+  This measures the *input*. To measure what the encoded file will actually
+  sound like, add \c lame_set_decode_on_the_fly(), which analyses the decoded
+  output instead. Default off.
+
+  \param gfp             the encoder instance.
+  \param findReplayGain  1 to analyse, 0 not to.
+  \return 0 on success, -1 if the value is not 0 or 1, or the instance is not
+          usable.
+*/
 int
 lame_set_findReplayGain(lame_global_flags * gfp, int findReplayGain)
 {
@@ -676,6 +858,11 @@ lame_set_findReplayGain(lame_global_flags * gfp, int findReplayGain)
     return -1;
 }
 
+/*! Get whether ReplayGain analysis is enabled. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 or 0; 0 if the instance is not usable.
+*/
 int
 lame_get_findReplayGain(const lame_global_flags * gfp)
 {
@@ -687,8 +874,24 @@ lame_get_findReplayGain(const lame_global_flags * gfp)
 }
 
 
-/* Decode on the fly. Find the peak sample. If ReplayGain analysis is 
-   enabled then perform it on the decoded data. */
+/*! Decode each frame back as it is encoded, and measure the result. */
+/*!
+  Runs the decoder over LAME's own output while encoding, which is the only way
+  to know what the file will really peak at - the encoder can raise the peak
+  above the input's. It sets \c lame_get_PeakSample() and the clipping figures
+  \c lame_get_noclipGainChange() and \c lame_get_noclipScale(), and, if
+  \c lame_set_findReplayGain() is also on, moves the ReplayGain analysis onto
+  the decoded audio.
+
+  It roughly doubles the work, which is why it is off by default.
+
+  \param gfp                the encoder instance.
+  \param decode_on_the_fly  1 to decode and measure, 0 not to.
+  \return 0 on success; -1 if the value is not 0 or 1, the instance is not
+          usable, **or the library was built without this feature** - it is
+          conditional on \c DECODE_ON_THE_FLY, and a build without it refuses
+          every call here.
+*/
 int
 lame_set_decode_on_the_fly(lame_global_flags * gfp, int decode_on_the_fly)
 {
@@ -712,6 +915,12 @@ lame_set_decode_on_the_fly(lame_global_flags * gfp, int decode_on_the_fly)
     return -1;
 }
 
+/*! Get whether the encoder decodes its own output while encoding. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 or 0; 0 if the instance is not usable, and always 0 in a build
+          without \c DECODE_ON_THE_FLY.
+*/
 int
 lame_get_decode_on_the_fly(const lame_global_flags * gfp)
 {
@@ -741,34 +950,68 @@ int CDECL lame_get_findPeakSample(const lame_global_flags *);
 #else
 #endif
 
-/* DEPRECATED. same as lame_set_decode_on_the_fly() */
+/*! Find the peak sample. */
+/*!
+  \deprecated Obsolete alias for \c lame_set_decode_on_the_fly(), which is what
+  it calls. Use that instead; its documentation applies unchanged.
+  \param gfp  the encoder instance.
+  \param arg  1 or 0.
+  \return whatever \c lame_set_decode_on_the_fly() returns.
+*/
 int
 lame_set_findPeakSample(lame_global_flags * gfp, int arg)
 {
     return lame_set_decode_on_the_fly(gfp, arg);
 }
 
+/*! Get the peak-sample setting. */
+/*!
+  \deprecated Obsolete alias for \c lame_get_decode_on_the_fly().
+  \param gfp the encoder instance.
+  \return whatever \c lame_get_decode_on_the_fly() returns.
+*/
 int
 lame_get_findPeakSample(const lame_global_flags * gfp)
 {
     return lame_get_decode_on_the_fly(gfp);
 }
 
-/* DEPRECATED. same as lame_set_findReplayGain() */
+/*! Perform ReplayGain analysis on the input. */
+/*!
+  \deprecated Obsolete alias for \c lame_set_findReplayGain(), which is what it
+  calls. Use that instead.
+  \param gfp  the encoder instance.
+  \param arg  1 or 0.
+  \return whatever \c lame_set_findReplayGain() returns.
+*/
 int
 lame_set_ReplayGain_input(lame_global_flags * gfp, int arg)
 {
     return lame_set_findReplayGain(gfp, arg);
 }
 
+/*! Get the input ReplayGain setting. */
+/*!
+  \deprecated Obsolete alias for \c lame_get_findReplayGain().
+  \param gfp the encoder instance.
+  \return whatever \c lame_get_findReplayGain() returns.
+*/
 int
 lame_get_ReplayGain_input(const lame_global_flags * gfp)
 {
     return lame_get_findReplayGain(gfp);
 }
 
-/* DEPRECATED. same as lame_set_decode_on_the_fly() &&
-   lame_set_findReplayGain() */
+/*! Perform ReplayGain analysis on the decoded output. */
+/*!
+  \deprecated Obsolete. It sets \c lame_set_decode_on_the_fly() and
+  \c lame_set_findReplayGain() together; call those two instead.
+  \param gfp  the encoder instance.
+  \param arg  1 or 0.
+  \return 0 if both calls succeeded, -1 if either failed - which includes a
+          build without \c DECODE_ON_THE_FLY, and leaves the first setting
+          already applied.
+*/
 int
 lame_set_ReplayGain_decode(lame_global_flags * gfp, int arg)
 {
@@ -778,6 +1021,13 @@ lame_set_ReplayGain_decode(lame_global_flags * gfp, int arg)
         return 0;
 }
 
+/*! Get whether ReplayGain is being measured on the decoded output. */
+/*!
+  \deprecated Obsolete; ask \c lame_get_decode_on_the_fly() and
+  \c lame_get_findReplayGain() instead.
+  \param gfp the encoder instance.
+  \return 1 only if both of those are on, 0 otherwise.
+*/
 int
 lame_get_ReplayGain_decode(const lame_global_flags * gfp)
 {
@@ -788,8 +1038,18 @@ lame_get_ReplayGain_decode(const lame_global_flags * gfp)
 }
 
 
-/* set and get some gapless encoding flags */
+/*! Tell the encoder how many files a gapless set has. */
+/*!
+  Part of the gapless split-file support, together with
+  \c lame_set_nogap_currentindex() and \c lame_encode_flush_nogap(). Knowing
+  the total lets the encoder record, in each file's LAME header, where that
+  file sits in the sequence, so a player can join them without a gap.
 
+  \param gfp              the encoder instance.
+  \param the_nogap_total  number of files in the set.
+  \return 0 on success, -1 if the instance is not usable. The value is not
+          range-checked.
+*/
 int
 lame_set_nogap_total(lame_global_flags * gfp, int the_nogap_total)
 {
@@ -800,6 +1060,11 @@ lame_set_nogap_total(lame_global_flags * gfp, int the_nogap_total)
     return -1;
 }
 
+/*! Get the number of files in the gapless set. */
+/*!
+  \param gfp the encoder instance.
+  \return the count; 0 if the instance is not usable.
+*/
 int
 lame_get_nogap_total(const lame_global_flags * gfp)
 {
@@ -809,6 +1074,16 @@ lame_get_nogap_total(const lame_global_flags * gfp)
     return 0;
 }
 
+/*! Tell the encoder which file of a gapless set is being written. */
+/*!
+  The companion to \c lame_set_nogap_total(); set it before each file in the
+  sequence.
+
+  \param gfp              the encoder instance.
+  \param the_nogap_index  index of the current file within the set.
+  \return 0 on success, -1 if the instance is not usable. The value is not
+          range-checked against the total.
+*/
 int
 lame_set_nogap_currentindex(lame_global_flags * gfp, int the_nogap_index)
 {
@@ -819,6 +1094,11 @@ lame_set_nogap_currentindex(lame_global_flags * gfp, int the_nogap_index)
     return -1;
 }
 
+/*! Get the index of the current file within the gapless set. */
+/*!
+  \param gfp the encoder instance.
+  \return the index; 0 if the instance is not usable.
+*/
 int
 lame_get_nogap_currentindex(const lame_global_flags * gfp)
 {
@@ -829,7 +1109,28 @@ lame_get_nogap_currentindex(const lame_global_flags * gfp)
 }
 
 
-/* message handlers */
+/*! Route the library's error messages to a callback of your own. */
+/*!
+  LAME reports in three streams - errors, debug output and ordinary messages -
+  and by default all three go to \c stderr. A library embedded in an
+  application usually wants them somewhere else; these three setters are how.
+
+  The callback is handed a \c printf format string and a \c va_list, so an
+  implementation is normally a one-line \c vfprintf or \c vsnprintf. It is
+  called from inside encoding calls, and the strings it receives are for
+  people: their wording is not stable across versions and must not be parsed.
+
+  \code
+  static void report(const char *fmt, va_list ap) { vfprintf(mylog, fmt, ap); }
+  lame_set_errorf(gfp, report);
+  lame_set_msgf(gfp, report);
+  lame_set_debugf(gfp, report);
+  \endcode
+
+  \param gfp   the encoder instance.
+  \param func  the callback, or \c NULL to silence this stream.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_errorf(lame_global_flags * gfp, void (*func) (const char *, va_list))
 {
@@ -840,6 +1141,15 @@ lame_set_errorf(lame_global_flags * gfp, void (*func) (const char *, va_list))
     return -1;
 }
 
+/*! Route the library's debug output to a callback of your own. */
+/*!
+  The debug stream of the three described under \c lame_set_errorf(); the same
+  rules apply.
+
+  \param gfp   the encoder instance.
+  \param func  the callback, or \c NULL to silence this stream.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_debugf(lame_global_flags * gfp, void (*func) (const char *, va_list))
 {
@@ -850,6 +1160,15 @@ lame_set_debugf(lame_global_flags * gfp, void (*func) (const char *, va_list))
     return -1;
 }
 
+/*! Route the library's ordinary messages to a callback of your own. */
+/*!
+  The message stream of the three described under \c lame_set_errorf(). This is
+  the one \c lame_print_config() and \c lame_print_internals() write to.
+
+  \param gfp   the encoder instance.
+  \param func  the callback, or \c NULL to silence this stream.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_msgf(lame_global_flags * gfp, void (*func) (const char *, va_list))
 {
@@ -868,6 +1187,25 @@ lame_set_msgf(lame_global_flags * gfp, void (*func) (const char *, va_list))
  *
  * Default is compression ratio of 11.
  */
+/*! Set the bitrate, in kbps. */
+/*!
+  For CBR this is the bitrate of every frame; for ABR it is the average
+  (\c lame_set_VBR_mean_bitrate_kbps() is the same setting under its ABR name).
+  It is the alternative to \c lame_set_compression_ratio() - set one of the
+  two, not both, and if neither is set LAME uses a compression ratio of 11.
+
+  A rate above 320 kbps requires free format, and setting one here **silently
+  turns the bit reservoir off** as a side effect, because the two cannot be
+  combined. Nothing reports that; if you later read
+  \c lame_get_disable_reservoir() and find it on, this is why.
+
+  \param gfp    the encoder instance.
+  \param brate  bitrate in kbps. Not validated here - whether the value is one
+                the chosen MPEG version and sample rate allow is settled by
+                \c lame_init_params(), which moves it to the nearest legal
+                value rather than failing.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_brate(lame_global_flags * gfp, int brate)
 {
@@ -881,6 +1219,17 @@ lame_set_brate(lame_global_flags * gfp, int brate)
     return -1;
 }
 
+/*! Get the bitrate, in kbps. */
+/*!
+  Before \c lame_init_params() this is what was requested; afterwards it is the
+  rate actually chosen, which may differ - LAME moves an unavailable request to
+  the nearest legal value.
+
+  \param gfp the encoder instance.
+  \return the bitrate in kbps; 0 if the instance is not usable, and also 0 when
+          the bitrate was left to be derived from the compression ratio and
+          \c lame_init_params() has not run yet.
+*/
 int
 lame_get_brate(const lame_global_flags * gfp)
 {
@@ -890,6 +1239,20 @@ lame_get_brate(const lame_global_flags * gfp)
     return 0;
 }
 
+/*! Set the bitrate indirectly, as a compression ratio. */
+/*!
+  The ratio of the input's data rate to the output's, so 11 means roughly
+  eleven times smaller - which for 44.1 kHz 16-bit stereo works out near
+  128 kbps. The alternative to \c lame_set_brate(): set one or the other.
+  Default 11.
+
+  \c lame_init_params() turns it into a bitrate, so what
+  \c lame_get_brate() reports afterwards is the real setting.
+
+  \param gfp                the encoder instance.
+  \param compression_ratio  the ratio. Not range-checked here.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_compression_ratio(lame_global_flags * gfp, float compression_ratio)
 {
@@ -900,6 +1263,13 @@ lame_set_compression_ratio(lame_global_flags * gfp, float compression_ratio)
     return -1;
 }
 
+/*! Get the compression ratio. */
+/*!
+  \param gfp the encoder instance.
+  \return the ratio; 0 if the instance is not usable. After
+          \c lame_init_params() this holds the ratio the chosen bitrate
+          actually achieves, whichever of the two was set.
+*/
 float
 lame_get_compression_ratio(const lame_global_flags * gfp)
 {
