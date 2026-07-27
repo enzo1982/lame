@@ -268,32 +268,28 @@ setProcessPriority(int priority)
 ***********************************************************************/
 
 
-#if defined( _WIN32 ) && !defined(__MINGW32__)
-/* Idea for unicode support in LAME, work in progress
- * - map UTF-16 to UTF-8
- * - advantage, the rest can be kept unchanged (mostly)
- * - make sure, fprintf on console is in correct code page
- *   + normal text in source code is in ASCII anyway
- *   + ID3 tags and filenames coming from command line need attention
- * - call wfopen with UTF-16 names where needed
- *
- * why not wchar_t all the way?
- * well, that seems to be a big mess and not portable at all
- */
-#ifndef NDEBUG
+#if defined(_WIN32)
+#if !defined(__MINGW32__) && !defined(NDEBUG)
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>  
 #include <crtdbg.h>
 #endif
 #include <wchar.h>
+#if !defined(__MINGW32__)
 #include <mbstring.h>
+#endif
 
 static wchar_t *mbsToUnicode(const char *mbstr, int code_page)
 {
-  int n = MultiByteToWideChar(code_page, 0, mbstr, -1, NULL, 0);
-  wchar_t* wstr = malloc( n*sizeof(wstr[0]) );
+  int flags = code_page == CP_UTF8 ? MB_ERR_INVALID_CHARS : 0;
+  int n = MultiByteToWideChar(code_page, flags, mbstr, -1, NULL, 0);
+  wchar_t* wstr;
+  if (n == 0) {
+    return 0;
+  }
+  wstr = malloc( n*sizeof(wstr[0]) );
   if ( wstr !=0 ) {
-    n = MultiByteToWideChar(code_page, 0, mbstr, -1, wstr, n);
+    n = MultiByteToWideChar(code_page, flags, mbstr, -1, wstr, n);
     if ( n==0 ) {
       free( wstr );
       wstr = 0;
@@ -379,6 +375,34 @@ unsigned short* utf8ToUtf16(char const* mbstr) /* additional Byte-Order-Marker *
   return wstr;
 }
 
+static int
+c_main_from_unicode_argv(int argc, wchar_t *argv[])
+{
+  char **utf8_argv;
+  int i, ret = 1;
+  utf8_argv = calloc((size_t) argc + 1, sizeof(char*));
+  if (utf8_argv == 0) {
+    fprintf(stderr, "Error: not enough memory for argument conversion\n");
+    return ret;
+  }
+  for (i = 0; i < argc; ++i) {
+    utf8_argv[i] = unicodeToUtf8(argv[i]);
+    if (utf8_argv[i] == 0) {
+      fprintf(stderr, "Error: cannot convert command line to UTF-8\n");
+      goto cleanup;
+    }
+  }
+  ret = c_main(argc, utf8_argv);
+
+cleanup:
+  for (i = 0; i < argc; ++i) {
+    free(utf8_argv[i]);
+  }
+  free(utf8_argv);
+  return ret;
+}
+
+#if !defined(__MINGW32__)
 static
 void setDebugMode()
 {
@@ -395,26 +419,14 @@ void setDebugMode()
     }
 #endif
 }
+#endif
 
 int wmain(int argc, wchar_t* argv[])
 {
-  char **utf8_argv;
-  int i, ret;
+#if !defined(__MINGW32__)
   setDebugMode();
-  utf8_argv = calloc(argc, sizeof(char*));
-  if (utf8_argv == 0) {
-    fprintf(stderr, "Error: not enough memory for argument conversion\n");
-    return 1;
-  }
-  for (i = 0; i < argc; ++i) {
-    utf8_argv[i] = unicodeToUtf8(argv[i]);
-  }
-  ret = c_main(argc, utf8_argv);
-  for (i = 0; i < argc; ++i) {
-    free( utf8_argv[i] );
-  }
-  free( utf8_argv );
-  return ret;
+#endif
+  return c_main_from_unicode_argv(argc, argv);
 }
 
 FILE* lame_fopen(char const* file, char const* mode)
@@ -425,14 +437,12 @@ FILE* lame_fopen(char const* file, char const* mode)
     if (wfile != 0 && wmode != 0) {
         fh = _wfopen(wfile, wmode);
     }
-    else {
-        fh = fopen(file, mode);
-    }
     free(wfile);
     free(wmode);
     return fh;
 }
 
+#if !defined(__MINGW32__)
 char* lame_getenv(char const* var)
 {
     char* str = 0;
@@ -446,6 +456,16 @@ char* lame_getenv(char const* var)
     free(wvar);
     return str;
 }
+#else
+char* lame_getenv(char const* var)
+{
+    char* str = getenv(var);
+    if (str) {
+        return strdup(str);
+    }
+    return 0;
+}
+#endif
 
 #else
 

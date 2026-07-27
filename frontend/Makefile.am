@@ -33,7 +33,7 @@ mp3rtp_SOURCES = mp3rtp.c rtp.c $(common_sources)
 mp3x_SOURCES = mp3x.c gtkanal.c gpkplotting.c $(common_sources)
 
 CFLAGS = @CFLAGS@ @GTK_CFLAGS@ @FRONTEND_CFLAGS@ @SNDFILE_CFLAGS@
-LDFLAGS = @LDFLAGS@ @FRONTEND_LDFLAGS@ @SNDFILE_LIBS@
+LDFLAGS = @LDFLAGS@ @FRONTEND_LDFLAGS@ @FRONTEND_UNICODE_LDFLAGS@ @SNDFILE_LIBS@
 
 # --enable-internal exposes the developer tuning options in parse.c. The macro
 # is defined here (frontend only), not globally, so other consumers of parse.c

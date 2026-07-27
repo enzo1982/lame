@@ -747,6 +747,37 @@ else
 	AC_MSG_RESULT(no)
 fi
 
+dnl MinGW-w64 uses wmain for the Windows Unicode command-line contract.
+dnl Apply -municode only to the frontend programs; library-only builds do
+dnl not need a Windows executable startup object.
+FRONTEND_UNICODE_LDFLAGS=
+case "${host_os}" in
+mingw*)
+	if test -n "${WITH_FRONTEND}${WITH_MP3X}${WITH_MP3RTP}"; then
+		AC_MSG_CHECKING([whether ${CC} supports MinGW Unicode startup])
+		lame_save_LDFLAGS="${LDFLAGS}"
+		LDFLAGS="${LDFLAGS} -municode"
+		AC_LINK_IFELSE(
+			[AC_LANG_SOURCE([[
+#include <wchar.h>
+int wmain(int argc, wchar_t **argv)
+{
+	return argc > 0 && argv != 0 ? 0 : 1;
+}
+			]])],
+			[FRONTEND_UNICODE_LDFLAGS="-municode"],
+			[FRONTEND_UNICODE_LDFLAGS=])
+		LDFLAGS="${lame_save_LDFLAGS}"
+		if test -n "${FRONTEND_UNICODE_LDFLAGS}"; then
+			AC_MSG_RESULT(yes)
+		else
+			AC_MSG_RESULT(no)
+			AC_MSG_ERROR([MinGW frontend programs require compiler support for -municode and wmain])
+		fi
+	fi
+	;;
+esac
+
 #Checking for IPV6 support
 AC_MSG_CHECKING(for IPv6 support)
 AC_ARG_ENABLE(ipv6, AS_HELP_STRING([--disable-ipv6],
@@ -1376,6 +1407,7 @@ FRONTEND_LDADD="${FRONTEND_LDADD} ${LTLIBICONV} ${CONFIG_MATH_LIB}"
 AC_SUBST(INCLUDES)
 
 AC_SUBST(FRONTEND_LDFLAGS)
+AC_SUBST(FRONTEND_UNICODE_LDFLAGS)
 AC_SUBST(FRONTEND_CFLAGS)
 AC_SUBST(FRONTEND_LDADD)
 AC_SUBST(LIBMP3LAME_LDADD)
