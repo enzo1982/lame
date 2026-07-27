@@ -2448,7 +2448,22 @@ lame_get_highpasswidth(const lame_global_flags * gfp)
  */
 
 
-/* Adjust masking values. */
+/*! Shift the masking thresholds for long blocks. */
+/*!
+  An offset in decibels applied to every masking threshold the psychoacoustic
+  model produces for a long block. A positive value tells the encoder that
+  more noise is masked than the model thinks, so it spends fewer bits; a
+  negative value makes it more cautious and spends more.
+
+  This is a global thumb on the scale of the whole model, which is why it sits
+  in the section the source marks as "do not change unless you know what you
+  are doing". The presets use it in fractions of a decibel.
+
+  \param gfp     the encoder instance.
+  \param adjust  offset in dB. Default 0. Not validated - there is no range
+                 that is meaningfully right.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_maskingadjust(lame_global_flags * gfp, float adjust)
 {
@@ -2459,6 +2474,12 @@ lame_set_maskingadjust(lame_global_flags * gfp, float adjust)
     return -1;
 }
 
+/*! Get the long-block masking offset. */
+/*!
+  \param gfp the encoder instance.
+  \return the offset in dB; 0 if the instance is not usable, which is also the
+          default and means no shift.
+*/
 float
 lame_get_maskingadjust(const lame_global_flags * gfp)
 {
@@ -2468,6 +2489,16 @@ lame_get_maskingadjust(const lame_global_flags * gfp)
     return 0;
 }
 
+/*! Shift the masking thresholds for short blocks. */
+/*!
+  As \c lame_set_maskingadjust(), applied to the granules encoded as short
+  blocks. Kept separate because transients tolerate a different amount of
+  noise than steady material does, and the presets set the two independently.
+
+  \param gfp     the encoder instance.
+  \param adjust  offset in dB. Default 0. Not validated.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_maskingadjust_short(lame_global_flags * gfp, float adjust)
 {
@@ -2478,6 +2509,12 @@ lame_set_maskingadjust_short(lame_global_flags * gfp, float adjust)
     return -1;
 }
 
+/*! Get the short-block masking offset. */
+/*!
+  \param gfp the encoder instance.
+  \return the offset in dB; 0 if the instance is not usable, which is also the
+          default.
+*/
 float
 lame_get_maskingadjust_short(const lame_global_flags * gfp)
 {
@@ -2487,7 +2524,23 @@ lame_get_maskingadjust_short(const lame_global_flags * gfp)
     return 0;
 }
 
-/* Only use ATH for masking. */
+/*! Mask against the absolute threshold of hearing alone. */
+/*!
+  The absolute threshold of hearing is the quiet-room curve: the level below
+  which a tone is inaudible with nothing else playing. Normally it is only the
+  floor, and the masking the psychoacoustic model computes from the signal
+  itself does the real work. This discards that and keeps the floor alone, so
+  the encoder no longer hides noise under loud material.
+
+  A diagnostic, not a quality setting - it makes files considerably worse at the
+  same bitrate, and it marks the encode as non-standard in the VBR tag. What it
+  is useful for is hearing what the psychoacoustic model contributes.
+
+  \param gfp      the encoder instance.
+  \param ATHonly  non-zero to use the ATH alone. Default 0.
+  \return 0 on success, -1 if the instance is not usable. No value is
+          rejected.
+*/
 int
 lame_set_ATHonly(lame_global_flags * gfp, int ATHonly)
 {
@@ -2498,6 +2551,12 @@ lame_set_ATHonly(lame_global_flags * gfp, int ATHonly)
     return -1;
 }
 
+/*! Get whether only the ATH is used for masking. */
+/*!
+  \param gfp the encoder instance.
+  \return the value last set; 0 if the instance is not usable, which is also
+          the default.
+*/
 int
 lame_get_ATHonly(const lame_global_flags * gfp)
 {
@@ -2508,7 +2567,19 @@ lame_get_ATHonly(const lame_global_flags * gfp)
 }
 
 
-/* Only use ATH for short blocks. */
+/*! Mask against the ATH alone, for short blocks only. */
+/*!
+  \c lame_set_ATHonly() restricted to the granules encoded as short blocks -
+  the transients. Long blocks keep the full psychoacoustic model.
+
+  Unlike \c lame_set_ATHonly() this one does **not** mark the encode as
+  non-standard in the VBR tag, although it does change the audio.
+
+  \param gfp       the encoder instance.
+  \param ATHshort  non-zero to use the ATH alone on short blocks. Default 0.
+  \return 0 on success, -1 if the instance is not usable. No value is
+          rejected.
+*/
 int
 lame_set_ATHshort(lame_global_flags * gfp, int ATHshort)
 {
@@ -2519,6 +2590,12 @@ lame_set_ATHshort(lame_global_flags * gfp, int ATHshort)
     return -1;
 }
 
+/*! Get whether short blocks use the ATH alone. */
+/*!
+  \param gfp the encoder instance.
+  \return the value last set; 0 if the instance is not usable, which is also
+          the default.
+*/
 int
 lame_get_ATHshort(const lame_global_flags * gfp)
 {
@@ -2529,7 +2606,21 @@ lame_get_ATHshort(const lame_global_flags * gfp)
 }
 
 
-/* Disable ATH. */
+/*! Drop the absolute threshold of hearing entirely. */
+/*!
+  Pushes the ATH down to a level nothing reaches, which removes it as a floor:
+  only the masking computed from the signal is left, and the encoder spends
+  bits on detail below the threshold of audibility.
+
+  The complement of \c lame_set_ATHonly(), which keeps the floor and drops the
+  model. Also a diagnostic - it makes files worse at any bitrate - and it marks
+  the encode as non-standard in the VBR tag.
+
+  \param gfp    the encoder instance.
+  \param noATH  non-zero to drop the ATH. Default 0.
+  \return 0 on success, -1 if the instance is not usable. No value is
+          rejected.
+*/
 int
 lame_set_noATH(lame_global_flags * gfp, int noATH)
 {
@@ -2540,6 +2631,12 @@ lame_set_noATH(lame_global_flags * gfp, int noATH)
     return -1;
 }
 
+/*! Get whether the ATH is dropped. */
+/*!
+  \param gfp the encoder instance.
+  \return the value last set; 0 if the instance is not usable, which is also
+          the default.
+*/
 int
 lame_get_noATH(const lame_global_flags * gfp)
 {
@@ -2550,7 +2647,27 @@ lame_get_noATH(const lame_global_flags * gfp)
 }
 
 
-/* Select ATH formula. */
+/*! Choose which formula produces the ATH curve. */
+/*!
+  Six curves are implemented, numbered 0 to 5. They are variations on the same
+  published equal-loudness approximation, differing in how conservative they
+  are and over what frequency range they are fitted; as it stands, 4 and 5 are
+  the ones that take a shape parameter from \c lame_set_ATHcurve(), and the
+  others ignore it.
+
+  There is no ordering here either - a higher number is not a better curve.
+  Any value outside 0 to 5 silently gets the same curve as 2.
+
+  The default is -1, meaning unset. \c lame_init_params() then chooses a
+  formula, and which one it chooses is LAME's business rather than part of this
+  interface - it may differ between releases. So the getter answers -1 before
+  initialization and the formula actually in use after it: ask it rather than
+  assuming a number.
+
+  \param gfp      the encoder instance.
+  \param ATHtype  the formula, 0 to 5. **Not validated.**
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_ATHtype(lame_global_flags * gfp, int ATHtype)
 {
@@ -2562,6 +2679,12 @@ lame_set_ATHtype(lame_global_flags * gfp, int ATHtype)
     return -1;
 }
 
+/*! Get the ATH formula. */
+/*!
+  \param gfp the encoder instance.
+  \return the formula, or -1 while it is still unset. 0 if the instance is not
+          usable, which is also a valid formula.
+*/
 int
 lame_get_ATHtype(const lame_global_flags * gfp)
 {
@@ -2572,7 +2695,22 @@ lame_get_ATHtype(const lame_global_flags * gfp)
 }
 
 
-/* Select ATH formula 4 shape. */
+/*! Set the shape parameter of the ATH curve. */
+/*!
+  Tilts the curve produced by the ATH formulas that read it - as it stands, 4
+  and 5 - trading sensitivity at the extremes of the spectrum against
+  sensitivity in the middle. Setting it while a formula that ignores it is
+  selected has no effect and reports none.
+
+  The default is -1, meaning unset. \c lame_init_params() then chooses a shape,
+  and which value it chooses is not fixed; read it back afterwards if you need
+  to know it.
+
+  \param gfp       the encoder instance.
+  \param ATHcurve  the shape. Not validated, and read only by the formulas that
+                   take one.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_ATHcurve(lame_global_flags * gfp, float ATHcurve)
 {
@@ -2583,6 +2721,12 @@ lame_set_ATHcurve(lame_global_flags * gfp, float ATHcurve)
     return -1;
 }
 
+/*! Get the shape parameter of the ATH curve. */
+/*!
+  \param gfp the encoder instance.
+  \return the shape, or -1 while it is still unset. 0 if the instance is not
+          usable.
+*/
 float
 lame_get_ATHcurve(const lame_global_flags * gfp)
 {
@@ -2593,7 +2737,20 @@ lame_get_ATHcurve(const lame_global_flags * gfp)
 }
 
 
-/* Lower ATH by this many db. */
+/*! Lower the whole ATH curve. */
+/*!
+  Shifts the threshold down by this many decibels, so the encoder treats
+  quieter material as still audible and codes it rather than discarding it.
+  Larger files, and more of the very quiet detail preserved. A negative value
+  raises the curve instead and does the opposite.
+
+  Applied to the curve as a whole, whichever formula produced it.
+
+  \param gfp       the encoder instance.
+  \param ATHlower  how far to lower the curve, in dB. Default 0. Not
+                   validated.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_ATHlower(lame_global_flags * gfp, float ATHlower)
 {
@@ -2604,6 +2761,12 @@ lame_set_ATHlower(lame_global_flags * gfp, float ATHlower)
     return -1;
 }
 
+/*! Get how far the ATH curve is lowered. */
+/*!
+  \param gfp the encoder instance.
+  \return the shift in dB; 0 if the instance is not usable, which is also the
+          default and means no shift.
+*/
 float
 lame_get_ATHlower(const lame_global_flags * gfp)
 {
@@ -2614,7 +2777,28 @@ lame_get_ATHlower(const lame_global_flags * gfp)
 }
 
 
-/* Select ATH adaptive adjustment scheme. */
+/*! Select the adaptive ATH scheme. */
+/*!
+  The adaptive adjustment moves the threshold with the loudness of the
+  material, on the reasoning that a listener turns a quiet passage up and a
+  loud one down, so the quiet passage needs the more careful coding. It is on
+  by default.
+
+  Here **0 switches the adjustment off and every other value leaves it on**, so
+  this is effectively a flag despite selecting a "scheme". The default is -1,
+  meaning unset; \c lame_init_params() then chooses a scheme, and which one is
+  LAME's business rather than part of this interface. What a caller may
+  reasonably expect, though, is to be able to *read back* what was chosen, and
+  today it cannot: unlike \c lame_set_ATHtype() the resolved value is not
+  written into the instance, so \c lame_get_athaa_type() still answers -1 after
+  initialization. That is a gap rather than a decision, and the to-do for it is
+  on the getter.
+
+  \param gfp         the encoder instance.
+  \param athaa_type  0 to disable the adjustment, non-zero to enable it. Not
+                     validated.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_athaa_type(lame_global_flags * gfp, int athaa_type)
 {
@@ -2625,6 +2809,20 @@ lame_set_athaa_type(lame_global_flags * gfp, int athaa_type)
     return -1;
 }
 
+/*! Get the adaptive ATH scheme. */
+/*!
+  \param gfp the encoder instance.
+  \return the value last set, or -1 while it is still unset. 0 if the instance
+          is not usable - and 0 is the one value that means "off", so an
+          unusable instance reads as a deliberate choice.
+
+  \todo Report the scheme the encoder actually uses. \c lame_init_params()
+        resolves an unset setting into internal state without writing it back
+        into the instance, so this function still answers -1 after
+        initialization and the scheme in use cannot be read at all. Resolving
+        it into the instance, the way the ATH formula already is, would make it
+        readable; until then a caller can only learn what it set itself.
+*/
 int
 lame_get_athaa_type(const lame_global_flags * gfp)
 {
@@ -2641,7 +2839,19 @@ int CDECL lame_get_athaa_loudapprox(const lame_global_flags * gfp);
 #else
 #endif
 
-/* Select the loudness approximation used by the ATH adaptive auto-leveling. */
+/*! Select the loudness approximation the adaptive ATH uses. */
+/*!
+  \deprecated Obsolete and inert. Of the approximations that once existed only
+  one is left, so there is nothing to select. The declaration is compiled out
+  of the installed header; the definition remains so that programs linked
+  against an older release still resolve it.
+
+  Reports success unconditionally, including for an unusable instance.
+
+  \param gfp               ignored.
+  \param athaa_loudapprox  ignored.
+  \return always 0.
+*/
 int
 lame_set_athaa_loudapprox(lame_global_flags * gfp, int athaa_loudapprox)
 {
@@ -2650,6 +2860,12 @@ lame_set_athaa_loudapprox(lame_global_flags * gfp, int athaa_loudapprox)
     return 0;
 }
 
+/*! Get the loudness approximation the adaptive ATH uses. */
+/*!
+  \deprecated Obsolete; see \c lame_set_athaa_loudapprox().
+  \param gfp  ignored.
+  \return always 2, the number of the one surviving approximation.
+*/
 int
 lame_get_athaa_loudapprox(const lame_global_flags * gfp)
 {
@@ -2659,7 +2875,19 @@ lame_get_athaa_loudapprox(const lame_global_flags * gfp)
 }
 
 
-/* Adjust (in dB) the point below which adaptive ATH level adjustment occurs. */
+/*! Shift the loudness at which the adaptive ATH starts adjusting. */
+/*!
+  The adaptive adjustment of \c lame_set_athaa_type() only kicks in below a
+  certain loudness. This moves that point, in decibels: a positive value makes
+  the encoder start adjusting sooner, treating more material as quiet.
+
+  Read only when the adaptive adjustment is on.
+
+  \param gfp                 the encoder instance.
+  \param athaa_sensitivity   the shift in dB. Default 0, meaning no shift.
+                             Not validated.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_athaa_sensitivity(lame_global_flags * gfp, float athaa_sensitivity)
 {
@@ -2670,6 +2898,12 @@ lame_set_athaa_sensitivity(lame_global_flags * gfp, float athaa_sensitivity)
     return -1;
 }
 
+/*! Get the adaptive ATH sensitivity shift. */
+/*!
+  \param gfp the encoder instance.
+  \return the shift in dB; 0 if the instance is not usable, which is also the
+          default and means no shift.
+*/
 float
 lame_get_athaa_sensitivity(const lame_global_flags * gfp)
 {
@@ -2684,6 +2918,17 @@ lame_get_athaa_sensitivity(const lame_global_flags * gfp)
 int     lame_set_cwlimit(lame_global_flags * gfp, int cwlimit);
 int     lame_get_cwlimit(const lame_global_flags * gfp);
 
+/*! Set the predictability limit of the ISO tonality formula. */
+/*!
+  \deprecated Obsolete and inert. The tonality estimate it belonged to was
+  replaced, and nothing reads this any more. The declaration is compiled out of
+  the installed header; the definition remains so that programs linked against
+  an older release still resolve it.
+
+  \param gfp      ignored.
+  \param cwlimit  ignored.
+  \return always 0.
+*/
 int
 lame_set_cwlimit(lame_global_flags * gfp, int cwlimit)
 {
@@ -2692,6 +2937,12 @@ lame_set_cwlimit(lame_global_flags * gfp, int cwlimit)
     return 0;
 }
 
+/*! Get the predictability limit. */
+/*!
+  \deprecated Obsolete; see \c lame_set_cwlimit().
+  \param gfp  ignored.
+  \return always 0.
+*/
 int
 lame_get_cwlimit(const lame_global_flags * gfp)
 {
@@ -2701,12 +2952,27 @@ lame_get_cwlimit(const lame_global_flags * gfp)
 
 
 
-/*
- * Allow blocktypes to differ between channels.
- * default:
- *  0 for jstereo => block types coupled
- *  1 for stereo  => block types may differ
- */
+/*! Allow the two channels to use different block types. */
+/*!
+  When a transient arrives in one channel only, coding that channel in short
+  blocks and the other in long ones follows the material more closely. Coupling
+  the two instead keeps them in step.
+
+  This writes the one block-type setting that \c lame_set_no_short_blocks()
+  and \c lame_set_force_short_blocks() also write, so the last of the three
+  called wins and the other two are forgotten.
+
+  Note that **the request does not survive a stereo encode**: \c lame_init_params()
+  couples the block types again for both stereo and joint stereo, so the
+  setting only takes effect for mono - and the getter reports 0 afterwards,
+  having been overruled.
+
+  \param gfp               the encoder instance.
+  \param allow_diff_short  non-zero to allow the channels to differ, 0 to
+                           couple them.
+  \return 0 on success, -1 if the instance is not usable. No value is
+          rejected.
+*/
 int
 lame_set_allow_diff_short(lame_global_flags * gfp, int allow_diff_short)
 {
@@ -2717,6 +2983,14 @@ lame_set_allow_diff_short(lame_global_flags * gfp, int allow_diff_short)
     return -1;
 }
 
+/*! Get whether the channels may use different block types. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 only if the block-type setting is exactly "allowed to differ"; 0
+          for every other state, including "short blocks forced" and "short
+          blocks dispensed with", which this cannot distinguish. 0 also if the
+          instance is not usable.
+*/
 int
 lame_get_allow_diff_short(const lame_global_flags * gfp)
 {
@@ -2730,7 +3004,25 @@ lame_get_allow_diff_short(const lame_global_flags * gfp)
 }
 
 
-/* Use temporal masking effect */
+/*! Use temporal masking. */
+/*!
+  Temporal masking is the effect by which a loud sound hides quieter ones just
+  before and just after it, not only at the same instant. Taking it into
+  account lets the encoder be less careful around transients, where the ear is
+  least able to notice.
+
+  On by default - except under \c vbr_mtrh, where it is off unless asked for.
+  A caller who wants it everywhere has to set it explicitly.
+
+  The "not chosen yet" state that produces that mode-dependent default is
+  itself **not reachable through this function**: only 0 and 1 are accepted, so
+  once a caller has chosen, the choice cannot be handed back.
+
+  \param gfp          the encoder instance.
+  \param useTemporal  1 to use temporal masking, 0 not to.
+  \return 0 on success, -1 if the instance is not usable or the value is
+          neither 0 nor 1.
+*/
 int
 lame_set_useTemporal(lame_global_flags * gfp, int useTemporal)
 {
@@ -2748,6 +3040,14 @@ lame_set_useTemporal(lame_global_flags * gfp, int useTemporal)
     return -1;
 }
 
+/*! Get whether temporal masking is used. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 or 0 once a value has been chosen - by a call to the setter, or by
+          \c lame_init_params() resolving the default - and **-1 before that**,
+          the "not chosen yet" marker. 0 if the instance is not usable, which is
+          therefore not distinguishable from a deliberate 0.
+*/
 int
 lame_get_useTemporal(const lame_global_flags * gfp)
 {
@@ -2759,7 +3059,20 @@ lame_get_useTemporal(const lame_global_flags * gfp)
 }
 
 
-/* Use inter-channel masking effect */
+/*! Let one channel mask the other. */
+/*!
+  Mixes a fraction of each channel's masking threshold into the other's, on
+  the reasoning that a listener hears both together. 0 keeps the channels
+  independent, 1 gives the neighbour's threshold full weight.
+
+  Off by default. As with \c lame_set_useTemporal(), the internal "not chosen"
+  state cannot be restored once a value has been set.
+
+  \param gfp    the encoder instance.
+  \param ratio  0 to 1 inclusive.
+  \return 0 on success, -1 if the instance is not usable or \a ratio is
+          outside 0 to 1.
+*/
 int
 lame_set_interChRatio(lame_global_flags * gfp, float ratio)
 {
@@ -2773,6 +3086,13 @@ lame_set_interChRatio(lame_global_flags * gfp, float ratio)
     return -1;
 }
 
+/*! Get the inter-channel masking ratio. */
+/*!
+  \param gfp the encoder instance.
+  \return the ratio, 0 to 1; -1 while nothing has been chosen and
+          \c lame_init_params() has not resolved it to 0. 0 if the instance is
+          not usable, which is also the resolved default.
+*/
 float
 lame_get_interChRatio(const lame_global_flags * gfp)
 {
@@ -2784,7 +3104,29 @@ lame_get_interChRatio(const lame_global_flags * gfp)
 }
 
 
-/* Use pseudo substep shaping method */
+/*! Enable pseudo substep noise shaping. */
+/*!
+  Substep shaping discards spectral lines whose contribution is too small to
+  be worth the bits, and codes some bands at a half step of the scalefactor
+  where the full step would be wasteful. It buys a little quality at the same
+  bitrate, at some cost in encoding time.
+
+  Another packed value rather than a method number:
+
+  | bit | meaning |
+  |-----|---------|
+  | 0   | apply the shaping |
+  | 1   | start every band in half-step mode instead of deciding per band |
+  | 2   | extend the shaping to short blocks, which are otherwise skipped |
+
+  Off by default, though several presets switch it on. Values 0 to 7 are
+  accepted, i.e. every combination of the three bits.
+
+  \param gfp     the encoder instance.
+  \param method  the bit combination, 0 to 7.
+  \return 0 on success, -1 if the instance is not usable or \a method is
+          outside 0 to 7.
+*/
 int
 lame_set_substep(lame_global_flags * gfp, int method)
 {
@@ -2798,6 +3140,12 @@ lame_set_substep(lame_global_flags * gfp, int method)
     return -1;
 }
 
+/*! Get the substep noise shaping setting. */
+/*!
+  \param gfp the encoder instance.
+  \return the bit combination, 0 to 7; 0 if the instance is not usable, which
+          is also the default and means the shaping is off.
+*/
 int
 lame_get_substep(const lame_global_flags * gfp)
 {
