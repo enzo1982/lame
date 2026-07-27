@@ -206,7 +206,8 @@ get_lame_tag_encoder_short_version(void)
     return str;
 }
 
-/*! Enforces the byte budget documented above at compile time: catches an
+/*! \internal
+ *  Enforces the byte budget documented above at compile time: catches an
  *  overflow the moment a version bump reintroduces it, instead of letting
  *  it silently truncate at run time. */
 compiletime_assert(sizeof("LAME" STR(LAME_MAJOR_VERSION) "." STR(LAME_MINOR_VERSION) P) - 1 <= 9);

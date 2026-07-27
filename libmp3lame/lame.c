@@ -26,6 +26,16 @@
 
 /* $Id$ */
 
+/*!
+  \file   lame.c
+  \brief  The LAME MP3 encoding engine.
+
+  Holds the encoder lifecycle of the public API - creating an instance,
+  turning the settings into a usable encoder, starting a bitstream, finishing
+  one, and releasing the instance - together with the reporting calls that
+  describe the configuration those steps arrived at.
+*/
+
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
@@ -551,6 +561,32 @@ linear_int(double a, double b, double m)
  *  lame_init_qval(gfp);
  *
  ********************************************************************/
+/*! Validate the settings and prepare the encoder for use. */
+/*!
+  Called once, after \c lame_init() and after every parameter the caller wants
+  to change, and before the first \c lame_encode_buffer(). It checks what was
+  set, derives everything that was left at its default from it, allocates the
+  encoding buffers and writes the leading tags into the bitstream (through
+  \c lame_init_bitstream()).
+
+  This is where a bad combination of settings is reported, not where it was
+  set: the setters accept a value in range without knowing what it will be
+  combined with. Every parameter has a default, so an instance straight from
+  \c lame_init() initializes successfully - as CD-format stereo input at
+  44.1 kHz - which means a caller that forgets to describe its input gets a
+  wrong encode rather than an error.
+
+  Calling it a second time on the same instance is refused rather than
+  ignored, so parameters cannot be changed once encoding has been prepared.
+  A caller that needs different settings starts a new instance.
+
+  \param gfp the encoder instance from \c lame_init().
+  \return 0 on success; -1 if the settings could not be used - the input
+          sample rate, output sample rate or channel count makes no sense, a
+          buffer could not be allocated, or the instance was already
+          initialized. The instance stays valid after a failure and must still
+          be released with \c lame_close().
+*/
 int
 lame_init_params(lame_global_flags * gfp)
 {
@@ -1321,15 +1357,21 @@ concatSep(char* dest, char const* sep, char const* str)
     strcat(dest, str);
 }
 
-/*
- *  print_config
- *
- *  Prints some selected information about the coding parameters via
- *  the macro command MSGF(), which is currently mapped to lame_errorf
- *  (reports via a error function?), which is a printf-like function
- *  for <stderr>.
- */
+/*! Report the encoding parameters that were settled on. */
+/*!
+  Writes a short human-readable summary - version, CPU features in use, input
+  and output sample rate and any resampling between them, the encoding mode -
+  through the message callback (\c lame_set_msgf()), which by default prints
+  to \c stderr. This is what the \c lame command line prints at the start of
+  an encode.
 
+  Meant to be called after \c lame_init_params(), because most of what it
+  reports is derived there rather than set by the caller. The text is for
+  people, not for parsing: it changes between versions, and a program that
+  wants a value should ask for it with the corresponding getter.
+
+  \param gfp an initialized encoder instance.
+*/
 void
 lame_print_config(const lame_global_flags * gfp)
 {
@@ -1401,11 +1443,24 @@ lame_print_config(const lame_global_flags * gfp)
 }
 
 
-/**     rh:
- *      some pretty printing is very welcome at this point!
- *      so, if someone is willing to do so, please do it!
- *      add more, if you see more...
- */
+/*! Report the full internal encoder configuration. */
+/*!
+  A far more detailed counterpart to \c lame_print_config(): dozens of lines
+  covering the psychoacoustic settings, the filters, the quantization
+  parameters and the VBR configuration, again through the message callback
+  (\c lame_set_msgf()). This is what the \c lame command line prints under
+  \c --verbose.
+
+  Meant for diagnosing an encode, so it is only meaningful after
+  \c lame_init_params(). The layout is not stable across versions and is not
+  meant to be parsed.
+
+  \param gfp an initialized encoder instance.
+
+  \todo The output is a dense dump of settings. Friendlier formatting would
+        help, and any part of the configuration it does not yet print should
+        be added.
+*/
 void
 lame_print_internals(const lame_global_flags * gfp)
 {
@@ -2091,6 +2146,29 @@ lame_encode_buffer_interleaved_int(lame_t gfp,
  Because we set the reservoir=0, they will also decode seperately
  with no errors.
 *********************************************************************/
+/*! Finish one MP3 of a gapless series, keeping the encoder running. */
+/*!
+  Completes the current frame with ancillary data and empties the MP3 buffer,
+  but keeps the buffered PCM and the encoder state, so encoding continues into
+  the next output file. It also resets the bit reservoir, which is what lets
+  the resulting files decode both separately and concatenated without a gap.
+
+  Unlike \c lame_encode_flush() this writes no ID3v1 tag. Call
+  \c lame_init_bitstream() before writing the next file if it needs its own
+  leading tags.
+
+  This is the "no gap" half of the encoder's split-file support; the caller
+  still has to tell the encoder how many files there are and which one this is
+  (\c lame_set_nogap_total(), \c lame_set_nogap_currentindex()).
+
+  \param gfp             the encoder instance.
+  \param mp3buffer       where the remaining MP3 data is written; at least
+                         7200 bytes to hold everything a flush can emit.
+  \param mp3buffer_size  size of \a mp3buffer in bytes, or 0 to declare the
+                         buffer large enough and skip the check.
+  \return the number of bytes written to \a mp3buffer, which may be 0; a
+          negative value on failure, -3 if the instance is not usable.
+*/
 int
 lame_encode_flush_nogap(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buffer_size)
 {
@@ -2110,8 +2188,21 @@ lame_encode_flush_nogap(lame_global_flags * gfp, unsigned char *mp3buffer, int m
 }
 
 
-/* called by lame_init_params.  You can also call this after flush_nogap
-   if you want to write new id3v2 and Xing VBR tags into the bitstream */
+/*! Start a new bitstream: write the leading tags and reset the counters. */
+/*!
+  Writes the ID3v2 tag (unless the caller has taken that over with
+  \c lame_set_write_id3tag_automatic()) and the Xing/LAME header to the front
+  of the stream, and zeroes the frame number, the histograms and the peak
+  sample.
+
+  \c lame_init_params() already does this, so a caller encoding one file never
+  needs it. It exists for the file after that: call it following
+  \c lame_encode_flush_nogap() to give the next output file its own leading
+  tags and its own statistics.
+
+  \param gfp the encoder instance.
+  \return 0 on success, -3 if the instance is not usable.
+*/
 int
 lame_init_bitstream(lame_global_flags * gfp)
 {
@@ -2171,6 +2262,30 @@ calc_mp3buffer_size_remaining( int mp3buffer_size, int mp3count)
 /* then write id3 v1 tags into bitstream.                        */
 /*****************************************************************/
 
+/*! Finish the stream: encode what is still buffered and emit the last frames. */
+/*!
+  The last encoding call for a file. It pads the buffered PCM with silence so
+  the final frame is complete, encodes it, empties the MP3 buffer and - if the
+  library is writing tags itself, see \c lame_set_write_id3tag_automatic() -
+  appends the ID3v1 tag. The amount of padding it added is recorded in the
+  LAME header, so a decoder that reads that header does not play it back.
+
+  Calling it twice is harmless: the second call finds nothing buffered and
+  returns 0.
+
+  This does not release the instance. \c lame_close() still has to be called,
+  and the statistics and tag calls (\c lame_get_lametag_frame(),
+  \c lame_mp3_tags_fid(), the histograms) are meant to be used between the
+  two, while the encoder state still exists.
+
+  \param gfp             the encoder instance.
+  \param mp3buffer       where the final MP3 data is written; at least 7200
+                         bytes to hold everything a flush can emit.
+  \param mp3buffer_size  size of \a mp3buffer in bytes, or 0 to declare the
+                         buffer large enough and skip the check.
+  \return the number of bytes written to \a mp3buffer, which may be 0; a
+          negative value on failure, -3 if the instance is not usable.
+*/
 int
 lame_encode_flush(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buffer_size)
 {
@@ -2315,6 +2430,22 @@ lame_encode_flush(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buff
  *
  ***********************************************************************/
 
+/*! Release an encoder instance and everything it allocated. */
+/*!
+  The last call for an instance. It frees the internal buffers and, for an
+  instance that came from \c lame_init(), the instance itself, so the pointer
+  must not be used again afterwards.
+
+  Call it on any instance \c lame_init() returned, including one whose
+  \c lame_init_params() failed - a failed initialization still leaves buffers
+  to release. It is not a substitute for \c lame_encode_flush(): closing
+  without flushing first discards whatever PCM was still buffered and leaves
+  the file without its final frames and ID3v1 tag.
+
+  \param gfp the encoder instance, or \c NULL, which does nothing.
+  \return 0 on success; -3 if the instance had already lost its internal
+          state, in which case everything that could still be freed was.
+*/
 int
 lame_close(lame_global_flags * gfp)
 {
@@ -2349,6 +2480,26 @@ lame_encode_finish(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buf
 #else
 #endif
 
+/*! Flush the stream and release the instance in one call. */
+/*!
+  \deprecated Obsolete. Its declaration is compiled out of the installed
+  \c lame.h, so no new program can call it; the definition is still built and
+  exported only so that programs linked against an older release keep working.
+  New code calls \c lame_encode_flush() and then \c lame_close().
+
+  Combining the two loses the window between them: once this returns, the
+  encoder state is gone, so the statistics calls and \c lame_mp3_tags_fid()
+  can no longer be used to complete the VBR header.
+
+  \param gfp             the encoder instance.
+  \param mp3buffer       where the final MP3 data is written; at least 7200
+                         bytes.
+  \param mp3buffer_size  size of \a mp3buffer in bytes, or 0 to skip the
+                         check.
+  \return what \c lame_encode_flush() returned - the number of bytes written,
+          or a negative value on failure. The instance is released either way,
+          and any error from the release itself is not reported.
+*/
 int
 lame_encode_finish(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buffer_size)
 {
@@ -2544,6 +2695,44 @@ lame_init_old(lame_global_flags * gfp)
 }
 
 
+/*! Create an encoder instance and fill it with the default settings. */
+/*!
+  The first call of the encoding API. It allocates the context every other
+  \c lame_* function takes, and sets every parameter to its default, so a
+  caller only has to set what it wants to differ from the default.
+
+  Nothing is validated and no encoding state exists yet - that happens in
+  \c lame_init_params(), which must be called once all parameters have been
+  set. The usual sequence is:
+
+  \code
+  lame_global_flags *gfp = lame_init();
+  if (gfp == NULL)
+      return -1;                       // out of memory
+  lame_set_in_samplerate(gfp, 44100);
+  lame_set_num_channels(gfp, 2);
+  lame_set_VBR(gfp, vbr_default);
+  if (lame_init_params(gfp) < 0) {     // validates and locks the settings
+      lame_close(gfp);
+      return -1;                       // the settings were not usable
+  }
+  // ... lame_encode_buffer() per block of PCM ...
+  lame_encode_flush(gfp, mp3buf, sizeof mp3buf);
+  lame_close(gfp);
+  \endcode
+
+  Every instance obtained here must be released with \c lame_close(), which
+  is also the right call after a failed \c lame_init_params().
+
+  All encoder state lives in the returned instance, so two encoders need one
+  instance each. That is a statement about where the state is kept, not a
+  concurrency guarantee: **LAME promises no thread safety at all**, and a
+  caller that uses it from more than one thread is responsible for its own
+  serialization.
+
+  \return a pointer to a new encoder instance, owned by the caller, or
+          \c NULL if memory could not be allocated.
+*/
 lame_global_flags *
 lame_init(void)
 {

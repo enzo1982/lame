@@ -30,6 +30,14 @@ GENERATE_TESTLIST      = NO
 # goes on showing everything.
 HIDE_UNDOC_MEMBERS     = YES
 
+# The same argument for compounds. Every struct in libmp3lame and frontend is
+# an internal type - lame_version_t in the public header is the only one a
+# caller ever names - so without this the public reference lists dozens of
+# them, and warns about each. A public struct that nobody documented would be
+# hidden too, which is the intended pressure: it belongs in the documented set,
+# not in the reference as a bare name.
+HIDE_UNDOC_CLASSES     = YES
+
 # Call graphs need Graphviz/dot and slow the build; off for the public docs.
 CALL_GRAPH             = NO
 CALLER_GRAPH           = NO
