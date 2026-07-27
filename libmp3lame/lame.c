@@ -1806,24 +1806,37 @@ enum PCMSampleType
 
 /*
  * An IEEE-754 value is NaN or infinite exactly when every exponent bit is set.
- * The raw bit pattern is inspected rather than the value itself: the encoder is
- * built with -ffast-math, which permits the compiler to assume that no NaN or
- * infinity can occur and to fold isfinite()/x!=x down to a constant.
+ *
+ * The library is built with -ffast-math, under which the compiler is entitled
+ * to assume that neither ever occurs and to delete a test for one. It sees
+ * through the spelling: reading the raw bit pattern is not enough by itself,
+ * because the integer comparison below is recognised as a floating point class
+ * test and folded to a constant just as isfinite() or x!=x would be. The value
+ * therefore reaches the comparison through a volatile object, whose contents
+ * the compiler may not reason about.
  */
 static int
 pcm_float_is_finite(float const x)
 {
-    uint32_t u;
-    memcpy(&u, &x, sizeof u);
-    return ((u >> 23) & 0xFFu) != 0xFFu;
+    float volatile opaque = x;
+    float   sample;
+    uint32_t bits;
+
+    sample = opaque;
+    memcpy(&bits, &sample, sizeof bits);
+    return ((bits >> 23) & 0xFFu) != 0xFFu;
 }
 
 static int
 pcm_double_is_finite(double const x)
 {
-    uint64_t u;
-    memcpy(&u, &x, sizeof u);
-    return ((u >> 52) & 0x7FFu) != 0x7FFu;
+    double volatile opaque = x;
+    double  sample;
+    uint64_t bits;
+
+    sample = opaque;
+    memcpy(&bits, &sample, sizeof bits);
+    return ((bits >> 52) & 0x7FFu) != 0x7FFu;
 }
 
 static int

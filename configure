@@ -20320,7 +20320,11 @@ if test "x$HAVE_GCC" = "xyes" -o "x$HAVE_CLANG" = "xyes"; then
 	#                                modern targets, useful on older ones)
 	#   -ffast-math                  relax IEEE semantics - LAME's DSP code
 	#                                is validated with this and relies on
-	#                                the speed
+	#                                the speed. It also asserts that no NaN
+	#                                or infinity occurs, so a test for one
+	#                                may be deleted however it is spelled;
+	#                                code validating a caller's floating
+	#                                point data has to survive that
 	#   -fno-semantic-interposition  let the shared libmp3lame inline its
 	#                                own calls instead of going through the
 	#                                PLT (gcc; harmless no-op elsewhere)

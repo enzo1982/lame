@@ -22,9 +22,11 @@
  * is not what it is for.
  *
  * The bit patterns are assembled by hand rather than taken from the @c NAN and
- * @c INFINITY macros: the library is built with fast floating point maths, and
- * a test compiled the same way could otherwise have its constants folded away
- * before they ever reach the encoder.
+ * @c INFINITY macros, and each one reaches its buffer through a volatile
+ * object. These tests are compiled with the same fast floating point maths as
+ * the library, under which a constant the compiler can recognise as NaN or
+ * infinite is folded away long before the encoder sees it. A test that cannot
+ * deliver a non-finite sample says nothing about the screen either way.
  *
  * These are library-level tests: they link libmp3lame and call the exported
  * API directly, so no frontend translation unit is compiled in.
@@ -56,8 +58,12 @@
 static float
 float_from_bits(uint32_t bits)
 {
+    uint32_t volatile opaque = bits;
+    uint32_t pattern;
     float   f;
-    memcpy(&f, &bits, sizeof f);
+
+    pattern = opaque;
+    memcpy(&f, &pattern, sizeof f);
     return f;
 }
 
@@ -65,8 +71,12 @@ float_from_bits(uint32_t bits)
 static double
 double_from_bits(uint64_t bits)
 {
+    uint64_t volatile opaque = bits;
+    uint64_t pattern;
     double  d;
-    memcpy(&d, &bits, sizeof d);
+
+    pattern = opaque;
+    memcpy(&d, &pattern, sizeof d);
     return d;
 }
 
