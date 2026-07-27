@@ -3063,7 +3063,12 @@ int
 lame_get_useTemporal(const lame_global_flags * gfp)
 {
     if (is_lame_global_flags_valid(gfp)) {
-        assert(0 <= gfp->useTemporal && 1 >= gfp->useTemporal);
+        /* -1 is the "not chosen yet" marker lame_init() stores and
+           lame_init_params() resolves, so it is a legal value to be asked for
+           before initialization - as lame_get_interChRatio() already allows
+           for its own. */
+        assert((0 <= gfp->useTemporal && 1 >= gfp->useTemporal)
+               || -1 == gfp->useTemporal);
         return gfp->useTemporal;
     }
     return 0;

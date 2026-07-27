@@ -555,6 +555,64 @@ test_readonly_getters(void **state)
 }
 
 /*
+ * Several settings are stored with a negative "not chosen yet" marker that
+ * lame_init_params() resolves later, and reading one back before initializing
+ * is legal - it is how a caller finds out that nothing has been chosen. Every
+ * such getter is asked on a fresh instance here.
+ *
+ * This is the shape of test the rest of the file was missing: the round-trip
+ * tests set a value first, so none of them ever sees the marker. One getter
+ * asserted a range that excluded its own marker and aborted the process
+ * instead of answering; assertions are live in release builds of this library
+ * (configure.ac leaves NDEBUG undefined on purpose), so it aborted there too.
+ */
+static void
+test_unset_markers(void **state)
+{
+    lame_t  gfp = (lame_t) *state;
+
+    /* the marker itself, on a fresh instance */
+    assert_int_equal(lame_get_useTemporal(gfp), -1);
+    ASSERT_FLT_EXACT(lame_get_interChRatio(gfp), -1.0);
+    assert_int_equal(lame_get_quant_comp(gfp), -1);
+    assert_int_equal(lame_get_quant_comp_short(gfp), -1);
+    assert_int_equal(lame_get_ATHtype(gfp), -1);
+    assert_int_equal(lame_get_athaa_type(gfp), -1);
+    assert_int_equal(lame_get_no_short_blocks(gfp), -1);
+    assert_int_equal(lame_get_force_short_blocks(gfp), -1);
+    ASSERT_FLT_EXACT(lame_get_msfix(gfp), -1.0);
+
+    /* and the marker gone afterwards. What each one resolves TO is a tuning
+       decision - lame_init_params() applies the preset table for the chosen
+       bitrate, so two of these end up at values from that table rather than at
+       a plain zero - and pinning those here would make this a test of the
+       tuning. The property being tested is that the marker does not survive. */
+    assert_int_equal(lame_set_in_samplerate(gfp, 44100), 0);
+    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
+    assert_int_equal(lame_set_brate(gfp, 128), 0);
+    assert_int_equal(lame_init_params(gfp), 0);
+
+    assert_int_not_equal(lame_get_quant_comp(gfp), -1);
+    assert_int_not_equal(lame_get_quant_comp_short(gfp), -1);
+    assert_int_not_equal(lame_get_ATHtype(gfp), -1);
+    assert_true(lame_get_interChRatio(gfp) >= 0.0);
+    assert_true(lame_get_msfix(gfp) >= 0.0);
+
+    /* these three do not come from the preset table, so their resolved values
+       are fixed and can be named: temporal masking on, and the block-type
+       choice settled to "coupled", which is neither dispensed nor forced */
+    assert_int_equal(lame_get_useTemporal(gfp), 1);
+    assert_int_equal(lame_get_no_short_blocks(gfp), 0);
+    assert_int_equal(lame_get_force_short_blocks(gfp), 0);
+
+    /* athaa_type is the exception: lame_init_params() reads it into the
+       internal state without writing the resolved value back, so the marker is
+       still what a caller sees. Asserted so that a future change of mind about
+       that shows up here rather than surprising someone. */
+    assert_int_equal(lame_get_athaa_type(gfp), -1);
+}
+
+/*
  * lame_get_maximum_number_of_samples() derives its answer from a size_t buffer
  * size and returns it in an int, so every step of the estimate has to be
  * bounded to that int - the frame count, their product with the frame size,
@@ -673,6 +731,7 @@ main(void)
         cmocka_unit_test_setup_teardown(test_decode_on_the_fly, gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_misc_setters, gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_readonly_getters, gfp_setup, gfp_teardown),
+        cmocka_unit_test_setup_teardown(test_unset_markers, gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_maximum_number_of_samples, gfp_setup, gfp_teardown),
 #if INTERNAL_OPTS
         cmocka_unit_test_setup_teardown(test_internal_opts, gfp_setup, gfp_teardown),

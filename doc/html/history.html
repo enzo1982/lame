@@ -132,6 +132,12 @@
 			        band, which aborted builds with assertions enabled.
 			        Only such a bit starved granule is affected. Bug
 			        ticket <i class="ticket">[ #490 ]</i>.</li>
+			    <li>Reading the temporal masking setting back before
+			        the encoder was initialized aborted the program on a
+			        build with assertions enabled, which is the default.
+			        The value at that point is the "not chosen yet"
+			        marker, and the check did not allow for it. It is
+			        now returned like any other unset setting.</li>
 			    <li><span class="quality">Record the accepted
 			        quantization's own bit count as the best one in the
 			        noise shaping search; it was taken from the
