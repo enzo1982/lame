@@ -632,7 +632,10 @@ calc_xmin(lame_internal_flags const *gfc,
             rh3 = rh2;
         }
         xmin = rh3;
-        {
+        /* ATHonly keeps the ATH computed above and drops the masking the
+           psychoacoustic model derived from the signal, which is what the
+           setting asks for. */
+        if (!cfg->ATHonly) {
             FLOAT const e = ratio->en.l[gsfb];
             if (e > 1e-12f) {
                 FLOAT   x;
@@ -722,7 +725,8 @@ calc_xmin(lame_internal_flags const *gfc,
                 rh3 = rh2;
             }
             xmin = rh3;
-            {
+            /* As above, and ATHshort asks for it on short blocks only. */
+            if (!cfg->ATHonly && !cfg->ATHshort) {
                 FLOAT const e = ratio->en.s[sfb][b];
                 if (e > 1e-12f) {
                     FLOAT   x;

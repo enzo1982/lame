@@ -138,6 +138,14 @@
 			        The value at that point is the "not chosen yet"
 			        marker, and the check did not allow for it. It is
 			        now returned like any other unset setting.</li>
+			    <li><span class="quality">The two options which ask the
+			        encoder to mask against the absolute threshold of
+			        hearing alone, for all blocks or for short blocks
+			        only, work again. They had stopped reaching the
+			        quantizer, so setting either changed nothing about
+			        the encoded audio. They are diagnostic options and
+			        make files worse at any given bitrate; encodes which
+			        do not use them are unaffected.</span></li>
 			    <li><span class="quality">Record the accepted
 			        quantization's own bit count as the best one in the
 			        noise shaping search; it was taken from the
