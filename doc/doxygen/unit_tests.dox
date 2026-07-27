@@ -15,6 +15,61 @@ under @c test/unit and reports each one's pass/fail status. Only the pre-2.0 CMo
 temporary restriction until cmocka 2.0 is more widely available across
 distributions.
 
+@section unit_tests_running Running the tests
+
+@code
+./configure --enable-unit-tests
+make
+make check
+@endcode
+
+The flag is what matters: the whole @c test/unit tree is wrapped in
+@c "if ENABLE_UNIT_TESTS", so without it @c "make check" has nothing to build
+and succeeds without running a single test. Having CMocka installed does not
+enable them on its own.
+
+@subsection unit_tests_check_vs_test "make check" is not "make test"
+
+The two targets sound alike and answer different questions. Only one of them
+can fail.
+
+<table>
+<tr><th>Target</th><th>What it does</th><th>Fails the build?</th></tr>
+<tr><td>@c "make check"</td>
+    <td>Builds and runs the CMocka tests.</td>
+    <td>Yes &mdash; a failing test exits non-zero. This is the gate.</td></tr>
+<tr><td>@c "make test"</td>
+    <td>Encodes @c testcase.wav and counts the bytes that differ from the
+        committed @c testcase.mp3.</td>
+    <td>No &mdash; it prints a number and always succeeds.</td></tr>
+</table>
+
+@c "make test" measures bitstream drift, and its count is expected to be
+non-zero on a different processor, compiler or optimization level; the number
+is only meaningful to a developer comparing it against the same build before a
+change. Use @c "make check" to find out whether anything is broken.
+
+@subsection unit_tests_results Where the results are
+
+@c "make check" prints a one-line PASS/FAIL per test and a summary. When
+something fails, the detail is in the files automake leaves in the build tree:
+
+- @c test/unit/test-suite.log &mdash; the failing tests' output, collected.
+  It sits next to the tests, not at the top of the build tree.
+- @c test/unit/<name>.log &mdash; one per test, including the ones that
+  passed. CMocka's own message for the failing assertion, with its file and
+  line, is here.
+- @c test/unit/<name>.trs &mdash; the machine-readable result automake
+  itself reads.
+
+A single test can also be run directly: the binaries are built in
+@c test/unit and take no arguments.
+
+@subsection unit_tests_coverage Running them under coverage
+
+Which lines the suite actually reaches is a separate question from whether it
+passes, and has its own harness &mdash; see @ref maintainer_coverage.
+
 @section unit_tests_seam Testing static functions
 
 Several of the functions under test are @c static and have no external linkage.
