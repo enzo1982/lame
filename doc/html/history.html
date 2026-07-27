@@ -30,6 +30,17 @@
 	        Alexander Leidinger
 		<ul>
 		    <li>Add a cmocka based unit test infrastructur.</li>
+			    <li><span class="quality">On Windows, decoding an MP3
+			        piped into the command line tools produced wrong
+			        audio without reporting an error: the pipe was
+			        treated as a seekable file, so the encoder delay and
+			        padding recorded in the Xing/Info frame were lost
+			        and extra samples appeared at the start and end. A
+			        pipe is now recognised as non-seekable before any
+			        data is read. Ordinary filenames and input
+			        redirected from a file were not affected. Patch by
+			        Maya R. Odinezenko, patch ticket
+			        <i class="ticket">[ #107 ]</i>.</span></li>
 			    <li>Add Doxygen based documentation, in two flavours.
 			        The public one describes the official libmp3lame
 			        API. The internal one additionally surfaces the
