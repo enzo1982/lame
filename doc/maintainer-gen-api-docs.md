@@ -35,15 +35,7 @@ default: it exposes internals that carry no stability promise whatsoever. It
 is therefore linked asymmetrically &mdash; only from the developer-facing
 pages, and never without the caveat.
 
-| Page | Links to | Framing |
-|---|---|---|
-| `developers.php` | both | a "Documentation for developers" block; the internal one marked **not an API** |
-| `using.php` | public only | "Programming with libmp3lame", among the other user-facing documentation |
-| `inside.php` | both | internal first, with the caveat, and a pointer to the public set for anyone who took a wrong turn |
-| `sitemap.php` | both | under Developers |
-| `menu.html` | &mdash; | a "Developers" entry was added to the global navigation, which previously had no developer-facing item at all |
-
-Every one of those links is **relative** (`API/public/index.html`), so the
+Links into a published set are **relative** (`API/public/index.html`), so the
 site works the same from a local checkout as from the server.
 
 ## Latest only

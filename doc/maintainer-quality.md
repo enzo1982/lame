@@ -52,6 +52,44 @@ glockenspiel, cymbal), plus speech, solo voices, and a few real musical
 excerpts. `setup-quality-corpus.sh` writes a `tracks.txt` recording what each
 number is and why it was picked.
 
+### What SQAM does not cover, and what to use instead
+
+SQAM is deliberately made of **isolated sources**: one instrument at a time,
+cleanly recorded, with very little going on to mask anything. That is what makes
+it good at finding where an encoder breaks &mdash; an artefact has nowhere to
+hide. It also makes it unrepresentative of most of what LAME actually encodes.
+Dense commercial music at a low bitrate is the opposite case: many simultaneous
+sources, heavy masking, and a psychoacoustic model making quite different
+decisions. A change can be neutral on one of these and clearly not on the other,
+so **a quality claim is only as broad as the corpus it was measured on** &mdash;
+name the corpus whenever a number is reported.
+
+The counterweight used here is the sample set from the HydrogenAudio community's
+2011 public multiformat listening test at 64 kbps, published at
+<https://listening-tests.hydrogenaudio.org/igorc/>. Thirty excerpts of real
+commercial music, 8&ndash;25 seconds each, 44.1 kHz stereo. What makes it usable
+where most real music is not: **it ships the uncompressed FLAC originals**, so
+there is a genuine reference to score against rather than someone else's lossy
+output. The archive also contains that test's codec results at 64 kbps; those
+are other encoders' output and must never be used as a reference.
+
+How the two compare in practice:
+
+| | EBU SQAM | HydrogenAudio multiformat |
+|---|---|---|
+| content | single instruments, voices, speech, test signals | real commercial music, all of it dense |
+| masking | minimal &mdash; artefacts are exposed | heavy &mdash; the normal operating case |
+| answers | *where does the encoder break?* | *would a listener notice?* |
+| bitrates it speaks to | the whole range | low, which is where the reports come from |
+| licence | testing and evaluation, redistribution unclear | **none stated at all** |
+
+**The setup script does not fetch this set, and will not.** It fetches SQAM
+because SQAM's licence at least permits evaluation; the HydrogenAudio page
+states no licence, no terms and no provenance for the audio. Treat it as local
+evaluation material: do not redistribute it, do not commit it, and do not
+publish audio derived from it. Aggregate scores computed from it are fine to
+report, which is all the harness produces anyway.
+
 ### Setup usage
 
 ```

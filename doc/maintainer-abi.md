@@ -95,9 +95,9 @@ reports those.
 It needs two things that are not always there, and skips cleanly when they are
 missing:
 
-- **libabigail.** Packaged on Linux (`apt install abigail-tools`); not
-  available on FreeBSD, macOS or native Windows. From Windows, WSL is the
-  practical host for this check.
+- **libabigail.** Packaged on Linux (`apt install abigail-tools`) and on
+  FreeBSD (`devel/libabigail`); not available on native Windows, where WSL is
+  the practical host for this check.
 - **Debug information in the build.** Without DWARF the comparison collapses
   to the symbol set the previous check already covers, while reporting every
   type as removed &mdash; a long report that means nothing. The script detects
@@ -160,12 +160,15 @@ run.
 
 `maintainer/abi/libmp3lame.abi` is an `abidw` dump of the exported interface,
 committed to the tree and shipped in the distribution so that a build from the
-tarball can run the check too. The ABI did not change between 4.0 and 4.1, so
-the state at the time it was captured is the reference both releases are
-measured against.
+tarball can run the check too. It records the interface as of the last
+intentional ABI change, and every release since is measured against that same
+state &mdash; so the baseline outliving several versions is the normal case,
+not a sign that it is stale.
 
-It is regenerated **only at an intentional ABI change**, which is a release
-decision rather than a routine one. The command is:
+It is regenerated **only at an intentional ABI change**. Whether a given change
+is one is the maintainer's decision, not the script's and not the reviewer's:
+a red run is a question to answer, never a licence to refresh the baseline. The
+command is:
 
 ```
 abidw --no-corpus-path --no-show-locs --no-comp-dir-path --short-locs \
