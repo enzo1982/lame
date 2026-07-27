@@ -2448,8 +2448,10 @@ lame_get_highpasswidth(const lame_global_flags * gfp)
  */
 
 
-/*! Shift the masking thresholds for long blocks. */
 /*!
+  \internal
+  \brief Shift the masking thresholds for long blocks.
+
   An offset in decibels applied to every masking threshold the psychoacoustic
   model produces for a long block. A positive value tells the encoder that
   more noise is masked than the model thinks, so it spends fewer bits; a
@@ -2474,8 +2476,10 @@ lame_set_maskingadjust(lame_global_flags * gfp, float adjust)
     return -1;
 }
 
-/*! Get the long-block masking offset. */
 /*!
+  \internal
+  \brief Get the long-block masking offset.
+
   \param gfp the encoder instance.
   \return the offset in dB; 0 if the instance is not usable, which is also the
           default and means no shift.
@@ -2489,8 +2493,10 @@ lame_get_maskingadjust(const lame_global_flags * gfp)
     return 0;
 }
 
-/*! Shift the masking thresholds for short blocks. */
 /*!
+  \internal
+  \brief Shift the masking thresholds for short blocks.
+
   As \c lame_set_maskingadjust(), applied to the granules encoded as short
   blocks. Kept separate because transients tolerate a different amount of
   noise than steady material does, and the presets set the two independently.
@@ -2509,8 +2515,10 @@ lame_set_maskingadjust_short(lame_global_flags * gfp, float adjust)
     return -1;
 }
 
-/*! Get the short-block masking offset. */
 /*!
+  \internal
+  \brief Get the short-block masking offset.
+
   \param gfp the encoder instance.
   \return the offset in dB; 0 if the instance is not usable, which is also the
           default.
@@ -2652,8 +2660,7 @@ lame_get_noATH(const lame_global_flags * gfp)
   Six curves are implemented, numbered 0 to 5. They are variations on the same
   published equal-loudness approximation, differing in how conservative they
   are and over what frequency range they are fitted; as it stands, 4 and 5 are
-  the ones that take a shape parameter from \c lame_set_ATHcurve(), and the
-  others ignore it.
+  the two that take a shape parameter, and the others ignore it.
 
   There is no ordering here either - a higher number is not a better curve.
   Any value outside 0 to 5 silently gets the same curve as 2.
@@ -2695,8 +2702,10 @@ lame_get_ATHtype(const lame_global_flags * gfp)
 }
 
 
-/*! Set the shape parameter of the ATH curve. */
 /*!
+  \internal
+  \brief Set the shape parameter of the ATH curve.
+
   Tilts the curve produced by the ATH formulas that read it - as it stands, 4
   and 5 - trading sensitivity at the extremes of the spectrum against
   sensitivity in the middle. Setting it while a formula that ignores it is
@@ -2721,8 +2730,10 @@ lame_set_ATHcurve(lame_global_flags * gfp, float ATHcurve)
     return -1;
 }
 
-/*! Get the shape parameter of the ATH curve. */
 /*!
+  \internal
+  \brief Get the shape parameter of the ATH curve.
+
   \param gfp the encoder instance.
   \return the shape, or -1 while it is still unset. 0 if the instance is not
           usable.
@@ -3104,8 +3115,10 @@ lame_get_interChRatio(const lame_global_flags * gfp)
 }
 
 
-/*! Enable pseudo substep noise shaping. */
 /*!
+  \internal
+  \brief Enable pseudo substep noise shaping.
+
   Substep shaping discards spectral lines whose contribution is too small to
   be worth the bits, and codes some bands at a half step of the scalefactor
   where the full step would be wasteful. It buys a little quality at the same
@@ -3140,8 +3153,10 @@ lame_set_substep(lame_global_flags * gfp, int method)
     return -1;
 }
 
-/*! Get the substep noise shaping setting. */
 /*!
+  \internal
+  \brief Get the substep noise shaping setting.
+
   \param gfp the encoder instance.
   \return the bit combination, 0 to 7; 0 if the instance is not usable, which
           is also the default and means the shaping is off.
@@ -3156,7 +3171,24 @@ lame_get_substep(const lame_global_flags * gfp)
     return 0;
 }
 
-/* scalefactors scale */
+/*!
+  \internal
+  \brief Use the finer scalefactor scale.
+
+  MP3 offers two step sizes for the scalefactors that carry the noise shaping;
+  the finer one lets the encoder place quantization noise more precisely, at
+  the price of the extra bit each scalefactor then costs.
+
+  Despite reading like a scale factor of its own, this is a choice between the
+  library's two noise-shaping variants, and it is subordinate to
+  \c lame_set_quality(): at effort levels 8 and 9 noise shaping is switched off
+  altogether and this request is discarded during \c lame_init_params().
+
+  \param gfp  the encoder instance.
+  \param val  non-zero for the finer scale, 0 for the coarser one. Default 0.
+  \return 0 on success, -1 if the instance is not usable. No value is
+          rejected.
+*/
 int
 lame_set_sfscale(lame_global_flags * gfp, int val)
 {
@@ -3167,6 +3199,15 @@ lame_set_sfscale(lame_global_flags * gfp, int val)
     return -1;
 }
 
+/*!
+  \internal
+  \brief Get whether the finer scalefactor scale is used.
+
+  \param gfp the encoder instance.
+  \return 1 if the finer scale is selected, 0 otherwise - including when noise
+          shaping is off entirely, which this cannot distinguish from the
+          coarser scale. 0 if the instance is not usable.
+*/
 int
 lame_get_sfscale(const lame_global_flags * gfp)
 {
@@ -3176,7 +3217,24 @@ lame_get_sfscale(const lame_global_flags * gfp)
     return 0;
 }
 
-/* subblock gain */
+/*!
+  \internal
+  \brief Allow the outer loop to raise the gain of individual sub-blocks.
+
+  A short-block granule is three sub-blocks, and each can carry its own gain
+  offset. Letting the noise-shaping loop use them helps where a transient puts
+  very different amounts of energy in the three, which is exactly when short
+  blocks get chosen.
+
+  Only positive values enable it; -1, the default, defers to
+  \c lame_set_quality(), which turns it on at every effort level that does
+  noise shaping at all.
+
+  \param gfp     the encoder instance.
+  \param sbgain  positive to allow it, 0 to forbid it, -1 to leave the choice
+                 to the effort level. Not validated.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_subblock_gain(lame_global_flags * gfp, int sbgain)
 {
@@ -3187,6 +3245,14 @@ lame_set_subblock_gain(lame_global_flags * gfp, int sbgain)
     return -1;
 }
 
+/*!
+  \internal
+  \brief Get whether sub-block gains may be used.
+
+  \param gfp the encoder instance.
+  \return the value last set, or -1 while the choice is still deferred. 0 if
+          the instance is not usable, which reads as a deliberate "no".
+*/
 int
 lame_get_subblock_gain(const lame_global_flags * gfp)
 {
@@ -3197,7 +3263,25 @@ lame_get_subblock_gain(const lame_global_flags * gfp)
 }
 
 
-/* Disable short blocks. */
+/*! Encode everything in long blocks. */
+/*!
+  Short blocks are what the encoder switches to at a transient, trading
+  frequency resolution for time resolution so that quantization noise cannot
+  spread backwards into the silence before a drum hit. Forbidding them removes
+  that and audibly smears attacks; it exists because a few decoders once
+  handled short blocks badly.
+
+  One of three functions writing a single block-type setting - the others are
+  \c lame_set_allow_diff_short() and \c lame_set_force_short_blocks() - so the
+  last one called decides, and setting 0 here means "short blocks allowed",
+  overwriting whichever of the other two ran before.
+
+  \param gfp              the encoder instance.
+  \param no_short_blocks  1 to encode everything in long blocks, 0 to allow
+                          short blocks.
+  \return 0 on success, -1 if the instance is not usable or the value is
+          neither 0 nor 1.
+*/
 int
 lame_set_no_short_blocks(lame_global_flags * gfp, int no_short_blocks)
 {
@@ -3213,6 +3297,14 @@ lame_set_no_short_blocks(lame_global_flags * gfp, int no_short_blocks)
     return -1;
 }
 
+/*! Get whether short blocks are forbidden. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 if short blocks are forbidden, 0 if they are available in any
+          form, and **-1 while nothing has been chosen** - which is also what
+          an unusable instance returns. This is one of the few getters here
+          that does not fall back to 0.
+*/
 int
 lame_get_no_short_blocks(const lame_global_flags * gfp)
 {
@@ -3233,7 +3325,24 @@ lame_get_no_short_blocks(const lame_global_flags * gfp)
 }
 
 
-/* Force short blocks. */
+/*! Encode everything in short blocks. */
+/*!
+  The opposite extreme to \c lame_set_no_short_blocks(): every granule is
+  coded in short blocks, whether the material has a transient or not. Steady
+  material loses frequency resolution and the encode gets worse, so this is a
+  test setting.
+
+  Turning it **off** is not symmetrical. Passing 0 only has an effect if short
+  blocks were forced; then the setting returns to "allowed". If some other
+  block-type choice is in force, passing 0 leaves it alone rather than
+  overwriting it, which is the one place these three functions do not simply
+  overwrite each other.
+
+  \param gfp           the encoder instance.
+  \param short_blocks  1 to force short blocks, 0 to stop forcing them.
+  \return 0 on success, -1 if the instance is not usable or the value is
+          neither 0 nor 1.
+*/
 int
 lame_set_force_short_blocks(lame_global_flags * gfp, int short_blocks)
 {
@@ -3254,6 +3363,13 @@ lame_set_force_short_blocks(lame_global_flags * gfp, int short_blocks)
     return -1;
 }
 
+/*! Get whether short blocks are forced. */
+/*!
+  \param gfp the encoder instance.
+  \return 1 if short blocks are forced, 0 for any other block-type choice, and
+          -1 while nothing has been chosen - which is also what an unusable
+          instance returns.
+*/
 int
 lame_get_force_short_blocks(const lame_global_flags * gfp)
 {
@@ -3273,6 +3389,21 @@ lame_get_force_short_blocks(const lame_global_flags * gfp)
     return -1;
 }
 
+/*!
+  \internal
+  \brief Set the attack threshold for the left, right and mid channels.
+
+  How sharp a rise in energy counts as an attack, and so makes the encoder
+  switch that granule to short blocks. Lower values make it more eager, which
+  keeps transients crisp and costs bits; higher values make it more reluctant.
+
+  A negative value, the default, leaves LAME's own threshold in place.
+
+  \param gfp  the encoder instance.
+  \param lrm  the threshold, or a negative value for LAME's own. Not
+              validated.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_short_threshold_lrm(lame_global_flags * gfp, float lrm)
 {
@@ -3283,6 +3414,15 @@ lame_set_short_threshold_lrm(lame_global_flags * gfp, float lrm)
     return -1;
 }
 
+/*!
+  \internal
+  \brief Get the attack threshold for the left, right and mid channels.
+
+  \param gfp the encoder instance.
+  \return the threshold, or a negative value if LAME's own is in use. Never
+          rewritten to the value actually used. 0 if the instance is not
+          usable.
+*/
 float
 lame_get_short_threshold_lrm(const lame_global_flags * gfp)
 {
@@ -3292,6 +3432,19 @@ lame_get_short_threshold_lrm(const lame_global_flags * gfp)
     return 0;
 }
 
+/*!
+  \internal
+  \brief Set the attack threshold for the side channel.
+
+  As \c lame_set_short_threshold_lrm(), for the side channel of a mid/side
+  encode. Separate because the side channel usually carries much less energy,
+  so the same absolute threshold would mean something different there.
+
+  \param gfp  the encoder instance.
+  \param s    the threshold, or a negative value for LAME's own. Not
+              validated.
+  \return 0 on success, -1 if the instance is not usable.
+*/
 int
 lame_set_short_threshold_s(lame_global_flags * gfp, float s)
 {
@@ -3302,6 +3455,14 @@ lame_set_short_threshold_s(lame_global_flags * gfp, float s)
     return -1;
 }
 
+/*!
+  \internal
+  \brief Get the attack threshold for the side channel.
+
+  \param gfp the encoder instance.
+  \return the threshold, or a negative value if LAME's own is in use. 0 if the
+          instance is not usable.
+*/
 float
 lame_get_short_threshold_s(const lame_global_flags * gfp)
 {
@@ -3311,6 +3472,21 @@ lame_get_short_threshold_s(const lame_global_flags * gfp)
     return 0;
 }
 
+/*!
+  \internal
+  \brief Set both attack thresholds.
+
+  Convenience wrapper: \c lame_set_short_threshold_lrm() and
+  \c lame_set_short_threshold_s() in one call. There is no matching getter -
+  read the two back individually.
+
+  \param gfp  the encoder instance.
+  \param lrm  threshold for the left, right and mid channels.
+  \param s    threshold for the side channel.
+  \return 0 on success, -1 if the instance is not usable. The two inner calls
+          cannot fail once the instance has been accepted, so their results
+          are not examined.
+*/
 int
 lame_set_short_threshold(lame_global_flags * gfp, float lrm, float s)
 {
@@ -3323,14 +3499,26 @@ lame_set_short_threshold(lame_global_flags * gfp, float lrm, float s)
 }
 
 
-/*
- * Input PCM is emphased PCM
- * (for instance from one of the rarely emphased CDs).
- *
- * It is STRONGLY not recommended to use this, because psycho does not
- * take it into account, and last but not least many decoders
- * ignore these bits
- */
+/*! Declare that the input is pre-emphasized. */
+/*!
+  A frame header field announcing that the audio has had a treble boost
+  applied which a decoder should undo. It dates from a handful of early CDs
+  and is almost never used.
+
+  This is **not recommended**, and the reasons are worth stating: LAME does not apply
+  the emphasis, it only writes the field, so the input has to be emphasized
+  already; the psychoacoustic model does not account for it, so the encode is
+  tuned for the wrong spectrum; and many decoders ignore the field entirely,
+  leaving the listener with the boost still in.
+
+  Values are the two-bit field: 0 none, 1 the 50/15 ms curve, 2 reserved,
+  3 the CCITT J.17 curve. All four are accepted, reserved included.
+
+  \param gfp       the encoder instance.
+  \param emphasis  0 to 3.
+  \return 0 on success, -1 if the instance is not usable or \a emphasis is
+          outside 0 to 3.
+*/
 int
 lame_set_emphasis(lame_global_flags * gfp, int emphasis)
 {
@@ -3344,6 +3532,12 @@ lame_set_emphasis(lame_global_flags * gfp, int emphasis)
     return -1;
 }
 
+/*! Get the emphasis declaration. */
+/*!
+  \param gfp the encoder instance.
+  \return 0 to 3; 0 if the instance is not usable, which is also the default
+          and means no emphasis.
+*/
 int
 lame_get_emphasis(const lame_global_flags * gfp)
 {
@@ -3362,11 +3556,19 @@ lame_get_emphasis(const lame_global_flags * gfp)
 /* provided because they may be of use to calling application  */
 /***************************************************************/
 
-/* MPEG version.
- *  0 = MPEG-2
- *  1 = MPEG-1
- * (2 = MPEG-2.5)    
- */
+/*! Get the MPEG version the encoder settled on. */
+/*!
+  Not chosen by the caller: it follows from the output sample rate, so it is
+  only meaningful after \c lame_init_params().
+
+  0 is MPEG-2, 1 is MPEG-1, 2 is MPEG-2.5. Note that this is not the
+  numbering used in the frame header, and not the library's own version, which
+  is \c get_lame_version().
+
+  \param gfp the encoder instance.
+  \return 0, 1 or 2; 0 if the instance has not been initialized, which is
+          indistinguishable from a genuine MPEG-2 encode.
+*/
 int
 lame_get_version(const lame_global_flags * gfp)
 {
@@ -3380,7 +3582,19 @@ lame_get_version(const lame_global_flags * gfp)
 }
 
 
-/* Encoder delay. */
+/*! Get the number of samples the encoder prepended. */
+/*!
+  The filter bank needs samples before the ones it is emitting, so the encoded
+  stream starts with silence that was not in the input. A decoder that wants
+  the original alignment back has to discard this many samples from the front.
+
+  It is written into the LAME tag as well, which is how a gapless decoder
+  learns it without asking the encoder.
+
+  \param gfp the encoder instance.
+  \return the delay in samples per channel; 0 if the instance has not been
+          initialized.
+*/
 int
 lame_get_encoder_delay(const lame_global_flags * gfp)
 {
@@ -3393,7 +3607,20 @@ lame_get_encoder_delay(const lame_global_flags * gfp)
     return 0;
 }
 
-/* padding added to the end of the input */
+/*! Get the number of samples the encoder appended. */
+/*!
+  The counterpart of \c lame_get_encoder_delay() at the other end: frames hold
+  a fixed number of samples, so the last one is padded out with silence. A
+  decoder restoring the original length discards this many samples from the
+  end.
+
+  Only known once the stream has been flushed, since that is when the final
+  frame is written.
+
+  \param gfp the encoder instance.
+  \return the padding in samples per channel; 0 if the instance has not been
+          initialized.
+*/
 int
 lame_get_encoder_padding(const lame_global_flags * gfp)
 {
@@ -3407,7 +3634,15 @@ lame_get_encoder_padding(const lame_global_flags * gfp)
 }
 
 
-/* Size of MPEG frame. */
+/*! Get how many samples one frame holds. */
+/*!
+  1152 for MPEG-1, 576 for MPEG-2 and MPEG-2.5, since the difference between
+  them is whether a frame carries two granules or one. This is a count of
+  samples per channel, not a size in bytes.
+
+  \param gfp the encoder instance.
+  \return 1152 or 576; 0 if the instance has not been initialized.
+*/
 int
 lame_get_framesize(const lame_global_flags * gfp)
 {
@@ -3422,7 +3657,16 @@ lame_get_framesize(const lame_global_flags * gfp)
 }
 
 
-/* Number of frames encoded so far. */
+/*! Get how many frames have been written so far. */
+/*!
+  Advances as encoding proceeds, so it is the natural thing to drive a
+  progress display from - together with \c lame_get_totalframes() where the
+  input length is known.
+
+  \param gfp the encoder instance.
+  \return the number of frames written; 0 before the first one, and also 0 if
+          the instance has not been initialized.
+*/
 int
 lame_get_frameNum(const lame_global_flags * gfp)
 {
@@ -3435,6 +3679,17 @@ lame_get_frameNum(const lame_global_flags * gfp)
     return 0;
 }
 
+/*! Get how many samples are still held inside the encoder. */
+/*!
+  Samples handed in that have not yet come out as frames, because the filter
+  bank needs a whole frame's worth plus its look-ahead before it can emit one.
+  Non-zero at any point during encoding, and the reason a caller must flush at
+  the end rather than simply stopping.
+
+  \param gfp the encoder instance.
+  \return the number of buffered samples per channel; 0 if the instance has
+          not been initialized.
+*/
 int
 lame_get_mf_samples_to_encode(const lame_global_flags * gfp)
 {
@@ -3447,6 +3702,19 @@ lame_get_mf_samples_to_encode(const lame_global_flags * gfp)
     return 0;
 }
 
+/*! Get how large a buffer the final flush will need. */
+/*!
+  The number of bytes \c lame_encode_flush() is about to produce, so a caller
+  can size the buffer instead of guessing. Asking costs a little work - the
+  figure is computed on each call, not stored.
+
+  Meaningful at any point during encoding; it changes as the bit reservoir
+  fills and drains.
+
+  \param gfp the encoder instance.
+  \return the required buffer size in bytes; 0 if the instance has not been
+          initialized.
+*/
 int     CDECL
 lame_get_size_mp3buffer(const lame_global_flags * gfp)
 {
@@ -3461,6 +3729,21 @@ lame_get_size_mp3buffer(const lame_global_flags * gfp)
     return 0;
 }
 
+/*! Get the ReplayGain figure for this track. */
+/*!
+  How much the track should be turned up or down to match a common playback
+  loudness, **in tenths of a decibel** - 45 means 4.5 dB up. Available only if
+  \c lame_set_findReplayGain() was on, and only once the whole track has been
+  encoded, since it is a property of the material as a whole.
+
+  LAME writes it into the LAME tag itself, so a caller usually needs this only
+  to report the figure.
+
+  \param gfp the encoder instance.
+  \return the gain in tenths of a dB; 0 if the analysis was not run, if the
+          track was too short to measure, or if the instance has not been
+          initialized - none of which is distinguishable from a genuine 0.
+*/
 int
 lame_get_RadioGain(const lame_global_flags * gfp)
 {
@@ -3473,6 +3756,16 @@ lame_get_RadioGain(const lame_global_flags * gfp)
     return 0;
 }
 
+/*! Get the album ReplayGain figure. */
+/*!
+  This is **always 0**. The album gain - the figure that would keep a whole album at
+  one loudness rather than levelling each track separately - cannot be
+  computed by an encoder that sees one track, so LAME never produced it. The
+  function is kept because the LAME tag has a field for it.
+
+  \param gfp the encoder instance.
+  \return always 0.
+*/
 int
 lame_get_AudiophileGain(const lame_global_flags * gfp)
 {
@@ -3485,6 +3778,17 @@ lame_get_AudiophileGain(const lame_global_flags * gfp)
     return 0;
 }
 
+/*! Get the loudest sample seen. */
+/*!
+  The largest absolute sample value encountered, on the scale where full scale
+  is 32767 - so a value above that means the material would clip on playback.
+  Requires \c lame_set_decode_on_the_fly(), which is what makes the encoder
+  look at its own decoded output.
+
+  \param gfp the encoder instance.
+  \return the peak; 0 if the measurement was not enabled or the instance has
+          not been initialized.
+*/
 float
 lame_get_PeakSample(const lame_global_flags * gfp)
 {
@@ -3497,6 +3801,19 @@ lame_get_PeakSample(const lame_global_flags * gfp)
     return 0;
 }
 
+/*! Get the gain change that would avoid clipping. */
+/*!
+  How far the ReplayGain figure would have to be reduced for playback never to
+  clip, in tenths of a decibel, rounded up. Positive means the decoded stream
+  does exceed full scale; zero or negative means it does not.
+
+  Derived from \c lame_get_PeakSample(), so it needs the same measurement
+  enabled.
+
+  \param gfp the encoder instance.
+  \return the change in tenths of a dB; 0 if the measurement was not enabled
+          or the instance has not been initialized.
+*/
 int
 lame_get_noclipGainChange(const lame_global_flags * gfp)
 {
@@ -3509,6 +3826,20 @@ lame_get_noclipGainChange(const lame_global_flags * gfp)
     return 0;
 }
 
+/*! Get the scale factor that would avoid clipping. */
+/*!
+  The factor to multiply the input by, on a re-encode, so that the decoded
+  output no longer exceeds full scale. Rounded down to two decimals, so
+  applying it is safe rather than exact.
+
+  A value of **-1 means no scaling is needed**, which is also the value before anything
+  has been measured - the two are not distinguishable.
+
+  \param gfp the encoder instance.
+  \return the factor, or -1 if the material does not clip; -1 as well if the
+          measurement was not enabled, and 0 if the instance has not been
+          initialized.
+*/
 float
 lame_get_noclipScale(const lame_global_flags * gfp)
 {
@@ -3522,10 +3853,22 @@ lame_get_noclipScale(const lame_global_flags * gfp)
 }
 
 
-/*
- * LAME's estimate of the total number of frames to be encoded.
- * Only valid if calling program set num_samples.
- */
+/*! Get the estimated number of frames the encode will produce. */
+/*!
+  Computed from the input length announced through \c lame_set_num_samples(),
+  the output sample rate and the frame size, plus the padding the encoder will
+  add at the end. It is an estimate in the sense that it assumes the announced
+  length is right; it does not change as encoding proceeds.
+
+  A return of **0 means the total is not known**, which is what an instance whose input
+  length was never announced returns - the default length is the "unknown"
+  sentinel, not a real count. Check for 0 before dividing a frame counter by
+  it.
+
+  \param gfp the encoder instance.
+  \return the estimated frame count, or 0 if it cannot be estimated or the
+          instance has not been initialized.
+*/
 int
 lame_get_totalframes(const lame_global_flags * gfp)
 {
@@ -3590,6 +3933,39 @@ lame_get_totalframes(const lame_global_flags * gfp)
 
 
 
+/*! Apply a preset. */
+/*!
+  A preset is a bundle of the settings above, tuned together and by ear over
+  many years. Applying one is the recommended way to configure the encoder:
+  the individual knobs interact, and a combination that was never listened to
+  is easy to arrive at by setting them one at a time.
+
+  Three families are accepted:
+
+  - **8 to 320** - an average bitrate in kbps. The preset both selects the
+    average bitrate mode and tunes it for that rate.
+  - **the quality constants** \c V0 to \c V9 (equivalently \c VBR_100 down to
+    \c VBR_10) - variable bitrate at that quality level, \c V0 being the best.
+  - **the named presets** \c STANDARD, \c EXTREME, \c INSANE, \c MEDIUM, their
+    \c _FAST variants and \c R3MIX, kept for compatibility with the command
+    line switches of the same names.
+
+  This is not a setting that is remembered and applied later: the bundle is
+  written into the instance immediately, so any call made *before* it that
+  the preset also covers is overwritten, and any call made *after* it takes
+  precedence. Set the preset first, then adjust.
+
+  Note that **an unrecognized preset is not reported**. Nothing is applied and the call
+  still succeeds, so a caller who passes a value that is neither a bitrate in
+  range nor one of the constants gets a default encode and no indication of
+  why.
+
+  \param gfp     the encoder instance.
+  \param preset  a bitrate, a \c preset_mode value, or one of the named
+                 presets.
+  \return \a preset itself, not 0, which is the one place in this file where
+          success is not 0. -1 if the instance is not usable.
+*/
 int
 lame_set_preset(lame_global_flags * gfp, int preset)
 {
@@ -3602,6 +3978,57 @@ lame_set_preset(lame_global_flags * gfp, int preset)
 
 
 
+/*! Allow or forbid one family of processor instructions. */
+/*!
+  Every family is allowed by default, and each is used only if the processor
+  running the code actually has it - so this is a way to *forbid* an
+  instruction set, not to require one. Forbidding one is useful for comparing
+  the hand-written routines against the plain C, and for working around a
+  processor whose implementation of an instruction set is untrustworthy.
+
+  The families named today - \c MMX, \c AMD_3DNOW, \c SSE and \c AVX2 - are
+  x86 instruction sets, and mean nothing anywhere else: on a build for another
+  architecture the call is accepted and changes nothing. Which families exist
+  is a property of the release rather than of this interface, so treat the
+  list as today's, not as the set.
+
+  They are not independent: \c AVX2 builds on the SSE2 routines, so forbidding
+  \c SSE removes \c AVX2 with it, while forbidding \c AVX2 alone leaves the
+  SSE tier in place.
+
+  \since \c AVX2 is available from LAME 4.1, with the vectorized inner loops;
+         the other three families are older than this interface. Source that
+         also has to compile against a 3.100 or older header cannot name the
+         constant, but passing the value itself is safe - a library that does
+         not know the family accepts the call and does nothing.
+
+  \param gfp    the encoder instance.
+  \param optim  the family, one of the \c asm_optimizations values.
+  \param mode   1 to allow the family, anything else to forbid it.
+  \return -1 if the instance is not usable, and \a optim itself otherwise -
+          the same value whether or not \a optim named a family this library
+          knows, since an unrecognized one is accepted and nothing is set. So
+          the return value reports on the instance, not on the request: it
+          cannot tell a caller that a family was recognized, and there is no
+          getter to ask afterwards. That second half is a gap rather than a
+          decision - see the to-do below.
+
+  \todo Provide a way to read this back. There is no getter, so a caller
+        cannot ask which families are currently allowed: neither what a preset
+        or another part of the program left behind, nor whether a request it
+        made itself was understood. A \c lame_get_asm_optimizations() would
+        close both, and is an addition to the exported set rather than a change
+        to any existing behaviour.
+
+  \code{.c}
+  // Forbid the SSE tier, e.g. to compare the hand-written routines with the C.
+  if (lame_set_asm_optimizations(gfp, SSE, 0) == -1)
+      return -1;    // the instance is unusable; nothing was set
+
+  // Any other return means the call was accepted. It does not mean this build
+  // has SSE routines, and it does not mean the processor has SSE.
+  \endcode
+*/
 int
 lame_set_asm_optimizations(lame_global_flags * gfp, int optim, int mode)
 {
@@ -3632,6 +4059,21 @@ lame_set_asm_optimizations(lame_global_flags * gfp, int optim, int mode)
 }
 
 
+/*! Choose whether the library writes the ID3 tags itself. */
+/*!
+  By default LAME emits the ID3v2 tag ahead of the audio and the ID3v1 tag
+  after it, as part of the encoded stream. Turning this off leaves both to the
+  caller, which is what an application that manages its own tags wants -
+  otherwise it ends up with two.
+
+  The tag *content* is still set through the \c id3tag_ family either way;
+  this only decides who writes it out.
+
+  \param gfp  the encoder instance.
+  \param v    non-zero to let LAME write the tags, 0 to suppress them.
+              Default non-zero.
+  \note Returns nothing, so an unusable instance is silently ignored.
+*/
 void
 lame_set_write_id3tag_automatic(lame_global_flags * gfp, int v)
 {
@@ -3641,6 +4083,13 @@ lame_set_write_id3tag_automatic(lame_global_flags * gfp, int v)
 }
 
 
+/*! Get whether the library writes the ID3 tags itself. */
+/*!
+  \param gfp the encoder instance.
+  \return non-zero if LAME writes them, 0 if the caller does. **1 if the
+          instance is not usable** - the one getter here that falls back to
+          the enabled state rather than to 0.
+*/
 int
 lame_get_write_id3tag_automatic(lame_global_flags const *gfp)
 {
@@ -3674,7 +4123,24 @@ lame_set_tune(lame_global_flags * gfp, float val)
     }
 }
 
-/* Custom msfix hack */
+/*! Limit how much the mid/side masking may exceed the left/right masking. */
+/*!
+  In a joint stereo encode the mid and side channels get their own masking
+  thresholds, which can come out considerably more permissive than the ones
+  computed for left and right. This caps that: where the mid/side threshold
+  exceeds the left/right one by more than this factor, it is pulled back.
+  Larger values allow more, 0 switches the cap off.
+
+  A positive value also turns on the ATH adjustment in the same calculation,
+  so it is not purely a limiter - which is why the presets set it as part of a
+  tuning rather than on its own.
+
+  \param gfp    the encoder instance.
+  \param msfix  the factor; 0 or less disables the cap. Default is unset,
+                which \c lame_init_params() resolves to 0.
+  \note Returns nothing, so an unusable instance is silently ignored and a
+        caller cannot tell the setting was dropped.
+*/
 void
 lame_set_msfix(lame_global_flags * gfp, double msfix)
 {
@@ -3684,6 +4150,17 @@ lame_set_msfix(lame_global_flags * gfp, double msfix)
     }
 }
 
+/*! Get the mid/side masking cap. */
+/*!
+  Note the asymmetry with the setter, which takes a \c double: the value is
+  stored and returned as a \c float, so a caller that sets and reads back does
+  not always get the same number.
+
+  \param gfp the encoder instance.
+  \return the factor, or -1 while nothing has been chosen and
+          \c lame_init_params() has not resolved it to 0. 0 if the instance is
+          not usable.
+*/
 float
 lame_get_msfix(const lame_global_flags * gfp)
 {
@@ -3698,6 +4175,17 @@ int CDECL lame_set_preset_expopts(lame_global_flags *, int);
 #else
 #endif
 
+/*! Select the experimental options of a preset. */
+/*!
+  \deprecated Obsolete and inert. The presets it selected between no longer
+  exist as variants. The declaration is compiled out of the installed header;
+  the definition remains so that programs linked against an older release
+  still resolve it.
+
+  \param gfp             ignored.
+  \param preset_expopts  ignored.
+  \return always 0.
+*/
 int
 lame_set_preset_expopts(lame_global_flags * gfp, int preset_expopts)
 {
@@ -3751,6 +4239,24 @@ calc_maximum_input_samples_for_buffer_size(lame_internal_flags const* gfc, size_
     return input_samples_per_buffer;
 }
 
+/*! Ask how many samples fit in a given output buffer. */
+/*!
+  The inverse of the usual question. Rather than sizing a buffer for a chosen
+  number of samples, this says how many samples may safely be handed to one
+  encode call so that its output fits in a buffer of \a buffer_size bytes -
+  useful when the buffer is fixed by something outside the encoder.
+
+  The estimate assumes the worst case for the settings in force: the highest
+  bitrate the chosen sample rate allows, or the actual bitrate where that is
+  fixed. It accounts for resampling. A buffer large enough for more samples
+  than an encode call can express is reported at that ceiling rather than
+  overflowing.
+
+  \param gfp          the encoder instance, already initialized.
+  \param buffer_size  the output buffer size in bytes.
+  \return the number of samples per channel that may be passed;
+          \c LAME_GENERICERROR if the instance has not been initialized.
+*/
 int
 lame_get_maximum_number_of_samples(lame_t gfp, size_t buffer_size)
 {
