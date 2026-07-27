@@ -994,7 +994,8 @@ format_bitstream(lame_internal_flags * gfc)
 
 
 static int
-do_gain_analysis(lame_internal_flags * gfc, unsigned char* buffer, int minimum)
+do_gain_analysis(LAME_UNUSED lame_internal_flags * gfc, LAME_UNUSED unsigned char* buffer,
+                 LAME_UNUSED int minimum)
 {
 #ifdef DECODE_ON_THE_FLY
     SessionConfig_t const *const cfg = &gfc->cfg;

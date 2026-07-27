@@ -103,7 +103,7 @@
 /* for each filter: */
 /* [0] 48 kHz, [1] 44.1 kHz, [2] 32 kHz, [3] 24 kHz, [4] 22050 Hz, [5] 16 kHz, [6] 12 kHz, [7] is 11025 Hz, [8] 8 kHz */
 
-#ifdef WIN32
+#ifdef _MSC_VER
 #pragma warning ( disable : 4305 )
 #endif
 
@@ -137,7 +137,7 @@ static const Float_t ABButter[9][multiple_of(4, 2 * BUTTER_ORDER + 1)] = {
 
 /*lint -restore */
 
-#ifdef WIN32
+#ifdef _MSC_VER
 #pragma warning ( default : 4305 )
 #endif
 

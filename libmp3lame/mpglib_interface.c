@@ -508,7 +508,8 @@ int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
 #define OUTSIZE_UNCLIPPED (1152*2*sizeof(FLOAT))
 
 int
-hip_decode1_unclipped(hip_t hip, unsigned char *buffer, size_t len, sample_t pcm_l[], sample_t pcm_r[])
+hip_decode1_unclipped(hip_t hip, LAME_UNUSED unsigned char *buffer, LAME_UNUSED size_t len,
+                      LAME_UNUSED sample_t pcm_l[], LAME_UNUSED sample_t pcm_r[])
 {
     if (hip) {
 #ifdef HAVE_MPG123
@@ -682,10 +683,11 @@ hip_decode(hip_t hip, unsigned char *buffer, size_t len, short pcm_l[], short pc
           needed first, or -1 on an error - including a NULL \a hip.
 */
 int
-hip_decode1_headersB(hip_t hip, unsigned char *buffer,
-                      size_t len,
-                      short pcm_l[], short pcm_r[], mp3data_struct * mp3data,
-                      int *enc_delay, int *enc_padding)
+hip_decode1_headersB(hip_t hip, LAME_UNUSED unsigned char *buffer,
+                      LAME_UNUSED size_t len,
+                      LAME_UNUSED short pcm_l[], LAME_UNUSED short pcm_r[],
+                      LAME_UNUSED mp3data_struct * mp3data,
+                      LAME_UNUSED int *enc_delay, LAME_UNUSED int *enc_padding)
 {
     if (hip) {
 #ifdef HAVE_MPG123
@@ -708,7 +710,7 @@ void hip_set_pinfo(hip_t hip, plotting_data* pinfo)
     }
 }
 
-void hip_finish_pinfo(hip_t hip)
+void hip_finish_pinfo(LAME_UNUSED hip_t hip)
 {
 #ifndef NOANALYSIS
 #ifdef HAVE_MPG123

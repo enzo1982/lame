@@ -893,7 +893,7 @@ lame_get_findReplayGain(const lame_global_flags * gfp)
           every call here.
 */
 int
-lame_set_decode_on_the_fly(lame_global_flags * gfp, int decode_on_the_fly)
+lame_set_decode_on_the_fly(lame_global_flags * gfp, LAME_UNUSED int decode_on_the_fly)
 {
     if (is_lame_global_flags_valid(gfp)) {
 #ifndef DECODE_ON_THE_FLY

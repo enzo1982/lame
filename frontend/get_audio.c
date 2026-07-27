@@ -791,6 +791,10 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152])
 {
     const int num_channels = lame_get_num_channels(gfp);
     const int framesize = lame_get_framesize(gfp);
+    /* The input format cannot change while we are reading from it, so ask once:
+       the same answer decides whether buf_tmp16 gets filled and whether it is
+       read back, and saying so lets the compiler see that too. */
+    const int input_is_mpeg = is_mpeg_file_format(global_reader.input_format);
     int     insamp[2 * 1152];
     short   buf_tmp16[2][1152];
     int     samples_read;
@@ -823,7 +827,7 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152])
     if (global.count_samples_carefully) {
         unsigned long tmp_num_samples, remaining;
         /* get num_samples */
-        if (is_mpeg_file_format(global_reader.input_format)) {
+        if (input_is_mpeg) {
             tmp_num_samples = global_decoder.mp3input_data.nsamp;
         }
         else {
@@ -843,7 +847,7 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152])
             samples_to_read = (int) remaining; /* bounded by framesize above */
     }
 
-    if (is_mpeg_file_format(global_reader.input_format)) {
+    if (input_is_mpeg) {
         if (buffer != NULL)
             samples_read = read_samples_mp3(gfp, global.music_in, buf_tmp16);
         else
@@ -905,7 +909,7 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152])
     }
 
     /* LAME mp3 output 16bit -  convert to int, if necessary */
-    if (is_mpeg_file_format(global_reader.input_format)) {
+    if (input_is_mpeg) {
         if (buffer != NULL) {
             for (i = samples_read; --i >= 0;)
                 buffer[0][i] = (int) ((unsigned int) buf_tmp16[0][i] << (8 * sizeof(int) - 16));
@@ -2072,7 +2076,7 @@ static off_t lame123_seek_in_file(void* handle, off_t offset, int direction)
    return ftell((FILE*)handle);
 }
 
-static void lame123_cleanup_file(void* handle)
+static void lame123_cleanup_file(LAME_UNUSED void* handle)
 {
    /* don't call fclose(); close_input_file() will do that */
 }
