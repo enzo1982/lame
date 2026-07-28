@@ -136,16 +136,20 @@ done
 # images and exits 0 - a directory that looks entirely healthy and contains no
 # documentation at all. Copying that over the website would replace a working
 # reference with an empty shell, and nothing would have reported an error. So
-# require a page that can only exist if a source file was really parsed.
+# require that a symbol from the installed header is actually documented.
+#
+# The test is keyed to a documented symbol rather than to the name of a
+# generated page, because page names follow settings that legitimately change:
+# an earlier form of this check looked for the rendered source of lame.h, and
+# turning verbatim headers off in the public set stopped it publishing anything
+# at all, with nothing wrong with the documentation.
 fail=0
-for pair in "$pubsrc:lame_8h_source.html" "$intsrc:lame_8h.html"; do
-	d=${pair%:*}
-	f=${pair#*:}
+for d in "$pubsrc" "$intsrc"; do
 	if [ ! -d "$d" ]; then
 		echo "$prog: $d was not generated" >&2
 		fail=1
-	elif [ ! -f "$d/$f" ]; then
-		echo "$prog: $d contains no parsed source (no $f) - refusing to publish it" >&2
+	elif ! grep -l lame_init "$d"/*.html >/dev/null 2>&1; then
+		echo "$prog: $d documents nothing (no lame_init) - refusing to publish it" >&2
 		fail=1
 	fi
 done

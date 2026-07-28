@@ -57,9 +57,14 @@ scripts and images, and exits 0. The result is a directory that looks entirely
 healthy and contains no documentation at all &mdash; and copying it over the
 website would silently replace a working reference with an empty shell.
 
-So before copying anything, the script requires a page that can only exist if
-a source file was really parsed, in each set. If either is missing it says so
-and publishes nothing.
+So before copying anything, the script requires each set to actually document
+a function from the installed header. If either does not, it says so and
+publishes nothing.
+
+The test deliberately asks for documented *content* rather than for a
+particular generated page: which pages Doxygen emits depends on the render
+settings, so a page-name test also fails whenever those settings change for a
+good reason, and it did.
 
 It also warns if `index.html` is absent from either half after the copy, since
 that is exactly the file every website link points at.

@@ -436,17 +436,18 @@ else
 		>"$target/doxygen.log" 2>&1 || dox_ok=no
 	# A doxygen run that reads no input still writes a full set of stylesheet
 	# and image files and exits 0, so the file count proves nothing. Demand a
-	# page that can only exist if a source file was parsed.
-	pub="$firstbuilt/doc/doxygen-output/html/lame_8h_source.html"
-	int="$firstbuilt/doc/doxygen-internal/html/lame_8h.html"
+	# documented symbol from the installed header instead - a page name would
+	# only test the settings the render happened to be made with.
+	pub="$firstbuilt/doc/doxygen-output/html"
+	int="$firstbuilt/doc/doxygen-internal/html"
 	if [ "$dox_ok" != yes ]; then
 		check_end FAIL doxygen "the build failed, see $target/doxygen.log"
-	elif [ ! -f "$pub" ]; then
-		check_end FAIL doxygen "the public set parsed no source (no rendered lame.h)"
-	elif [ ! -f "$int" ]; then
-		check_end FAIL doxygen "the internal set parsed no source (no lame.h page)"
+	elif ! grep -l lame_init "$pub"/*.html >/dev/null 2>&1; then
+		check_end FAIL doxygen "the public set documents nothing (no lame_init)"
+	elif ! grep -l lame_init "$int"/*.html >/dev/null 2>&1; then
+		check_end FAIL doxygen "the internal set documents nothing (no lame_init)"
 	else
-		check_end PASS doxygen "both sets carry parsed source"
+		check_end PASS doxygen "both sets document the API"
 	fi
 fi
 
@@ -460,7 +461,7 @@ else
 	man_err="$target/manpage.log"
 	: > "$man_err"
 	man_missing=
-	for m in doc/man/lame.1 doc/man/mp3rtp.1; do
+	for m in doc/man/lame.1 doc/man/mp3rtp.1 doc/man/mp3x.1; do
 		if [ -f "$srcdir/$m" ]; then
 			groff -man -ww -z "$srcdir/$m" >>"$man_err" 2>&1
 		else
