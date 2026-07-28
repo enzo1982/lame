@@ -20,6 +20,21 @@ endif
 
 TESTS = $(check_PROGRAMS)
 
+# Every test here links libmp3lame, and every one of them has to load the copy
+# this build just produced - not one the host happens to have installed. That
+# is not automatic. Libtool's Unix wrapper is a shell script and exports
+# LD_LIBRARY_PATH itself, but on Windows it generates a wrapper executable that
+# does nothing equivalent for PATH, so the suite there loads the installed DLL
+# instead and reports on a library nobody asked about. Naming the directory
+# here settles it the same way on every platform rather than leaving it to
+# libtool. Both variables are set because the two families of systems consult
+# different ones, and neither is harmful where it is not used.
+AM_TESTS_ENVIRONMENT = \
+	LD_LIBRARY_PATH="$(abs_top_builddir)/libmp3lame/.libs$${LD_LIBRARY_PATH:+:$$LD_LIBRARY_PATH}"; \
+	export LD_LIBRARY_PATH; \
+	PATH="$(abs_top_builddir)/libmp3lame/.libs:$$PATH"; \
+	export PATH;
+
 test_sanity_SOURCES = test_sanity.c
 test_sanity_CPPFLAGS = $(CMOCKA_CFLAGS)
 test_sanity_LDADD = $(CMOCKA_LIBS)

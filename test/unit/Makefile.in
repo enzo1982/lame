@@ -724,6 +724,22 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@TESTS = $(check_PROGRAMS)
+
+# Every test here links libmp3lame, and every one of them has to load the copy
+# this build just produced - not one the host happens to have installed. That
+# is not automatic. Libtool's Unix wrapper is a shell script and exports
+# LD_LIBRARY_PATH itself, but on Windows it generates a wrapper executable that
+# does nothing equivalent for PATH, so the suite there loads the installed DLL
+# instead and reports on a library nobody asked about. Naming the directory
+# here settles it the same way on every platform rather than leaving it to
+# libtool. Both variables are set because the two families of systems consult
+# different ones, and neither is harmful where it is not used.
+@ENABLE_UNIT_TESTS_TRUE@AM_TESTS_ENVIRONMENT = \
+@ENABLE_UNIT_TESTS_TRUE@	LD_LIBRARY_PATH="$(abs_top_builddir)/libmp3lame/.libs$${LD_LIBRARY_PATH:+:$$LD_LIBRARY_PATH}"; \
+@ENABLE_UNIT_TESTS_TRUE@	export LD_LIBRARY_PATH; \
+@ENABLE_UNIT_TESTS_TRUE@	PATH="$(abs_top_builddir)/libmp3lame/.libs:$$PATH"; \
+@ENABLE_UNIT_TESTS_TRUE@	export PATH;
+
 @ENABLE_UNIT_TESTS_TRUE@test_sanity_SOURCES = test_sanity.c
 @ENABLE_UNIT_TESTS_TRUE@test_sanity_CPPFLAGS = $(CMOCKA_CFLAGS)
 @ENABLE_UNIT_TESTS_TRUE@test_sanity_LDADD = $(CMOCKA_LIBS)
