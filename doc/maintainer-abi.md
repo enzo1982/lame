@@ -110,7 +110,10 @@ missing:
 `CFLAGS` on the configure line adds to the build's own flags rather than
 replacing them, so that asks for debug information and nothing else: the
 optimization stays where the project put it, and the resulting tree still
-builds and tests like any other.
+builds and tests like any other. Nothing else about the build needs pinning
+&mdash; not the compiler, not the optimization level &mdash; for the reasons in
+"The baseline" below. A **shared** build is required, though: a static-only one
+has no dynamic symbol table, and the second check says so rather than guessing.
 
 ## What it does not check
 
@@ -168,23 +171,78 @@ not a sign that it is stale.
 It is regenerated **only at an intentional ABI change**. Whether a given change
 is one is the maintainer's decision, not the script's and not the reviewer's:
 a red run is a question to answer, never a licence to refresh the baseline. The
-command is:
+command is, from the top of a build tree:
 
 ```
 abidw --no-corpus-path --no-show-locs --no-comp-dir-path --short-locs \
+      --no-elf-needed --drop-undefined-syms --exported-interfaces-only \
+      --headers-dir "$srcdir/include" \
       libmp3lame/.libs/libmp3lame.so > maintainer/abi/libmp3lame.abi
 ```
 
-The four options are not cosmetic. `abidw` otherwise writes the absolute path
-of the library it read, the compilation directory, and a source path on each of
-some 1500 type definitions &mdash; so a dump captured in one build tree differs
-from the same ABI captured in another in every one of those places, and the
-diff of an intentional one-symbol change would be unreadable. With them the
-file depends on the interface and not on where it was built.
+None of the options is cosmetic, and they answer two different problems.
+
+**Four of them keep the build tree out of the file.** `abidw` otherwise writes
+the absolute path of the library it read, the compilation directory, and a
+source path on each of some 1500 type definitions, so a dump captured in one
+build tree would differ from the same ABI captured in another in every one of
+those places.
+
+**Four of them keep the *machine* out of it**, which matters because this file
+ships in the release tarball and is meant to be checkable wherever LAME builds.
+Without them the baseline records a `DT_NEEDED` list &mdash; on a glibc host
+built with the project's own `-ffast-math` that includes `libmvec`, which does
+not exist on FreeBSD &mdash; along with declarations of libc functions the
+library merely calls, and types that only reached the dump through some other
+library's headers. `--no-elf-needed` drops the dependency list,
+`--drop-undefined-syms` drops what we do not define, and
+`--exported-interfaces-only` with `--headers-dir` keeps only what is reachable
+from LAME's own public headers. What is left describes the libmp3lame API and
+nothing else.
+
+Because of those, **the compilation flags no longer matter**. They used to: the
+baseline predating this was generated when a user's `CFLAGS` still *replaced*
+the project's own, so it was built without `-ffast-math`; once `CFLAGS` began
+adding instead, the documented command started producing an 81-line diff for a
+tree whose ABI had not moved. Regenerating today with or without `-ffast-math`
+gives byte-identical output.
 
 Regenerating it is how an ABI change is *accepted*, so it belongs in the same
 commit as the change and should be visible in review. Reaching for it because
 the check went red is the failure mode this file is meant to prevent.
+
+### Read a regeneration with `abidiff`, never with `diff`
+
+The baseline is XML, so it is tempting to look at what `diff` says about two
+dumps and treat that as the answer. **It is not an answer.** `abidiff` compares
+the two corpora *semantically*: it is free to consider renumbered type ids,
+reordered records and types that reach the dump by a different route as the
+same interface, and it routinely does. Two dumps thousands of lines apart can
+describe an identical ABI, and a one-line difference can be a real break.
+
+So when a regeneration produces a large diff, the question to ask is not "what
+are all these lines" but "what does `abidiff` say", and the answer is the
+`abicheck` run itself. `abidiff` prints **nothing at all** when the two sides
+agree, so an empty report with a zero exit status is the clean result, not a
+failed invocation.
+
+### One baseline, many compilers &mdash; but one architecture
+
+**The compiler does not need to be pinned.** A baseline generated from a GCC
+build accepts a Clang-built library of the same source with no changes
+reported, although the two dumps differ by well over a thousand lines as text.
+Neither a second baseline nor a fixed compiler is needed; the previous section
+is why.
+
+**The architecture does.** The baseline records type sizes and layouts, so a
+build for another architecture is a different ABI and is reported as one,
+starting with `architecture changed from 'elf-amd-x86_64' to 'elf-intel-80386'`
+and continuing through every structure whose layout depends on the word size.
+The committed baseline is **x86-64**, so on any other architecture the third
+check is answering a question about the word size rather than about LAME, and
+its result should be disregarded &mdash; the first two checks, which are the
+ones that catch a mistake in the export lists, are unaffected and remain
+meaningful everywhere.
 
 ## Reading the result
 
