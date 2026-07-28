@@ -1167,9 +1167,8 @@ lame_init_params(lame_global_flags * gfp)
     /*  automatic ATH adjustment on
      */
     if (gfp->athaa_type < 0)
-        gfc->ATH->use_adjust = 3;
-    else
-        gfc->ATH->use_adjust = gfp->athaa_type;
+        gfp->athaa_type = 3;
+    gfc->ATH->use_adjust = gfp->athaa_type;
 
 
     /* initialize internal adaptive ATH settings  -jd */

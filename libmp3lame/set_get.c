@@ -2797,13 +2797,10 @@ lame_get_ATHlower(const lame_global_flags * gfp)
 
   Here **0 switches the adjustment off and every other value leaves it on**, so
   this is effectively a flag despite selecting a "scheme". The default is -1,
-  meaning unset; \c lame_init_params() then chooses a scheme, and which one is
-  LAME's business rather than part of this interface. What a caller may
-  reasonably expect, though, is to be able to *read back* what was chosen, and
-  today it cannot: unlike \c lame_set_ATHtype() the resolved value is not
-  written into the instance, so \c lame_get_athaa_type() still answers -1 after
-  initialization. That is a gap rather than a decision, and the to-do for it is
-  on the getter.
+  meaning unset. \c lame_init_params() then chooses a scheme, and which one it
+  chooses is LAME's business rather than part of this interface - it may differ
+  between releases. So the getter answers -1 before initialization and the
+  scheme actually in use after it: ask it rather than assuming a number.
 
   \param gfp         the encoder instance.
   \param athaa_type  0 to disable the adjustment, non-zero to enable it. Not
@@ -2823,16 +2820,9 @@ lame_set_athaa_type(lame_global_flags * gfp, int athaa_type)
 /*! Get the adaptive ATH scheme. */
 /*!
   \param gfp the encoder instance.
-  \return the value last set, or -1 while it is still unset. 0 if the instance
+  \return the scheme in use, or -1 while it is still unset. 0 if the instance
           is not usable - and 0 is the one value that means "off", so an
           unusable instance reads as a deliberate choice.
-
-  \todo Report the scheme the encoder actually uses. \c lame_init_params()
-        resolves an unset setting into internal state without writing it back
-        into the instance, so this function still answers -1 after
-        initialization and the scheme in use cannot be read at all. Resolving
-        it into the instance, the way the ATH formula already is, would make it
-        readable; until then a caller can only learn what it set itself.
 */
 int
 lame_get_athaa_type(const lame_global_flags * gfp)

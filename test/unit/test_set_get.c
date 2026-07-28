@@ -598,18 +598,40 @@ test_unset_markers(void **state)
     assert_true(lame_get_interChRatio(gfp) >= 0.0);
     assert_true(lame_get_msfix(gfp) >= 0.0);
 
+    /* The adaptive ATH scheme resolves to a fixed value rather than one from
+       the preset table, but which value is documented as LAME's own business
+       and free to differ between releases - so the marker going away is the
+       property to hold, and naming the number here would pin a choice the
+       interface deliberately does not promise. */
+    assert_int_not_equal(lame_get_athaa_type(gfp), -1);
+    assert_true(lame_get_athaa_type(gfp) >= 0);
+
     /* these three do not come from the preset table, so their resolved values
        are fixed and can be named: temporal masking on, and the block-type
        choice settled to "coupled", which is neither dispensed nor forced */
     assert_int_equal(lame_get_useTemporal(gfp), 1);
     assert_int_equal(lame_get_no_short_blocks(gfp), 0);
     assert_int_equal(lame_get_force_short_blocks(gfp), 0);
+}
 
-    /* athaa_type is the exception: lame_init_params() reads it into the
-       internal state without writing the resolved value back, so the marker is
-       still what a caller sees. Asserted so that a future change of mind about
-       that shows up here rather than surprising someone. */
-    assert_int_equal(lame_get_athaa_type(gfp), -1);
+/*
+ * A scheme the caller chose explicitly must survive initialization untouched -
+ * the resolution step exists to fill in an unset value, not to normalise a set
+ * one. 0 is the interesting case: it is the value that means "off", and it is
+ * also what an over-eager "is this set?" test would mistake for unset.
+ */
+static void
+test_athaa_type_explicit_choice_survives(void **state)
+{
+    lame_t  gfp = (lame_t) *state;
+
+    assert_int_equal(lame_set_athaa_type(gfp, 0), 0);
+    assert_int_equal(lame_set_in_samplerate(gfp, 44100), 0);
+    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
+    assert_int_equal(lame_set_brate(gfp, 128), 0);
+    assert_int_equal(lame_init_params(gfp), 0);
+
+    assert_int_equal(lame_get_athaa_type(gfp), 0);
 }
 
 /*
@@ -732,6 +754,8 @@ main(void)
         cmocka_unit_test_setup_teardown(test_misc_setters, gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_readonly_getters, gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_unset_markers, gfp_setup, gfp_teardown),
+        cmocka_unit_test_setup_teardown(test_athaa_type_explicit_choice_survives,
+                                        gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_maximum_number_of_samples, gfp_setup, gfp_teardown),
 #if INTERNAL_OPTS
         cmocka_unit_test_setup_teardown(test_internal_opts, gfp_setup, gfp_teardown),

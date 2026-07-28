@@ -165,6 +165,13 @@
 			        The value at that point is the "not chosen yet"
 			        marker, and the check did not allow for it. It is
 			        now returned like any other unset setting.</li>
+			    <li>The adaptive ATH setting can now be read back after
+			        the encoder has been initialized. It starts out as
+			        "not chosen yet" and the encoder then picks a scheme,
+			        but the choice was not recorded, so a program which
+			        had not set the value itself could never find out
+			        which scheme its encode was using. Which scheme gets
+			        picked is unchanged, and so is the encoded audio.</li>
 			    <li><span class="quality">The two options which ask the
 			        encoder to mask against the absolute threshold of
 			        hearing alone, for all blocks or for short blocks
