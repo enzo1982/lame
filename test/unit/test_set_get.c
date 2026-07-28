@@ -52,6 +52,9 @@ extern int          lame_get_cwlimit(const lame_global_flags *);
 extern int          lame_set_preset_expopts(lame_global_flags *, int);
 extern int          lame_set_ReplayGain_input(lame_global_flags *, int);
 extern int          lame_get_ReplayGain_input(const lame_global_flags *);
+extern int          lame_set_ReplayGain_decode(lame_global_flags *, int);
+extern int          lame_get_ReplayGain_decode(const lame_global_flags *);
+extern int          lame_set_findPeakSample(lame_global_flags *, int);
 extern int          lame_get_findPeakSample(const lame_global_flags *);
 extern int          lame_set_padding_type(lame_global_flags *, Padding_type);
 extern Padding_type lame_get_padding_type(const lame_global_flags *);
@@ -471,6 +474,78 @@ test_decode_on_the_fly(void **state)
     }
     assert_int_equal(lame_set_decode_on_the_fly(NULL, 0), -1);
     assert_int_equal(lame_get_decode_on_the_fly(NULL), 0);
+
+    /* The deprecated setter is the same alias in the other direction: whatever
+       the build makes decode_on_the_fly answer, it must answer identically. */
+    assert_int_equal(lame_set_findPeakSample(gfp, 1), lame_set_decode_on_the_fly(gfp, 1));
+    assert_int_equal(lame_get_findPeakSample(gfp), lame_get_decode_on_the_fly(gfp));
+    assert_int_equal(lame_set_findPeakSample(NULL, 1), -1);
+}
+
+/*
+ * ---- ReplayGain_decode: the pair that combines two settings -----------------
+ * Unlike the other deprecated aliases this one is not a forwarder - the setter
+ * turns on decode_on_the_fly and findReplayGain together, and the getter is an
+ * AND of the two. That makes "both on" the only state it reports, which is
+ * what the assertions below pin: findReplayGain alone must not be enough.
+ * Whether the pair can be turned on at all depends on DECODE_ON_THE_FLY, so
+ * the build is probed at runtime the same way as above.
+ */
+static void
+test_replaygain_decode(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    int const r = lame_set_ReplayGain_decode(gfp, 1);
+
+    if (r == 0) {
+        assert_int_equal(lame_get_decode_on_the_fly(gfp), 1);
+        assert_int_equal(lame_get_findReplayGain(gfp), 1);
+        assert_int_equal(lame_get_ReplayGain_decode(gfp), 1);
+
+        /* one half on is not the state this getter reports */
+        assert_int_equal(lame_set_decode_on_the_fly(gfp, 0), 0);
+        assert_int_equal(lame_get_findReplayGain(gfp), 1);
+        assert_int_equal(lame_get_ReplayGain_decode(gfp), 0);
+
+        assert_int_equal(lame_set_ReplayGain_decode(gfp, 0), 0);
+        assert_int_equal(lame_get_findReplayGain(gfp), 0);
+        assert_int_equal(lame_get_ReplayGain_decode(gfp), 0);
+    }
+    else {
+        /* decode_on_the_fly is the first of the two and rejects the value, so
+           the call fails before findReplayGain is touched */
+        assert_int_equal(r, -1);
+        assert_int_equal(lame_get_findReplayGain(gfp), 0);
+        assert_int_equal(lame_get_ReplayGain_decode(gfp), 0);
+    }
+
+    assert_int_equal(lame_set_ReplayGain_decode(NULL, 1), -1);
+    assert_int_equal(lame_get_ReplayGain_decode(NULL), 0);
+}
+
+/*
+ * ---- the announced input length ---------------------------------------------
+ * lame_set_num_samples() is exercised by test_totalframes.c; the getter and the
+ * documented "length not known" default are not, and the default is the value a
+ * caller has to be able to recognize.
+ */
+static void
+test_num_samples(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+
+    /* fresh instance: the documented 2^32-1 sentinel, not a real count */
+    assert_true(lame_get_num_samples(gfp) == 0xFFFFFFFFUL);
+
+    assert_int_equal(lame_set_num_samples(gfp, 44100UL * 10), 0);
+    assert_true(lame_get_num_samples(gfp) == 44100UL * 10);
+
+    /* documented: no value is rejected, 0 included */
+    assert_int_equal(lame_set_num_samples(gfp, 0), 0);
+    assert_true(lame_get_num_samples(gfp) == 0);
+
+    assert_int_equal(lame_set_num_samples(NULL, 1), -1);
+    assert_true(lame_get_num_samples(NULL) == 0);
 }
 
 /*
@@ -817,6 +892,8 @@ main(void)
         cmocka_unit_test_setup_teardown(test_side_effects, gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_deprecated_stubs, gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_decode_on_the_fly, gfp_setup, gfp_teardown),
+        cmocka_unit_test_setup_teardown(test_replaygain_decode, gfp_setup, gfp_teardown),
+        cmocka_unit_test_setup_teardown(test_num_samples, gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_misc_setters, gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_readonly_getters, gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_unset_markers, gfp_setup, gfp_teardown),

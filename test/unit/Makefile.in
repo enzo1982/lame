@@ -100,7 +100,8 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_encode_nonfinite$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_encode_mono_interleaved$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_totalframes$(EXEEXT) \
-@ENABLE_UNIT_TESTS_TRUE@	test_set_get$(EXEEXT) $(am__EXEEXT_1)
+@ENABLE_UNIT_TESTS_TRUE@	test_set_get$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_lib_info$(EXEEXT) $(am__EXEEXT_1)
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -186,6 +187,13 @@ test_id3tag_OBJECTS = $(am_test_id3tag_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@test_id3tag_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+am__test_lib_info_SOURCES_DIST = test_lib_info.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_lib_info_OBJECTS =  \
+@ENABLE_UNIT_TESTS_TRUE@	test_lib_info-test_lib_info.$(OBJEXT)
+test_lib_info_OBJECTS = $(am_test_lib_info_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_lib_info_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 am__test_merge_argv_SOURCES_DIST = test_merge_argv.c \
 	parse_test_stubs.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_merge_argv_OBJECTS = test_merge_argv-test_merge_argv.$(OBJEXT) \
@@ -265,6 +273,7 @@ am__depfiles_remade = ./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise
 	./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po \
 	./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po \
 	./$(DEPDIR)/test_id3tag-test_id3tag.Po \
+	./$(DEPDIR)/test_lib_info-test_lib_info.Po \
 	./$(DEPDIR)/test_merge_argv-parse_test_stubs.Po \
 	./$(DEPDIR)/test_merge_argv-test_merge_argv.Po \
 	./$(DEPDIR)/test_parse_id3-parse_test_stubs.Po \
@@ -299,8 +308,8 @@ SOURCES = $(test_calc_sfb_noise_vector_SOURCES) \
 	$(test_encode_mono_interleaved_SOURCES) \
 	$(test_encode_nonfinite_SOURCES) \
 	$(test_get_audio_aiff_SOURCES) $(test_id3tag_SOURCES) \
-	$(test_merge_argv_SOURCES) $(test_parse_id3_SOURCES) \
-	$(test_parse_pathlen_SOURCES) \
+	$(test_lib_info_SOURCES) $(test_merge_argv_SOURCES) \
+	$(test_parse_id3_SOURCES) $(test_parse_pathlen_SOURCES) \
 	$(test_quantize_lines_vector_SOURCES) $(test_sanity_SOURCES) \
 	$(test_set_get_SOURCES) $(test_totalframes_SOURCES)
 DIST_SOURCES = $(am__test_calc_sfb_noise_vector_SOURCES_DIST) \
@@ -309,6 +318,7 @@ DIST_SOURCES = $(am__test_calc_sfb_noise_vector_SOURCES_DIST) \
 	$(am__test_encode_nonfinite_SOURCES_DIST) \
 	$(am__test_get_audio_aiff_SOURCES_DIST) \
 	$(am__test_id3tag_SOURCES_DIST) \
+	$(am__test_lib_info_SOURCES_DIST) \
 	$(am__test_merge_argv_SOURCES_DIST) \
 	$(am__test_parse_id3_SOURCES_DIST) \
 	$(am__test_parse_pathlen_SOURCES_DIST) \
@@ -825,6 +835,19 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
 
+# The version/build-information functions and the two table accessors are
+# public and take no encoder instance, so this test links libmp3lame and calls
+# them directly - no frontend translation unit compiled in.
+@ENABLE_UNIT_TESTS_TRUE@test_lib_info_SOURCES = test_lib_info.c
+@ENABLE_UNIT_TESTS_TRUE@test_lib_info_CPPFLAGS = $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_lib_info_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
+
 # Exercises the parameter API in set_get.c. The exported getters/setters are
 # tested in every build; the internal-only tuning setters are additionally
 # tested when configured with --enable-internal (the same gate the frontend
@@ -953,6 +976,10 @@ test_id3tag$(EXEEXT): $(test_id3tag_OBJECTS) $(test_id3tag_DEPENDENCIES) $(EXTRA
 	@rm -f test_id3tag$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_id3tag_OBJECTS) $(test_id3tag_LDADD) $(LIBS)
 
+test_lib_info$(EXEEXT): $(test_lib_info_OBJECTS) $(test_lib_info_DEPENDENCIES) $(EXTRA_test_lib_info_DEPENDENCIES) 
+	@rm -f test_lib_info$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_lib_info_OBJECTS) $(test_lib_info_LDADD) $(LIBS)
+
 test_merge_argv$(EXEEXT): $(test_merge_argv_OBJECTS) $(test_merge_argv_DEPENDENCIES) $(EXTRA_test_merge_argv_DEPENDENCIES) 
 	@rm -f test_merge_argv$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_merge_argv_OBJECTS) $(test_merge_argv_LDADD) $(LIBS)
@@ -994,6 +1021,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_id3tag-test_id3tag.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_lib_info-test_lib_info.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_merge_argv-parse_test_stubs.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_merge_argv-test_merge_argv.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_parse_id3-parse_test_stubs.Po@am__quote@ # am--include-marker
@@ -1129,6 +1157,20 @@ test_id3tag-test_id3tag.obj: test_id3tag.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_id3tag.c' object='test_id3tag-test_id3tag.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_id3tag_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_id3tag-test_id3tag.obj `if test -f 'test_id3tag.c'; then $(CYGPATH_W) 'test_id3tag.c'; else $(CYGPATH_W) '$(srcdir)/test_id3tag.c'; fi`
+
+test_lib_info-test_lib_info.o: test_lib_info.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_lib_info_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_lib_info-test_lib_info.o -MD -MP -MF $(DEPDIR)/test_lib_info-test_lib_info.Tpo -c -o test_lib_info-test_lib_info.o `test -f 'test_lib_info.c' || echo '$(srcdir)/'`test_lib_info.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_lib_info-test_lib_info.Tpo $(DEPDIR)/test_lib_info-test_lib_info.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_lib_info.c' object='test_lib_info-test_lib_info.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_lib_info_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_lib_info-test_lib_info.o `test -f 'test_lib_info.c' || echo '$(srcdir)/'`test_lib_info.c
+
+test_lib_info-test_lib_info.obj: test_lib_info.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_lib_info_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_lib_info-test_lib_info.obj -MD -MP -MF $(DEPDIR)/test_lib_info-test_lib_info.Tpo -c -o test_lib_info-test_lib_info.obj `if test -f 'test_lib_info.c'; then $(CYGPATH_W) 'test_lib_info.c'; else $(CYGPATH_W) '$(srcdir)/test_lib_info.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_lib_info-test_lib_info.Tpo $(DEPDIR)/test_lib_info-test_lib_info.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_lib_info.c' object='test_lib_info-test_lib_info.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_lib_info_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_lib_info-test_lib_info.obj `if test -f 'test_lib_info.c'; then $(CYGPATH_W) 'test_lib_info.c'; else $(CYGPATH_W) '$(srcdir)/test_lib_info.c'; fi`
 
 test_merge_argv-test_merge_argv.o: test_merge_argv.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_merge_argv_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_merge_argv-test_merge_argv.o -MD -MP -MF $(DEPDIR)/test_merge_argv-test_merge_argv.Tpo -c -o test_merge_argv-test_merge_argv.o `test -f 'test_merge_argv.c' || echo '$(srcdir)/'`test_merge_argv.c
@@ -1564,6 +1606,13 @@ test_set_get.log: test_set_get$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_lib_info.log: test_lib_info$(EXEEXT)
+	@p='test_lib_info$(EXEEXT)'; \
+	b='test_lib_info'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 test_choose_table_vector.log: test_choose_table_vector$(EXEEXT)
 	@p='test_choose_table_vector$(EXEEXT)'; \
 	b='test_choose_table_vector'; \
@@ -1685,6 +1734,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_id3tag-test_id3tag.Po
+	-rm -f ./$(DEPDIR)/test_lib_info-test_lib_info.Po
 	-rm -f ./$(DEPDIR)/test_merge_argv-parse_test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_merge_argv-test_merge_argv.Po
 	-rm -f ./$(DEPDIR)/test_parse_id3-parse_test_stubs.Po
@@ -1747,6 +1797,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_id3tag-test_id3tag.Po
+	-rm -f ./$(DEPDIR)/test_lib_info-test_lib_info.Po
 	-rm -f ./$(DEPDIR)/test_merge_argv-parse_test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_merge_argv-test_merge_argv.Po
 	-rm -f ./$(DEPDIR)/test_parse_id3-parse_test_stubs.Po

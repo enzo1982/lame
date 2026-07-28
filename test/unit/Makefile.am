@@ -9,7 +9,7 @@ if ENABLE_UNIT_TESTS
 
 check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv \
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
-	test_totalframes test_set_get
+	test_totalframes test_set_get test_lib_info
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -112,6 +112,17 @@ test_totalframes_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_totalframes_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The version/build-information functions and the two table accessors are
+# public and take no encoder instance, so this test links libmp3lame and calls
+# them directly - no frontend translation unit compiled in.
+test_lib_info_SOURCES = test_lib_info.c
+test_lib_info_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_lib_info_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 
