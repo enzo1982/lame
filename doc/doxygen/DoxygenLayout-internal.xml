@@ -4,13 +4,12 @@
   <!-- Navigation index tabs for HTML output -->
   <navindex>
     <tab type="mainpage" visible="yes" title=""/>
-    <!-- The maintainer harnesses get their own entry rather than sitting among
-         the other pages: they are a coherent set with one parent page, and
-         "Related Pages" gives no hint that they are there. Only this
-         configuration parses doc/maintainer-*.md, so the tab appears only where
-         there is something behind it - the public layout is a separate file. -->
-    <tab type="usergroup" visible="yes" title="Maintainer Tools" url="@ref maintainer_tools" intro=""/>
-    <tab type="usergroup" visible="yes" title="Frame Analyzer" url="@ref mp3x_internals" intro=""/>
+    <!-- No "usergroup" tab for the maintainer harnesses or the analyzer: the
+         "pages" tab below already lists every page at the top level of the
+         navigation panel, so a usergroup pointing at one renders it twice -
+         once childless under the tab's own title, once with its subsections
+         under the page's title. (A usergroup pointing at a *file* does not
+         duplicate, which is why the public layout has one for lame.h.) -->
     <tab type="pages" visible="yes" title="" intro=""/>
     <tab type="topics" visible="yes" title="" intro=""/>
     <tab type="modules" visible="yes" title="" intro="">
