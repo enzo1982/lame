@@ -52,10 +52,19 @@ SHOW_INCLUDE_FILES     = NO
 # sources are described for the user on their own page rather than published as
 # file references here. This has to be an exclusion: \internal does NOT keep a
 # file out of the public set - it suppresses the description text and leaves
-# behind an empty file page in the index plus the verbatim source page that
-# VERBATIM_HEADERS emits, neither of which HIDE_UNDOC_MEMBERS can reach because
-# they have no members. Verified against the rendered HTML, not the settings.
+# behind an empty file page in the index, which HIDE_UNDOC_MEMBERS cannot reach
+# because it has no members. Verified against the rendered HTML, not the
+# settings.
 EXCLUDE_PATTERNS       = */frontend/mp3x_*
+
+# A verbatim copy of every header the documentation parses, one page each, is
+# not part of an API reference: it published the complete source of the encoder
+# internals - the psychoacoustic model, the quantizer, the bit reservoir - and
+# listed all of them in the public file index as though a caller could use them.
+# The interface a caller may use is what this document describes; the source
+# itself is in the release tarball and the repository. The internal
+# configuration does not override the common YES, so it goes on carrying them.
+VERBATIM_HEADERS       = NO
 
 # Call graphs need Graphviz/dot and slow the build; off for the public docs.
 CALL_GRAPH             = NO
