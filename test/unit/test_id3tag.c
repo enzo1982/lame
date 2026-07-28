@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
 
 #include <cmocka.h>
 
@@ -367,16 +368,18 @@ test_v2_size_within_limit_written(void **state)
  * representable where unsigned long is wider than 32 bits (num_samples must
  * hold the sample count), so it is skipped elsewhere. The length is set on the
  * config, not encoded, so no audio is processed.
+ *
+ * The skip is decided by the preprocessor rather than at run time, because the
+ * problem is a compile-time one: the sample count is a constant too large for
+ * a 32-bit unsigned long, and a run-time guard leaves it in the translation
+ * unit to be truncated and warned about on every build that cannot hold it.
  */
 static void
 test_v2_playlength_beyond_32bit(void **state)
 {
+#if ULONG_MAX > 0xFFFFFFFFUL
     lame_t gfp = (lame_t) *state;
     size_t sz;
-    if (sizeof(unsigned long) < 8) {
-        skip(); /* num_samples cannot express a >2^32-1 ms length here */
-        return;
-    }
     lame_set_in_samplerate(gfp, 8000);
     lame_set_num_channels(gfp, 2);
     lame_set_num_samples(gfp, 40000000000UL); /* 4e10 @ 8 kHz -> 5e9 ms */
@@ -386,6 +389,10 @@ test_v2_playlength_beyond_32bit(void **state)
     sz = get_v2(gfp);
     assert_true(mem_contains(tagbuf, sz, "5000000000"));  /* full value */
     assert_false(mem_contains(tagbuf, sz, "4294967295")); /* not the old clamp */
+#else
+    (void) state;
+    skip(); /* num_samples cannot express a >2^32-1 ms length here */
+#endif
 }
 
 /* --- the genre list ---------------------------------------------------- */
