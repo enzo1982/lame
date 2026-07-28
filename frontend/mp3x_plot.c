@@ -17,10 +17,14 @@
  * Boston, MA 02111-1307, USA.
  */
 
-/*
- * The GTK4/Cairo successor to gpkplotting.c. Mp3xCanvas holds the shared
- * drawing primitives; the analyzer graphs are built entirely from them and read
- * only plotting_data - no analyzer logic lives in this layer.
+/**
+ *  \file mp3x_plot.c
+ *  \brief The mp3x plotting layer.
+ *  \internal
+ *
+ *  The GTK4/Cairo successor to gpkplotting.c. Mp3xCanvas holds the shared
+ *  drawing primitives; the analyzer graphs are built entirely from them and
+ *  read only plotting_data - no analyzer logic lives in this layer.
  */
 
 #ifdef HAVE_CONFIG_H

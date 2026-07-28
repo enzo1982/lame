@@ -1,20 +1,22 @@
-/*
- *      mp3x analyzer session - implementation
+/**
+ *  \file mp3x_session.c
+ *  \brief mp3x analyzer session - implementation.
+ *  \internal
  *
- *      Per-file lifecycle for the GTK4 mp3x frame analyzer. Each open input
- *      file lives in its own Mp3xSession; closing or replacing the file
- *      tears down the session entirely (idle source, analyzer core, input
- *      decoder, lame_t) so that the next open starts from documented clean
- *      defaults rather than accumulated state.
+ *  Per-file lifecycle for the GTK4 mp3x frame analyzer. Each open input file
+ *  lives in its own Mp3xSession; closing or replacing the file tears down the
+ *  session entirely - idle source, analyzer core, input decoder, \c lame_t - so
+ *  that the next open starts from documented clean defaults rather than
+ *  accumulated state.
  *
- *      The two open routes (mp3x_session_open for the GUI path,
- *      mp3x_session_open_cli_initial for the initial CLI-named file) both
- *      funnel through the same teardown/installation sequence; only the
- *      parse_args call differs.
+ *  The two open routes, mp3x_session_open_prevalidated() for the GUI path and
+ *  mp3x_session_open_cli_initial() for the initial CLI-named file, both funnel
+ *  through the same teardown and installation sequence; only the \c parse_args
+ *  call differs.
  *
- *      This module is toolkit-independent (no GTK widgets, no GLib main loop
- *      code beyond what close/open need for path handling). The GTK frontend
- *      in mp3x_ui.c drives it.
+ *  This module is toolkit-independent: no GTK widgets, and no GLib main-loop
+ *  code beyond what close and open need for path handling. The GTK frontend in
+ *  mp3x_ui.c drives it.
  */
 
 #ifdef HAVE_CONFIG_H

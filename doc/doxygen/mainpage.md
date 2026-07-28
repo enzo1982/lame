@@ -15,6 +15,10 @@ frontend, developed and maintained by [The LAME Project](https://lame.sf.net).
   internal - not part of the stable API or ABI.
 - `frontend/` contains the `lame` command-line tool, built on top of the
   library.
+- `mp3x` is the optional GTK4 frame analyzer: it encodes a file frame by frame
+  and shows the spectrum, the psychoacoustic decisions and the re-synthesized
+  result, which is the quickest way to see what an encoding setting actually
+  does. Its manual page, `mp3x(1)`, describes how to use it.
 
 ## License
 

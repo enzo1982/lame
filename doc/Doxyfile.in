@@ -48,6 +48,15 @@ LAYOUT_FILE            = @LAME_SRCDIR@/doc/doxygen/DoxygenLayout.xml
 # are not even installed. The internal documentation is where that is useful.
 SHOW_INCLUDE_FILES     = NO
 
+# The frame analyzer is a program, not part of the library interface, so its
+# sources are described for the user on their own page rather than published as
+# file references here. This has to be an exclusion: \internal does NOT keep a
+# file out of the public set - it suppresses the description text and leaves
+# behind an empty file page in the index plus the verbatim source page that
+# VERBATIM_HEADERS emits, neither of which HIDE_UNDOC_MEMBERS can reach because
+# they have no members. Verified against the rendered HTML, not the settings.
+EXCLUDE_PATTERNS       = */frontend/mp3x_*
+
 # Call graphs need Graphviz/dot and slow the build; off for the public docs.
 CALL_GRAPH             = NO
 CALLER_GRAPH           = NO

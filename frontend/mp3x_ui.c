@@ -17,11 +17,21 @@
  * Boston, MA 02111-1307, USA.
  */
 
-/*
- * The frontend drives the toolkit-independent analyzer engine in
- * mp3x_core.c, displays the analyzer's eight plots via mp3x_plot.c, and
- * owns the application/window lifecycle plus the File menu.
+/**
+ *  \file mp3x_ui.c
+ *  \brief The GTK4 mp3x application: window, menus and transport.
+ *  \internal
  *
+ *  The frontend drives the toolkit-independent analyzer engine in mp3x_core.c,
+ *  displays the analyzer's eight plots via mp3x_plot.c, and owns the
+ *  application and window lifecycle plus the File menu.
+ *
+ *  The ownership and lifetime rules summarised below are set out in full, with
+ *  the transport and end-of-input reasoning, on the \ref mp3x_internals page.
+ *  What the program looks like to someone using it is the mp3x(1) manual page.
+ */
+
+/*
  * Application/session architecture:
  *
  *   - Mp3xDriver is heap-allocated, refcounted via gatomicrefcount, and

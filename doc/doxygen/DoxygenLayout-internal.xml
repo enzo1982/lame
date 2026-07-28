@@ -10,6 +10,7 @@
          configuration parses doc/maintainer-*.md, so the tab appears only where
          there is something behind it - the public layout is a separate file. -->
     <tab type="usergroup" visible="yes" title="Maintainer Tools" url="@ref maintainer_tools" intro=""/>
+    <tab type="usergroup" visible="yes" title="Frame Analyzer" url="@ref mp3x_internals" intro=""/>
     <tab type="pages" visible="yes" title="" intro=""/>
     <tab type="topics" visible="yes" title="" intro=""/>
     <tab type="modules" visible="yes" title="" intro="">

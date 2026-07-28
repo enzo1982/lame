@@ -1,0 +1,148 @@
+.TH mp3x 1 "July 27, 2026" "LAME 4.1" "LAME audio compressor"
+.SH NAME
+mp3x \- frame analyzer for the LAME mp3 encoder
+.SH SYNOPSIS
+mp3x [options] [infile]
+.SH DESCRIPTION
+mp3x encodes an audio file one mp3 frame at a time and shows what the encoder
+did with each frame: the input waveform, the frequency spectrum it quantizes,
+what the psychoacoustic model decided to mask, and how closely the decoded
+result matches the input.
+It is a tool for understanding an encode, not for producing one \- no mp3 file
+is written.
+.PP
+Input may be WAV, AIFF or mp3, or standard input if
+.B \-
+is given.
+An mp3 input is decoded and re\-encoded, which is what lets the analyzer show
+both sides of the comparison.
+.PP
+Any
+.BR lame (1)
+option given on the command line applies to that first file, so the effect of a
+particular encoder setting can be watched directly.
+Files opened later from the File menu use LAME's normal defaults instead; the
+initial command line is not replayed.
+.PP
+mp3x is not built by default.
+It is available when LAME was configured with
+.B \-\-enable\-mp3x
+and the system provides GTK 4.10 or newer and libmpg123 1.26 or newer with
+decoder support enabled.
+.SH THE GRAPHS
+Eight graphs are shown.
+Where a graph is per\-granule there are two, one for each granule of the frame;
+which channel is drawn is chosen with the display controls below.
+.TP
+.B PCM
+The input audio of the current frame.
+.TP
+.B Re\-synthesis
+The original input and the encode\-then\-decode result drawn on top of each
+other \- the direct picture of what the encoder discarded.
+It can also draw the difference between them instead of the overlay, which
+makes small deviations legible.
+.TP
+.B MDCT spectrum
+The log energy of the 576 MDCT lines, which is the frequency\-domain
+representation the encoder actually quantizes.
+Scalefactor\-band boundaries are marked over it by default.
+.TP
+.B Psychoacoustics
+Per scalefactor band: the signal energy as bars, with the masking threshold and
+the actual quantization noise as lines.
+Where the noise line lies below the threshold line the model expects the noise
+to be inaudible; where it rises above, it does not.
+.TP
+.B Scalefactors
+The scalefactor magnitude chosen for each band, as upright bars.
+Long and short blocks are laid out differently: a short block shows its bands
+across the three windows.
+.SH DISPLAY CONTROLS
+These change what the graphs draw and take effect on the next redraw.
+.TP
+.B Channel
+Left or right.
+.TP
+.B M/S
+Switch the channel selector from left/right to mid/side, for frames the encoder
+coded as joint stereo.
+.TP
+.B Difference
+Make the re\-synthesis graph draw decoded minus original rather than the two
+overlaid.
+.TP
+.B Source
+Read the MDCT and scalefactor graphs from the LAME encoder side or from the
+mpg123\-decoded side.
+For an mp3 input the two can differ, and that difference is often the
+interesting part.
+.TP
+.B Scalefactor\-band lines
+The band boundaries drawn over the MDCT spectrum.
+On by default.
+.TP
+.B Spectrum axis
+Plot the psychoacoustic graph with one point per scalefactor band, which is the
+default and what the noise comparison needs, or one point per FFT bin for a
+finer view.
+.TP
+.B Subblock
+For a short block, which of the three interleaved windows to draw.
+All three are shown by default.
+.SH KEYBOARD
+.TP
+.B Space
+Play or pause the analysis.
+.TP
+.B Right arrow
+Step forward one frame.
+.TP
+.B Left arrow
+Step back one frame.
+.TP
+.B 1, 2, 3
+Show only that subblock window.
+.TP
+.B 0
+Show all three subblock windows.
+.TP
+.B Ctrl+O
+Open a file.
+.TP
+.B Ctrl+W
+Close the current file.
+.TP
+.B Ctrl+S
+Save a screenshot.
+.TP
+.B Ctrl+Q
+Quit.
+.PP
+On macOS the Command key replaces Ctrl for the last four.
+.SH STATISTICS
+The statistics view accumulates over every frame analyzed so far, not only the
+one on screen: how many frames have been analyzed, the mean and maximum
+main\-data bits per frame, the bits a frame can hold at this bitrate, and counts
+of the frames or granules that used de\-emphasis, mid/side stereo, intensity
+stereo, short blocks, mixed blocks and preflag.
+Those counts are a quick way to see which encoder decisions a piece of audio is
+actually provoking.
+.SH SAVING
+Each graph can be saved as a PNG on its own, and a composite renders all eight
+into a single image laid out like the on\-screen stack.
+The composite is re\-rendered at a fixed size rather than captured from the
+window, so it does not vary with how the window happens to be sized.
+.SH SEE ALSO
+.BR lame (1)
+.SH AUTHORS
+.nf
+The GTK4 mp3x was written by Maya R. Odinezenko, after the GTK 1.2
+analyzer by Mark Taylor.
+
+LAME originally developed by Mike Cheng and now maintained by
+Mark Taylor, and the LAME team.
+(See https://lame.sourceforge.io/).
+.\" Local Variables:
+.\" mode: nroff
+.\" End:

@@ -19,16 +19,20 @@
  * Boston, MA 02111-1307, USA.
  */
 
-/*
- * This module is the analyzer engine, mechanically extracted from gtkanal.c so
- * that the encode/decode analysis work is separated from any particular UI
- * toolkit. It reads one frame of input, encodes it, and re-synthesizes it with
- * LAME's internal HIP/mpglib decoder, filling the shared plotting_data ring.
+/**
+ *  \file mp3x_core.c
+ *  \brief The mp3x analyzer engine.
+ *  \internal
  *
- * Nothing here includes GTK/GDK; that is the whole point. The frame algorithm
- * is unchanged from the original gtkmakeframe(): the only differences are that
- * the encoder handle (gfp) is now a parameter rather than a file-global, and
- * the internal-flags pointer (gfc) is derived locally from it.
+ *  Mechanically extracted from gtkanal.c so that the encode/decode analysis
+ *  work is separated from any particular UI toolkit. It reads one frame of
+ *  input, encodes it, and re-synthesizes it with LAME's internal HIP/mpglib
+ *  decoder, filling the shared plotting_data ring.
+ *
+ *  Nothing here includes GTK/GDK; that is the whole point. The frame algorithm
+ *  is unchanged from the original gtkmakeframe(): the only differences are that
+ *  the encoder handle is now a parameter rather than a file-global, and the
+ *  internal-flags pointer is derived locally from it.
  */
 
 #ifdef HAVE_CONFIG_H

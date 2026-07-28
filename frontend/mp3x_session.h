@@ -1,29 +1,33 @@
-/*
- *      mp3x analyzer session - internal interface
+/**
+ *  \file mp3x_session.h
+ *  \brief mp3x analyzer session - internal interface.
+ *  \internal
  *
- *      Toolkit-independent per-file session lifecycle for the GTK4 mp3x
- *      frame analyzer. One Mp3xSession exists for each open input file;
- *      the application as a whole can be empty (no session) or hold a
- *      single session at a time.
+ *  The toolkit-independent per-file session lifecycle for the GTK4 mp3x frame
+ *  analyzer. One Mp3xSession exists for each open input file; the application
+ *  as a whole can be empty (no session) or hold a single session at a time.
  *
- * Lifecycle:
+ *  \code
+ *  Mp3xPrevalidateResult pre;
+ *  Mp3xSession *s = mp3x_session_new(driver);
+ *  if (mp3x_prevalidate(file, &pre, &err) &&
+ *      mp3x_session_open_prevalidated(s, driver, &pre, &err)) {
+ *      ... analyzer runs ...
+ *      mp3x_session_close(s);
+ *  }
+ *  mp3x_prevalidate_result_clear(&pre);
+ *  mp3x_session_free(s);
+ *  \endcode
  *
- *      Mp3xPrevalidateResult pre;
- *      Mp3xSession *s = mp3x_session_new(driver);
- *      if (mp3x_prevalidate(file, &pre, &err) &&
- *          mp3x_session_open_prevalidated(s, driver, &pre, &err)) {
- *          ... analyzer runs ...
- *          mp3x_session_close(s);
- *      }
- *      mp3x_prevalidate_result_clear(&pre);
- *      mp3x_session_free(s);
+ *  The session owns a fresh \c lame_t for the file it represents. Open and
+ *  Close define its state transitions; the GTK frontend routes File > Open,
+ *  Open Recent, File > Close and File > Quit through those functions.
  *
- * The session owns a fresh lame_t for the file it represents. Open and
- * Close define its state transitions; the GTK frontend routes File > Open,
- * Open Recent, File > Close, and File > Quit through those functions.
+ *  Nothing here includes GTK/GDK. The session engine is toolkit-independent so
+ *  the GTK layer in mp3x_ui.c can drive it without coupling.
  *
- * Nothing here includes GTK/GDK. The session engine is toolkit-independent
- * so the GTK layer in mp3x_ui.c can drive it without coupling.
+ *  \see \ref mp3x_internals for the ownership rules that make a stale async
+ *  callback safe.
  */
 
 #ifndef LAME_MP3X_SESSION_H
@@ -43,22 +47,22 @@ extern "C" {
 #endif
 
 
-/* --------------------------------------------------------------------------
- * Frontend-global baseline
+/**
+ *  A snapshot of the five process-wide frontend configuration structs.
  *
- * parse.c exposes five process-wide configuration structs (global_reader,
- * global_writer, global_ui_config, global_decoder, global_raw_pcm) plus
- * get_audio.c's get_audio_global_data global. They are mutated by parse_args
- * and by init_infile. mp3x_session treats them as the per-file session state
- * they actually are: every session open restores a captured startup baseline
- * before any new configuration is applied, so options from a prior
- * file (or from raw-input CLI flags on the initial file) cannot leak into a
- * later GUI-opened file.
+ *  parse.c exposes \c global_reader, \c global_writer, \c global_ui_config,
+ *  \c global_decoder and \c global_raw_pcm, plus get_audio.c's
+ *  \c get_audio_global_data. They are mutated by \c parse_args and by
+ *  \c init_infile. mp3x_session treats them as the per-file session state they
+ *  actually are: every session open restores a captured startup baseline before
+ *  any new configuration is applied, so options from a prior file - or
+ *  raw-input CLI flags given for the initial file - cannot leak into a later
+ *  GUI-opened file.
  *
- * Every member of these five structs is plain value data (no pointers).
- * mp3data_struct (inside DecoderConfig) also contains only integer values.
- * Struct-copy is therefore a safe capture/restore mechanism.
- * -------------------------------------------------------------------------- */
+ *  Every member of these five structs is plain value data with no pointers, and
+ *  \c mp3data_struct inside \c DecoderConfig holds only integers, so struct-copy
+ *  is a safe capture and restore mechanism.
+ */
 typedef struct {
     ReaderConfig    reader;
     WriterConfig    writer;

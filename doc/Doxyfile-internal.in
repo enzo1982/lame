@@ -36,6 +36,7 @@ INPUT                  = @LAME_SRCDIR@/include \
                          @LAME_SRCDIR@/doc/doxygen/maintainer.md \
                          @LAME_SRCDIR@/doc/doxygen/unit_tests.dox \
                          @LAME_SRCDIR@/doc/doxygen/vector-dispatch.dox \
+                         @LAME_SRCDIR@/doc/doxygen/mp3x-internals.dox \
                          @LAME_SRCDIR@/doc/maintainer-build-matrix.md \
                          @LAME_SRCDIR@/doc/maintainer-perf.md \
                          @LAME_SRCDIR@/doc/maintainer-quality.md \

@@ -56,6 +56,7 @@ EXTRA_DIST = Doxyfile.in Doxyfile-common.in Doxyfile-internal.in \
 	doxygen/internal.md \
 	doxygen/unit_tests.dox \
 	doxygen/vector-dispatch.dox \
+	doxygen/mp3x-internals.dox \
 	doxygen/lame-theme.css \
 	doxygen/doxygen-awesome-css/doxygen-awesome.css \
 	doxygen/logo/lame_logo.svg \

@@ -688,6 +688,9 @@ if test "x${enable_mp3x}" = "xyes"; then
 	if test "${HAVE_MPG123}" != "yes" || test "${CONFIG_DECODER}" = "no"; then
 		AC_MSG_ERROR([--enable-mp3x requires enabled libmpg123 decoder support (libmpg123 >= 1.26.0)])
 	fi
+	MP3X_MAN=mp3x.1
+else
+	MP3X_MAN=
 fi
 
 AC_MSG_CHECKING(use of external mpg123 decoder)
@@ -1491,6 +1494,7 @@ AC_SUBST(WITH_FRONTEND)
 AC_SUBST(WITH_MP3X)
 AC_SUBST(WITH_MP3RTP)
 AC_SUBST(MP3RTP_MAN)
+AC_SUBST(MP3X_MAN)
 
 AC_SUBST(CPUCCODE)
 

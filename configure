@@ -647,6 +647,7 @@ CMOCKA_LIBS
 CMOCKA_CFLAGS
 CONFIG_DEFS
 CPUCCODE
+MP3X_MAN
 MP3RTP_MAN
 WITH_MP3RTP
 WITH_MP3X
@@ -18007,6 +18008,9 @@ if test "x${enable_mp3x}" = "xyes"; then
 	if test "${HAVE_MPG123}" != "yes" || test "${CONFIG_DECODER}" = "no"; then
 		as_fn_error $? "--enable-mp3x requires enabled libmpg123 decoder support (libmpg123 >= 1.26.0)" "$LINENO" 5
 	fi
+	MP3X_MAN=mp3x.1
+else
+	MP3X_MAN=
 fi
 
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking use of external mpg123 decoder" >&5
@@ -21314,6 +21318,7 @@ fi
 LDADD="${LDADD}"
 FRONTEND_CFLAGS="${INCICONV} ${FRONTEND_CFLAGS}"
 FRONTEND_LDADD="${FRONTEND_LDADD} ${LTLIBICONV} ${CONFIG_MATH_LIB}"
+
 
 
 
