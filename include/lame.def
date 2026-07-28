@@ -335,3 +335,7 @@ lame_get_ReplayGain_decode @2043
 lame_set_findPeakSample @2044
 lame_get_findPeakSample @2045
 lame_encode_finish @2046
+
+; Reads back which instruction-set families an instance allows, the question
+; lame_set_asm_optimizations cannot answer about its own argument.
+lame_get_asm_optimizations @2047

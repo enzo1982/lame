@@ -373,6 +373,7 @@ float CDECL lame_get_compression_ratio(const lame_global_flags *);
 
 int CDECL lame_set_preset( lame_global_flags*  gfp, int );
 int CDECL lame_set_asm_optimizations( lame_global_flags*  gfp, int, int );
+int CDECL lame_get_asm_optimizations( const lame_global_flags*  gfp, int );
 
 
 

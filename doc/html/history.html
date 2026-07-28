@@ -165,6 +165,15 @@
 			        The value at that point is the "not chosen yet"
 			        marker, and the check did not allow for it. It is
 			        now returned like any other unset setting.</li>
+			    <li>New library function
+			        <i>lame_get_asm_optimizations()</i>, which reports
+			        whether an encoder instance still allows a given
+			        instruction-set family. The matching setter has always
+			        existed, but there was no way to read the setting back,
+			        and no way at all to find out whether a family a program
+			        asked for was one this version of the library knows -
+			        the setter accepts an unknown family and silently does
+			        nothing. The new function answers both.</li>
 			    <li>The adaptive ATH setting can now be read back after
 			        the encoder has been initialized. It starts out as
 			        "not chosen yet" and the encoder then picks a scheme,

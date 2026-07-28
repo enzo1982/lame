@@ -100,6 +100,7 @@
     <elf-symbol name='lame_get_VBR_quality' type='func-type' binding='global-binding' visibility='default-visibility' is-defined='yes'/>
     <elf-symbol name='lame_get_allow_diff_short' type='func-type' binding='global-binding' visibility='default-visibility' is-defined='yes'/>
     <elf-symbol name='lame_get_analysis' type='func-type' binding='global-binding' visibility='default-visibility' is-defined='yes'/>
+    <elf-symbol name='lame_get_asm_optimizations' type='func-type' binding='global-binding' visibility='default-visibility' is-defined='yes'/>
     <elf-symbol name='lame_get_athaa_loudapprox' type='func-type' binding='global-binding' visibility='default-visibility' is-defined='yes'/>
     <elf-symbol name='lame_get_athaa_sensitivity' type='func-type' binding='global-binding' visibility='default-visibility' is-defined='yes'/>
     <elf-symbol name='lame_get_athaa_type' type='func-type' binding='global-binding' visibility='default-visibility' is-defined='yes'/>
@@ -4479,6 +4480,11 @@
       <parameter type-id='type-id-261' name='gfp'/>
       <parameter type-id='type-id-57' name='optim'/>
       <parameter type-id='type-id-57' name='mode'/>
+      <return type-id='type-id-57'/>
+    </function-decl>
+    <function-decl name='lame_get_asm_optimizations' mangled-name='lame_get_asm_optimizations' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='lame_get_asm_optimizations'>
+      <parameter type-id='type-id-188' name='gfp'/>
+      <parameter type-id='type-id-57' name='optim'/>
       <return type-id='type-id-57'/>
     </function-decl>
     <function-decl name='lame_set_write_id3tag_automatic' mangled-name='lame_set_write_id3tag_automatic' visibility='default' binding='global' size-in-bits='64' elf-symbol-id='lame_set_write_id3tag_automatic'>

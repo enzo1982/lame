@@ -54,6 +54,7 @@ lame_set_compression_ratio
 lame_get_compression_ratio
 lame_set_preset
 lame_set_asm_optimizations
+lame_get_asm_optimizations
 lame_set_copyright
 lame_get_copyright
 lame_set_original

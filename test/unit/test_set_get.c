@@ -73,6 +73,22 @@ extern Padding_type lame_get_padding_type(const lame_global_flags *);
 #define INTERNAL_OPTS 0
 #endif
 
+/*
+ * The instruction-set families the asm_optimizations enum names are x86
+ * instruction sets and mean nothing on another architecture, so the test that
+ * asserts their behaviour is compiled only where the build targets x86 - the
+ * same scope the enum itself has. The getter and setter remain exported
+ * everywhere; what is architecture-specific is what the families stand for,
+ * not the interface.
+ */
+#if defined(__i386__) || defined(__i386) || defined(_M_IX86) \
+ || defined(__x86_64__) || defined(__amd64__) || defined(_M_X64) \
+ || defined(_M_AMD64)
+#define ASM_OPTIM_ARCH 1
+#else
+#define ASM_OPTIM_ARCH 0
+#endif
+
 /** @brief A fresh encoder context for each test; @p *state carries it. */
 static int
 gfp_setup(void **state)
@@ -635,6 +651,56 @@ test_athaa_type_explicit_choice_survives(void **state)
 }
 
 /*
+ * lame_get_asm_optimizations() answers per family, and its return values are
+ * the point of it: the setter accepts a value naming no family at all, sets
+ * nothing, and hands that value straight back, so "is this family one you
+ * know?" is a question only the getter can answer. Every return value is
+ * asserted here, the -2 arm included, because that is the one the item was
+ * raised for.
+ *
+ * Compiled only on x86 - see ASM_OPTIM_ARCH above.
+ */
+#if ASM_OPTIM_ARCH
+static void
+test_asm_optimizations_roundtrip(void **state)
+{
+    lame_t  gfp = (lame_t) *state;
+    int const families[] = { MMX, AMD_3DNOW, SSE, AVX2 };
+    size_t  i;
+
+    /* every family starts out allowed */
+    for (i = 0; i < sizeof families / sizeof families[0]; ++i) {
+        assert_int_equal(lame_get_asm_optimizations(gfp, families[i]), 1);
+    }
+
+    /* forbidding one is visible, and does not disturb the others */
+    assert_int_equal(lame_set_asm_optimizations(gfp, SSE, 0), SSE);
+    assert_int_equal(lame_get_asm_optimizations(gfp, SSE), 0);
+    assert_int_equal(lame_get_asm_optimizations(gfp, MMX), 1);
+    assert_int_equal(lame_get_asm_optimizations(gfp, AMD_3DNOW), 1);
+    assert_int_equal(lame_get_asm_optimizations(gfp, AVX2), 1);
+
+    /* and allowing it again is too. Only 1 allows: the setter treats every
+       other mode as "forbid", so 2 must read back as forbidden. */
+    assert_int_equal(lame_set_asm_optimizations(gfp, SSE, 1), SSE);
+    assert_int_equal(lame_get_asm_optimizations(gfp, SSE), 1);
+    assert_int_equal(lame_set_asm_optimizations(gfp, SSE, 2), SSE);
+    assert_int_equal(lame_get_asm_optimizations(gfp, SSE), 0);
+
+    /* a value naming no family: the setter cannot say so, the getter can */
+    assert_int_equal(lame_set_asm_optimizations(gfp, 0, 1), 0);
+    assert_int_equal(lame_get_asm_optimizations(gfp, 0), -2);
+    assert_int_equal(lame_set_asm_optimizations(gfp, AVX2 + 1, 1), AVX2 + 1);
+    assert_int_equal(lame_get_asm_optimizations(gfp, AVX2 + 1), -2);
+    assert_int_equal(lame_get_asm_optimizations(gfp, -7), -2);
+
+    /* an unusable instance is distinguishable from both of those */
+    assert_int_equal(lame_get_asm_optimizations(NULL, SSE), -1);
+    assert_int_equal(lame_get_asm_optimizations(NULL, 0), -1);
+}
+#endif /* ASM_OPTIM_ARCH */
+
+/*
  * lame_get_maximum_number_of_samples() derives its answer from a size_t buffer
  * size and returns it in an int, so every step of the estimate has to be
  * bounded to that int - the frame count, their product with the frame size,
@@ -756,6 +822,10 @@ main(void)
         cmocka_unit_test_setup_teardown(test_unset_markers, gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_athaa_type_explicit_choice_survives,
                                         gfp_setup, gfp_teardown),
+#if ASM_OPTIM_ARCH
+        cmocka_unit_test_setup_teardown(test_asm_optimizations_roundtrip,
+                                        gfp_setup, gfp_teardown),
+#endif
         cmocka_unit_test_setup_teardown(test_maximum_number_of_samples, gfp_setup, gfp_teardown),
 #if INTERNAL_OPTS
         cmocka_unit_test_setup_teardown(test_internal_opts, gfp_setup, gfp_teardown),

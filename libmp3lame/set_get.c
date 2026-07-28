@@ -3981,18 +3981,18 @@ lame_set_preset(lame_global_flags * gfp, int preset)
   the hand-written routines against the plain C, and for working around a
   processor whose implementation of an instruction set is untrustworthy.
 
-  The families named today - \c MMX, \c AMD_3DNOW, \c SSE and \c AVX2 - are
-  x86 instruction sets, and mean nothing anywhere else: on a build for another
+  The families are the values of \c asm_optimizations. They name x86
+  instruction sets and mean nothing anywhere else: on a build for another
   architecture the call is accepted and changes nothing. Which families exist
-  is a property of the release rather than of this interface, so treat the
-  list as today's, not as the set.
+  is a property of the release rather than of this interface, so read them off
+  the enum rather than from any list written here.
 
   They are not independent: \c AVX2 builds on the SSE2 routines, so forbidding
   \c SSE removes \c AVX2 with it, while forbidding \c AVX2 alone leaves the
   SSE tier in place.
 
   \since \c AVX2 is available from LAME 4.1, with the vectorized inner loops;
-         the other three families are older than this interface. Source that
+         the families beside it are older than this interface. Source that
          also has to compile against a 3.100 or older header cannot name the
          constant, but passing the value itself is safe - a library that does
          not know the family accepts the call and does nothing.
@@ -4003,17 +4003,11 @@ lame_set_preset(lame_global_flags * gfp, int preset)
   \return -1 if the instance is not usable, and \a optim itself otherwise -
           the same value whether or not \a optim named a family this library
           knows, since an unrecognized one is accepted and nothing is set. So
-          the return value reports on the instance, not on the request: it
-          cannot tell a caller that a family was recognized, and there is no
-          getter to ask afterwards. That second half is a gap rather than a
-          decision - see the to-do below.
+          the return value reports on the instance, not on the request, and
+          cannot tell a caller that a family was recognized.
+          \c lame_get_asm_optimizations() answers both questions afterwards.
 
-  \todo Provide a way to read this back. There is no getter, so a caller
-        cannot ask which families are currently allowed: neither what a preset
-        or another part of the program left behind, nor whether a request it
-        made itself was understood. A \c lame_get_asm_optimizations() would
-        close both, and is an addition to the exported set rather than a change
-        to any existing behaviour.
+  \see lame_get_asm_optimizations()
 
   \code{.c}
   // Forbid the SSE tier, e.g. to compare the hand-written routines with the C.
@@ -4048,6 +4042,62 @@ lame_set_asm_optimizations(lame_global_flags * gfp, int optim, int mode)
             }
         default:
             return optim;
+        }
+    }
+    return -1;
+}
+
+/*! Get whether an instruction-set family may be used. */
+/*!
+  Answers for the one family named, the same shape
+  \c lame_set_asm_optimizations() takes. Every family starts out allowed, so a
+  fresh instance answers 1 for each value of \c asm_optimizations.
+
+  This reports the **flag**, not the instruction set an encode will actually
+  use. The families are not independent - \c AVX2 builds on the SSE2 routines -
+  so an instance with \c SSE forbidden will not use \c AVX2 either, while this
+  function still reports \c AVX2 as allowed. Nor does an allowed family mean
+  the build contains those routines or the processor has that instruction set.
+  What was really used is a property of the run, which the command line tool
+  prints with \c --verbose.
+
+  \since LAME 4.1.
+
+  \param gfp    the encoder instance.
+  \param optim  the family, one of the \c asm_optimizations values.
+  \return 1 if the family may be used, 0 if it has been forbidden, -1 if the
+          instance is not usable, and -2 if the family is not available in
+          this instance. That last answer is the one
+          \c lame_set_asm_optimizations() cannot give: it accepts a value it
+          does not know, sets nothing, and hands the value back as though it
+          had been understood.
+
+  \code{.c}
+  switch (lame_get_asm_optimizations(gfp, AVX2)) {
+  case  1:  break;      // allowed
+  case  0:  break;      // someone forbade it - a preset, or another caller
+  case -2:  break;      // not available in this instance
+  default:  return -1;  // the instance is unusable
+  }
+  \endcode
+
+  \see lame_set_asm_optimizations()
+*/
+int
+lame_get_asm_optimizations(const lame_global_flags * gfp, int optim)
+{
+    if (is_lame_global_flags_valid(gfp)) {
+        switch (optim) {
+        case MMX:
+            return gfp->asm_optimizations.mmx;
+        case AMD_3DNOW:
+            return gfp->asm_optimizations.amd3dnow;
+        case SSE:
+            return gfp->asm_optimizations.sse;
+        case AVX2:
+            return gfp->asm_optimizations.avx2;
+        default:
+            return -2;
         }
     }
     return -1;
