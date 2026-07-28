@@ -12,6 +12,14 @@
  * id3tag_set_fieldvalue_utf8() setter and its malformed-input handling are
  * covered too.
  *
+ * The second group covers what the first left out: the calls that select a tag
+ * version or an encoding rather than set a field, the ones that reset or pad,
+ * the genre enumeration, the track number, and the three deprecated UCS-2
+ * setters. Those three are documented as aliases, so each is checked by
+ * building the same tag through the alias and through its target and comparing
+ * the two byte for byte - a test that only looked for the frame would pass on
+ * an alias wired to the wrong function.
+ *
  * These are library-level tests: they link libmp3lame and call the exported
  * API directly, so no frontend translation unit is compiled in.
  */
@@ -25,10 +33,27 @@
 #include <setjmp.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <cmocka.h>
 
 #include "lame.h"
+
+/*
+ * The three UCS-2 setters are still exported from libmp3lame for binary
+ * back-compat, but their prototypes are guarded out of lame.h by
+ * DEPRECATED_OR_OBSOLETE_CODE_REMOVED, so they are declared here the same way
+ * test_set_get.c declares the deprecated stubs it covers. Without this the
+ * calls below are implicit declarations - a warning on some compilers and an
+ * error on others, which is how it was found. New code must not call them:
+ * they are tested only to pin the aliases the ABI still carries.
+ */
+extern int id3tag_set_textinfo_ucs2(lame_t gfp, char const *id,
+                                    unsigned short const *text);
+extern int id3tag_set_comment_ucs2(lame_t gfp, char const *lang,
+                                   unsigned short const *desc,
+                                   unsigned short const *text);
+extern int id3tag_set_fieldvalue_ucs2(lame_t gfp, const unsigned short *fieldvalue);
 
 /** Scratch buffer for an assembled tag; larger than any tag these tests make. */
 static unsigned char tagbuf[8192];
@@ -363,6 +388,514 @@ test_v2_playlength_beyond_32bit(void **state)
     assert_false(mem_contains(tagbuf, sz, "4294967295")); /* not the old clamp */
 }
 
+/* --- the genre list ---------------------------------------------------- */
+
+/**
+ * @brief Compare two genre names the way the genre list is ordered.
+ *
+ * Case-insensitive, and skipping everything that is not a letter or a digit.
+ * The second half is not a convenience: the list is sorted over the letters
+ * alone, so a plain comparison reports five inversions that are not
+ * inversions - "Classical" before "Classic Rock", "Eurodance" before
+ * "Euro-House", "Folklore" before "Folk-Rock", "Hardcore" before "Hard Rock",
+ * "Rave" before "R&B". Every one of them is in order once the space, hyphen
+ * or ampersand is dropped. Written locally rather than with strcasecmp, which
+ * is not available everywhere this builds.
+ */
+static int
+genre_name_cmp(const char *a, const char *b)
+{
+    for (;;) {
+        int ca, cb;
+        while (*a && !isalnum((unsigned char) *a))
+            ++a;
+        while (*b && !isalnum((unsigned char) *b))
+            ++b;
+        ca = *a ? tolower((unsigned char) *a) : 0;
+        cb = *b ? tolower((unsigned char) *b) : 0;
+        if (ca != cb)
+            return ca - cb;
+        if (ca == 0)
+            return 0;
+        ++a;
+        ++b;
+    }
+}
+
+/**
+ * @brief State for the id3tag_genre_list() callback.
+ *
+ * @p seen counts how often each genre number was reported, which is what lets
+ * the test assert the list is a *permutation* - every genre exactly once -
+ * rather than merely of the right length.
+ */
+#define GENRE_SEEN_MAX 512
+struct genre_probe {
+    int   calls;
+    int   seen[GENRE_SEEN_MAX];
+    int   out_of_range;
+    int   null_name;
+    int   out_of_order;
+    int   found_rock;
+    void *cookie_seen;
+    char  last[128];
+};
+
+static void
+genre_probe_handler(int num, const char *name, void *cookie)
+{
+    struct genre_probe *p = (struct genre_probe *) cookie;
+
+    p->cookie_seen = cookie;
+    ++p->calls;
+
+    if (num < 0 || num >= GENRE_SEEN_MAX)
+        p->out_of_range = 1;
+    else
+        ++p->seen[num];
+
+    if (name == NULL) {
+        p->null_name = 1;
+        return;
+    }
+    if (strcmp(name, "Rock") == 0)
+        p->found_rock = 1;
+    if (p->calls > 1 && genre_name_cmp(p->last, name) > 0)
+        p->out_of_order = 1;
+    strncpy(p->last, name, sizeof p->last - 1);
+    p->last[sizeof p->last - 1] = '\0';
+}
+
+/**
+ * @brief The genre list is enumerated once per genre, in alphabetical order.
+ *
+ * The count is asserted exactly rather than as a lower bound. 148 is the
+ * ID3v1 genre set plus the Winamp extensions, which is what the format
+ * defines; a change to it is a deliberate act and should have to update this
+ * line. The permutation check is the stronger half - it fails on a genre
+ * reported twice or skipped, which a count alone would not see.
+ */
+static void
+test_genre_list_enumerates_every_genre(void **state)
+{
+    struct genre_probe p;
+    int                i;
+    int                distinct = 0;
+
+    (void) state;               /* the list is not a property of an encoder */
+    memset(&p, 0, sizeof p);
+    id3tag_genre_list(genre_probe_handler, &p);
+
+    assert_int_equal(p.calls, 148);
+    assert_int_equal(p.out_of_range, 0);
+    assert_int_equal(p.null_name, 0);
+    assert_int_equal(p.out_of_order, 0);
+    assert_int_equal(p.found_rock, 1);
+    assert_ptr_equal(p.cookie_seen, &p);   /* the cookie arrives untouched */
+
+    for (i = 0; i < GENRE_SEEN_MAX; ++i) {
+        assert_true(p.seen[i] <= 1);       /* never reported twice */
+        distinct += p.seen[i];
+    }
+    assert_int_equal(distinct, p.calls);   /* ... and never skipped */
+}
+
+/** @brief A NULL handler is accepted and does nothing. */
+static void
+test_genre_list_null_handler(void **state)
+{
+    (void) state;
+    id3tag_genre_list(NULL, NULL);   /* must not crash */
+}
+
+/* --- resetting the tag state ------------------------------------------- */
+
+/**
+ * @brief id3tag_init() returns the instance to its initial tagging state.
+ *
+ * Checked by writing a second, different title afterwards and asking for the
+ * tag once: the new title must be there and the old one gone. Asking whether
+ * an emptied instance still emits a tag at all would test something else.
+ *
+ * The three fields that are not strings are what make this test worth having.
+ * The strings are released by the same helper lame_close() uses, so a test
+ * that only looked at those would still pass with the rest of the reset
+ * removed; the track number, the genre and the request for an ID3v2 tag are
+ * cleared by the reset alone, and are asserted here for that reason.
+ */
+static void
+test_init_discards_previous_fields(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    size_t sz;
+
+    id3tag_add_v2(gfp);
+    id3tag_set_title(gfp, "BeforeInit");
+    id3tag_set_artist(gfp, "BeforeArtist");
+    id3tag_set_year(gfp, "1999");
+    assert_int_equal(id3tag_set_track(gfp, "7"), 0);
+    assert_int_equal(id3tag_set_genre(gfp, "Rock"), 0);
+
+    sz = lame_get_id3v1_tag(gfp, tagbuf, sizeof tagbuf);
+    assert_int_equal(sz, 128);
+    assert_true(mem_contains(tagbuf, sz, "BeforeInit"));
+    assert_true(mem_contains(tagbuf, sz, "1999"));
+    assert_int_equal(tagbuf[126], 7);            /* ID3v1.1 track byte */
+    assert_int_not_equal(tagbuf[127], 255);      /* a genre was chosen */
+    assert_true(get_v2(gfp) > 10);
+
+    id3tag_init(gfp);
+
+    id3tag_set_title(gfp, "AfterInit");
+    sz = lame_get_id3v1_tag(gfp, tagbuf, sizeof tagbuf);
+    assert_int_equal(sz, 128);
+    assert_true(mem_contains(tagbuf, sz, "AfterInit"));
+    assert_false(mem_contains(tagbuf, sz, "BeforeInit"));
+    assert_false(mem_contains(tagbuf, sz, "BeforeArtist"));
+    assert_false(mem_contains(tagbuf, sz, "1999"));
+    assert_int_equal(tagbuf[126], 0);            /* no track number */
+    assert_int_equal(tagbuf[127], 255);          /* genre unset again */
+    assert_int_equal(get_v2(gfp), 0);            /* and no ID3v2 tag was asked for */
+}
+
+/* --- ID3v2.4 / UTF-8 selection ----------------------------------------- */
+
+/** @brief The ID3v2 header's version byte, or -1 if there is no tag. */
+static int
+v2_version_byte(lame_t gfp)
+{
+    size_t sz = get_v2(gfp);
+    if (sz < 4 || memcmp(tagbuf, "ID3", 3) != 0)
+        return -1;
+    return tagbuf[3];
+}
+
+/**
+ * @brief id3tag_add_v2_4_UTF8() selects version 2.4 and keeps the ID3v1 tag.
+ *
+ * The version is read out of the tag header rather than inferred, and the
+ * default is checked in the same test so that "it says 4" is known to be a
+ * consequence of the call and not of the format.
+ */
+static void
+test_add_v2_4_utf8_selects_version_4(void **state)
+{
+    lame_t plain = lame_init();
+    lame_t utf8 = (lame_t) *state;
+
+    assert_non_null(plain);
+    id3tag_add_v2(plain);
+    id3tag_set_title(plain, "T");
+    assert_int_equal(v2_version_byte(plain), 3);   /* the default */
+    lame_close(plain);
+
+    id3tag_add_v2_4_UTF8(utf8);
+    id3tag_set_title(utf8, "T");
+    assert_int_equal(v2_version_byte(utf8), 4);
+
+    /* documented: the ID3v1 tag is unaffected */
+    assert_int_equal(lame_get_id3v1_tag(utf8, tagbuf, sizeof tagbuf), 128);
+}
+
+/** @brief id3tag_v2_4_UTF8_only() selects version 2.4 and drops the v1 tag. */
+static void
+test_v2_4_utf8_only_suppresses_v1(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+
+    id3tag_v2_4_UTF8_only(gfp);
+    id3tag_set_title(gfp, "T");
+    assert_int_equal(v2_version_byte(gfp), 4);
+    assert_int_equal(lame_get_id3v1_tag(gfp, tagbuf, sizeof tagbuf), 0);
+}
+
+/* --- ID3v1 field padding ----------------------------------------------- */
+
+/** @brief Count the bytes equal to @p c in tagbuf[from, to). */
+static int
+count_byte(size_t from, size_t to, unsigned char c)
+{
+    int    n = 0;
+    size_t i;
+    for (i = from; i < to; ++i)
+        if (tagbuf[i] == c)
+            ++n;
+    return n;
+}
+
+/**
+ * @brief id3tag_space_v1() fills the unused ID3v1 bytes with spaces.
+ *
+ * The title occupies bytes 3..32 of the 128-byte block. A three-character
+ * title leaves 27 bytes, and the two builds are compared against each other so
+ * the assertion is about the call and not about a guess at the layout.
+ */
+static void
+test_space_v1_pads_with_spaces(void **state)
+{
+    lame_t spaced = (lame_t) *state;
+    lame_t plain = lame_init();
+
+    assert_non_null(plain);
+    id3tag_set_title(plain, "V1T");
+    assert_int_equal(lame_get_id3v1_tag(plain, tagbuf, sizeof tagbuf), 128);
+    assert_int_equal(count_byte(6, 33, 0x00), 27);
+    assert_int_equal(count_byte(6, 33, 0x20), 0);
+    lame_close(plain);
+
+    id3tag_space_v1(spaced);
+    id3tag_set_title(spaced, "V1T");
+    assert_int_equal(lame_get_id3v1_tag(spaced, tagbuf, sizeof tagbuf), 128);
+    assert_int_equal(count_byte(6, 33, 0x20), 27);
+    assert_int_equal(count_byte(6, 33, 0x00), 0);
+}
+
+/** @brief id3tag_space_v1() also cancels a previous id3tag_v2_only(). */
+static void
+test_space_v1_cancels_v2_only(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+
+    id3tag_v2_only(gfp);
+    id3tag_space_v1(gfp);
+    id3tag_set_title(gfp, "V1T");
+    assert_int_equal(lame_get_id3v1_tag(gfp, tagbuf, sizeof tagbuf), 128);
+}
+
+/* --- ID3v2 padding ----------------------------------------------------- */
+
+/**
+ * @brief id3tag_pad_v2() is id3tag_set_pad() with the documented 128 bytes.
+ *
+ * Asserted as an equivalence between two instances rather than as a size, so
+ * the test says what the function promises and does not also pin the size of
+ * an ordinary tag.
+ */
+static void
+test_pad_v2_equals_set_pad_128(void **state)
+{
+    lame_t implicit = (lame_t) *state;
+    lame_t explicit_ = lame_init();
+    unsigned char other[sizeof tagbuf];
+    size_t sa, sb;
+
+    assert_non_null(explicit_);
+    id3tag_add_v2(explicit_);
+    id3tag_set_title(explicit_, "PadTitle");
+    id3tag_set_pad(explicit_, 128);
+    sb = lame_get_id3v2_tag(explicit_, other, sizeof other);
+    lame_close(explicit_);
+
+    id3tag_add_v2(implicit);
+    id3tag_set_title(implicit, "PadTitle");
+    id3tag_pad_v2(implicit);
+    sa = get_v2(implicit);
+
+    assert_true(sa > 10);
+    assert_int_equal(sa, sb);
+    assert_memory_equal(tagbuf, other, sa);
+}
+
+/* --- comments ---------------------------------------------------------- */
+
+/** @brief The simple comment setter writes a COMM frame with the text. */
+static void
+test_set_comment_writes_comm(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    size_t sz;
+
+    id3tag_add_v2(gfp);
+    id3tag_set_comment(gfp, "PlainComment");
+    sz = get_v2(gfp);
+    assert_true(mem_contains(tagbuf, sz, "COMM"));
+    assert_true(mem_contains(tagbuf, sz, "PlainComment"));
+
+    /* the ID3v1 tag carries it too, in the comment field */
+    sz = lame_get_id3v1_tag(gfp, tagbuf, sizeof tagbuf);
+    assert_int_equal(sz, 128);
+    assert_true(mem_contains(tagbuf, sz, "PlainComment"));
+}
+
+/** @brief The Latin-1 comment setter records the language and description. */
+static void
+test_set_comment_latin1(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    size_t sz;
+
+    id3tag_add_v2(gfp);
+    assert_int_equal(id3tag_set_comment_latin1(gfp, "deu", "Beschreibung", "Kommentar"), 0);
+    sz = get_v2(gfp);
+    assert_true(mem_contains(tagbuf, sz, "COMM"));
+    assert_true(mem_contains(tagbuf, sz, "deu"));
+    assert_true(mem_contains(tagbuf, sz, "Beschreibung"));
+    assert_true(mem_contains(tagbuf, sz, "Kommentar"));
+}
+
+/* --- the deprecated UCS-2 aliases -------------------------------------- */
+
+/*
+ * Each is documented as an alias for the UTF-16 setter of the same name. The
+ * contract is therefore not "it writes a frame" but "it writes exactly what
+ * the other one writes", so each test builds the same tag twice - once through
+ * the alias, once through its target - and compares the two byte for byte. A
+ * test that only looked for the frame would pass on an alias wired to the
+ * wrong function.
+ */
+
+/** @brief id3tag_set_textinfo_ucs2() == id3tag_set_textinfo_utf16(). */
+static void
+test_textinfo_ucs2_matches_utf16(void **state)
+{
+    static const unsigned short text[] = { 0xFEFF, 'A','l','i','a','s', 0 };
+    lame_t viaucs2 = (lame_t) *state;
+    lame_t viautf16 = lame_init();
+    unsigned char other[sizeof tagbuf];
+    size_t sa, sb;
+
+    assert_non_null(viautf16);
+    id3tag_add_v2(viautf16);
+    assert_int_equal(id3tag_set_textinfo_utf16(viautf16, "TALB", text), 0);
+    sb = lame_get_id3v2_tag(viautf16, other, sizeof other);
+    lame_close(viautf16);
+
+    id3tag_add_v2(viaucs2);
+    assert_int_equal(id3tag_set_textinfo_ucs2(viaucs2, "TALB", text), 0);
+    sa = get_v2(viaucs2);
+
+    assert_true(sa > 10);
+    assert_int_equal(sa, sb);
+    assert_memory_equal(tagbuf, other, sa);
+}
+
+/** @brief id3tag_set_comment_ucs2() == id3tag_set_comment_utf16(). */
+static void
+test_comment_ucs2_matches_utf16(void **state)
+{
+    static const unsigned short desc[] = { 0xFEFF, 'D', 0 };
+    static const unsigned short text[] = { 0xFEFF, 'H','i', 0 };
+    lame_t viaucs2 = (lame_t) *state;
+    lame_t viautf16 = lame_init();
+    unsigned char other[sizeof tagbuf];
+    size_t sa, sb;
+
+    assert_non_null(viautf16);
+    id3tag_add_v2(viautf16);
+    assert_int_equal(id3tag_set_comment_utf16(viautf16, "eng", desc, text), 0);
+    sb = lame_get_id3v2_tag(viautf16, other, sizeof other);
+    lame_close(viautf16);
+
+    id3tag_add_v2(viaucs2);
+    assert_int_equal(id3tag_set_comment_ucs2(viaucs2, "eng", desc, text), 0);
+    sa = get_v2(viaucs2);
+
+    assert_true(sa > 10);
+    assert_int_equal(sa, sb);
+    assert_memory_equal(tagbuf, other, sa);
+}
+
+/** @brief id3tag_set_fieldvalue_ucs2() == id3tag_set_fieldvalue_utf16(). */
+static void
+test_fieldvalue_ucs2_matches_utf16(void **state)
+{
+    static const unsigned short fv[] = {
+        0xFEFF, 'T','I','T','2','=','U','C','S','2', 0
+    };
+    lame_t viaucs2 = (lame_t) *state;
+    lame_t viautf16 = lame_init();
+    unsigned char other[sizeof tagbuf];
+    size_t sa, sb;
+
+    assert_non_null(viautf16);
+    id3tag_add_v2(viautf16);
+    assert_int_equal(id3tag_set_fieldvalue_utf16(viautf16, fv), 0);
+    sb = lame_get_id3v2_tag(viautf16, other, sizeof other);
+    lame_close(viautf16);
+
+    id3tag_add_v2(viaucs2);
+    assert_int_equal(id3tag_set_fieldvalue_ucs2(viaucs2, fv), 0);
+    sa = get_v2(viaucs2);
+
+    assert_true(sa > 10);
+    assert_int_equal(sa, sb);
+    assert_memory_equal(tagbuf, other, sa);
+}
+
+/* --- the Latin-1 text-frame setter ------------------------------------- */
+
+/**
+ * @brief id3tag_set_textinfo_latin1() writes the named frame, and refuses.
+ *
+ * Both documented refusals are exercised: an identifier that is not a valid
+ * frame id, and a valid identifier for a frame this function cannot write.
+ */
+static void
+test_textinfo_latin1(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    size_t sz;
+
+    id3tag_add_v2(gfp);
+    assert_int_equal(id3tag_set_textinfo_latin1(gfp, "TPE1", "Latin1Artist"), 0);
+    sz = get_v2(gfp);
+    assert_true(mem_contains(tagbuf, sz, "TPE1"));
+    assert_true(mem_contains(tagbuf, sz, "Latin1Artist"));
+
+    assert_int_equal(id3tag_set_textinfo_latin1(gfp, "??", "x"), -1);    /* not an id */
+    assert_int_equal(id3tag_set_textinfo_latin1(gfp, "APIC", "x"), -255); /* not writable here */
+    assert_int_equal(id3tag_set_textinfo_latin1(gfp, "TPE1", NULL), 0);  /* NULL: no-op */
+}
+
+/* --- the track number --------------------------------------------------- */
+
+/**
+ * @brief id3tag_set_track() reports only whether ID3v1 could hold the number.
+ *
+ * The documented catch: a number ID3v1 cannot express returns -1 while still
+ * being written to the ID3v2 frame, so -1 is not a failure. Byte 126 of the
+ * ID3v1 block is the ID3v1.1 track byte, which is where the fitting case has
+ * to show up.
+ */
+static void
+test_set_track(void **state)
+{
+    lame_t inrange = (lame_t) *state;
+    lame_t toobig = lame_init();
+    size_t sz;
+
+    assert_int_equal(id3tag_set_track(inrange, "5"), 0);
+    sz = lame_get_id3v1_tag(inrange, tagbuf, sizeof tagbuf);
+    assert_int_equal(sz, 128);
+    assert_int_equal(tagbuf[126], 5);
+
+    assert_non_null(toobig);
+    assert_int_equal(id3tag_set_track(toobig, "300"), -1);  /* past ID3v1's byte */
+    sz = lame_get_id3v2_tag(toobig, tagbuf, sizeof tagbuf);
+    assert_true(mem_contains(tagbuf, sz, "TRCK"));          /* ... but written */
+    assert_true(mem_contains(tagbuf, sz, "300"));
+    lame_close(toobig);
+}
+
+/** @brief The "number/total" form keeps the total in the ID3v2 frame. */
+static void
+test_set_track_with_total(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    size_t sz;
+
+    id3tag_add_v2(gfp);
+    assert_int_equal(id3tag_set_track(gfp, "3/12"), 0);
+    sz = get_v2(gfp);
+    assert_true(mem_contains(tagbuf, sz, "TRCK"));
+    assert_true(mem_contains(tagbuf, sz, "3/12"));
+
+    /* ID3v1 has room for the number alone */
+    sz = lame_get_id3v1_tag(gfp, tagbuf, sizeof tagbuf);
+    assert_int_equal(sz, 128);
+    assert_int_equal(tagbuf[126], 3);
+}
+
 /* --- fixture ----------------------------------------------------------- */
 
 /** @brief Per-test fixture: fresh lame_t into @p state. */
@@ -408,6 +941,22 @@ main(void)
         ID3_TEST(test_v2_albumart_over_synchsafe_limit_rejected),
         ID3_TEST(test_v2_size_within_limit_written),
         ID3_TEST(test_v2_playlength_beyond_32bit),
+        ID3_TEST(test_genre_list_enumerates_every_genre),
+        ID3_TEST(test_genre_list_null_handler),
+        ID3_TEST(test_init_discards_previous_fields),
+        ID3_TEST(test_add_v2_4_utf8_selects_version_4),
+        ID3_TEST(test_v2_4_utf8_only_suppresses_v1),
+        ID3_TEST(test_space_v1_pads_with_spaces),
+        ID3_TEST(test_space_v1_cancels_v2_only),
+        ID3_TEST(test_pad_v2_equals_set_pad_128),
+        ID3_TEST(test_set_comment_writes_comm),
+        ID3_TEST(test_set_comment_latin1),
+        ID3_TEST(test_textinfo_ucs2_matches_utf16),
+        ID3_TEST(test_comment_ucs2_matches_utf16),
+        ID3_TEST(test_fieldvalue_ucs2_matches_utf16),
+        ID3_TEST(test_textinfo_latin1),
+        ID3_TEST(test_set_track),
+        ID3_TEST(test_set_track_with_total),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
