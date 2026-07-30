@@ -95,6 +95,9 @@
     <ClCompile Include="..\libmp3lame\vector\avx512_quantize_lines.c">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="..\libmp3lame\vector\avx512_calc_sfb_noise.c">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\libmp3lame\bitstream.h">

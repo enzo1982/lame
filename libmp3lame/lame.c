@@ -1404,6 +1404,9 @@ lame_print_config(const lame_global_flags * gfp)
     if (vector_implementation(gfc) >= VECTOR_IMPL_AVX512
         && vector_avx512_choose_table_experiment())
         MSGF(gfc, "experimental: AVX-512 Huffman table search enabled\n");
+    if (vector_implementation(gfc) >= VECTOR_IMPL_AVX512
+        && vector_avx512_sfb_noise_experiment())
+        MSGF(gfc, "experimental: AVX-512 band noise estimate enabled\n");
 #endif
 #endif
     {

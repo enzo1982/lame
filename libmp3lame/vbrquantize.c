@@ -222,6 +222,9 @@ k_34_4(DOUBLEX x[4], int l3[4])
  * back their cost.  Taken from that histogram, not tuned.
  */
 #define CALC_SFB_NOISE_VECTOR_MIN      8
+/* One full pass of the wider tier.  Below this the masked form has nothing to
+   win over the narrower one and still pays to enter the wide registers. */
+#define CALC_SFB_NOISE_VECTOR_MIN_AVX512 16
 
 /** @internal
  * Only an SSE2 tier: an AVX2 version was written and measured, and it adds
@@ -249,6 +252,14 @@ calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, unsigned int bw, uint8_
 #if !TAKEHIRO_IEEE754_HACK
 #if defined( HAVE_SSE2_INTRINSICS )
     if (impl >= VECTOR_IMPL_SSE2 && bw >= CALC_SFB_NOISE_VECTOR_MIN) {
+# if defined( HAVE_AVX512_INTRINSICS )
+        /* Off unless the experiment is switched on: this routine was measured
+           slower than the narrower one and dropped, and it is back only to be
+           measured again alongside the table search. */
+        if (impl >= VECTOR_IMPL_AVX512 && bw >= CALC_SFB_NOISE_VECTOR_MIN_AVX512
+            && vector_avx512_sfb_noise_experiment())
+            return calc_sfb_noise_x34_avx512(xr, xr34, bw, sfpow, sfpow34, adj43, pow43);
+# endif
         return calc_sfb_noise_x34_sse2(xr, xr34, bw, sfpow, sfpow34, adj43, pow43);
     }
 #endif

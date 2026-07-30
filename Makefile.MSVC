@@ -461,6 +461,7 @@ lamelib_sources = \
 	libmp3lame/vector/xmm_calc_sfb_noise.c \
 	libmp3lame/vector/avx512_choose_table.c \
 	libmp3lame/vector/avx512_quantize_lines.c \
+	libmp3lame/vector/avx512_calc_sfb_noise.c \
 	libmp3lame/set_get.c \
 	libmp3lame/vbrquantize.c \
 	libmp3lame/reservoir.c \

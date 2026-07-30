@@ -212,9 +212,12 @@ if WITH_AVX512
 test_quantize_lines_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
 endif
 
-# The VBR scalefactor-band noise gets the same arrangement, but deliberately no
-# AVX-512 line: that tier was written, measured and rejected, so there is no
-# liblamevectoravx512 contribution here to link.  See @ref vector_dispatch.
+# The VBR scalefactor-band noise gets the same arrangement. Its AVX-512 form is
+# linked and tested although the encoder only reaches it when the experiment is
+# switched on: the test is about whether the routine computes the right value,
+# which is a separate question from whether it is worth running, and the answer
+# to the first has to be known before the second can be asked. See
+# @ref vector_dispatch.
 test_calc_sfb_noise_vector_SOURCES = test_calc_sfb_noise_vector.c
 test_calc_sfb_noise_vector_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/libmp3lame \
@@ -225,6 +228,9 @@ test_calc_sfb_noise_vector_LDADD = $(CMOCKA_LIBS) \
 	-lm
 if WITH_AVX2
 test_calc_sfb_noise_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
+endif
+if WITH_AVX512
+test_calc_sfb_noise_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
 endif
 endif
 

@@ -440,18 +440,45 @@ through @c noquant_count_bits(), which @c vbrquantize.c calls as well, so
 switching this on changes which code a @c -V encode runs too. Both modes want
 measuring.
 
-That also puts a question mark next to a decision recorded above.
-@c calc_sfb_noise_x34() was rejected for @c -V partly because its AVX-512 form
-ran 6.6% slower than the narrower code. As a comparison that is sound &mdash;
-both arms had the same table search, which in neither case executed &mdash; and
-the other half of the rejection, that widening the sum is not bit-exact, does
-not depend on speed at all and stands by itself. But the two are not
-independent on real hardware: 512-bit instructions can pull the core clock
-down, and a routine that is the only 512-bit code in an encode pays that on its
-own, where one running alongside an already-512-bit table search does not. If
-this experiment ever becomes the default, that measurement is worth taking again
-before the number is quoted again &mdash; it was made in a @c -V encode where
-nothing else was 512 bits wide.
+That also puts a question mark next to a decision recorded above, and it is why
+there is a second switch.
+
+@c calc_sfb_noise_x34_avx512() was written, measured at 6.6% slower than the
+narrower code on a @c -V2 encode, and dropped. As a comparison that measurement
+is sound &mdash; both arms had the same table search, which in neither case
+executed &mdash; but the two routines are not independent on real hardware:
+512-bit instructions can pull the core clock down, and a routine that is the
+only 512-bit code in an encode pays that on its own, where one running alongside
+an already-512-bit table search does not. The number was taken in a @c -V encode
+where nothing else was 512 bits wide, and there is now a configuration in which
+something else is.
+
+So the routine is back, under <b>@c LAME_AVX512_SFB_NOISE</b>, on the same two
+conditions as the other switch and off by default. Note what it is <em>not</em>
+back for: it is not being un-rejected, and nothing about it is enabled in any
+build a user can get. It is there so that the pair can be measured as a pair.
+
+<b>Its default form is bit-exact.</b> It quantizes four blocks at a time but
+folds their sums in one at a time in the pinned association, so it computes the
+value the SSE2 tier computes; the freely-reducing form is a separate build,
+@c LAME_AVX512_UNSAFE_REDUCTION, and is not what this switch selects. A tester
+should therefore expect identical output with the switch on and off, and report
+it if the files differ &mdash; that would be a defect, not a trade-off.
+
+@subsection vector_dispatch_avx512_arms What to measure
+
+Three runs on the same file, same settings, both @c -b @c 320 and @c -V:
+
+<ol>
+<li>neither variable set &mdash; the baseline the tier ships as;</li>
+<li>@c LAME_AVX512_CHOOSE_TABLE=1 alone &mdash; the table search, which is used
+by constant <em>and</em> variable bitrate;</li>
+<li>both variables set &mdash; the pair, which is the only arm that can show the
+interaction.</li>
+</ol>
+
+Each run's @c --verbose header names the experiments it actually took, and a run
+whose header does not name them did not measure them.
 
 @section vector_dispatch_gaps The shapes of the gaps
 

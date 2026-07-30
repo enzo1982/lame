@@ -1093,13 +1093,48 @@ has_NEON(void)
  *
  * @return nonzero if the experimental path should be used.
  */
+#if defined( HAVE_AVX512_INTRINSICS ) && LAME_ALPHA_VERSION
+/* Set, not empty, and not the single character "0".  Inside the same guard as
+   its callers so that a build without the experiments has no unused static. */
+static int
+env_switch_on(const char *name)
+{
+    const char *const v = getenv(name);
+
+    return v != 0 && v[0] != '\0' && !(v[0] == '0' && v[1] == '\0');
+}
+#endif
+
 int
 vector_avx512_choose_table_experiment(void)
 {
 #if defined( HAVE_AVX512_INTRINSICS ) && LAME_ALPHA_VERSION
-    const char *const v = getenv("LAME_AVX512_CHOOSE_TABLE");
+    return env_switch_on("LAME_AVX512_CHOOSE_TABLE");
+#else
+    return 0;
+#endif
+}
 
-    return v != 0 && v[0] != '\0' && !(v[0] == '0' && v[1] == '\0');
+/** @internal
+ * Whether the experimental AVX-512 scalefactor-band noise estimate is switched
+ * on.  The second half of the same experiment, under the same two conditions
+ * and one more variable - see @ref vector_dispatch.
+ *
+ * This one is a re-run of a decision rather than a first measurement: the
+ * routine was written, measured at 6.6% slower than the narrower code on a
+ * variable-bitrate encode, and dropped.  What that measurement could not
+ * account for is that it was taken with nothing else in the encode executing
+ * 512-bit instructions, because the table-search kernels above were unreachable
+ * at the time.  Whether the two together behave like the sum of their parts is
+ * the question the pair of switches exists to answer.
+ *
+ * @return nonzero if the experimental routine should be used.
+ */
+int
+vector_avx512_sfb_noise_experiment(void)
+{
+#if defined( HAVE_AVX512_INTRINSICS ) && LAME_ALPHA_VERSION
+    return env_switch_on("LAME_AVX512_SFB_NOISE");
 #else
     return 0;
 #endif

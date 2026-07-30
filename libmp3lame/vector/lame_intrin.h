@@ -171,5 +171,20 @@ calc_sfb_noise_x34_sse2(const FLOAT *xr, const FLOAT *xr34, unsigned int bw,
                         FLOAT sfpow, FLOAT sfpow34, const FLOAT *adj,
                         const FLOAT *pw43);
 
+/* Same contract and, by default, the same last bit: the wider form quantizes
+ * four blocks at a time but folds their sums in one at a time, in the pinned
+ * association, so it computes the value the SSE2 tier and the C code compute.
+ * Built with LAME_AVX512_UNSAFE_REDUCTION it reduces freely instead, which is
+ * faster and no longer bit-exact - that build exists to measure the difference,
+ * not to ship.
+ *
+ * Reached only when the experiment is switched on; see
+ * vector_avx512_sfb_noise_experiment() and @ref vector_dispatch.
+ */
+FLOAT
+calc_sfb_noise_x34_avx512(const FLOAT *xr, const FLOAT *xr34, unsigned int bw,
+                          FLOAT sfpow, FLOAT sfpow34, const FLOAT *adj,
+                          const FLOAT *pw43);
+
 
 #endif

@@ -34,7 +34,8 @@ DEFS = @DEFS@ @CONFIG_DEFS@
 xmm_sources = xmm_quantize_sub.c xmm_choose_table.c xmm_quantize_lines.c \
 	xmm_calc_sfb_noise.c
 avx2_sources = avx2_choose_table.c avx2_quantize_lines.c
-avx512_sources = avx512_choose_table.c avx512_quantize_lines.c
+avx512_sources = avx512_choose_table.c avx512_quantize_lines.c \
+	avx512_calc_sfb_noise.c
 neon_sources = neon_choose_table.c
 
 if WITH_XMM

@@ -132,9 +132,10 @@ liblamevectoravx2_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 @WITH_AVX2_TRUE@@WITH_XMM_TRUE@am_liblamevectoravx2_la_rpath =
 liblamevectoravx512_la_LIBADD =
 am__liblamevectoravx512_la_SOURCES_DIST = avx512_choose_table.c \
-	avx512_quantize_lines.c
+	avx512_quantize_lines.c avx512_calc_sfb_noise.c
 am__objects_2 = liblamevectoravx512_la-avx512_choose_table.lo \
-	liblamevectoravx512_la-avx512_quantize_lines.lo
+	liblamevectoravx512_la-avx512_quantize_lines.lo \
+	liblamevectoravx512_la-avx512_calc_sfb_noise.lo
 @WITH_AVX512_TRUE@@WITH_XMM_TRUE@am_liblamevectoravx512_la_OBJECTS =  \
 @WITH_AVX512_TRUE@@WITH_XMM_TRUE@	$(am__objects_2)
 liblamevectoravx512_la_OBJECTS = $(am_liblamevectoravx512_la_OBJECTS)
@@ -186,6 +187,7 @@ am__maybe_remake_depfiles = depfiles
 am__depfiles_remade =  \
 	./$(DEPDIR)/liblamevectoravx2_la-avx2_choose_table.Plo \
 	./$(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Plo \
+	./$(DEPDIR)/liblamevectoravx512_la-avx512_calc_sfb_noise.Plo \
 	./$(DEPDIR)/liblamevectoravx512_la-avx512_choose_table.Plo \
 	./$(DEPDIR)/liblamevectoravx512_la-avx512_quantize_lines.Plo \
 	./$(DEPDIR)/liblamevectorneon_la-neon_choose_table.Plo \
@@ -435,7 +437,9 @@ xmm_sources = xmm_quantize_sub.c xmm_choose_table.c xmm_quantize_lines.c \
 	xmm_calc_sfb_noise.c
 
 avx2_sources = avx2_choose_table.c avx2_quantize_lines.c
-avx512_sources = avx512_choose_table.c avx512_quantize_lines.c
+avx512_sources = avx512_choose_table.c avx512_quantize_lines.c \
+	avx512_calc_sfb_noise.c
+
 neon_sources = neon_choose_table.c
 @WITH_XMM_TRUE@liblamevectorroutines_la_SOURCES = $(xmm_sources)
 @WITH_XMM_TRUE@liblamevectorroutines_la_CFLAGS = $(AM_CFLAGS) @VECTOR_SSE2_FLAGS@
@@ -528,6 +532,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectoravx2_la-avx2_choose_table.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Plo@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectoravx512_la-avx512_calc_sfb_noise.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectoravx512_la-avx512_choose_table.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectoravx512_la-avx512_quantize_lines.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/liblamevectorneon_la-neon_choose_table.Plo@am__quote@ # am--include-marker
@@ -590,6 +595,13 @@ liblamevectoravx512_la-avx512_quantize_lines.lo: avx512_quantize_lines.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='avx512_quantize_lines.c' object='liblamevectoravx512_la-avx512_quantize_lines.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectoravx512_la_CFLAGS) $(CFLAGS) -c -o liblamevectoravx512_la-avx512_quantize_lines.lo `test -f 'avx512_quantize_lines.c' || echo '$(srcdir)/'`avx512_quantize_lines.c
+
+liblamevectoravx512_la-avx512_calc_sfb_noise.lo: avx512_calc_sfb_noise.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectoravx512_la_CFLAGS) $(CFLAGS) -MT liblamevectoravx512_la-avx512_calc_sfb_noise.lo -MD -MP -MF $(DEPDIR)/liblamevectoravx512_la-avx512_calc_sfb_noise.Tpo -c -o liblamevectoravx512_la-avx512_calc_sfb_noise.lo `test -f 'avx512_calc_sfb_noise.c' || echo '$(srcdir)/'`avx512_calc_sfb_noise.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/liblamevectoravx512_la-avx512_calc_sfb_noise.Tpo $(DEPDIR)/liblamevectoravx512_la-avx512_calc_sfb_noise.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='avx512_calc_sfb_noise.c' object='liblamevectoravx512_la-avx512_calc_sfb_noise.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectoravx512_la_CFLAGS) $(CFLAGS) -c -o liblamevectoravx512_la-avx512_calc_sfb_noise.lo `test -f 'avx512_calc_sfb_noise.c' || echo '$(srcdir)/'`avx512_calc_sfb_noise.c
 
 liblamevectorneon_la-neon_choose_table.lo: neon_choose_table.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(liblamevectorneon_la_CFLAGS) $(CFLAGS) -MT liblamevectorneon_la-neon_choose_table.lo -MD -MP -MF $(DEPDIR)/liblamevectorneon_la-neon_choose_table.Tpo -c -o liblamevectorneon_la-neon_choose_table.lo `test -f 'neon_choose_table.c' || echo '$(srcdir)/'`neon_choose_table.c
@@ -760,6 +772,7 @@ clean-am: clean-generic clean-libtool clean-noinstLTLIBRARIES \
 distclean: distclean-am
 	-rm -f ./$(DEPDIR)/liblamevectoravx2_la-avx2_choose_table.Plo
 	-rm -f ./$(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Plo
+	-rm -f ./$(DEPDIR)/liblamevectoravx512_la-avx512_calc_sfb_noise.Plo
 	-rm -f ./$(DEPDIR)/liblamevectoravx512_la-avx512_choose_table.Plo
 	-rm -f ./$(DEPDIR)/liblamevectoravx512_la-avx512_quantize_lines.Plo
 	-rm -f ./$(DEPDIR)/liblamevectorneon_la-neon_choose_table.Plo
@@ -814,6 +827,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/liblamevectoravx2_la-avx2_choose_table.Plo
 	-rm -f ./$(DEPDIR)/liblamevectoravx2_la-avx2_quantize_lines.Plo
+	-rm -f ./$(DEPDIR)/liblamevectoravx512_la-avx512_calc_sfb_noise.Plo
 	-rm -f ./$(DEPDIR)/liblamevectoravx512_la-avx512_choose_table.Plo
 	-rm -f ./$(DEPDIR)/liblamevectoravx512_la-avx512_quantize_lines.Plo
 	-rm -f ./$(DEPDIR)/liblamevectorneon_la-neon_choose_table.Plo

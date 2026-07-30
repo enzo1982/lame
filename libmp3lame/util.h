@@ -644,6 +644,7 @@ extern  "C" {
        util.c and @ref vector_dispatch. Grep for the name to find every part
        of the experiment. */
     extern int vector_avx512_choose_table_experiment(void);
+    extern int vector_avx512_sfb_noise_experiment(void);
 
 /* The request stored in lame_global_flags: a vector_impl_t value, or this,
    meaning "whatever the machine offers".  It is not a vector_impl_t member
