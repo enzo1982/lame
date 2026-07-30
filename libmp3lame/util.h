@@ -542,14 +542,13 @@ extern  "C" {
         uint16_t _unused;
 
         /* CPU features */
+        /* Only what the encoder dispatches on.  A feature nothing selects on
+           has no bit here: it could only ever be reported, and a report of a
+           capability the library will not use is what this replaced. */
         struct {
-            unsigned int MMX:1; /* Pentium MMX, Pentium II...IV, K6, K6-2,
-                                   K6-III, Athlon */
-            unsigned int AMD_3DNow:1; /* K6-2, K6-III, Athlon      */
-            unsigned int SSE:1; /* Pentium III, Pentium 4    */
             unsigned int SSE2:1; /* Pentium 4, K8             */
             unsigned int AVX2:1; /* Haswell, Excavator        */
-            unsigned int _unused:27;
+            unsigned int _unused:30;
         } CPU_features;
 
         /* Which vector routines this instance runs.  Decided once, in
@@ -621,9 +620,6 @@ extern  "C" {
                                    size_t len, sample_t pcm_l[], sample_t pcm_r[]);
 
 
-    extern int has_MMX(void);
-    extern int has_3DNow(void);
-    extern int has_SSE(void);
     extern int has_SSE2(void);
     extern int has_AVX2(void);
 
@@ -658,6 +654,7 @@ extern  "C" {
     extern vector_impl_t vector_implementation(lame_internal_flags const *gfc);
     extern const char *vector_impl_name(vector_impl_t impl);
     extern const char *vector_impl_display(const char *name, char *buf, size_t size);
+    extern const char *vector_impl_available_list(char *buf, size_t size);
 
 
 

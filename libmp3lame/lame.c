@@ -636,25 +636,13 @@ lame_init_params(lame_global_flags * gfp)
     gfc->report_dbg = gfp->report.debugf;
     gfc->report_err = gfp->report.errorf;
 
-    if (gfp->asm_optimizations.amd3dnow)
-        gfc->CPU_features.AMD_3DNow = has_3DNow();
-    else
-        gfc->CPU_features.AMD_3DNow = 0;
-
-    if (gfp->asm_optimizations.mmx)
-        gfc->CPU_features.MMX = has_MMX();
-    else
-        gfc->CPU_features.MMX = 0;
-
     if (gfp->asm_optimizations.sse) {
-        gfc->CPU_features.SSE = has_SSE();
         gfc->CPU_features.SSE2 = has_SSE2();
         /* AVX2 sits on top of SSE2, so it can be disabled on its own while the
            SSE2 tier stays; disabling SSE removes the whole group above. */
         gfc->CPU_features.AVX2 = gfp->asm_optimizations.avx2 ? has_AVX2() : 0;
     }
     else {
-        gfc->CPU_features.SSE = 0;
         gfc->CPU_features.SSE2 = 0;
         gfc->CPU_features.AVX2 = 0;
     }
@@ -1354,13 +1342,6 @@ lame_init_params(lame_global_flags * gfp)
     return 0;
 }
 
-static void
-concatSep(char* dest, char const* sep, char const* str)
-{
-    if (*dest != 0) strcat(dest, sep);
-    strcat(dest, str);
-}
-
 /*! Report the encoding parameters that were settled on. */
 /*!
   Writes a short human-readable summary - version, CPU features in use, input
@@ -1389,32 +1370,22 @@ lame_print_config(const lame_global_flags * gfp)
 #if (LAME_ALPHA_VERSION)
     MSGF(gfc, "warning: alpha versions should be used for testing only\n");
 #endif
-    if (gfc->CPU_features.MMX
-        || gfc->CPU_features.AMD_3DNow || gfc->CPU_features.SSE || gfc->CPU_features.SSE2
-        || gfc->CPU_features.AVX2) {
-        char    text[256] = { 0 };
-        vector_impl_t const vector_impl = vector_implementation(gfc);
-        if (gfc->CPU_features.MMX) {
-            concatSep(text, ", ", "MMX");
-        }
-        if (gfc->CPU_features.AMD_3DNow) {
-            concatSep(text, ", ", "3DNow!");
-        }
-        if (gfc->CPU_features.SSE) {
-            concatSep(text, ", ", "SSE");
-        }
-        if (gfc->CPU_features.SSE2) {
-            concatSep(text, ", ", "SSE2");
-        }
-        if (gfc->CPU_features.AVX2) {
-            concatSep(text, ", ", "AVX2");
-        }
-        MSGF(gfc, "CPU features: %s\n", text);
-        if (vector_impl != VECTOR_IMPL_NONE) {
-            char    disp[VECTOR_IMPL_NAME_MAX];
-            MSGF(gfc, "vector routines: %s\n",
-                 vector_impl_display(vector_impl_name(vector_impl), disp, sizeof disp));
-        }
+    {
+        char    text[256];
+        char    disp[VECTOR_IMPL_NAME_MAX];
+
+        /* What could be selected here, rather than what the processor
+           happens to carry: a set this build does not have is not a choice,
+           and reporting it invites the question of why it was not used. */
+        if (vector_impl_available_list(text, sizeof text)[0] != '\0')
+            MSGF(gfc, "CPU features: %s\n", text);
+
+        /* Always printed, "NONE" included. It answers "which set did this
+           encode run", and no line at all would be indistinguishable from a
+           version that does not report it. */
+        MSGF(gfc, "vector routines: %s\n",
+             vector_impl_display(vector_impl_name(vector_implementation(gfc)),
+                                 disp, sizeof disp));
     }
 
     if (cfg->channels_in == 2 && cfg->channels_out == 1 /* mono */ ) {
@@ -2677,8 +2648,6 @@ lame_init_old(lame_global_flags * gfp)
     gfp->findReplayGain = 0;
     gfp->decode_on_the_fly = 0;
 
-    gfp->asm_optimizations.mmx = 1;
-    gfp->asm_optimizations.amd3dnow = 1;
     gfp->asm_optimizations.sse = 1;
     gfp->asm_optimizations.avx2 = 1;
     gfp->vector_routines_request = VECTOR_IMPL_AUTO;

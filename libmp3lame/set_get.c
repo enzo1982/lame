@@ -3991,6 +3991,11 @@ lame_set_preset(lame_global_flags * gfp, int preset)
   \c SSE removes \c AVX2 with it, while forbidding \c AVX2 alone leaves the
   SSE tier in place.
 
+  \c MMX and \c AMD_3DNOW are the exception: this library contains no MMX or
+  3DNow! code, so there is nothing for them to allow or forbid and they are
+  refused with \c -2 rather than stored. Nothing is lost - setting them never
+  changed what an encode did.
+
   \since \c AVX2 is available from LAME 4.1, with the vectorized inner loops;
          the families beside it are older than this interface. Source that
          also has to compile against a 3.100 or older header cannot name the
@@ -4000,11 +4005,12 @@ lame_set_preset(lame_global_flags * gfp, int preset)
   \param gfp    the encoder instance.
   \param optim  the family, one of the \c asm_optimizations values.
   \param mode   1 to allow the family, anything else to forbid it.
-  \return -1 if the instance is not usable, and \a optim itself otherwise -
-          the same value whether or not \a optim named a family this library
-          knows, since an unrecognized one is accepted and nothing is set. So
-          the return value reports on the instance, not on the request, and
-          cannot tell a caller that a family was recognized.
+  \return -1 if the instance is not usable, \c -2 for \c MMX and
+          \c AMD_3DNOW, and \a optim itself otherwise - the same value whether
+          or not \a optim named a family this library knows, since an
+          unrecognized one is accepted and nothing is set. So apart from the
+          two refusals the return value reports on the instance, not on the
+          request, and cannot tell a caller that a family was recognized.
           \c lame_get_asm_optimizations() answers both questions afterwards.
 
   \see lame_get_asm_optimizations()
@@ -4024,14 +4030,13 @@ lame_set_asm_optimizations(lame_global_flags * gfp, int optim, int mode)
     if (is_lame_global_flags_valid(gfp)) {
         mode = (mode == 1 ? 1 : 0);
         switch (optim) {
-        case MMX:{
-                gfp->asm_optimizations.mmx = mode;
-                return optim;
-            }
-        case AMD_3DNOW:{
-                gfp->asm_optimizations.amd3dnow = mode;
-                return optim;
-            }
+        case MMX:
+        case AMD_3DNOW:
+            /* Nothing to allow or forbid: this library has no MMX or 3DNow!
+               code. Answering -2 rather than storing the flag tells a caller
+               who checks that the request was not acted on, instead of
+               reporting back a setting that selects nothing. */
+            return -2;
         case SSE:{
                 gfp->asm_optimizations.sse = mode;
                 return optim;
@@ -4050,8 +4055,10 @@ lame_set_asm_optimizations(lame_global_flags * gfp, int optim, int mode)
 /*! Get whether an instruction-set family may be used. */
 /*!
   Answers for the one family named, the same shape
-  \c lame_set_asm_optimizations() takes. Every family starts out allowed, so a
-  fresh instance answers 1 for each value of \c asm_optimizations.
+  \c lame_set_asm_optimizations() takes. A family that gates something starts
+  out allowed, so a fresh instance answers 1 for \c SSE and \c AVX2. \c MMX
+  and \c AMD_3DNOW always answer 0: this library has no code in either, so
+  they are never enabled and cannot be.
 
   This reports the **flag**, not the instruction set an encode will actually
   use. The families are not independent - \c AVX2 builds on the SSE2 routines -
@@ -4065,18 +4072,18 @@ lame_set_asm_optimizations(lame_global_flags * gfp, int optim, int mode)
 
   \param gfp    the encoder instance.
   \param optim  the family, one of the \c asm_optimizations values.
-  \return 1 if the family may be used, 0 if it has been forbidden, -1 if the
-          instance is not usable, and -2 if the family is not available in
-          this instance. That last answer is the one
-          \c lame_set_asm_optimizations() cannot give: it accepts a value it
-          does not know, sets nothing, and hands the value back as though it
-          had been understood.
+  \return 1 if the family may be used, 0 if it has been forbidden or is one
+          this library has no code for, -1 if the instance is not usable, and
+          -2 if the family is not one this interface knows. A value it does
+          not know is the case \c lame_set_asm_optimizations() cannot report:
+          that call accepts it, sets nothing, and hands the value back as
+          though it had been understood.
 
   \code{.c}
   switch (lame_get_asm_optimizations(gfp, AVX2)) {
   case  1:  break;      // allowed
-  case  0:  break;      // someone forbade it - a preset, or another caller
-  case -2:  break;      // not available in this instance
+  case  0:  break;      // forbidden, or a family with no code behind it
+  case -2:  break;      // not a family this interface knows
   default:  return -1;  // the instance is unusable
   }
   \endcode
@@ -4089,9 +4096,12 @@ lame_get_asm_optimizations(const lame_global_flags * gfp, int optim)
     if (is_lame_global_flags_valid(gfp)) {
         switch (optim) {
         case MMX:
-            return gfp->asm_optimizations.mmx;
         case AMD_3DNOW:
-            return gfp->asm_optimizations.amd3dnow;
+            /* Never enabled, because there is nothing to enable. 0 is the
+               truthful answer, and also the one that makes the usual
+               "if (lame_get_asm_optimizations(gfp, MMX))" take the branch
+               that does not expect those instructions to be used. */
+            return 0;
         case SSE:
             return gfp->asm_optimizations.sse;
         case AVX2:

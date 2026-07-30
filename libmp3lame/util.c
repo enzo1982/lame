@@ -808,7 +808,7 @@ lame_errorf(const lame_internal_flags* gfc, const char *format, ...)
 
 /***********************************************************************
  *
- *      routines to detect CPU specific features like 3DNow, MMX, SSE
+ *      routines to detect CPU specific features like SSE2, AVX2
  *
  *  donated by Frank Klemm
  *  added Robert Hegemann 2000-10-10
@@ -824,14 +824,9 @@ lame_errorf(const lame_internal_flags* gfc, const char *format, ...)
  *   - does the CPU running this binary have them?  That is a runtime
  *     question, and only worth asking when the answer above is no.
  */
-#if defined( __SSE__ )                                        /* GCC, Clang */ \
+#if defined( __SSE2__ )                                       /* GCC, Clang */ \
  || defined( _M_X64 ) || defined( _M_AMD64 )                  /* MSVC x64   */ \
- || (defined( _M_IX86_FP ) && _M_IX86_FP >= 1)                /* MSVC /arch */
-#define LAME_BASELINE_SSE  1
-#endif
-#if defined( __SSE2__ ) \
- || defined( _M_X64 ) || defined( _M_AMD64 ) \
- || (defined( _M_IX86_FP ) && _M_IX86_FP >= 2)
+ || (defined( _M_IX86_FP ) && _M_IX86_FP >= 2)                /* MSVC /arch */
 #define LAME_BASELINE_SSE2 1
 #endif
 #if defined( __AVX2__ )
@@ -856,8 +851,6 @@ lame_errorf(const lame_internal_flags* gfc, const char *format, ...)
 #if defined( LAME_CPUID_MSVC )
 /* Feature bits of the EDX result of CPUID leaf 1. */
 enum {
-    CPUID1_EDX_MMX  = 23,
-    CPUID1_EDX_SSE  = 25,
     CPUID1_EDX_SSE2 = 26
 };
 
@@ -905,43 +898,6 @@ cpuid_feature_avx2(void)
  * really does return a bitmask (sse2 -> 16).  These results feed single-bit
  * fields, so every one of them is normalised here rather than at the caller.
  */
-int
-has_MMX(void)
-{
-#if defined( LAME_CPU_SUPPORTS )
-    return __builtin_cpu_supports("mmx") != 0;
-#elif defined( LAME_CPUID_MSVC )
-    return cpuid_feature_edx(CPUID1_EDX_MMX);
-#else
-    return 0;           /* don't know, assume not */
-#endif
-}
-
-int
-has_3DNow(void)
-{
-    /* AMD dropped 3DNow! from its CPUs in 2010 and current compilers offer
-     * no test for it.  The only routine that ever used it was the assembly
-     * FFT, which the intrinsics one replaces, so nothing asks any more.  The
-     * function stays because lame_set_asm_optimizations(AMD_3DNOW) is public.
-     */
-    return 0;
-}
-
-int
-has_SSE(void)
-{
-#if defined( LAME_BASELINE_SSE )
-    return 1;
-#elif defined( LAME_CPU_SUPPORTS )
-    return __builtin_cpu_supports("sse") != 0;
-#elif defined( LAME_CPUID_MSVC )
-    return cpuid_feature_edx(CPUID1_EDX_SSE);
-#else
-    return 0;           /* don't know, assume not */
-#endif
-}
-
 int
 has_SSE2(void)
 {
@@ -1190,6 +1146,50 @@ vector_impl_display(const char *name, char *buf, size_t size)
     if (name == 0 || buf == 0 || size == 0)
         return "";
     (void) display_name(name, buf, size);
+    return buf;
+}
+
+/** @internal
+ * The sets this build carries that the processor can also execute, in display
+ * form, in table order, comma-separated.
+ *
+ * Both conditions are required: a set the build lacks cannot run however
+ * capable the processor is, and a set the processor lacks cannot run however
+ * the build was configured.  What is left is exactly the range
+ * lame_set_vector_routines() accepts here.
+ *
+ * The result is empty when there are none, which is an ordinary answer.
+ * Entries are appended whole or not at all.
+ */
+const char *
+vector_impl_available_list(char *buf, size_t size)
+{
+    int     i;
+    int const n = vector_impl_count();
+    size_t  used = 0;   /* characters written, terminator excluded */
+
+    if (buf == 0 || size == 0)
+        return "";
+    buf[0] = '\0';
+    for (i = 0; i < n; ++i) {
+        char    disp[VECTOR_IMPL_NAME_MAX];
+        size_t  sep, len;
+
+        if (!vector_impl_supported(vector_impl_table[i].impl))
+            continue;
+        sep = (used > 0) ? 2 : 0;
+        len = display_name(vector_impl_table[i].name, disp, sizeof disp);
+        /* Whole entries only.  A truncated instruction-set name would read as
+           a different one, so a name that does not fit ends the list. */
+        if (used + sep + len + 1 > size)
+            break;
+        if (sep > 0) {
+            strncat(buf, ", ", size - used - 1);
+            used += sep;
+        }
+        strncat(buf, disp, size - used - 1);
+        used += len;
+    }
     return buf;
 }
 

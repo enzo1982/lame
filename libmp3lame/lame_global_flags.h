@@ -171,9 +171,11 @@ struct lame_global_struct {
     lame_internal_flags *internal_flags;
 
 
+    /* The deprecated selection, kept for the families that still gate
+       something.  MMX and 3DNow! have no state here: nothing in this library
+       consults them, so storing a flag would only be able to mislead a caller
+       into thinking it had turned something off. */
     struct {
-        unsigned int mmx:1;
-        unsigned int amd3dnow:1;
         unsigned int sse:1;
         unsigned int avx2:1;
     } asm_optimizations;

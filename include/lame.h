@@ -148,8 +148,10 @@ typedef enum preset_mode_e {
  * here is removed, and no caller loses a capability.
  *
  * MMX and AMD_3DNOW are deprecated more strongly than the others: this
- * library has no MMX or 3DNow! code and has not had any for years, so they
- * select nothing whatever they are set to.
+ * library has no MMX or 3DNow! code and has not had any for years.  They are
+ * no longer stored, since there was nothing for them to select - the setter
+ * refuses them with -2 and the getter always answers 0.  The values stay so
+ * that source naming them still compiles.
  */
 typedef enum asm_optimizations_e {
     MMX = 1,

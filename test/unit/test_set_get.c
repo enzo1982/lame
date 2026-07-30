@@ -585,8 +585,6 @@ test_misc_setters(void **state)
     assert_int_equal(lame_get_write_id3tag_automatic(NULL), 1);
 
     /* asm_optimizations echoes the optimisation id back; default case too */
-    assert_int_equal(lame_set_asm_optimizations(gfp, MMX, 1), MMX);
-    assert_int_equal(lame_set_asm_optimizations(gfp, AMD_3DNOW, 0), AMD_3DNOW);
     assert_int_equal(lame_set_asm_optimizations(gfp, SSE, 1), SSE);
     assert_int_equal(lame_set_asm_optimizations(gfp, 999, 1), 999); /* default arm */
     assert_int_equal(lame_set_asm_optimizations(NULL, MMX, 1), -1);
@@ -740,19 +738,31 @@ static void
 test_asm_optimizations_roundtrip(void **state)
 {
     lame_t  gfp = (lame_t) *state;
-    int const families[] = { MMX, AMD_3DNOW, SSE, AVX2 };
+    int const families[] = { SSE, AVX2 };
+    int const inert[] = { MMX, AMD_3DNOW };
     size_t  i;
 
-    /* every family starts out allowed */
+    /* every family that gates something starts out allowed */
     for (i = 0; i < sizeof families / sizeof families[0]; ++i) {
         assert_int_equal(lame_get_asm_optimizations(gfp, families[i]), 1);
+    }
+
+    /* MMX and 3DNow! are known values with no code behind them: the setter
+       refuses them and the getter never reports them as enabled, whatever
+       was asked for. Both halves are asserted, because the pair is what a
+       caller sees - a getter that still answered 1 after a refused set would
+       be the misleading combination. */
+    for (i = 0; i < sizeof inert / sizeof inert[0]; ++i) {
+        assert_int_equal(lame_get_asm_optimizations(gfp, inert[i]), 0);
+        assert_int_equal(lame_set_asm_optimizations(gfp, inert[i], 1), -2);
+        assert_int_equal(lame_get_asm_optimizations(gfp, inert[i]), 0);
+        assert_int_equal(lame_set_asm_optimizations(gfp, inert[i], 0), -2);
+        assert_int_equal(lame_get_asm_optimizations(gfp, inert[i]), 0);
     }
 
     /* forbidding one is visible, and does not disturb the others */
     assert_int_equal(lame_set_asm_optimizations(gfp, SSE, 0), SSE);
     assert_int_equal(lame_get_asm_optimizations(gfp, SSE), 0);
-    assert_int_equal(lame_get_asm_optimizations(gfp, MMX), 1);
-    assert_int_equal(lame_get_asm_optimizations(gfp, AMD_3DNOW), 1);
     assert_int_equal(lame_get_asm_optimizations(gfp, AVX2), 1);
 
     /* and allowing it again is too. Only 1 allows: the setter treats every
