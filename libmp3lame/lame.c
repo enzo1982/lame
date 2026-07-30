@@ -636,7 +636,15 @@ lame_init_params(lame_global_flags * gfp)
     gfc->report_dbg = gfp->report.debugf;
     gfc->report_err = gfp->report.errorf;
 
-    if (gfp->asm_optimizations.sse) {
+    /* A request for no vector routines is also a request not to ask the
+       processor about them.  These probes are the library's only use of the
+       CPUID instruction, and there are machines - the reason the option is
+       documented as a rescue for a failing start-up - where executing it is
+       itself the failure, so a caller who has already decided against the
+       vector code must be able to stop the question being asked.  Under AUTO
+       the answer is what chooses the set, so there it has to be asked. */
+    if (gfp->vector_routines_request != VECTOR_IMPL_NONE
+        && gfp->asm_optimizations.sse) {
         gfc->CPU_features.SSE2 = has_SSE2();
         /* AVX2 sits on top of SSE2, so it can be disabled on its own while the
            SSE2 tier stays; disabling SSE removes the whole group above. */
@@ -1376,8 +1384,15 @@ lame_print_config(const lame_global_flags * gfp)
 
         /* What could be selected here, rather than what the processor
            happens to carry: a set this build does not have is not a choice,
-           and reporting it invites the question of why it was not used. */
-        if (vector_impl_available_list(text, sizeof text)[0] != '\0')
+           and reporting it invites the question of why it was not used.
+
+           Not asked at all when the caller asked for none, because building
+           this list is the probe: the promise that none leaves the processor
+           uninterrogated would be worth nothing if a report could break it,
+           and a request for diagnostic output is exactly what someone whose
+           machine cannot survive the probe would reach for. */
+        if (gfp->vector_routines_request != VECTOR_IMPL_NONE
+            && vector_impl_available_list(text, sizeof text)[0] != '\0')
             MSGF(gfc, "CPU features: %s\n", text);
 
         /* Always printed, "NONE" included. It answers "which set did this

@@ -120,20 +120,23 @@
 			        around a suspected CPU or toolchain problem.</span> On that machine the
 			        64-bit MinGW/GCC&nbsp;16.1.0 build is about 13% faster than the 64-bit
 			        MSVC&nbsp;19.51 build of the same source, for both CBR and VBR.</li>
-			    <li><i>lame --verbose</i> reports the vector routines
-			        differently. The <i>CPU features</i> line now lists only
-			        the instruction sets this build has routines for and the
-			        processor can run, so it no longer names MMX, 3DNow! or
-			        plain SSE, none of which the encoder ever selected. A
-			        <i>vector routines</i> line always follows it, naming the
-			        set the encode used, or <i>NONE</i> for the plain C code.
-			        <i>--noasm&nbsp;mmx</i> and <i>--noasm&nbsp;3dnow</i>
-			        therefore have nothing left to turn off, and for the same
-			        reason <i>lame_set_asm_optimizations()</i> now refuses
-			        those two families while
-			        <i>lame_get_asm_optimizations()</i> always answers that
-			        they are not enabled. No encode changes: LAME has had no
-			        MMX or 3DNow! code for many years.</li>
+			    <li>The vector routines can now be selected. The new
+			        <i>--vector&nbsp;name</i> option says which set an encode
+			        runs, and <i>--noasm</i> is deprecated in favour of it,
+			        still accepted and printing the replacement to use. See
+			        <i>lame --longhelp</i> and the manual page for the names
+			        and what each one does. Programs linking the library get
+			        the same choice through
+			        <i>lame_set_vector_routines()</i> and the three calls
+			        beside it. <i>lame --verbose</i> reports to match: the
+			        <i>CPU features</i> line lists only the instruction sets
+			        this build has routines for and the processor can run,
+			        and a <i>vector routines</i> line always follows it,
+			        naming the set the encode used. No encode changes: LAME
+			        has had no MMX or 3DNow! code for many years, so the two
+			        families that named it select nothing and
+			        <i>lame_get_asm_optimizations()</i> reports them as not
+			        enabled.</li>
 			    <li><span class="security">Security hardening is now
 			        enabled by default: fortified library calls, stack
 			        and control-flow protection, read-only relocations

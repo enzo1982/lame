@@ -770,6 +770,42 @@ help_developer_switches(FILE * const fp)
            );
 }
 
+/* One vector-routine name, terminator included.  They are short identifiers;
+   a name that did not fit here could not be matched by the library either. */
+#define VECTOR_NAME_MAX     32
+/* The whole list of them, as --longhelp and the error message print it. */
+#define VECTOR_CHOICES_MAX  128
+
+/* The names --vector takes, assembled into buf.  They are read out of the
+   library rather than written out here, so a build without AVX2 - or one for
+   another architecture - never offers a choice it cannot honour.  The help
+   text and the error message get the same list for the same reason. */
+static const char *
+vector_choices(char *buf, size_t size)
+{
+    int     i;
+    int const n = lame_get_num_vector_routines();
+    size_t  used;
+
+    if (size == 0)
+        return "";
+    buf[0] = '\0';
+    strncat(buf, "auto, none", size - 1);
+    used = strnlen(buf, size);
+    for (i = 0; i < n; ++i) {
+        const char *const name = lame_get_vector_routines_name(i);
+        size_t const len = strnlen(name, size);
+
+        if (used + 2 + len + 1 > size)
+            break;
+        strncat(buf, ", ", size - used - 1);
+        used += 2;
+        strncat(buf, name, size - used - 1);
+        used += len;
+    }
+    return buf;
+}
+
 int
 long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramName, int lessmode)
 {                       /* print long syntax help */
@@ -949,9 +985,16 @@ long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramNam
         );
 
     wait_for(fp, lessmode);
-    fprintf(fp,
-            "  Platform specific:\n"
-            "    --noasm <instructions> disable the vector code for mmx/3dnow/sse/avx2\n");
+    {
+        char    choices[VECTOR_CHOICES_MAX];
+
+        fprintf(fp,
+                "  Platform specific:\n"
+                "    --vector <name>     which vector routines to run: %s\n"
+                "                        default is auto, the widest set this CPU has\n"
+                "    --noasm <type>      deprecated, use --vector\n",
+                vector_choices(choices, sizeof choices));
+    }
     wait_for(fp, lessmode);
 
     display_bitrates(fp);
@@ -1585,6 +1628,47 @@ static int dev_only_without_arg(char const* str, char const* token, int* argIgno
     return 0;
 }
 
+
+/* --vector <name>.  The library matches the name strictly, so whatever the
+   user typed is lower-cased first.
+
+   A rejected name ends the run rather than falling back: the option exists to
+   pin an encode to one set of routines, and an encode that quietly used a
+   different set would answer a question nobody asked. */
+static int
+set_vector_routines(lame_global_flags * gfp, const char *name)
+{
+    char    lower[VECTOR_NAME_MAX];
+    size_t  i;
+    int     rc;
+
+    for (i = 0; i + 1 < sizeof lower && name[i] != '\0'; ++i)
+        lower[i] = (char) tolower((unsigned char) name[i]);
+    lower[i] = '\0';
+
+    rc = lame_set_vector_routines(gfp, lower);
+    if (rc == 0)
+        return 0;
+
+    switch (rc) {
+    case -3:
+        error_printf("Error: this build has no '%s' vector routines.\n", lower);
+        break;
+    case -4:
+        error_printf("Error: this processor cannot run the '%s' vector routines.\n", lower);
+        break;
+    default:
+        error_printf("Error: '%s' is not a set of vector routines.\n", lower);
+        break;
+    }
+    {
+        char    choices[VECTOR_CHOICES_MAX];
+
+        error_printf("       this build offers: %s\n", vector_choices(choices, sizeof choices));
+    }
+    return -1;
+}
+
 /* Ugly, NOT final version */
 
 #define T_IF(str)          if ( 0 == local_strcasecmp (token,str) ) {
@@ -1642,6 +1726,8 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
     const char *ProgramName = argv[0];
     int     count_nogap = 0;
     int     noreplaygain = 0; /* is RG explicitly disabled by the user */
+    int     vector_selected = 0; /* --vector was given; it wins over --noasm */
+    int     noasm_none = 0;  /* --noasm sse was given; nothing may raise it */
     int     id3tag_mode = ID3TAG_MODE_DEFAULT;
     int     ignore_tag_errors = 0;  /* Ignore errors in values passed for tags */
 #ifdef ID3TAGS_EXTENDED
@@ -1808,16 +1894,35 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         (void) lame_set_scale(gfp, (float) gain);
                     }
 
+                T_ELIF("vector")
+                    argUsed = 1;
+                    if (set_vector_routines(gfp, nextArg) != 0)
+                        return -1;
+                    vector_selected = 1;
+
                 T_ELIF("noasm")
                     argUsed = 1;
-                if (!strcmp(nextArg, "mmx"))
-                    (void) lame_set_asm_optimizations(gfp, MMX, 0);
-                if (!strcmp(nextArg, "3dnow"))
-                    (void) lame_set_asm_optimizations(gfp, AMD_3DNOW, 0);
-                if (!strcmp(nextArg, "sse"))
-                    (void) lame_set_asm_optimizations(gfp, SSE, 0);
-                if (!strcmp(nextArg, "avx2"))
-                    (void) lame_set_asm_optimizations(gfp, AVX2, 0);
+                    if (local_strcasecmp(nextArg, "sse") == 0) {
+                        error_printf("WARNING: --noasm sse is deprecated,"
+                                     " use --vector none instead\n");
+                        if (!vector_selected) {
+                            (void) lame_set_vector_routines(gfp, "none");
+                            noasm_none = 1;
+                        }
+                    }
+                    else if (local_strcasecmp(nextArg, "avx2") == 0) {
+                        error_printf("WARNING: --noasm avx2 is deprecated,"
+                                     " use --vector sse2 instead\n");
+                        /* The option could be repeated to turn off more than
+                           one tier, so a second mapping may only lower the
+                           selection: "sse" already asked for none. */
+                        if (!vector_selected && !noasm_none)
+                            (void) lame_set_vector_routines(gfp, "sse2");
+                    }
+                    else {
+                        error_printf("WARNING: --noasm %s is deprecated and selects nothing;"
+                                     " see --vector\n", nextArg);
+                    }
 
                 T_ELIF("freeformat")
                     lame_set_free_format(gfp, 1);

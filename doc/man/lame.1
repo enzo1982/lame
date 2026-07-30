@@ -422,32 +422,52 @@ Have a look at the PRESETS section below.
 .B \-\-preset help
 gives more infos about the the used options in these presets.
 .TP
-.B \-\-noasm " type"
-Do not use the vector code (
-.B mmx
-/
-.B 3dnow
-/
-.B sse
-/
+.B \-\-vector " name"
+Choose which set of vector routines the encode runs.
+.B auto
+(the default) uses the widest set the processor offers,
+.B none
+runs the plain C code, and a name such as
+.B sse2
+or
 .B avx2
-).
-The vector routines are built into every x86 binary in two tiers - SSE2 on any
-processor of the last two decades, and AVX2 on top of it where available - and
-are used whenever the processor supports them.
-.B sse
-turns all of them off, so the plain C path is used;
-.B avx2
-turns off only the AVX2 tier, leaving SSE2 in use.
-.B mmx
-and
-.B 3dnow
-are still accepted, but no code of either kind is left to disable.
-Repeat the switch to disable more than one.
-This is how a vector tier and the plain C path are compared against each other,
+pins the encode to that set even where the processor has a wider one.
+.B \-\-vector none
+also leaves the processor unasked about its capabilities, nothing depending on
+the answer any more; on a machine where that query is itself what fails, this
+is what lets the encoder start.
+Which names a binary accepts depends on how it was built and on the processor
+it runs on;
+.B lame \-\-longhelp
+lists them, and
+.B lame \-\-verbose
+reports the set an encode ended up using.
+A name the binary cannot honour is an error rather than a fallback, so a
+measurement never silently reports on a different set than the one asked for.
+This is how a vector set and the plain C path are compared against each other,
 which is what a test setup or a speed measurement wants.
 The paths can differ in the last bits of the output; measured audio
 quality does not change, only speed.
+.TP
+.B \-\-noasm " type"
+Deprecated, use
+.B \-\-vector
+instead. Still accepted, with a message:
+.B sse
+means
+.B \-\-vector none
+and
+.B avx2
+means
+.B \-\-vector sse2 ,
+while
+.B mmx
+and
+.B 3dnow
+select nothing, there being no code of either kind to disable. If both options
+are given,
+.B \-\-vector
+wins.
 
 .PP
 Verbosity:

@@ -257,8 +257,12 @@
             <td>Disable writing wav header when using --decode</td>
         </tr>
         <tr>
+            <td><a href="#vector">--vector</a> name</td>
+            <td>Which set of vector routines the encode runs</td>
+        </tr>
+        <tr>
             <td><a href="#noasm">--noasm</a> type</td>
-            <td>Do not use the vector code for mmx/3dnow/sse</td>
+            <td>Deprecated, use --vector</td>
         </tr>
         <tr>
             <th colspan="2">Noise shaping &amp; psycho acoustic algorithms</th>
@@ -1223,23 +1227,50 @@
         to use this switch.
     </p>
     <p class="settingtitle">
-        <a name="noasm"><span class="hilight">--noasm value</span></a> Do not use the vector
-        code
+        <a name="vector"><span class="hilight">--vector name</span></a> Which set of vector
+        routines the encode runs
     </p>
     <p>
         The vectorized versions of a few hot routines are built into every x86
         binary and used whenever the processor running it supports them, in two
         tiers: an SSE2 tier used on any processor of the last two decades, and an
-        AVX2 tier used on top of it where available. This setting turns vector code
-        off, which is how a tier and the plain C path are compared against each
-        other - for a speed measurement, or to rule the vector code out when
-        tracking down a problem. <span class="hilight">sse</span> disables all of
-        it, so the plain C path is used; <span class="hilight">avx2</span> disables
-        only the AVX2 tier, leaving SSE2 in use. <span class="hilight">mmx</span>
-        and <span class="hilight">3dnow</span> are still accepted, but no code of
-        either kind is left to disable. Repeat the switch to disable more than one.
-        The paths can differ in the last bits of the output; measured audio quality
-        does not change.
+        AVX2 tier used on top of it where available. This setting says which of
+        them an encode uses. <span class="hilight">auto</span>, the default, takes
+        the widest set the processor offers; <span class="hilight">none</span> runs
+        the plain C code; and naming a set - <span class="hilight">sse2</span>,
+        <span class="hilight">avx2</span> - pins the encode to it even on a
+        processor that has a wider one. That is how a set and the plain C path are
+        compared against each other, for a speed measurement or to rule the vector
+        code out when tracking down a problem.
+    </p>
+    <p>
+        <span class="hilight">--vector none</span> also leaves the processor
+        unasked about its capabilities, nothing depending on the answer any more.
+        On a machine where that query is itself what fails - a few old processors
+        get it wrong badly enough to take the program down with them - this is
+        what lets the encoder start at all.
+    </p>
+    <p>
+        Which names a binary accepts depends on how it was built and on the
+        processor it runs on. <span class="hilight">lame --longhelp</span> lists them,
+        and <span class="hilight">lame --verbose</span> reports the set an encode
+        ended up using. A name the binary cannot honour is an error, not a
+        fallback, so a measurement never quietly reports on a different set than
+        the one asked for. The paths can differ in the last bits of the output;
+        measured audio quality does not change.
+    </p>
+    <p class="settingtitle">
+        <a name="noasm"><span class="hilight">--noasm type</span></a> Deprecated, use
+        <span class="hilight">--vector</span>
+    </p>
+    <p>
+        Still accepted, with a message naming the replacement.
+        <span class="hilight">sse</span> means <span class="hilight">--vector
+        none</span> and <span class="hilight">avx2</span> means
+        <span class="hilight">--vector sse2</span>, while
+        <span class="hilight">mmx</span> and <span class="hilight">3dnow</span>
+        select nothing, there being no code of either kind to disable. Where both
+        options are given, <span class="hilight">--vector</span> wins.
     </p>
     <p class="settingtitle">
         <a name="nogap"><span class="hilight">--nogap file1 file2 [...]</span></a> Encodes multiple continuous
