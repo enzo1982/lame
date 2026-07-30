@@ -971,47 +971,226 @@ has_AVX2(void)
 }
 
 /** @internal
- * One place decides which vector routines run, so the dispatch sites and the
- * configuration report cannot disagree.  Adding a wider implementation means
- * one more branch here and one more name below.  Highest tier first: the
- * answer is what the machine offers, and a routine that exists only lower
- * down is selected by the comparison at its call site.
+ * The one table.  Every question about vector routines is answered from it -
+ * how many this build carries, what they are called, whether a name is one of
+ * them, whether this CPU can run it, and which one an encode ends up using.
+ *
+ * That is the point of it existing rather than the answers being spread over
+ * the places that need them.  A build can otherwise advertise a set the
+ * encoder never dispatches, and nothing is able to see the disagreement,
+ * because the claim and the behaviour come from different code.
+ *
+ * Ascending capability, and the public enumeration promises that order: index
+ * count-1 is the widest set this build has, so "the best available" is a walk
+ * from the end.  Names are the identifiers the API takes - lowercase, and the
+ * real instruction set rather than a family, so SSE2 and not SSE.  The
+ * displayed form is this name upper-cased; there is no second string.
  *
  * The ladder is scalar -> SSE2 -> AVX2, with no SSE4.1/SSE4.2 rung; see
  * @ref vector_dispatch for why it stops where it does.
  */
+static const struct {
+    const char *name;
+    vector_impl_t impl;
+    int     (*available)(void);
+} vector_impl_table[] = {
+#if defined( HAVE_SSE2_INTRINSICS )
+    { "sse2", VECTOR_IMPL_SSE2, has_SSE2 },
+#endif
+#if defined( HAVE_AVX2_INTRINSICS )
+    { "avx2", VECTOR_IMPL_AVX2, has_AVX2 },
+#endif
+    { 0, VECTOR_IMPL_NONE, 0 }  /* C89 forbids an empty initialiser, and a
+                                   build with no vector routines at all needs
+                                   this array to exist anyway. */
+};
+
+/** @internal
+ * Every name LAME knows, on any architecture and in any configuration.
+ *
+ * The table above holds what this build *has*; this holds what the project
+ * has ever *called* something, so that a request can be refused with the
+ * reason rather than a shrug: a name in here that is missing from the table
+ * means "not compiled into this build" (rebuild, or use another binary),
+ * while a name in neither means "no such thing" (a typo).
+ *
+ * Deliberately plain strings: it must list sets this architecture does not
+ * have, whose vector_impl_t values do not exist here to be named.
+ *
+ * The two lists can drift, which is the price of the second one; a unit test
+ * asserts that every name in the table appears here.
+ */
+static const char *const vector_impl_known_names[] = {
+    "sse2", "avx2", 0
+};
+
+/* Exact match within the bound every name is required to fit: both strings
+   are terminated inside it, so the comparison stops at the first difference
+   or at a terminator and neither is read past its own end. */
+static int
+name_equals(const char *name, const char *known)
+{
+    return strncmp(name, known, VECTOR_IMPL_NAME_MAX) == 0;
+}
+
+/* Whether LAME knows the name at all, whatever this build compiled. */
+int
+vector_impl_known(const char *name)
+{
+    int     i;
+
+    if (name == 0)
+        return 0;
+    for (i = 0; vector_impl_known_names[i] != 0; ++i) {
+        if (name_equals(name, vector_impl_known_names[i]))
+            return 1;
+    }
+    return 0;
+}
+
+/* The sentinel is not a set, so it is not counted. */
+int
+vector_impl_count(void)
+{
+    return (int) (sizeof vector_impl_table / sizeof vector_impl_table[0]) - 1;
+}
+
+const char *
+vector_impl_name_at(int index)
+{
+    if (index < 0 || index >= vector_impl_count())
+        return 0;
+    return vector_impl_table[index].name;
+}
+
+/* 1 and *impl set when the name is one this build carries, 0 otherwise. */
+int
+vector_impl_from_name(const char *name, vector_impl_t * impl)
+{
+    int     i;
+    int const n = vector_impl_count();
+
+    if (name == 0)
+        return 0;
+    for (i = 0; i < n; ++i) {
+        if (name_equals(name, vector_impl_table[i].name)) {
+            *impl = vector_impl_table[i].impl;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Whether the processor running this can execute that set.  VECTOR_IMPL_NONE
+   is the scalar code, which every machine can run. */
+int
+vector_impl_supported(vector_impl_t impl)
+{
+    int     i;
+    int const n = vector_impl_count();
+
+    if (impl == VECTOR_IMPL_NONE)
+        return 1;
+    for (i = 0; i < n; ++i) {
+        if (vector_impl_table[i].impl == impl)
+            return vector_impl_table[i].available() != 0;
+    }
+    return 0;
+}
+
+/** @internal
+ * Decide, once, what this instance will run.
+ *
+ * @p request is VECTOR_IMPL_AUTO, or a set validated when it was selected.
+ * Under AUTO the answer is the widest set the machine offers that the
+ * deprecated asm_optimizations mask still allows - which is exactly what this
+ * library did before the selection existed, and has to stay so, because the
+ * encoder's output must not depend on which of the two APIs a caller used.
+ */
+void
+vector_impl_init(lame_internal_flags * gfc, int request)
+{
+    int     i;
+
+    if (request != VECTOR_IMPL_AUTO) {
+        gfc->vector_impl = (vector_impl_t) request;
+        return;
+    }
+    gfc->vector_impl = VECTOR_IMPL_NONE;
+    /* Walk down from the widest: the first the machine offers wins.  The
+       CPU_features bits are already masked by the legacy enable flags. */
+    for (i = vector_impl_count() - 1; i >= 0; --i) {
+        switch (vector_impl_table[i].impl) {
+#if defined( HAVE_AVX2_INTRINSICS )
+        case VECTOR_IMPL_AVX2:
+            if (gfc->CPU_features.AVX2) {
+                gfc->vector_impl = VECTOR_IMPL_AVX2;
+                return;
+            }
+            break;
+#endif
+#if defined( HAVE_SSE2_INTRINSICS )
+        case VECTOR_IMPL_SSE2:
+            if (gfc->CPU_features.SSE2) {
+                gfc->vector_impl = VECTOR_IMPL_SSE2;
+                return;
+            }
+            break;
+#endif
+        default:
+            break;
+        }
+    }
+}
+
 vector_impl_t
 vector_implementation(lame_internal_flags const *gfc)
 {
-#if defined( HAVE_AVX2_INTRINSICS ) || defined( HAVE_SSE2_INTRINSICS )
-# if defined( HAVE_AVX2_INTRINSICS )
-    if (gfc->CPU_features.AVX2)
-        return VECTOR_IMPL_AVX2;
-# endif
-# if defined( HAVE_SSE2_INTRINSICS )
-    if (gfc->CPU_features.SSE2)
-        return VECTOR_IMPL_SSE2;
-# endif
-#else
-    (void) gfc;
-#endif
-    return VECTOR_IMPL_NONE;
+    return gfc->vector_impl;
 }
 
 const char *
 vector_impl_name(vector_impl_t impl)
 {
-    switch (impl) {
-#if defined( LAME_TARGET_X86 )
-    case VECTOR_IMPL_AVX2:
-        return "AVX2";
-    case VECTOR_IMPL_SSE2:
-        return "SSE2";
-#endif
-    case VECTOR_IMPL_NONE:
-        break;
+    int     i;
+    int const n = vector_impl_count();
+
+    for (i = 0; i < n; ++i) {
+        if (vector_impl_table[i].impl == impl)
+            return vector_impl_table[i].name;
     }
     return "none";
+}
+
+/* Upper-case @p name into @p buf, returning how many characters were written
+   - never more than size-1, and the result is always terminated.  Callers
+   that go on to assemble a longer string take the length from here rather
+   than measuring the buffer afterwards. */
+static size_t
+display_name(const char *name, char *buf, size_t size)
+{
+    size_t  i;
+
+    for (i = 0; i + 1 < size && name[i] != '\0'; ++i)
+        buf[i] = (char) toupper((unsigned char) name[i]);
+    buf[i] = '\0';
+    return i;
+}
+
+/** @internal
+ * The displayed spelling of a set: the identifier, upper-cased.
+ *
+ * There is deliberately no second string per set.  One name is stored, in the
+ * form the API takes, and display is derived from it - so the two can never
+ * drift, and adding a set means adding one string.
+ */
+const char *
+vector_impl_display(const char *name, char *buf, size_t size)
+{
+    if (name == 0 || buf == 0 || size == 0)
+        return "";
+    (void) display_name(name, buf, size);
+    return buf;
 }
 
 void

@@ -133,7 +133,24 @@ typedef enum preset_mode_e {
 } preset_mode;
 
 
-/*asm optimizations*/
+/* asm optimizations
+ *
+ * DEPRECATED.  Use lame_set_vector_routines() and the calls beside it.
+ *
+ * These name x86 instruction-set families, and a family is not what the
+ * library actually selects: the routines are compiled for SSE2, and SSE here
+ * is the group switch for all of them rather than a peer of AVX2.  Naming
+ * every future instruction set on every future architecture would mean a new
+ * value in this enum, in this header, for each one - so the replacement takes
+ * a name instead, and this enum is frozen at the values below.
+ *
+ * Still supported: the two calls remain exported and keep working.  Nothing
+ * here is removed, and no caller loses a capability.
+ *
+ * MMX and AMD_3DNOW are deprecated more strongly than the others: this
+ * library has no MMX or 3DNow! code and has not had any for years, so they
+ * select nothing whatever they are set to.
+ */
 typedef enum asm_optimizations_e {
     MMX = 1,
     AMD_3DNOW = 2,
@@ -374,6 +391,20 @@ float CDECL lame_get_compression_ratio(const lame_global_flags *);
 int CDECL lame_set_preset( lame_global_flags*  gfp, int );
 int CDECL lame_set_asm_optimizations( lame_global_flags*  gfp, int, int );
 int CDECL lame_get_asm_optimizations( const lame_global_flags*  gfp, int );
+
+/*
+ * Which vector routines the encoder runs.
+ *
+ * This replaces the asm_optimizations pair above.  The set of names is data
+ * rather than an enum, so a new instruction set - on this architecture or
+ * another - needs no change here and breaks no caller.  Names are lowercase
+ * and are the real instruction set ("sse2", not "sse"); the displayed form is
+ * the name upper-cased.
+ */
+int CDECL lame_get_num_vector_routines(void);
+const char* CDECL lame_get_vector_routines_name(int index);
+int CDECL lame_set_vector_routines(lame_global_flags*, const char* name);
+const char* CDECL lame_get_vector_routines(const lame_global_flags*);
 
 
 

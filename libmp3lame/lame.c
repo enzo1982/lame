@@ -659,6 +659,11 @@ lame_init_params(lame_global_flags * gfp)
         gfc->CPU_features.AVX2 = 0;
     }
 
+    /* One decision, here, before anything asks.  Every consumer of
+       vector_implementation() - the Huffman, quantization and FFT init and
+       the encode loops - runs later than this point. */
+    vector_impl_init(gfc, gfp->vector_routines_request);
+
 
     cfg->vbr = gfp->VBR;
     cfg->error_protection = gfp->error_protection;
@@ -1406,7 +1411,9 @@ lame_print_config(const lame_global_flags * gfp)
         }
         MSGF(gfc, "CPU features: %s\n", text);
         if (vector_impl != VECTOR_IMPL_NONE) {
-            MSGF(gfc, "vector routines: %s\n", vector_impl_name(vector_impl));
+            char    disp[VECTOR_IMPL_NAME_MAX];
+            MSGF(gfc, "vector routines: %s\n",
+                 vector_impl_display(vector_impl_name(vector_impl), disp, sizeof disp));
         }
     }
 
@@ -2674,6 +2681,7 @@ lame_init_old(lame_global_flags * gfp)
     gfp->asm_optimizations.amd3dnow = 1;
     gfp->asm_optimizations.sse = 1;
     gfp->asm_optimizations.avx2 = 1;
+    gfp->vector_routines_request = VECTOR_IMPL_AUTO;
 
     gfp->preset = 0;
 

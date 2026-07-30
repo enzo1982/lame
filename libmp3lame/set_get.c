@@ -4104,6 +4104,172 @@ lame_get_asm_optimizations(const lame_global_flags * gfp, int optim)
 }
 
 
+/*
+ * ---- vector routines ------------------------------------------------------
+ *
+ * The replacement for the asm_optimizations pair above.  Four calls, and the
+ * set of names is data rather than a public enum, so a new instruction set -
+ * on this architecture or another - adds a table row and no header change at
+ * all.  See @ref vector_dispatch.
+ */
+
+/**
+  \brief How many sets of vector routines this build compiled in.
+
+  \return the count, zero or more. <b>This function cannot fail</b>: it takes
+          no arguments and no encoder instance, and reads a table settled when
+          the library was configured.
+
+  Zero is an ordinary answer, not an error - a build for an architecture with
+  no vector routines, or one where the compiler rejected the intrinsics, has
+  none. \c "none" is still accepted by lame_set_vector_routines() there.
+
+  Callable before lame_init(), so a caller can report what the library carries
+  without constructing an encoder.
+
+  \see lame_get_vector_routines_name(), lame_set_vector_routines()
+*/
+int
+lame_get_num_vector_routines(void)
+{
+    return vector_impl_count();
+}
+
+
+/**
+  \brief The name of one set of vector routines.
+
+  \param index in <code>[0, lame_get_num_vector_routines())</code>.
+  \return the name, or NULL if \p index is outside that range.
+
+  The name is lowercase, static, valid for the life of the process, and must
+  not be freed. It is the real instruction set (\c "sse2", not \c "sse"), and
+  it is the spelling lame_set_vector_routines() takes; a display form is that
+  name upper-cased.
+
+  <b>The indices are in ascending order of capability</b>, so index
+  <code>count-1</code> is the widest set this build carries. They are stable
+  within one process and <b>nowhere else</b>: a build without AVX2 shifts
+  every index above it, and another architecture is a different list entirely.
+  <b>Persist the name; never persist the index.</b>
+
+  Every name this returns is accepted by lame_set_vector_routines() on this
+  build. It may still answer that the processor cannot run it, but never that
+  the name is unknown.
+
+  \code
+  int i, n = lame_get_num_vector_routines();
+  for (i = 0; i < n; ++i)
+      puts(lame_get_vector_routines_name(i));
+  \endcode
+
+  \see lame_get_num_vector_routines()
+*/
+const char *
+lame_get_vector_routines_name(int index)
+{
+    return vector_impl_name_at(index);
+}
+
+
+/**
+  \brief Choose which vector routines this instance runs.
+
+  \param gfp  the encoder instance.
+  \param name one of the names lame_get_vector_routines_name() reports, or
+              \c "none" to run the plain C code, or \c "auto" (the default) to
+              use the widest set the processor offers.
+  \return 0 on success, or:
+          - \c -1 if \p gfp is not a usable instance;
+          - \c -2 if \p name names nothing this library knows;
+          - \c -3 if it names a set this build did not compile in;
+          - \c -4 if it names a set this build has, but the processor running
+            it cannot execute.
+
+  <b>The name is matched strictly and must be lowercase</b> - it is an
+  identifier, not free text. Lower-case and otherwise sanitize anything that
+  came from a user before passing it here.
+
+  The point of naming a set rather than disabling others is performance
+  testing: pinning an encode to \c "sse2" on a processor that also has AVX2
+  measures the SSE2 routines. The request is validated here rather than at
+  lame_init_params(), so an impossible one is refused at once instead of
+  quietly falling back.
+
+  Takes effect at lame_init_params().
+
+  This overrides the deprecated lame_set_asm_optimizations() whenever it names
+  something other than \c "auto"; under \c "auto" the older flags still apply.
+
+  \code
+  if (lame_set_vector_routines(gfp, "sse2") != 0)
+      // this build or this processor cannot do it - report and carry on
+  \endcode
+
+  \see lame_get_vector_routines(), lame_get_vector_routines_name()
+*/
+int
+lame_set_vector_routines(lame_global_flags * gfp, const char *name)
+{
+    vector_impl_t impl;
+
+    if (!is_lame_global_flags_valid(gfp))
+        return -1;
+    if (name == 0)
+        return -2;
+    /* sizeof a string literal counts its terminator, so these compare the
+       whole word and nothing beyond it. */
+    if (strncmp(name, "auto", sizeof("auto")) == 0) {
+        gfp->vector_routines_request = VECTOR_IMPL_AUTO;
+        return 0;
+    }
+    if (strncmp(name, "none", sizeof("none")) == 0) {
+        gfp->vector_routines_request = VECTOR_IMPL_NONE;
+        return 0;
+    }
+    if (!vector_impl_from_name(name, &impl)) {
+        /* Distinguish "LAME has never heard of this" from "this build left it
+           out".  Only the second is answered by rebuilding, and the caller
+           cannot tell them apart from a single failure code. */
+        return vector_impl_known(name) ? -3 : -2;
+    }
+    if (!vector_impl_supported(impl))
+        return -4;
+    gfp->vector_routines_request = (int) impl;
+    return 0;
+}
+
+
+/**
+  \brief Which vector routines this instance is actually running.
+
+  \param gfp the encoder instance.
+  \return the name, \c "none" if it runs the plain C code, or NULL if \p gfp
+          is unusable or lame_init_params() has not run yet.
+
+  Never \c "auto": this reports the outcome, not the request. Before
+  lame_init_params() there is no outcome - the processor has not been asked
+  and the request has not been applied - and NULL says so rather than
+  guessing.
+
+  This is the call that answers "which set did I just measure".
+
+  \see lame_set_vector_routines()
+*/
+const char *
+lame_get_vector_routines(const lame_global_flags * gfp)
+{
+    lame_internal_flags const *gfc;
+
+    if (!is_lame_global_flags_valid(gfp))
+        return 0;
+    gfc = gfp->internal_flags;
+    if (gfc == 0 || !is_lame_internal_flags_valid(gfc))
+        return 0;
+    return vector_impl_name(vector_implementation(gfc));
+}
+
+
 /*! Choose whether the library writes the ID3 tags itself. */
 /*!
   By default LAME emits the ID3v2 tag ahead of the audio and the ID3v1 tag

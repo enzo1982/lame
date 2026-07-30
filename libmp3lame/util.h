@@ -463,6 +463,33 @@ extern  "C" {
     } SessionConfig_t;
 
 
+/* Whether the target is x86 at all.  It decides which CPU tests can be
+   asked and which instruction sets the vector ladder below can name. */
+#if defined( __i386__ ) || defined( __x86_64__ ) \
+ || defined( _M_IX86 ) || defined( _M_X64 ) || defined( _M_AMD64 )
+#define LAME_TARGET_X86 1
+#endif
+
+    /* Which set of vector routines the encoder will run.  A wider
+       implementation adds a value here and a name in the table in util.c,
+       rather than another flag to test at each call site.  Ordered by
+       capability, so a comparison picks the best available one: a routine
+       that exists only at the lower tier is still chosen on a machine that
+       offers the higher one.
+
+       The tiers are the instruction sets themselves, so they are listed per
+       architecture and each architecture reports names that exist on it.
+       The type is internal, and a caller written as ">= the tier my routine
+       needs" reads the same whichever architecture it is compiled for. */
+    typedef enum {
+        VECTOR_IMPL_NONE = 0
+#if defined( LAME_TARGET_X86 )
+        , VECTOR_IMPL_SSE2
+        , VECTOR_IMPL_AVX2
+#endif
+    } vector_impl_t;
+
+
     struct lame_internal_flags {
 
   /********************************************************************
@@ -524,6 +551,12 @@ extern  "C" {
             unsigned int AVX2:1; /* Haswell, Excavator        */
             unsigned int _unused:27;
         } CPU_features;
+
+        /* Which vector routines this instance runs.  Decided once, in
+           lame_init_params(), rather than recomputed at each call site: a
+           selection forced for performance testing has to be one that no
+           call site can bypass. */
+        vector_impl_t vector_impl;
 
 
         VBR_seek_info_t VBR_seek_table; /* used for Xing VBR header */
@@ -588,40 +621,43 @@ extern  "C" {
                                    size_t len, sample_t pcm_l[], sample_t pcm_r[]);
 
 
-/* Whether the target is x86 at all.  It decides which CPU tests can be
-   asked and which instruction sets the vector ladder below can name. */
-#if defined( __i386__ ) || defined( __x86_64__ ) \
- || defined( _M_IX86 ) || defined( _M_X64 ) || defined( _M_AMD64 )
-#define LAME_TARGET_X86 1
-#endif
-
     extern int has_MMX(void);
     extern int has_3DNow(void);
     extern int has_SSE(void);
     extern int has_SSE2(void);
     extern int has_AVX2(void);
 
-    /* Which set of vector routines the encoder will run.  A wider
-       implementation adds a value here and a name in vector_impl_name(),
-       rather than another flag to test at each call site.  Ordered by
-       capability, so a comparison picks the best available one: a routine
-       that exists only at the lower tier is still chosen on a machine that
-       offers the higher one.
+/* The request stored in lame_global_flags: a vector_impl_t value, or this,
+   meaning "whatever the machine offers".  It is not a vector_impl_t member
+   because it is not a tier - it is the absence of a choice.  */
+#define VECTOR_IMPL_AUTO (-1)
 
-       The tiers are the instruction sets themselves, so they are listed per
-       architecture and each architecture reports names that exist on it.
-       The type is internal, and a caller written as ">= the tier my routine
-       needs" reads the same whichever architecture it is compiled for. */
-    typedef enum {
-        VECTOR_IMPL_NONE = 0
-#if defined( LAME_TARGET_X86 )
-        , VECTOR_IMPL_SSE2
-        , VECTOR_IMPL_AVX2
-#endif
-    } vector_impl_t;
+/* Buffer size for one name, terminator included.  Instruction-set names are
+   short identifiers, so this is generous; it exists so the comparisons and
+   the display buffers all state the same bound instead of repeating a
+   literal.  A name that did not fit would be reported truncated, which is why
+   the unit test asserts every one of them is shorter than this. */
+#define VECTOR_IMPL_NAME_MAX 32
+
+    /* The table in util.c is the single source of truth for the set of
+       vector routines this build carries: the public enumeration, the
+       name lookup, the setter's validation and the configuration report all
+       read it.  Keeping them apart is how a build comes to advertise a set
+       the encoder never dispatches. */
+    extern int  vector_impl_count(void);
+    extern const char *vector_impl_name_at(int index);
+    extern int  vector_impl_from_name(const char *name, vector_impl_t * impl);
+    extern int  vector_impl_known(const char *name);
+    extern int  vector_impl_supported(vector_impl_t impl);
+
+    /* Decides gfc->vector_impl from the request and what the CPU offers.
+       Called once, from lame_init_params(); every consumer of
+       vector_implementation() runs after it. */
+    extern void vector_impl_init(lame_internal_flags * gfc, int request);
 
     extern vector_impl_t vector_implementation(lame_internal_flags const *gfc);
     extern const char *vector_impl_name(vector_impl_t impl);
+    extern const char *vector_impl_display(const char *name, char *buf, size_t size);
 
 
 

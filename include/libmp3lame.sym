@@ -55,6 +55,10 @@ lame_get_compression_ratio
 lame_set_preset
 lame_set_asm_optimizations
 lame_get_asm_optimizations
+lame_get_num_vector_routines
+lame_get_vector_routines_name
+lame_set_vector_routines
+lame_get_vector_routines
 lame_set_copyright
 lame_get_copyright
 lame_set_original

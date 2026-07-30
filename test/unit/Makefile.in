@@ -101,7 +101,9 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_encode_mono_interleaved$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_totalframes$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_set_get$(EXEEXT) \
-@ENABLE_UNIT_TESTS_TRUE@	test_lib_info$(EXEEXT) $(am__EXEEXT_1)
+@ENABLE_UNIT_TESTS_TRUE@	test_lib_info$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_vector_routines$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_1)
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -251,6 +253,12 @@ test_totalframes_OBJECTS = $(am_test_totalframes_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@test_totalframes_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+am__test_vector_routines_SOURCES_DIST = test_vector_routines.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_vector_routines_OBJECTS = test_vector_routines-test_vector_routines.$(OBJEXT)
+test_vector_routines_OBJECTS = $(am_test_vector_routines_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_vector_routines_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -283,7 +291,8 @@ am__depfiles_remade = ./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise
 	./$(DEPDIR)/test_quantize_lines_vector-test_quantize_lines_vector.Po \
 	./$(DEPDIR)/test_sanity-test_sanity.Po \
 	./$(DEPDIR)/test_set_get-test_set_get.Po \
-	./$(DEPDIR)/test_totalframes-test_totalframes.Po
+	./$(DEPDIR)/test_totalframes-test_totalframes.Po \
+	./$(DEPDIR)/test_vector_routines-test_vector_routines.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -311,7 +320,8 @@ SOURCES = $(test_calc_sfb_noise_vector_SOURCES) \
 	$(test_lib_info_SOURCES) $(test_merge_argv_SOURCES) \
 	$(test_parse_id3_SOURCES) $(test_parse_pathlen_SOURCES) \
 	$(test_quantize_lines_vector_SOURCES) $(test_sanity_SOURCES) \
-	$(test_set_get_SOURCES) $(test_totalframes_SOURCES)
+	$(test_set_get_SOURCES) $(test_totalframes_SOURCES) \
+	$(test_vector_routines_SOURCES)
 DIST_SOURCES = $(am__test_calc_sfb_noise_vector_SOURCES_DIST) \
 	$(am__test_choose_table_vector_SOURCES_DIST) \
 	$(am__test_encode_mono_interleaved_SOURCES_DIST) \
@@ -325,7 +335,8 @@ DIST_SOURCES = $(am__test_calc_sfb_noise_vector_SOURCES_DIST) \
 	$(am__test_quantize_lines_vector_SOURCES_DIST) \
 	$(am__test_sanity_SOURCES_DIST) \
 	$(am__test_set_get_SOURCES_DIST) \
-	$(am__test_totalframes_SOURCES_DIST)
+	$(am__test_totalframes_SOURCES_DIST) \
+	$(am__test_vector_routines_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -864,6 +875,20 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
 
+# The vector-routines API is public and architecture-neutral by design - it
+# reports whatever this build carries - so this test links libmp3lame and is
+# built everywhere, with no WITH_XMM/WITH_NEON gate. A build with no vector
+# routines at all is one of the configurations it has to hold for.
+@ENABLE_UNIT_TESTS_TRUE@test_vector_routines_SOURCES = test_vector_routines.c
+@ENABLE_UNIT_TESTS_TRUE@test_vector_routines_CPPFLAGS = $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_vector_routines_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
+
 # Exercises the parameter API in set_get.c. The exported getters/setters are
 # tested in every build; the internal-only tuning setters are additionally
 # tested when configured with --enable-internal (the same gate the frontend
@@ -1024,6 +1049,10 @@ test_totalframes$(EXEEXT): $(test_totalframes_OBJECTS) $(test_totalframes_DEPEND
 	@rm -f test_totalframes$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_totalframes_OBJECTS) $(test_totalframes_LDADD) $(LIBS)
 
+test_vector_routines$(EXEEXT): $(test_vector_routines_OBJECTS) $(test_vector_routines_DEPENDENCIES) $(EXTRA_test_vector_routines_DEPENDENCIES) 
+	@rm -f test_vector_routines$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_vector_routines_OBJECTS) $(test_vector_routines_LDADD) $(LIBS)
+
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 
@@ -1048,6 +1077,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_sanity-test_sanity.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_set_get-test_set_get.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_totalframes-test_totalframes.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_vector_routines-test_vector_routines.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -1327,6 +1357,20 @@ test_totalframes-test_totalframes.obj: test_totalframes.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_totalframes.c' object='test_totalframes-test_totalframes.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_totalframes_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_totalframes-test_totalframes.obj `if test -f 'test_totalframes.c'; then $(CYGPATH_W) 'test_totalframes.c'; else $(CYGPATH_W) '$(srcdir)/test_totalframes.c'; fi`
+
+test_vector_routines-test_vector_routines.o: test_vector_routines.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_vector_routines_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_vector_routines-test_vector_routines.o -MD -MP -MF $(DEPDIR)/test_vector_routines-test_vector_routines.Tpo -c -o test_vector_routines-test_vector_routines.o `test -f 'test_vector_routines.c' || echo '$(srcdir)/'`test_vector_routines.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_vector_routines-test_vector_routines.Tpo $(DEPDIR)/test_vector_routines-test_vector_routines.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_vector_routines.c' object='test_vector_routines-test_vector_routines.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_vector_routines_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_vector_routines-test_vector_routines.o `test -f 'test_vector_routines.c' || echo '$(srcdir)/'`test_vector_routines.c
+
+test_vector_routines-test_vector_routines.obj: test_vector_routines.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_vector_routines_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_vector_routines-test_vector_routines.obj -MD -MP -MF $(DEPDIR)/test_vector_routines-test_vector_routines.Tpo -c -o test_vector_routines-test_vector_routines.obj `if test -f 'test_vector_routines.c'; then $(CYGPATH_W) 'test_vector_routines.c'; else $(CYGPATH_W) '$(srcdir)/test_vector_routines.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_vector_routines-test_vector_routines.Tpo $(DEPDIR)/test_vector_routines-test_vector_routines.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_vector_routines.c' object='test_vector_routines-test_vector_routines.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_vector_routines_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_vector_routines-test_vector_routines.obj `if test -f 'test_vector_routines.c'; then $(CYGPATH_W) 'test_vector_routines.c'; else $(CYGPATH_W) '$(srcdir)/test_vector_routines.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -1629,6 +1673,13 @@ test_lib_info.log: test_lib_info$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_vector_routines.log: test_vector_routines$(EXEEXT)
+	@p='test_vector_routines$(EXEEXT)'; \
+	b='test_vector_routines'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 test_choose_table_vector.log: test_choose_table_vector$(EXEEXT)
 	@p='test_choose_table_vector$(EXEEXT)'; \
 	b='test_choose_table_vector'; \
@@ -1761,6 +1812,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
 	-rm -f ./$(DEPDIR)/test_set_get-test_set_get.Po
 	-rm -f ./$(DEPDIR)/test_totalframes-test_totalframes.Po
+	-rm -f ./$(DEPDIR)/test_vector_routines-test_vector_routines.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -1824,6 +1876,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
 	-rm -f ./$(DEPDIR)/test_set_get-test_set_get.Po
 	-rm -f ./$(DEPDIR)/test_totalframes-test_totalframes.Po
+	-rm -f ./$(DEPDIR)/test_vector_routines-test_vector_routines.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

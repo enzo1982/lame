@@ -9,7 +9,7 @@ if ENABLE_UNIT_TESTS
 
 check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv \
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
-	test_totalframes test_set_get test_lib_info
+	test_totalframes test_set_get test_lib_info test_vector_routines
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -138,6 +138,18 @@ test_lib_info_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_lib_info_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The vector-routines API is public and architecture-neutral by design - it
+# reports whatever this build carries - so this test links libmp3lame and is
+# built everywhere, with no WITH_XMM/WITH_NEON gate. A build with no vector
+# routines at all is one of the configurations it has to hold for.
+test_vector_routines_SOURCES = test_vector_routines.c
+test_vector_routines_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_vector_routines_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 
