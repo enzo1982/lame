@@ -832,6 +832,14 @@ lame_errorf(const lame_internal_flags* gfc, const char *format, ...)
 #if defined( __AVX2__ )
 #define LAME_BASELINE_AVX2 1
 #endif
+/* The tier needs four subsets, so the baseline has to carry all four before it
+ * can answer yes: the kernels narrow to sixteen bits (BW), use the packed
+ * integer forms (DQ), and address the shorter widths on the same encodings
+ * (VL). */
+#if defined( __AVX512F__ ) && defined( __AVX512VL__ ) \
+ && defined( __AVX512BW__ ) && defined( __AVX512DQ__ )
+#define LAME_BASELINE_AVX512 1
+#endif
 
 /* LAME_TARGET_X86 comes from util.h, where the vector ladder needs it too. */
 #if defined( LAME_TARGET_X86 )
@@ -863,7 +871,15 @@ enum {
 enum {
     CPUID1_ECX_OSXSAVE = 27,
     CPUID7_EBX_AVX2 = 5,
-    XCR0_SSE_AND_AVX_STATE = 0x6
+    CPUID7_EBX_AVX512F = 16,
+    CPUID7_EBX_AVX512DQ = 17,
+    CPUID7_EBX_AVX512BW = 30,
+    CPUID7_EBX_AVX512VL = 31,
+    XCR0_SSE_AND_AVX_STATE = 0x6,
+    /* ... and for the 512-bit registers, three more pieces of state: the
+       opmask registers, the upper half of the low sixteen, and the sixteen
+       the wider encoding adds. */
+    XCR0_AVX512_STATE = 0xe6
 };
 
 static int
@@ -891,6 +907,27 @@ cpuid_feature_avx2(void)
         return 0;
     __cpuidex(regs, 7, 0);
     return (regs[1] >> CPUID7_EBX_AVX2) & 1;
+}
+
+static int
+cpuid_feature_avx512(void)
+{
+    int     regs[4];
+    int     ebx;
+    __cpuid(regs, 0);
+    if (regs[0] < 7)
+        return 0;
+    __cpuid(regs, 1);
+    if (((regs[2] >> CPUID1_ECX_OSXSAVE) & 1) == 0)
+        return 0;
+    if ((_xgetbv(0) & XCR0_AVX512_STATE) != XCR0_AVX512_STATE)
+        return 0;
+    __cpuidex(regs, 7, 0);
+    ebx = regs[1];
+    return ((ebx >> CPUID7_EBX_AVX512F) & 1)
+        && ((ebx >> CPUID7_EBX_AVX512DQ) & 1)
+        && ((ebx >> CPUID7_EBX_AVX512BW) & 1)
+        && ((ebx >> CPUID7_EBX_AVX512VL) & 1);
 }
 #endif
 
@@ -926,6 +963,58 @@ has_AVX2(void)
 #endif
 }
 
+int
+has_AVX512(void)
+{
+#if defined( LAME_BASELINE_AVX512 )
+    return 1;
+#elif defined( LAME_CPU_SUPPORTS )
+    /* Asked as four questions for the same reason the baseline test is four:
+       the kernels use all four subsets, and a CPU carrying only the
+       foundation would fault on the rest. */
+    return __builtin_cpu_supports("avx512f") != 0
+        && __builtin_cpu_supports("avx512vl") != 0
+        && __builtin_cpu_supports("avx512bw") != 0
+        && __builtin_cpu_supports("avx512dq") != 0;
+#elif defined( LAME_CPUID_MSVC )
+    return cpuid_feature_avx512();
+#else
+    return 0;           /* don't know, assume not */
+#endif
+}
+
+/** @internal
+ * Whether the experimental AVX-512 Huffman table search is switched on.
+ *
+ * Temporary, and deliberately shaped so that it costs nothing to carry and
+ * nothing to remove.  The routines exist and are unit-tested; what has never
+ * happened is a measurement of them inside an encode, because no machine the
+ * project can reach has AVX-512.  Rather than enable them on the strength of a
+ * number that came from a different kernel, they are compiled in unconditionally
+ * and dispatched only when someone deliberately asks:
+ *
+ *   - the build must be an alpha, so no release ever takes this path, and
+ *   - LAME_AVX512_CHOOSE_TABLE must be set to something other than 0.
+ *
+ * Both conditions, and the second one alone would not do: an environment
+ * variable that changes a released encoder's output is a support problem.
+ * Once there are numbers this becomes either a plain dispatch or a deletion,
+ * and either way the whole experiment is this function and its two callers.
+ *
+ * @return nonzero if the experimental path should be used.
+ */
+int
+vector_avx512_choose_table_experiment(void)
+{
+#if defined( HAVE_AVX512_INTRINSICS ) && LAME_ALPHA_VERSION
+    const char *const v = getenv("LAME_AVX512_CHOOSE_TABLE");
+
+    return v != 0 && v[0] != '\0' && !(v[0] == '0' && v[1] == '\0');
+#else
+    return 0;
+#endif
+}
+
 /** @internal
  * The one table.  Every question about vector routines is answered from it -
  * how many this build carries, what they are called, whether a name is one of
@@ -942,8 +1031,9 @@ has_AVX2(void)
  * real instruction set rather than a family, so SSE2 and not SSE.  The
  * displayed form is this name upper-cased; there is no second string.
  *
- * The ladder is scalar -> SSE2 -> AVX2, with no SSE4.1/SSE4.2 rung; see
- * @ref vector_dispatch for why it stops where it does.
+ * The ladder is scalar -> SSE2 -> AVX2 -> AVX-512, with no SSE4.1/SSE4.2 rung,
+ * and the top rung carries only the constant-bitrate kernels; see
+ * @ref vector_dispatch for why it is shaped that way.
  */
 static const struct {
     const char *name;
@@ -955,6 +1045,9 @@ static const struct {
 #endif
 #if defined( HAVE_AVX2_INTRINSICS )
     { "avx2", VECTOR_IMPL_AVX2, has_AVX2 },
+#endif
+#if defined( HAVE_AVX512_INTRINSICS )
+    { "avx512", VECTOR_IMPL_AVX512, has_AVX512 },
 #endif
     { 0, VECTOR_IMPL_NONE, 0 }  /* C89 forbids an empty initialiser, and a
                                    build with no vector routines at all needs
@@ -977,7 +1070,7 @@ static const struct {
  * asserts that every name in the table appears here.
  */
 static const char *const vector_impl_known_names[] = {
-    "sse2", "avx2", 0
+    "sse2", "avx2", "avx512", 0
 };
 
 /* Exact match within the bound every name is required to fit: both strings
@@ -1077,6 +1170,14 @@ vector_impl_init(lame_internal_flags * gfc, int request)
        CPU_features bits are already masked by the legacy enable flags. */
     for (i = vector_impl_count() - 1; i >= 0; --i) {
         switch (vector_impl_table[i].impl) {
+#if defined( HAVE_AVX512_INTRINSICS )
+        case VECTOR_IMPL_AVX512:
+            if (gfc->CPU_features.AVX512) {
+                gfc->vector_impl = VECTOR_IMPL_AVX512;
+                return;
+            }
+            break;
+#endif
 #if defined( HAVE_AVX2_INTRINSICS )
         case VECTOR_IMPL_AVX2:
             if (gfc->CPU_features.AVX2) {

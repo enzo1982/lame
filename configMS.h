@@ -104,11 +104,20 @@ void acm_Free( void * mem);
  * instruction set, this compiler accepts them whatever /arch is in force.  So
  * the routines are always built and the CPU decides at run time whether they
  * are used, exactly as on the Autotools side.
+ *
+ * That holds for the 512-bit registers too - verified rather than assumed,
+ * since it decides whether a stock binary would fault on a CPU without them:
+ * the kernels compile with no /arch:AVX512 and the object carries the wide
+ * registers, the mask registers and the gathers (build/avx512-probe/).  What
+ * confines that tier to alpha versions is the version test in
+ * libmp3lame/vector/lame_intrin.h, which is where the Autotools side gates it
+ * as well.
  */
 #if defined(_M_IX86) || defined(_M_X64) || defined(_M_AMD64) \
  || (defined(__ICL) && (__ICL >= 450))
     #define HAVE_SSE2_INTRINSICS
     #define HAVE_AVX2_INTRINSICS
+    #define HAVE_AVX512_INTRINSICS
 #endif
 
 #endif

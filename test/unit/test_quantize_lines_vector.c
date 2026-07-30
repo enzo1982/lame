@@ -99,6 +99,43 @@ avx2_quantize(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix, const FLOA
 #endif
 }
 
+/**
+ * @brief Does the running CPU offer the AVX-512 subsets the tier needs?
+ *
+ * All four are asked for, because the kernels use all four and a CPU carrying
+ * only the foundation would fault on the rest.
+ */
+static int
+have_avx512(void)
+{
+#if defined( HAVE_AVX512_INTRINSICS )
+# if defined( __AVX512F__ ) && defined( __AVX512VL__ ) \
+  && defined( __AVX512BW__ ) && defined( __AVX512DQ__ )
+    return 1;
+# elif defined( __GNUC__ ) || defined( __clang__ )
+    return __builtin_cpu_supports("avx512f") != 0
+        && __builtin_cpu_supports("avx512vl") != 0
+        && __builtin_cpu_supports("avx512bw") != 0
+        && __builtin_cpu_supports("avx512dq") != 0;
+# else
+    return 0;               /* no way to ask; skip rather than crash */
+# endif
+#else
+    return 0;
+#endif
+}
+
+/** @brief The AVX-512 form, or a stand-in where it was not compiled. */
+static void
+avx512_quantize(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix, const FLOAT * adj)
+{
+#if defined( HAVE_AVX512_INTRINSICS )
+    quantize_lines_xrpow_avx512(l, istep, xr, ix, adj);
+#else
+    (void) l; (void) istep; (void) xr; (void) ix; (void) adj;
+#endif
+}
+
 /* ------------------------------------------------------------------ */
 /* reference                                                           */
 /* ------------------------------------------------------------------ */
@@ -131,6 +168,9 @@ ref_quantize(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix, const FLOAT
 /* helpers                                                             */
 /* ------------------------------------------------------------------ */
 
+/** @brief Which implementation check_one() should exercise. */
+enum { TIER_SSE2 = 0, TIER_AVX2 = 1, TIER_AVX512 = 2 };
+
 /**
  * @brief Run one length through a tier and its reference and compare.
  *
@@ -138,7 +178,7 @@ ref_quantize(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix, const FLOAT
  * sentinel - the tail case is the whole reason these tests exist.
  */
 static void
-check_one(unsigned int l, FLOAT istep, const FLOAT * xr, const FLOAT * adj, int use_avx2)
+check_one(unsigned int l, FLOAT istep, const FLOAT * xr, const FLOAT * adj, int tier)
 {
     int     got[MAX_LEN + 8], want[MAX_LEN + 8];
     unsigned int const n = ref_count(l);
@@ -147,10 +187,17 @@ check_one(unsigned int l, FLOAT istep, const FLOAT * xr, const FLOAT * adj, int 
     for (i = 0; i < MAX_LEN + 8; ++i)
         got[i] = want[i] = SENTINEL;
 
-    if (use_avx2)
+    switch (tier) {
+    case TIER_AVX512:
+        avx512_quantize(l, istep, xr, got, adj);
+        break;
+    case TIER_AVX2:
         avx2_quantize(l, istep, xr, got, adj);
-    else
+        break;
+    default:
         quantize_lines_xrpow_sse2(l, istep, xr, got, adj);
+        break;
+    }
     ref_quantize(l, istep, xr, want, adj);
 
     for (i = 0; i < n; ++i)
@@ -180,14 +227,18 @@ test_lengths(LAME_UNUSED void **state)
         xr[i] = (FLOAT) ((i % 200) + 0.25);
 
     for (l = 0; l <= 72; ++l) {
-        check_one(l, 1.0f, xr, adj_t, 0);
+        check_one(l, 1.0f, xr, adj_t, TIER_SSE2);
         if (have_avx2())
-            check_one(l, 1.0f, xr, adj_t, 1);
+            check_one(l, 1.0f, xr, adj_t, TIER_AVX2);
+        if (have_avx512())
+            check_one(l, 1.0f, xr, adj_t, TIER_AVX512);
     }
     for (l = MAX_LEN - 3; l <= MAX_LEN; ++l) {
-        check_one(l, 1.0f, xr, adj_t, 0);
+        check_one(l, 1.0f, xr, adj_t, TIER_SSE2);
         if (have_avx2())
-            check_one(l, 1.0f, xr, adj_t, 1);
+            check_one(l, 1.0f, xr, adj_t, TIER_AVX2);
+        if (have_avx512())
+            check_one(l, 1.0f, xr, adj_t, TIER_AVX512);
     }
 }
 
@@ -207,20 +258,26 @@ test_index_boundaries(LAME_UNUSED void **state)
     for (i = 0; i < MAX_LEN + 8; ++i)
         xr[i] = (FLOAT) idx[i % (int) (sizeof idx / sizeof idx[0])];
 
-    check_one(64, 1.0f, xr, adj_t, 0);
-    check_one(66, 1.0f, xr, adj_t, 0);
+    check_one(64, 1.0f, xr, adj_t, TIER_SSE2);
+    check_one(66, 1.0f, xr, adj_t, TIER_SSE2);
     if (have_avx2()) {
-        check_one(64, 1.0f, xr, adj_t, 1);
-        check_one(66, 1.0f, xr, adj_t, 1);
+        check_one(64, 1.0f, xr, adj_t, TIER_AVX2);
+        check_one(66, 1.0f, xr, adj_t, TIER_AVX2);
+    }
+    if (have_avx512()) {
+        check_one(64, 1.0f, xr, adj_t, TIER_AVX512);
+        check_one(66, 1.0f, xr, adj_t, TIER_AVX512);
     }
 
     /* the same values reached through istep rather than written down, which
        is how they arrive in the encoder */
     for (i = 0; i < MAX_LEN + 8; ++i)
         xr[i] = (FLOAT) idx[i % (int) (sizeof idx / sizeof idx[0])] * 4.0f;
-    check_one(64, 0.25f, xr, adj_t, 0);
+    check_one(64, 0.25f, xr, adj_t, TIER_SSE2);
     if (have_avx2())
-        check_one(64, 0.25f, xr, adj_t, 1);
+        check_one(64, 0.25f, xr, adj_t, TIER_AVX2);
+    if (have_avx512())
+        check_one(64, 0.25f, xr, adj_t, TIER_AVX512);
 }
 
 /** @brief All zero - the case a silent passage produces. */
@@ -234,13 +291,16 @@ test_all_zero(LAME_UNUSED void **state)
         xr[i] = 0.0f;
 
     for (i = 0; i <= 40; ++i)
-        check_one((unsigned int) i, 1.0f, xr, adj_t, 0);
+        check_one((unsigned int) i, 1.0f, xr, adj_t, TIER_SSE2);
     if (have_avx2())
         for (i = 0; i <= 40; ++i)
-            check_one((unsigned int) i, 1.0f, xr, adj_t, 1);
+            check_one((unsigned int) i, 1.0f, xr, adj_t, TIER_AVX2);
+    if (have_avx512())
+        for (i = 0; i <= 40; ++i)
+            check_one((unsigned int) i, 1.0f, xr, adj_t, TIER_AVX512);
 }
 
-/** @brief The two tiers must agree with each other, not merely each with C. */
+/** @brief The tiers must agree with each other, not merely each with C. */
 static void
 test_tiers_agree(LAME_UNUSED void **state)
 {
@@ -249,20 +309,28 @@ test_tiers_agree(LAME_UNUSED void **state)
     unsigned int l;
     int     i;
 
-    if (!have_avx2())
-        return;
-
     for (i = 0; i < MAX_LEN + 8; ++i)
         xr[i] = (FLOAT) ((i * 7 % 311) + 0.5);
 
-    for (l = 0; l <= 72; ++l) {
-        for (i = 0; i < MAX_LEN + 8; ++i)
-            a[i] = b[i] = SENTINEL;
-        quantize_lines_xrpow_sse2(l, 1.0f, xr, a, adj_t);
-        avx2_quantize(l, 1.0f, xr, b, adj_t);
-        for (i = 0; i < MAX_LEN + 8; ++i)
-            assert_int_equal(a[i], b[i]);
-    }
+    if (have_avx2())
+        for (l = 0; l <= 72; ++l) {
+            for (i = 0; i < MAX_LEN + 8; ++i)
+                a[i] = b[i] = SENTINEL;
+            quantize_lines_xrpow_sse2(l, 1.0f, xr, a, adj_t);
+            avx2_quantize(l, 1.0f, xr, b, adj_t);
+            for (i = 0; i < MAX_LEN + 8; ++i)
+                assert_int_equal(a[i], b[i]);
+        }
+
+    if (have_avx512())
+        for (l = 0; l <= 72; ++l) {
+            for (i = 0; i < MAX_LEN + 8; ++i)
+                a[i] = b[i] = SENTINEL;
+            quantize_lines_xrpow_sse2(l, 1.0f, xr, a, adj_t);
+            avx512_quantize(l, 1.0f, xr, b, adj_t);
+            for (i = 0; i < MAX_LEN + 8; ++i)
+                assert_int_equal(a[i], b[i]);
+        }
 }
 
 /**

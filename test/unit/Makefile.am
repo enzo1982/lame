@@ -189,6 +189,9 @@ test_choose_table_vector_LDADD = $(CMOCKA_LIBS) \
 if WITH_AVX2
 test_choose_table_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
 endif
+if WITH_AVX512
+test_choose_table_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
+endif
 
 # Same arrangement for the quantization loop, and for the same reason.
 test_quantize_lines_vector_SOURCES = test_quantize_lines_vector.c
@@ -202,8 +205,13 @@ test_quantize_lines_vector_LDADD = $(CMOCKA_LIBS) \
 if WITH_AVX2
 test_quantize_lines_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
 endif
+if WITH_AVX512
+test_quantize_lines_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
+endif
 
-# Same arrangement for the VBR scalefactor-band noise.
+# The VBR scalefactor-band noise gets the same arrangement, but deliberately no
+# AVX-512 line: that tier was written, measured and rejected, so there is no
+# liblamevectoravx512 contribution here to link.  See @ref vector_dispatch.
 test_calc_sfb_noise_vector_SOURCES = test_calc_sfb_noise_vector.c
 test_calc_sfb_noise_vector_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/libmp3lame \

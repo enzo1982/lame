@@ -137,6 +137,19 @@
 			        families that named it select nothing and
 			        <i>lame_get_asm_optimizations()</i> reports them as not
 			        enabled.</li>
+			    <li><span class="speed">A third set of vector routines,
+			        <i>avx512</i>, is now built and used on processors that
+			        have AVX-512. It covers the constant-bitrate quantization
+			        loop, where it is worth about 6.5% of a
+			        <i>-b&nbsp;320</i> encode on an Intel Ice Lake part; on
+			        the two AMD processors it was measured on it makes no
+			        difference or costs about 1%, and it is enabled on all of
+			        them rather than by processor vendor. The Huffman table
+			        search and the variable-bitrate noise estimate keep the
+			        narrower routines, so a <i>-V</i> encode asking for
+			        <i>--vector&nbsp;avx512</i> runs the widest set that does
+			        cover its routines. Measured and reported by Tobias
+			        Damisch, Elio Blanca and Todd Zullinger.</span></li>
 			    <li><span class="security">Security hardening is now
 			        enabled by default: fortified library calls, stack
 			        and control-flow protection, read-only relocations

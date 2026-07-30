@@ -1232,16 +1232,28 @@
     </p>
     <p>
         The vectorized versions of a few hot routines are built into every x86
-        binary and used whenever the processor running it supports them, in two
-        tiers: an SSE2 tier used on any processor of the last two decades, and an
-        AVX2 tier used on top of it where available. This setting says which of
+        binary and used whenever the processor running it supports them, in
+        tiers: an SSE2 tier used on any processor of the last two decades, an
+        AVX2 tier used on top of it where available, and an AVX-512 tier above
+        that. This setting says which of
         them an encode uses. <span class="hilight">auto</span>, the default, takes
         the widest set the processor offers; <span class="hilight">none</span> runs
         the plain C code; and naming a set - <span class="hilight">sse2</span>,
-        <span class="hilight">avx2</span> - pins the encode to it even on a
+        <span class="hilight">avx2</span>, <span class="hilight">avx512</span> -
+        pins the encode to it even on a
         processor that has a wider one. That is how a set and the plain C path are
         compared against each other, for a speed measurement or to rule the vector
         code out when tracking down a problem.
+    </p>
+    <p>
+        The tiers do not all cover the same routines.
+        <span class="hilight">avx512</span> carries the constant-bitrate routines
+        only: the one variable-bitrate routine that could have used it was written
+        and measured, and it was slower there than the narrower code, so it is not
+        built. A variable-bitrate encode asking for
+        <span class="hilight">avx512</span> therefore runs the widest set that does
+        cover its routines, which is what
+        <span class="hilight">--verbose</span> will report.
     </p>
     <p>
         <span class="hilight">--vector none</span> also leaves the processor

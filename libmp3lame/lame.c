@@ -649,10 +649,17 @@ lame_init_params(lame_global_flags * gfp)
         /* AVX2 sits on top of SSE2, so it can be disabled on its own while the
            SSE2 tier stays; disabling SSE removes the whole group above. */
         gfc->CPU_features.AVX2 = gfp->asm_optimizations.avx2 ? has_AVX2() : 0;
+        /* The deprecated mask has no name for AVX-512 and must not grow one -
+           that is what lame_set_vector_routines() is for - so the rung above
+           inherits the AVX2 bit rather than being unreachable from the old
+           API or, worse, immune to it: a caller of the old API asking for no
+           AVX2 is asking for nothing wider than SSE2. */
+        gfc->CPU_features.AVX512 = gfp->asm_optimizations.avx2 ? has_AVX512() : 0;
     }
     else {
         gfc->CPU_features.SSE2 = 0;
         gfc->CPU_features.AVX2 = 0;
+        gfc->CPU_features.AVX512 = 0;
     }
 
     /* One decision, here, before anything asks.  Every consumer of
@@ -1377,6 +1384,17 @@ lame_print_config(const lame_global_flags * gfp)
 
 #if (LAME_ALPHA_VERSION)
     MSGF(gfc, "warning: alpha versions should be used for testing only\n");
+#if defined( HAVE_AVX512_INTRINSICS )
+    /* Said out loud, because the point of the switch is to collect
+       measurements and a measurement of a run that did not take the path is
+       worse than none: it looks like a result.  The same two conditions
+       huffman_init() applies, and for the same reason they are both here -
+       asking for the experiment on a processor that cannot run it must not
+       report it as enabled. */
+    if (vector_implementation(gfc) >= VECTOR_IMPL_AVX512
+        && vector_avx512_choose_table_experiment())
+        MSGF(gfc, "experimental: AVX-512 Huffman table search enabled\n");
+#endif
 #endif
     {
         char    text[256];

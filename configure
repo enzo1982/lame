@@ -668,10 +668,13 @@ LTLIBICONV
 LIBICONV
 WITH_VECTOR_FALSE
 WITH_VECTOR_TRUE
+WITH_AVX512_FALSE
+WITH_AVX512_TRUE
 WITH_AVX2_FALSE
 WITH_AVX2_TRUE
 WITH_XMM_FALSE
 WITH_XMM_TRUE
+VECTOR_AVX512_FLAGS
 VECTOR_AVX2_FLAGS
 VECTOR_SSE2_FLAGS
 CPP
@@ -15824,6 +15827,8 @@ fi
 
 
 
+
+
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for an ANSI C-conforming const" >&5
 printf %s "checking for an ANSI C-conforming const... " >&6; }
 if test ${ac_cv_c_const+y}
@@ -19792,6 +19797,120 @@ printf '%s\n' "#define HAVE_AVX2_INTRINSICS 1" >>confdefs.h
 	fi
 fi
 
+VECTOR_AVX512_FLAGS=
+if test "x${WITH_XMM}" = xyes; then
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking working AVX-512 intrinsics" >&5
+printf %s "checking working AVX-512 intrinsics... " >&6; }
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <immintrin.h>
+		  #if defined (__GNUC__) && ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 2)))
+		  #define AVX512_TARGET __attribute__((target("avx512f,avx512vl,avx512bw,avx512dq")))
+		  #else
+		  #define AVX512_TARGET
+		  #endif
+		  static const float probe_tbl[16] = {
+		      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+		  };
+		  static const int probe_itbl[16] = {
+		      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+		  };
+		  static int probe_i;
+		  static float probe_f;
+		  AVX512_TARGET static void probe(void)
+		  {
+		      __m512i i = _mm512_set1_epi32(1);
+		      __m512i g = _mm512_i32gather_epi32(i, probe_itbl, 4);
+		      __mmask16 m = _mm512_cmpgt_epu32_mask(i, _mm512_setzero_si512());
+		      __m512i p = _mm512_packs_epi32(g, g);
+		      probe_i = _mm512_reduce_max_epi32(p) + (int) m;
+		      _mm_store_ss(&probe_f,
+		                   _mm512_castps512_ps128(
+		                       _mm512_i32gather_ps(i, probe_tbl, 4)));
+		  }
+int
+main (void)
+{
+probe();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  lame_avx512_intrinsics=yes
+else case e in #(
+  e) lame_avx512_intrinsics=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: ${lame_avx512_intrinsics}" >&5
+printf '%s\n' "${lame_avx512_intrinsics}" >&6; }
+	if test "x${lame_avx512_intrinsics}" = xno; then
+		{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking working AVX-512 intrinsics with a per-file AVX-512 baseline" >&5
+printf %s "checking working AVX-512 intrinsics with a per-file AVX-512 baseline... " >&6; }
+		lame_save_CFLAGS=$CFLAGS
+		CFLAGS="$CFLAGS -mavx512f -mavx512vl -mavx512bw -mavx512dq"
+		cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <immintrin.h>
+		  #if defined (__GNUC__) && ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 2)))
+		  #define AVX512_TARGET __attribute__((target("avx512f,avx512vl,avx512bw,avx512dq")))
+		  #else
+		  #define AVX512_TARGET
+		  #endif
+		  static const float probe_tbl[16] = {
+		      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+		  };
+		  static const int probe_itbl[16] = {
+		      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+		  };
+		  static int probe_i;
+		  static float probe_f;
+		  AVX512_TARGET static void probe(void)
+		  {
+		      __m512i i = _mm512_set1_epi32(1);
+		      __m512i g = _mm512_i32gather_epi32(i, probe_itbl, 4);
+		      __mmask16 m = _mm512_cmpgt_epu32_mask(i, _mm512_setzero_si512());
+		      __m512i p = _mm512_packs_epi32(g, g);
+		      probe_i = _mm512_reduce_max_epi32(p) + (int) m;
+		      _mm_store_ss(&probe_f,
+		                   _mm512_castps512_ps128(
+		                       _mm512_i32gather_ps(i, probe_tbl, 4)));
+		  }
+int
+main (void)
+{
+probe();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  lame_avx512_baseline=yes
+else case e in #(
+  e) lame_avx512_baseline=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+		CFLAGS=$lame_save_CFLAGS
+		{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: ${lame_avx512_baseline}" >&5
+printf '%s\n' "${lame_avx512_baseline}" >&6; }
+		if test "x${lame_avx512_baseline}" = xyes; then
+			lame_avx512_intrinsics=yes
+			VECTOR_AVX512_FLAGS="-mavx512f -mavx512vl -mavx512bw -mavx512dq"
+		fi
+	fi
+	if test "x${lame_avx512_intrinsics}" = xyes; then
+
+printf '%s\n' "#define HAVE_AVX512_INTRINSICS 1" >>confdefs.h
+
+		WITH_AVX512=yes
+	fi
+fi
+
+
 
 
 # which vector code do we support to build on this machine?
@@ -19809,6 +19928,14 @@ fi
 else
   WITH_AVX2_TRUE='#'
   WITH_AVX2_FALSE=
+fi
+
+ if test "x${WITH_AVX512}" = "xyes"; then
+  WITH_AVX512_TRUE=
+  WITH_AVX512_FALSE='#'
+else
+  WITH_AVX512_TRUE='#'
+  WITH_AVX512_FALSE=
 fi
 
 
@@ -21580,6 +21707,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${WITH_AVX2_TRUE}" && test -z "${WITH_AVX2_FALSE}"; then
   as_fn_error $? "conditional \"WITH_AVX2\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${WITH_AVX512_TRUE}" && test -z "${WITH_AVX512_FALSE}"; then
+  as_fn_error $? "conditional \"WITH_AVX512\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${WITH_VECTOR_TRUE}" && test -z "${WITH_VECTOR_FALSE}"; then
@@ -23817,6 +23948,9 @@ if test "x${WITH_XMM}" = "xyes"; then
 fi
 if test "x${WITH_AVX2}" = "xyes"; then
   lame_vector_sets="${lame_vector_sets} AVX2"
+fi
+if test "x${WITH_AVX512}" = "xyes"; then
+  lame_vector_sets="${lame_vector_sets} AVX-512"
 fi
 if test -z "${lame_vector_sets}"; then
   lame_vector_sets=none

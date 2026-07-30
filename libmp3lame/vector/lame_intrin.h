@@ -23,6 +23,8 @@
 #ifndef LAME_INTRIN_H
 #define LAME_INTRIN_H
 
+#include "version.h"
+
 /* These routines are compiled for instruction sets the rest of the library is
  * not, and where the compiler can express that per function it is said here
  * rather than given to a whole file.  Realigning the stack is part of the
@@ -39,6 +41,7 @@
 
 #define SSE_FUNCTION  REALIGN TARGET("sse2")
 #define AVX2_FUNCTION REALIGN TARGET("avx2")
+#define AVX512_FUNCTION REALIGN TARGET("avx512f,avx512vl,avx512bw,avx512dq")
 
 
 void
@@ -70,6 +73,11 @@ ix_max_sse2(const int *ix, const int *end);
 int
 ix_max_avx2(const int *ix, const int *end);
 
+/* Same contract, with the saturation caveat lifted: this one compares full
+ * thirty-two-bit values, so it is the exact maximum whatever its size. */
+int
+ix_max_avx512(const int *ix, const int *end);
+
 /* Sums largetbl[] over the region's pairs and reports how many values had to
  * be clamped to 15.  The linbits each clamp costs are the caller's to add:
  * it is the caller that knows the two candidate tables.
@@ -77,6 +85,10 @@ ix_max_avx2(const int *ix, const int *end);
 unsigned int
 count_bit_esc_sse2(const int *ix, const int *end, const uint32_t *largetbl,
                    unsigned int *nclamped);
+
+unsigned int
+count_bit_esc_avx512(const int *ix, const int *end, const uint32_t *largetbl,
+                     unsigned int *nclamped);
 
 /* The three code lengths of one region under three consecutive tables, which
  * share an index and are therefore worth computing together.  Every value
@@ -113,6 +125,10 @@ void
 quantize_lines_xrpow_avx2(unsigned int l, FLOAT istep, const FLOAT *xr, int *ix,
                           const FLOAT *adj);
 
+void
+quantize_lines_xrpow_avx512(unsigned int l, FLOAT istep, const FLOAT *xr, int *ix,
+                            const FLOAT *adj);
+
 
 /*
  *  VBR scalefactor-band noise: quantize a band and return the summed squared
@@ -136,5 +152,6 @@ FLOAT
 calc_sfb_noise_x34_sse2(const FLOAT *xr, const FLOAT *xr34, unsigned int bw,
                         FLOAT sfpow, FLOAT sfpow34, const FLOAT *adj,
                         const FLOAT *pw43);
+
 
 #endif

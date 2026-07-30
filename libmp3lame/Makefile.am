@@ -11,6 +11,9 @@ vector_ldadd = $(top_builddir)/libmp3lame/vector/liblamevectorroutines.la
 if WITH_AVX2
 vector_ldadd += $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
 endif
+if WITH_AVX512
+vector_ldadd += $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
+endif
 endif
 
 if LIB_WITH_DECODER

@@ -7,6 +7,9 @@ noinst_LTLIBRARIES = liblamevectorroutines.la
 if WITH_AVX2
 noinst_LTLIBRARIES += liblamevectoravx2.la
 endif
+if WITH_AVX512
+noinst_LTLIBRARIES += liblamevectoravx512.la
+endif
 endif
 
 ##liblamecpuroutines_la_LIBADD = 
@@ -28,6 +31,7 @@ DEFS = @DEFS@ @CONFIG_DEFS@
 xmm_sources = xmm_quantize_sub.c xmm_choose_table.c xmm_quantize_lines.c \
 	xmm_calc_sfb_noise.c
 avx2_sources = avx2_choose_table.c avx2_quantize_lines.c
+avx512_sources = avx512_choose_table.c avx512_quantize_lines.c
 
 if WITH_XMM
 liblamevectorroutines_la_SOURCES = $(xmm_sources)
@@ -36,12 +40,17 @@ if WITH_AVX2
 liblamevectoravx2_la_SOURCES = $(avx2_sources)
 liblamevectoravx2_la_CFLAGS = $(AM_CFLAGS) @VECTOR_AVX2_FLAGS@
 endif
+if WITH_AVX512
+liblamevectoravx512_la_SOURCES = $(avx512_sources)
+liblamevectoravx512_la_CFLAGS = $(AM_CFLAGS) @VECTOR_AVX512_FLAGS@
+endif
 endif
 
 noinst_HEADERS = lame_intrin.h
 
 EXTRA_liblamevectorroutines_la_SOURCES = $(xmm_sources)
 EXTRA_liblamevectoravx2_la_SOURCES = $(avx2_sources)
+EXTRA_liblamevectoravx512_la_SOURCES = $(avx512_sources)
 
 CLEANFILES = lclint.txt
 

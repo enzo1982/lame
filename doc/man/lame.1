@@ -428,10 +428,15 @@ Choose which set of vector routines the encode runs.
 (the default) uses the widest set the processor offers,
 .B none
 runs the plain C code, and a name such as
-.B sse2
-or
+.B sse2 ,
 .B avx2
+or
+.B avx512
 pins the encode to that set even where the processor has a wider one.
+Not every set covers every routine:
+.B avx512
+carries the constant-bitrate routines only, so a variable-bitrate encode
+asking for it runs the widest set that does cover them.
 .B \-\-vector none
 also leaves the processor unasked about its capabilities, nothing depending on
 the answer any more; on a machine where that query is itself what fails, this

@@ -486,6 +486,7 @@ extern  "C" {
 #if defined( LAME_TARGET_X86 )
         , VECTOR_IMPL_SSE2
         , VECTOR_IMPL_AVX2
+        , VECTOR_IMPL_AVX512
 #endif
     } vector_impl_t;
 
@@ -548,7 +549,8 @@ extern  "C" {
         struct {
             unsigned int SSE2:1; /* Pentium 4, K8             */
             unsigned int AVX2:1; /* Haswell, Excavator        */
-            unsigned int _unused:30;
+            unsigned int AVX512:1; /* Skylake-SP, Ice Lake, Zen 4 */
+            unsigned int _unused:29;
         } CPU_features;
 
         /* Which vector routines this instance runs.  Decided once, in
@@ -622,6 +624,12 @@ extern  "C" {
 
     extern int has_SSE2(void);
     extern int has_AVX2(void);
+    extern int has_AVX512(void);
+
+    /* Temporary, alpha-only, off unless asked for: see the definition in
+       util.c and @ref vector_dispatch. Grep for the name to find every part
+       of the experiment. */
+    extern int vector_avx512_choose_table_experiment(void);
 
 /* The request stored in lame_global_flags: a vector_impl_t value, or this,
    meaning "whatever the machine offers".  It is not a vector_impl_t member

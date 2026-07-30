@@ -222,6 +222,43 @@ AC_DEFUN([LAME_AVX2_PROBE],
 		[[probe();]])],
 	[$1=yes], [$1=no])])
 
+dnl LAME_AVX512_PROBE(RESULT-VARIABLE)
+dnl   One tier further up, and asking for four subsets rather than one: the
+dnl   kernels narrow to sixteen bits (BW), use the packed integer forms (DQ)
+dnl   and address the shorter widths on the same encodings (VL), so a compiler
+dnl   that offers only the foundation cannot build them.  Integer and floating
+dnl   point are both compiled here for the reason given above.
+AC_DEFUN([LAME_AVX512_PROBE],
+[AC_COMPILE_IFELSE(
+	[AC_LANG_PROGRAM(
+		[[#include <immintrin.h>
+		  #if defined (__GNUC__) && ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 2)))
+		  #define AVX512_TARGET __attribute__((target("avx512f,avx512vl,avx512bw,avx512dq")))
+		  #else
+		  #define AVX512_TARGET
+		  #endif
+		  static const float probe_tbl@<:@16@:>@ = {
+		      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+		  };
+		  static const int probe_itbl@<:@16@:>@ = {
+		      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+		  };
+		  static int probe_i;
+		  static float probe_f;
+		  AVX512_TARGET static void probe(void)
+		  {
+		      __m512i i = _mm512_set1_epi32(1);
+		      __m512i g = _mm512_i32gather_epi32(i, probe_itbl, 4);
+		      __mmask16 m = _mm512_cmpgt_epu32_mask(i, _mm512_setzero_si512());
+		      __m512i p = _mm512_packs_epi32(g, g);
+		      probe_i = _mm512_reduce_max_epi32(p) + (int) m;
+		      _mm_store_ss(&probe_f,
+		                   _mm512_castps512_ps128(
+		                       _mm512_i32gather_ps(i, probe_tbl, 4)));
+		  }]],
+		[[probe();]])],
+	[$1=yes], [$1=no])])
+
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_C_INLINE
@@ -1380,12 +1417,42 @@ if test "x${WITH_XMM}" = xyes; then
 		WITH_AVX2=yes
 	fi
 fi
+
+dnl There is deliberately no --enable-avx512, for the same reason there is none
+dnl for SSE2 or AVX2: what the compiler can build is built, and the CPU decides
+dnl at run time, so one binary runs correctly everywhere and no build is
+dnl half-enabled.  The top rung carries only the constant-bitrate kernels; the
+dnl variable-bitrate one was measured and rejected - see @ref vector_dispatch.
+VECTOR_AVX512_FLAGS=
+if test "x${WITH_XMM}" = xyes; then
+	AC_MSG_CHECKING(working AVX-512 intrinsics)
+	LAME_AVX512_PROBE([lame_avx512_intrinsics])
+	AC_MSG_RESULT(${lame_avx512_intrinsics})
+	if test "x${lame_avx512_intrinsics}" = xno; then
+		AC_MSG_CHECKING(working AVX-512 intrinsics with a per-file AVX-512 baseline)
+		lame_save_CFLAGS=$CFLAGS
+		CFLAGS="$CFLAGS -mavx512f -mavx512vl -mavx512bw -mavx512dq"
+		LAME_AVX512_PROBE([lame_avx512_baseline])
+		CFLAGS=$lame_save_CFLAGS
+		AC_MSG_RESULT(${lame_avx512_baseline})
+		if test "x${lame_avx512_baseline}" = xyes; then
+			lame_avx512_intrinsics=yes
+			VECTOR_AVX512_FLAGS="-mavx512f -mavx512vl -mavx512bw -mavx512dq"
+		fi
+	fi
+	if test "x${lame_avx512_intrinsics}" = xyes; then
+		AC_DEFINE([HAVE_AVX512_INTRINSICS], [1], [Define if AVX-512 intrinsics work.])
+		WITH_AVX512=yes
+	fi
+fi
 AC_SUBST(VECTOR_SSE2_FLAGS)
 AC_SUBST(VECTOR_AVX2_FLAGS)
+AC_SUBST(VECTOR_AVX512_FLAGS)
 
 # which vector code do we support to build on this machine?
 AM_CONDITIONAL(WITH_XMM, test "x${WITH_XMM}" = "xyes")
 AM_CONDITIONAL(WITH_AVX2, test "x${WITH_AVX2}" = "xyes")
+AM_CONDITIONAL(WITH_AVX512, test "x${WITH_AVX512}" = "xyes")
 
 # needs to be defined to link in the internal vector lib
 AM_CONDITIONAL(WITH_VECTOR, test "x${WITH_VECTOR}" = "xyes")
@@ -1590,6 +1657,9 @@ if test "x${WITH_XMM}" = "xyes"; then
 fi
 if test "x${WITH_AVX2}" = "xyes"; then
   lame_vector_sets="${lame_vector_sets} AVX2"
+fi
+if test "x${WITH_AVX512}" = "xyes"; then
+  lame_vector_sets="${lame_vector_sets} AVX-512"
 fi
 if test -z "${lame_vector_sets}"; then
   lame_vector_sets=none
