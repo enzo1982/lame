@@ -53,8 +53,22 @@ EXTRA_DIST = \
 # LAME developer and the number of differences change after you
 # modified the source.
 #
+# Both rules that run a binary from this build have to make it load this
+# build's libmp3lame. Libtool only arranges that on the systems where its
+# wrapper is a shell script; where the wrapper is an executable it does nothing
+# to the library search path, and the binary starts against whatever libmp3lame
+# the host has installed - or fails to start at all. That is not a cosmetic
+# difference for a target whose whole purpose is to compare bitstreams: an
+# encode produced by some other library reports a difference that says nothing
+# about this tree. The unit tests carry the same setting for the same reason.
+RUN_WITH_BUILT_LIB = \
+	LD_LIBRARY_PATH="$(abs_top_builddir)/libmp3lame/.libs$${LD_LIBRARY_PATH:+:$$LD_LIBRARY_PATH}"; \
+	export LD_LIBRARY_PATH; \
+	PATH="$(abs_top_builddir)/libmp3lame/.libs:$$PATH"; \
+	export PATH;
+
 testcase.new.mp3: testcase.wav frontend/lame$(EXEEXT)
-	time frontend/lame$(EXEEXT) --nores $(top_srcdir)/testcase.wav testcase.new.mp3 || $(RM_F) testcase.new.mp3
+	$(RUN_WITH_BUILT_LIB) time frontend/lame$(EXEEXT) --nores $(top_srcdir)/testcase.wav testcase.new.mp3 || $(RM_F) testcase.new.mp3
 
 test: testcase.mp3 testcase.new.mp3
 	@echo
@@ -78,7 +92,7 @@ abicheck:
 		-a $(top_srcdir)/maintainer/abi/libmp3lame.abi
 
 testg: frontend/mp3x$(EXEEXT) $(top_srcdir)/../test/castanets.wav
-	frontend/mp3x$(EXEEXT) -h $(top_srcdir)/../test/castanets.wav
+	$(RUN_WITH_BUILT_LIB) frontend/mp3x$(EXEEXT) -h $(top_srcdir)/../test/castanets.wav
 
 update:
 	cd $(top_srcdir) && svn update || true
