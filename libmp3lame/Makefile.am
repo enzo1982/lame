@@ -7,12 +7,17 @@ SUBDIRS = vector
 lib_LTLIBRARIES = libmp3lame.la
 
 if WITH_VECTOR
+if WITH_XMM
 vector_ldadd = $(top_builddir)/libmp3lame/vector/liblamevectorroutines.la
 if WITH_AVX2
 vector_ldadd += $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
 endif
 if WITH_AVX512
 vector_ldadd += $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
+endif
+endif
+if WITH_NEON
+vector_ldadd = $(top_builddir)/libmp3lame/vector/liblamevectorneon.la
 endif
 endif
 

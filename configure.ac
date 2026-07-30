@@ -194,6 +194,36 @@ AC_DEFUN([LAME_SSE2_PROBE],
 		[[probe();]])],
 	[$1=yes], [$1=no])])
 
+dnl LAME_NEON_PROBE(RESULT-VARIABLE)
+dnl   Compile the ARM vector routine's own constructs.  Three of them, because
+dnl   they do not all answer alike: the pairwise add over register halves is
+dnl   the one spelling of "fold adjacent lanes" that exists on both 32- and
+dnl   64-bit ARM, the lane read is how an index reaches a general register,
+dnl   and the compare-and-subtract is how the clamp counter is kept.  A probe
+dnl   on a bare vld1q would accept a toolchain that cannot build the file.
+dnl   No array subscripts anywhere in here.  A `[' is m4's quote character, so
+dnl   an int m[4] inside AC_LANG_PROGRAM comes out of the macro expansion as
+dnl   literal [[4]] and the probe fails to compile for a reason that has
+dnl   nothing to do with NEON - which reads exactly like "this toolchain has no
+dnl   NEON".  The quadrigraphs would work; not needing them is simpler.
+AC_DEFUN([LAME_NEON_PROBE],
+[AC_COMPILE_IFELSE(
+	[AC_LANG_PROGRAM(
+		[[#include <arm_neon.h>
+		  static int probe_out;
+		  static void probe(const int *p, int xlen)
+		  {
+		      int32x4_t v = vmulq_s32(vld1q_s32(p), vdupq_n_s32(xlen));
+		      int32x4_t c = vdupq_n_s32(0);
+		      int32x2_t h;
+		      c = vsubq_s32(c, vreinterpretq_s32_u32(vcgtq_s32(v, vdupq_n_s32(14))));
+		      v = vminq_s32(v, vdupq_n_s32(15));
+		      h = vpadd_s32(vget_low_s32(v), vget_high_s32(v));
+		      probe_out = vget_lane_s32(h, 0) + vgetq_lane_s32(c, 0);
+		  }]],
+		[[probe((const int *) 0, 16);]])],
+	[$1=yes], [$1=no])])
+
 dnl LAME_AVX2_PROBE(RESULT-VARIABLE)
 dnl   The same question one tier up.  Both an integer and a floating point
 dnl   construct are compiled, because they do not answer alike: GCC on 32-bit
@@ -503,6 +533,13 @@ fi
 dnl Checks for library functions.
 AC_FUNC_ALLOCA
 AC_CHECK_FUNCS(gettimeofday strtol)
+
+dnl For the ARM capability probe in libmp3lame/util.c.  The header and the
+dnl function are separate questions - a system can have <sys/auxv.h> and only
+dnl one of the two ways of reading it - so both are asked, and util.c includes
+dnl what the answers say exists rather than guessing from platform macros.
+AC_CHECK_HEADERS(sys/auxv.h machine/elf.h asm/hwcap.h)
+AC_CHECK_FUNCS(elf_aux_info getauxval sysctlbyname)
 
 if test "X${ac_cv_func_strtol}" != "Xyes"; then
 	AC_MSG_ERROR([function strtol is mandatory])
@@ -987,6 +1024,17 @@ AC_MSG_RESULT(${TERMCAP_DEFAULT})
 dnl ### processor specific options ###
 WITH_VECTOR=no
 lame_cpu_x86=no
+lame_cpu_arm=no
+lame_cpu_arm32=no
+case $host_cpu in
+aarch64|arm64)
+	lame_cpu_arm=yes
+	;;
+arm*)
+	lame_cpu_arm=yes
+	lame_cpu_arm32=yes
+	;;
+esac
 case $host_cpu in
 x86_64|amd64)
 	lame_cpu_x86=yes
@@ -1445,14 +1493,59 @@ if test "x${WITH_XMM}" = xyes; then
 		WITH_AVX512=yes
 	fi
 fi
+
+dnl The ARM rung.  Two differences from the x86 ones above, both from the same
+dnl fact - Advanced SIMD is architectural on AArch64 and optional on ARMv7:
+dnl
+dnl   - there is no per-function opt-in to test for.  On AArch64 there is
+dnl     nothing to opt into, and on ARMv7 the switch is a floating-point ABI
+dnl     choice that applies to a whole translation unit.  So the probe asks
+dnl     the plain question and the fallback gives the file its own baseline,
+dnl     which is the second half of what the x86 probes do anyway.
+dnl   - it is not gated on a lower rung, because it is the only one.
+dnl
+dnl Probed here rather than with the other feature checks for the reason given
+dnl above: the answer depends on the optimization flags, and those are only
+dnl settled at this point.
+VECTOR_NEON_FLAGS=
+if test "x${lame_cpu_arm}" = xyes; then
+	AC_MSG_CHECKING(working NEON intrinsics)
+	LAME_NEON_PROBE([lame_neon_intrinsics])
+	AC_MSG_RESULT(${lame_neon_intrinsics})
+	dnl -mfpu= is a 32-bit ARM switch; on AArch64 clang rejects it outright
+	dnl ("unsupported option '-mfpu=' for target aarch64-..."), so trying it
+	dnl there produces two failures that look like a missing instruction set.
+	if test "x${lame_neon_intrinsics}" = xno && test "x${lame_cpu_arm32}" = xyes; then
+		for lame_neon_try in "-mfpu=neon" "-mfpu=neon -mfloat-abi=softfp"; do
+			AC_MSG_CHECKING(working NEON intrinsics with ${lame_neon_try})
+			lame_save_CFLAGS=$CFLAGS
+			CFLAGS="$CFLAGS ${lame_neon_try}"
+			LAME_NEON_PROBE([lame_neon_baseline])
+			CFLAGS=$lame_save_CFLAGS
+			AC_MSG_RESULT(${lame_neon_baseline})
+			if test "x${lame_neon_baseline}" = xyes; then
+				lame_neon_intrinsics=yes
+				VECTOR_NEON_FLAGS="${lame_neon_try}"
+				break
+			fi
+		done
+	fi
+	if test "x${lame_neon_intrinsics}" = xyes; then
+		AC_DEFINE([HAVE_NEON_INTRINSICS], [1], [Define if ARM NEON intrinsics work.])
+		WITH_NEON=yes
+		WITH_VECTOR=yes
+	fi
+fi
 AC_SUBST(VECTOR_SSE2_FLAGS)
 AC_SUBST(VECTOR_AVX2_FLAGS)
 AC_SUBST(VECTOR_AVX512_FLAGS)
+AC_SUBST(VECTOR_NEON_FLAGS)
 
 # which vector code do we support to build on this machine?
 AM_CONDITIONAL(WITH_XMM, test "x${WITH_XMM}" = "xyes")
 AM_CONDITIONAL(WITH_AVX2, test "x${WITH_AVX2}" = "xyes")
 AM_CONDITIONAL(WITH_AVX512, test "x${WITH_AVX512}" = "xyes")
+AM_CONDITIONAL(WITH_NEON, test "x${WITH_NEON}" = "xyes")
 
 # needs to be defined to link in the internal vector lib
 AM_CONDITIONAL(WITH_VECTOR, test "x${WITH_VECTOR}" = "xyes")
@@ -1660,6 +1753,12 @@ if test "x${WITH_AVX2}" = "xyes"; then
 fi
 if test "x${WITH_AVX512}" = "xyes"; then
   lame_vector_sets="${lame_vector_sets} AVX-512"
+fi
+dnl Assigned rather than appended, like SSE2 above and for the same reason:
+dnl it is the first rung of its architecture, and a host is x86 or ARM, never
+dnl both.
+if test "x${WITH_NEON}" = "xyes"; then
+  lame_vector_sets="NEON"
 fi
 if test -z "${lame_vector_sets}"; then
   lame_vector_sets=none

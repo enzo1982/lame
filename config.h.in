@@ -26,6 +26,9 @@
 /* Define to 1 if <alloca.h> works. */
 #undef HAVE_ALLOCA_H
 
+/* Define to 1 if you have the <asm/hwcap.h> header file. */
+#undef HAVE_ASM_HWCAP_H
+
 /* Define if AVX2 intrinsics work. */
 #undef HAVE_AVX2_INTRINSICS
 
@@ -38,11 +41,17 @@
 /* we link against libefence */
 #undef HAVE_EFENCE
 
+/* Define to 1 if you have the 'elf_aux_info' function. */
+#undef HAVE_ELF_AUX_INFO
+
 /* Define to 1 if you have the <errno.h> header file. */
 #undef HAVE_ERRNO_H
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
+
+/* Define to 1 if you have the 'getauxval' function. */
+#undef HAVE_GETAUXVAL
 
 /* Define to 1 if you have the 'gettimeofday' function. */
 #undef HAVE_GETTIMEOFDAY
@@ -117,6 +126,9 @@
    than 'double'. */
 #undef HAVE_LONG_DOUBLE_WIDER
 
+/* Define to 1 if you have the <machine/elf.h> header file. */
+#undef HAVE_MACHINE_ELF_H
+
 /* Define to 1 if you have the <minix/config.h> header file. */
 #undef HAVE_MINIX_CONFIG_H
 
@@ -125,6 +137,9 @@
 
 /* Define to 1 if you have the <ncurses/termcap.h> header file. */
 #undef HAVE_NCURSES_TERMCAP_H
+
+/* Define if ARM NEON intrinsics work. */
+#undef HAVE_NEON_INTRINSICS
 
 /* Define to 1 if you have the 'nl_langinfo' function. */
 #undef HAVE_NL_LANGINFO
@@ -152,6 +167,12 @@
 
 /* Define to 1 if you have the 'strtol' function. */
 #undef HAVE_STRTOL
+
+/* Define to 1 if you have the 'sysctlbyname' function. */
+#undef HAVE_SYSCTLBYNAME
+
+/* Define to 1 if you have the <sys/auxv.h> header file. */
+#undef HAVE_SYS_AUXV_H
 
 /* Define to 1 if you have the <sys/soundcard.h> header file. */
 #undef HAVE_SYS_SOUNDCARD_H

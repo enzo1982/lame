@@ -17,6 +17,9 @@ if WITH_XMM
 check_PROGRAMS += test_choose_table_vector test_quantize_lines_vector \
 	test_calc_sfb_noise_vector
 endif
+if WITH_NEON
+check_PROGRAMS += test_choose_table_neon
+endif
 
 TESTS = $(check_PROGRAMS)
 
@@ -225,12 +228,32 @@ test_calc_sfb_noise_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevec
 endif
 endif
 
+# The ARM tier carries one routine, so it gets one test program rather than an
+# arm of the x86 file - that one names the SSE2, AVX2 and AVX-512 routines
+# throughout, so there is no shared body to add to.
+#
+# OUTSIDE the WITH_XMM block above, which is the whole point: the first version
+# of this sat inside it, so on an ARM host - where WITH_XMM is false - the
+# _SOURCES and _LDADD never expanded while the program stayed in
+# check_PROGRAMS. automake emitted a link command with no objects and no
+# libraries at all, and the failure was `undefined symbol: main`, which names
+# neither the program nor the conditional.
+if WITH_NEON
+test_choose_table_neon_SOURCES = test_choose_table_neon.c
+test_choose_table_neon_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_choose_table_neon_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/vector/liblamevectorneon.la
+endif
+
 endif
 
 # Kept in the tarball whether or not this build configured the vector code,
 # so a dist made on one architecture still carries the tests for another.
 EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
-	test_calc_sfb_noise_vector.c
+	test_calc_sfb_noise_vector.c test_choose_table_neon.c
 
 # Header-only unused-parameter marker shared by the tests; not a _SOURCES file,
 # so it has to be named for the tarball explicitly.

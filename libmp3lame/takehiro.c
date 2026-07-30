@@ -34,18 +34,8 @@
 #include "quantize_pvt.h"
 #include "tables.h"
 
-#if defined( HAVE_SSE2_INTRINSICS )
+#if defined( HAVE_SSE2_INTRINSICS ) || defined( HAVE_NEON_INTRINSICS )
 #include "vector/lame_intrin.h"
-
-/** @internal
- * The vector routines compare sixteen bits at a time, so a region maximum
- * comes back exact only while it fits there.  That is enough because the
- * table search rejects anything above IXMAX_VAL, and everything above the
- * saturation point is above IXMAX_VAL too - which stops being true if
- * IXMAX_VAL is ever raised past it.  See @ref vector_dispatch for the wider
- * rationale (why 16-bit SSE2 beats the 32-bit SSE4.1 path here).
- */
-enum { static_assert_ixmax_val_fits_in_16_bits = 1 / (IXMAX_VAL < 32767 ? 1 : 0) };
 
 /* Regions shorter than this are quicker scalar: the vector routines take
  * eight values per pass, and their setup and final reduction do not pay for
@@ -53,8 +43,27 @@ enum { static_assert_ixmax_val_fits_in_16_bits = 1 / (IXMAX_VAL < 32767 ? 1 : 0)
  * third of the regions are shorter than this, but they hold only about five
  * percent of the values - so this test is here to avoid a regression on the
  * short ones, not to win anything on them.
+ *
+ * Shared by both architectures deliberately: the pass width is eight values
+ * on either, the ARM routine having been written to the same shape for that
+ * reason.
  */
 #define TABLE_SEARCH_VECTOR_MIN 32
+#endif
+
+#if defined( HAVE_SSE2_INTRINSICS )
+/** @internal
+ * The x86 vector routines compare sixteen bits at a time, so a region maximum
+ * comes back exact only while it fits there.  That is enough because the
+ * table search rejects anything above IXMAX_VAL, and everything above the
+ * saturation point is above IXMAX_VAL too - which stops being true if
+ * IXMAX_VAL is ever raised past it.  See @ref vector_dispatch for the wider
+ * rationale (why 16-bit SSE2 beats the 32-bit SSE4.1 path here).
+ *
+ * The ARM routine works in 32-bit lanes and never narrows, so this assertion
+ * is about the x86 tier alone and stays with it.
+ */
+enum { static_assert_ixmax_val_fits_in_16_bits = 1 / (IXMAX_VAL < 32767 ? 1 : 0) };
 #endif
 
 
@@ -564,6 +573,14 @@ count_bit_ESC(const int *ix, const int *const end, int t1, const int t2,
         sum += nclamped * linbits;
     }
     else
+#elif defined( HAVE_NEON_INTRINSICS )
+    if (impl >= VECTOR_IMPL_NEON && end - ix >= TABLE_SEARCH_VECTOR_MIN) {
+        unsigned int nclamped;
+
+        sum = count_bit_esc_neon(ix, end, largetbl, &nclamped);
+        sum += nclamped * linbits;
+    }
+    else
 #else
     (void) impl;
 #endif
@@ -817,6 +834,14 @@ static int
 choose_table_avx512(const int *ix, const int *const end, int *const _s)
 {
     return choose_table_x(ix, end, _s, VECTOR_IMPL_AVX512);
+}
+#endif
+
+#if defined( HAVE_NEON_INTRINSICS )
+static int
+choose_table_neon(const int *ix, const int *const end, int *const _s)
+{
+    return choose_table_x(ix, end, _s, VECTOR_IMPL_NEON);
 }
 #endif
 
@@ -1524,6 +1549,10 @@ huffman_init(lame_internal_flags * const gfc)
     if (vector_implementation(gfc) >= VECTOR_IMPL_AVX512
         && vector_avx512_choose_table_experiment())
         gfc->choose_table = choose_table_avx512;
+#endif
+#if defined( HAVE_NEON_INTRINSICS )
+    if (vector_implementation(gfc) >= VECTOR_IMPL_NEON)
+        gfc->choose_table = choose_table_neon;
 #endif
 
     for (i = 2; i <= 576; i += 2) {

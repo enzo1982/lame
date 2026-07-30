@@ -11,6 +11,9 @@ if WITH_AVX512
 noinst_LTLIBRARIES += liblamevectoravx512.la
 endif
 endif
+if WITH_NEON
+noinst_LTLIBRARIES = liblamevectorneon.la
+endif
 
 ##liblamecpuroutines_la_LIBADD = 
 ##liblamecpuroutines_la_LDFLAGS =
@@ -32,6 +35,7 @@ xmm_sources = xmm_quantize_sub.c xmm_choose_table.c xmm_quantize_lines.c \
 	xmm_calc_sfb_noise.c
 avx2_sources = avx2_choose_table.c avx2_quantize_lines.c
 avx512_sources = avx512_choose_table.c avx512_quantize_lines.c
+neon_sources = neon_choose_table.c
 
 if WITH_XMM
 liblamevectorroutines_la_SOURCES = $(xmm_sources)
@@ -46,11 +50,19 @@ liblamevectoravx512_la_CFLAGS = $(AM_CFLAGS) @VECTOR_AVX512_FLAGS@
 endif
 endif
 
+# VECTOR_NEON_FLAGS is empty on AArch64, where there is nothing to ask for;
+# on 32-bit ARM it carries the whole-file opt-in configure found.
+if WITH_NEON
+liblamevectorneon_la_SOURCES = $(neon_sources)
+liblamevectorneon_la_CFLAGS = $(AM_CFLAGS) @VECTOR_NEON_FLAGS@
+endif
+
 noinst_HEADERS = lame_intrin.h
 
 EXTRA_liblamevectorroutines_la_SOURCES = $(xmm_sources)
 EXTRA_liblamevectoravx2_la_SOURCES = $(avx2_sources)
 EXTRA_liblamevectoravx512_la_SOURCES = $(avx512_sources)
+EXTRA_liblamevectorneon_la_SOURCES = $(neon_sources)
 
 CLEANFILES = lclint.txt
 

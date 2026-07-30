@@ -38,6 +38,25 @@
 # include <machine/floatingpoint.h>
 #endif
 
+/* Headers for the ARM capability probe in has_NEON() below.  configure says
+ * which of these exist; this says where they are needed.  HWCAP_NEON lives in
+ * a different header on each system that has it, and on the ones that do not
+ * the probe compiles to "don't know, assume not".
+ */
+#if defined( HAVE_SYS_AUXV_H )
+# include <sys/auxv.h>
+#endif
+#if defined( HAVE_MACHINE_ELF_H )
+# include <machine/elf.h>
+#endif
+#if defined( HAVE_ASM_HWCAP_H )
+# include <asm/hwcap.h>
+#endif
+#if defined( HAVE_SYSCTLBYNAME )
+# include <sys/types.h>
+# include <sys/sysctl.h>
+#endif
+
 
 /***********************************************************************
 *
@@ -841,6 +860,22 @@ lame_errorf(const lame_internal_flags* gfc, const char *format, ...)
 #define LAME_BASELINE_AVX512 1
 #endif
 
+/* The same question on ARM.  Advanced SIMD is architectural on AArch64, so
+ * every 64-bit toolchain answers it yes and the run-time probe below is never
+ * consulted there.  It is optional on ARMv7 - Cortex-A9 shipped in
+ * configurations without it - so on 32-bit ARM the probe is what decides, and
+ * a build that assumed otherwise would fault on the first vector instruction
+ * rather than fall back.
+ *
+ * MSVC defines neither __ARM_NEON nor __ARM_NEON__; on _M_ARM64 the
+ * instructions are unconditionally available, and on _M_ARM they are implied
+ * by the ARMv7 floating-point ABI it targets.
+ */
+#if defined( __ARM_NEON ) || defined( __ARM_NEON__ ) \
+ || defined( _M_ARM64 ) || defined( _M_ARM64EC )
+#define LAME_BASELINE_NEON 1
+#endif
+
 /* LAME_TARGET_X86 comes from util.h, where the vector ladder needs it too. */
 #if defined( LAME_TARGET_X86 )
 # if defined( __has_builtin )
@@ -983,6 +1018,61 @@ has_AVX512(void)
 #endif
 }
 
+/* One question, four ways of asking it.  x86 has __builtin_cpu_supports() and
+ * CPUID and nothing else to know; ARM has no unprivileged instruction that
+ * reports the feature registers, so the answer has to come from the operating
+ * system, and every one of them spells it differently.  The variation stays
+ * here: the rest of the library asks has_NEON() and nothing else.
+ *
+ * Which of these can be compiled is decided by configure, not guessed from
+ * platform macros - the header and the function are separate questions and a
+ * system can have one without the other.
+ */
+int
+has_NEON(void)
+{
+#if defined( LAME_BASELINE_NEON )
+    return 1;
+#elif !defined( LAME_TARGET_ARM )
+    return 0;           /* not an ARM target; the question does not arise */
+#elif defined( HAVE_ELF_AUX_INFO )                              /* FreeBSD */
+    {
+        unsigned long cap = 0;
+
+        if (elf_aux_info(AT_HWCAP, &cap, sizeof cap) != 0)
+            return 0;
+# if defined( HWCAP_NEON )
+        return (cap & HWCAP_NEON) != 0;
+# else
+        return 0;
+# endif
+    }
+#elif defined( HAVE_GETAUXVAL )                          /* Linux, Android */
+    {
+        unsigned long const cap = getauxval(AT_HWCAP);
+
+# if defined( HWCAP_NEON )
+        return (cap & HWCAP_NEON) != 0;
+# else
+        return 0;
+# endif
+    }
+#elif defined( HAVE_SYSCTLBYNAME )                           /* macOS, iOS */
+    {
+        int     v = 0;
+        size_t  len = sizeof v;
+
+        if (sysctlbyname("hw.optional.neon", &v, &len, NULL, 0) != 0)
+            return 0;
+        return v != 0;
+    }
+#elif defined( _WIN32 )                                  /* Windows on ARM */
+    return IsProcessorFeaturePresent(PF_ARM_NEON_INSTRUCTIONS_AVAILABLE) != 0;
+#else
+    return 0;           /* don't know, assume not */
+#endif
+}
+
 /** @internal
  * Whether the experimental AVX-512 Huffman table search is switched on.
  *
@@ -1031,9 +1121,11 @@ vector_avx512_choose_table_experiment(void)
  * real instruction set rather than a family, so SSE2 and not SSE.  The
  * displayed form is this name upper-cased; there is no second string.
  *
- * The ladder is scalar -> SSE2 -> AVX2 -> AVX-512, with no SSE4.1/SSE4.2 rung,
- * and the top rung carries only the constant-bitrate kernels; see
- * @ref vector_dispatch for why it is shaped that way.
+ * On x86 the ladder is scalar -> SSE2 -> AVX2 -> AVX-512, with no SSE4.1/SSE4.2
+ * rung, and the top rung carries only the constant-bitrate kernels.  On ARM it
+ * is scalar -> NEON, and that rung carries one routine, the compiler already
+ * vectorising the rest as well or better.  See @ref vector_dispatch for why
+ * each is shaped the way it is.
  */
 static const struct {
     const char *name;
@@ -1048,6 +1140,9 @@ static const struct {
 #endif
 #if defined( HAVE_AVX512_INTRINSICS )
     { "avx512", VECTOR_IMPL_AVX512, has_AVX512 },
+#endif
+#if defined( HAVE_NEON_INTRINSICS )
+    { "neon", VECTOR_IMPL_NEON, has_NEON },
 #endif
     { 0, VECTOR_IMPL_NONE, 0 }  /* C89 forbids an empty initialiser, and a
                                    build with no vector routines at all needs
@@ -1070,7 +1165,7 @@ static const struct {
  * asserts that every name in the table appears here.
  */
 static const char *const vector_impl_known_names[] = {
-    "sse2", "avx2", "avx512", 0
+    "sse2", "avx2", "avx512", "neon", 0
 };
 
 /* Exact match within the bound every name is required to fit: both strings
@@ -1190,6 +1285,14 @@ vector_impl_init(lame_internal_flags * gfc, int request)
         case VECTOR_IMPL_SSE2:
             if (gfc->CPU_features.SSE2) {
                 gfc->vector_impl = VECTOR_IMPL_SSE2;
+                return;
+            }
+            break;
+#endif
+#if defined( HAVE_NEON_INTRINSICS )
+        case VECTOR_IMPL_NEON:
+            if (gfc->CPU_features.NEON) {
+                gfc->vector_impl = VECTOR_IMPL_NEON;
                 return;
             }
             break;

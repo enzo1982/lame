@@ -637,8 +637,9 @@ lame_init_params(lame_global_flags * gfp)
     gfc->report_err = gfp->report.errorf;
 
     /* A request for no vector routines is also a request not to ask the
-       processor about them.  These probes are the library's only use of the
-       CPUID instruction, and there are machines - the reason the option is
+       processor about them.  On x86 these probes are the library's only use
+       of the CPUID instruction, and there are machines - the reason the
+       option is
        documented as a rescue for a failing start-up - where executing it is
        itself the failure, so a caller who has already decided against the
        vector code must be able to stop the question being asked.  Under AUTO
@@ -661,6 +662,15 @@ lame_init_params(lame_global_flags * gfp)
         gfc->CPU_features.AVX2 = 0;
         gfc->CPU_features.AVX512 = 0;
     }
+
+    /* Set apart from the block above because the deprecated mask has no say
+       over it: that enumeration names x86 instruction-set families, and
+       teaching it a word for this one is precisely what
+       lame_set_vector_routines() exists to avoid.  So the ARM rung answers to
+       the request alone - which still means none turns it off, and still
+       means none asks the operating system nothing. */
+    gfc->CPU_features.NEON =
+        (gfp->vector_routines_request != VECTOR_IMPL_NONE) ? has_NEON() : 0;
 
     /* One decision, here, before anything asks.  Every consumer of
        vector_implementation() - the Huffman, quantization and FFT init and

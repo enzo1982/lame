@@ -43,6 +43,14 @@
 #define AVX2_FUNCTION REALIGN TARGET("avx2")
 #define AVX512_FUNCTION REALIGN TARGET("avx512f,avx512vl,avx512bw,avx512dq")
 
+/* The ARM routine takes neither.  Advanced SIMD is the baseline on every
+ * AArch64 target, so there is nothing to opt into per function; and where it
+ * is optional - 32-bit ARM - the opt-in has to be a whole-file one anyway,
+ * which configure supplies as VECTOR_NEON_FLAGS.  Stack realignment is an x86
+ * concern and the attribute does not exist here.
+ */
+#define NEON_FUNCTION
+
 
 void
 init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int upper, FLOAT * sum);
@@ -89,6 +97,16 @@ count_bit_esc_sse2(const int *ix, const int *end, const uint32_t *largetbl,
 unsigned int
 count_bit_esc_avx512(const int *ix, const int *end, const uint32_t *largetbl,
                      unsigned int *nclamped);
+
+/* The ARM form of the same counter, under the same contract.  It is the only
+ * ARM routine here: every other one in this header was either already being
+ * vectorised by the compiler on AArch64, or was written and measured slower
+ * than the scalar code it would have replaced.  Which one is which was
+ * decided by measurement - see @ref vector_dispatch before adding a second.
+ */
+unsigned int
+count_bit_esc_neon(const int *ix, const int *end, const uint32_t *largetbl,
+                   unsigned int *nclamped);
 
 /* The three code lengths of one region under three consecutive tables, which
  * share an index and are therefore worth computing together.  Every value

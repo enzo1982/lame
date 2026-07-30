@@ -668,12 +668,15 @@ LTLIBICONV
 LIBICONV
 WITH_VECTOR_FALSE
 WITH_VECTOR_TRUE
+WITH_NEON_FALSE
+WITH_NEON_TRUE
 WITH_AVX512_FALSE
 WITH_AVX512_TRUE
 WITH_AVX2_FALSE
 WITH_AVX2_TRUE
 WITH_XMM_FALSE
 WITH_XMM_TRUE
+VECTOR_NEON_FLAGS
 VECTOR_AVX512_FLAGS
 VECTOR_AVX2_FLAGS
 VECTOR_SSE2_FLAGS
@@ -15829,6 +15832,8 @@ fi
 
 
 
+
+
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for an ANSI C-conforming const" >&5
 printf %s "checking for an ANSI C-conforming const... " >&6; }
 if test ${ac_cv_c_const+y}
@@ -17256,6 +17261,45 @@ ac_fn_c_check_func "$LINENO" "strtol" "ac_cv_func_strtol"
 if test "x$ac_cv_func_strtol" = xyes
 then :
   printf '%s\n' "#define HAVE_STRTOL 1" >>confdefs.h
+
+fi
+
+
+ac_fn_c_check_header_compile "$LINENO" "sys/auxv.h" "ac_cv_header_sys_auxv_h" "$ac_includes_default"
+if test "x$ac_cv_header_sys_auxv_h" = xyes
+then :
+  printf '%s\n' "#define HAVE_SYS_AUXV_H 1" >>confdefs.h
+
+fi
+ac_fn_c_check_header_compile "$LINENO" "machine/elf.h" "ac_cv_header_machine_elf_h" "$ac_includes_default"
+if test "x$ac_cv_header_machine_elf_h" = xyes
+then :
+  printf '%s\n' "#define HAVE_MACHINE_ELF_H 1" >>confdefs.h
+
+fi
+ac_fn_c_check_header_compile "$LINENO" "asm/hwcap.h" "ac_cv_header_asm_hwcap_h" "$ac_includes_default"
+if test "x$ac_cv_header_asm_hwcap_h" = xyes
+then :
+  printf '%s\n' "#define HAVE_ASM_HWCAP_H 1" >>confdefs.h
+
+fi
+
+ac_fn_c_check_func "$LINENO" "elf_aux_info" "ac_cv_func_elf_aux_info"
+if test "x$ac_cv_func_elf_aux_info" = xyes
+then :
+  printf '%s\n' "#define HAVE_ELF_AUX_INFO 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "getauxval" "ac_cv_func_getauxval"
+if test "x$ac_cv_func_getauxval" = xyes
+then :
+  printf '%s\n' "#define HAVE_GETAUXVAL 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "sysctlbyname" "ac_cv_func_sysctlbyname"
+if test "x$ac_cv_func_sysctlbyname" = xyes
+then :
+  printf '%s\n' "#define HAVE_SYSCTLBYNAME 1" >>confdefs.h
 
 fi
 
@@ -18696,6 +18740,17 @@ printf '%s\n' "${TERMCAP_DEFAULT}" >&6; }
 
 WITH_VECTOR=no
 lame_cpu_x86=no
+lame_cpu_arm=no
+lame_cpu_arm32=no
+case $host_cpu in
+aarch64|arm64)
+	lame_cpu_arm=yes
+	;;
+arm*)
+	lame_cpu_arm=yes
+	lame_cpu_arm32=yes
+	;;
+esac
 case $host_cpu in
 x86_64|amd64)
 	lame_cpu_x86=yes
@@ -19910,6 +19965,98 @@ printf '%s\n' "#define HAVE_AVX512_INTRINSICS 1" >>confdefs.h
 	fi
 fi
 
+VECTOR_NEON_FLAGS=
+if test "x${lame_cpu_arm}" = xyes; then
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking working NEON intrinsics" >&5
+printf %s "checking working NEON intrinsics... " >&6; }
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <arm_neon.h>
+		  static int probe_out;
+		  static void probe(const int *p, int xlen)
+		  {
+		      int32x4_t v = vmulq_s32(vld1q_s32(p), vdupq_n_s32(xlen));
+		      int32x4_t c = vdupq_n_s32(0);
+		      int32x2_t h;
+		      c = vsubq_s32(c, vreinterpretq_s32_u32(vcgtq_s32(v, vdupq_n_s32(14))));
+		      v = vminq_s32(v, vdupq_n_s32(15));
+		      h = vpadd_s32(vget_low_s32(v), vget_high_s32(v));
+		      probe_out = vget_lane_s32(h, 0) + vgetq_lane_s32(c, 0);
+		  }
+int
+main (void)
+{
+probe((const int *) 0, 16);
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  lame_neon_intrinsics=yes
+else case e in #(
+  e) lame_neon_intrinsics=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: ${lame_neon_intrinsics}" >&5
+printf '%s\n' "${lame_neon_intrinsics}" >&6; }
+				if test "x${lame_neon_intrinsics}" = xno && test "x${lame_cpu_arm32}" = xyes; then
+		for lame_neon_try in "-mfpu=neon" "-mfpu=neon -mfloat-abi=softfp"; do
+			{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking working NEON intrinsics with ${lame_neon_try}" >&5
+printf %s "checking working NEON intrinsics with ${lame_neon_try}... " >&6; }
+			lame_save_CFLAGS=$CFLAGS
+			CFLAGS="$CFLAGS ${lame_neon_try}"
+			cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <arm_neon.h>
+		  static int probe_out;
+		  static void probe(const int *p, int xlen)
+		  {
+		      int32x4_t v = vmulq_s32(vld1q_s32(p), vdupq_n_s32(xlen));
+		      int32x4_t c = vdupq_n_s32(0);
+		      int32x2_t h;
+		      c = vsubq_s32(c, vreinterpretq_s32_u32(vcgtq_s32(v, vdupq_n_s32(14))));
+		      v = vminq_s32(v, vdupq_n_s32(15));
+		      h = vpadd_s32(vget_low_s32(v), vget_high_s32(v));
+		      probe_out = vget_lane_s32(h, 0) + vgetq_lane_s32(c, 0);
+		  }
+int
+main (void)
+{
+probe((const int *) 0, 16);
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  lame_neon_baseline=yes
+else case e in #(
+  e) lame_neon_baseline=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+			CFLAGS=$lame_save_CFLAGS
+			{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: ${lame_neon_baseline}" >&5
+printf '%s\n' "${lame_neon_baseline}" >&6; }
+			if test "x${lame_neon_baseline}" = xyes; then
+				lame_neon_intrinsics=yes
+				VECTOR_NEON_FLAGS="${lame_neon_try}"
+				break
+			fi
+		done
+	fi
+	if test "x${lame_neon_intrinsics}" = xyes; then
+
+printf '%s\n' "#define HAVE_NEON_INTRINSICS 1" >>confdefs.h
+
+		WITH_NEON=yes
+		WITH_VECTOR=yes
+	fi
+fi
+
+
 
 
 
@@ -19936,6 +20083,14 @@ fi
 else
   WITH_AVX512_TRUE='#'
   WITH_AVX512_FALSE=
+fi
+
+ if test "x${WITH_NEON}" = "xyes"; then
+  WITH_NEON_TRUE=
+  WITH_NEON_FALSE='#'
+else
+  WITH_NEON_TRUE='#'
+  WITH_NEON_FALSE=
 fi
 
 
@@ -21711,6 +21866,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${WITH_AVX512_TRUE}" && test -z "${WITH_AVX512_FALSE}"; then
   as_fn_error $? "conditional \"WITH_AVX512\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${WITH_NEON_TRUE}" && test -z "${WITH_NEON_FALSE}"; then
+  as_fn_error $? "conditional \"WITH_NEON\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${WITH_VECTOR_TRUE}" && test -z "${WITH_VECTOR_FALSE}"; then
@@ -23951,6 +24110,9 @@ if test "x${WITH_AVX2}" = "xyes"; then
 fi
 if test "x${WITH_AVX512}" = "xyes"; then
   lame_vector_sets="${lame_vector_sets} AVX-512"
+fi
+if test "x${WITH_NEON}" = "xyes"; then
+  lame_vector_sets="NEON"
 fi
 if test -z "${lame_vector_sets}"; then
   lame_vector_sets=none

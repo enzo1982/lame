@@ -470,6 +470,15 @@ extern  "C" {
 #define LAME_TARGET_X86 1
 #endif
 
+/* And whether it is ARM, 32- or 64-bit.  Both are named because the two
+   answer the capability question differently: Advanced SIMD is architectural
+   on AArch64 and optional on ARMv7, so the run-time test is not ceremony
+   there. */
+#if defined( __aarch64__ ) || defined( _M_ARM64 ) || defined( _M_ARM64EC ) \
+ || defined( __arm__ ) || defined( __arm ) || defined( _M_ARM )
+#define LAME_TARGET_ARM 1
+#endif
+
     /* Which set of vector routines the encoder will run.  A wider
        implementation adds a value here and a name in the table in util.c,
        rather than another flag to test at each call site.  Ordered by
@@ -487,6 +496,9 @@ extern  "C" {
         , VECTOR_IMPL_SSE2
         , VECTOR_IMPL_AVX2
         , VECTOR_IMPL_AVX512
+#endif
+#if defined( LAME_TARGET_ARM )
+        , VECTOR_IMPL_NEON
 #endif
     } vector_impl_t;
 
@@ -550,7 +562,8 @@ extern  "C" {
             unsigned int SSE2:1; /* Pentium 4, K8             */
             unsigned int AVX2:1; /* Haswell, Excavator        */
             unsigned int AVX512:1; /* Skylake-SP, Ice Lake, Zen 4 */
-            unsigned int _unused:29;
+            unsigned int NEON:1; /* ARM Advanced SIMD         */
+            unsigned int _unused:28;
         } CPU_features;
 
         /* Which vector routines this instance runs.  Decided once, in
@@ -625,6 +638,7 @@ extern  "C" {
     extern int has_SSE2(void);
     extern int has_AVX2(void);
     extern int has_AVX512(void);
+    extern int has_NEON(void);
 
     /* Temporary, alpha-only, off unless asked for: see the definition in
        util.c and @ref vector_dispatch. Grep for the name to find every part

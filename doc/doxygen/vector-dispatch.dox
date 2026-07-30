@@ -8,11 +8,12 @@ are chosen at run time from the instruction sets the executing CPU reports. This
 page records the shape of that dispatch ladder and, in particular, the
 decisions that are easy to second-guess later: why the ladder has no SSE4.1 or
 SSE4.2 rung, why the variable-bitrate noise routine is SSE2-only with no AVX2
-tier, and why the AVX-512 rung covers the quantization loop and not the table
-search. All of them are counter-intuitive, so the reasoning is kept here rather
-than only in the commit history &mdash; several because the code was written and
-the answer still turned out to be no, or not yet, which is exactly the kind of
-result that gets repeated if it is not written down.
+tier, why the AVX-512 rung covers the quantization loop and not the table
+search, and why the ARM rung carries one routine where the x86 one carries
+seven. Every one of them is counter-intuitive, so the reasoning is kept here
+rather than only in the commit history &mdash; several of them because the code
+was written and the answer still turned out to be no, or not yet, which is
+exactly the kind of result that gets repeated if it is not written down.
 
 @section vector_dispatch_ladder The ladder
 
@@ -23,11 +24,19 @@ machine that offers a higher one. There is exactly one selector and one
 enumerator; adding a tier is one branch in the selector and one row in the table
 in @c util.c that answers every question about vector routines.
 
-The ladder is deliberately <b>scalar &rarr; SSE2 &rarr; AVX2 &rarr;
-AVX-512</b>, with nothing between SSE2 and AVX2. On x86-64 the SSE2 tier needs
-no feature probe at all: every x86-64 CPU has SSE2, as does every 32-bit x86 CPU
-since 2001, so the SSE2 win is unconditional. The two rungs above it are gated
-on run-time feature bits.
+The rungs are per architecture, because they are instruction sets and those do
+not cross:
+
+<ul>
+<li><b>x86: scalar &rarr; SSE2 &rarr; AVX2 &rarr; AVX-512</b>, with nothing
+between SSE2 and AVX2. On x86-64 the SSE2 tier needs no feature probe at all:
+every x86-64 CPU has SSE2, as does every 32-bit x86 CPU since 2001, so the SSE2
+win is unconditional. The two rungs above it are gated on run-time feature
+bits.</li>
+<li><b>ARM: scalar &rarr; NEON</b>, one rung and one routine on it. Advanced
+SIMD is architectural on AArch64, so the compile-time question answers itself
+there; on 32-bit ARM it is optional and the run-time probe decides.</li>
+</ul>
 
 The lever is @c --vector, which names the set to run rather than the sets to
 avoid: @c --vector @c none for the scalar code, @c --vector followed by a set's
@@ -343,6 +352,35 @@ population this rung reaches, and on them it is worth nothing or costs a percent
 The rung is carried because it is free to carry, not because it is expected to
 matter often.
 
+@section vector_dispatch_arm The ARM rung, and why it carries one routine
+
+The x86 tier hand-writes seven routines. The ARM tier ships <b>one</b>, and the
+difference is a result rather than an omission: each of the seven was taken in
+turn and asked whether a hand-written NEON version beat what the compiler
+already produces on AArch64. Three never needed writing &mdash; clang emits the
+equivalent unprompted, including a native 32-bit signed maximum, which is the
+only reason the SSE2 sibling of the region maximum exists at all, since SSE2 has
+no such instruction and has to fake it. Two more were written, measured and
+retired: the FFT and the no-escape counting loop both came out slower than the
+scalar code clang produces from the plain C.
+
+What is left is @c count_bit_esc_neon(), the escape-coded counting loop, worth
+about 3.5% on a 320&nbsp;kbit/s encode and about 1% on variable bitrate.
+
+The kernel is shaped by one instruction that Advanced SIMD does not have. The
+routine builds a table index from a pair of values, <em>x * 16 + y</em>; the x86
+form narrows the region to sixteen bits so that a single @c pmaddwd turns four
+pairs into four indices. There is no multiply-add-adjacent-pairs at any width on
+ARM, so the same thing is spelt as a multiply by <em>(xlen, 1)</em> per lane
+followed by a pairwise add. That needs no narrowing &mdash; and therefore none
+of the saturation reasoning the x86 file carries comes with it, which is why the
+16-bit range assertion in @c takehiro.c is scoped to the x86 tier alone.
+
+@c vpadd_s32 over the register halves, rather than the @c vpaddq_s32 or
+@c vuzp1q / @c vuzp2q spellings: those are AArch64-only, while this one is in
+the ACLE for both A32 and A64. 32-bit ARM is the whole reason the tier is probed
+for at run time rather than assumed, so the routine is written to build there.
+
 @section vector_dispatch_consequence Consequence
 
 There is no @c VECTOR_IMPL_SSE41 / @c VECTOR_IMPL_SSE42 enumerator, no configure
@@ -358,6 +396,9 @@ Lake gives about 6.5% at 320&nbsp;kbit/s, Zen 5 gives nothing and Zen 4 costs
 about 1%. It does not carry @c calc_sfb_noise_x34(): that version was written,
 and it both failed to reproduce the narrower tier's output exactly and ran 6.6%
 slower at @c -V2 on the one machine where AVX-512 is worth anything at all.
+
+There <em>is</em> a @c VECTOR_IMPL_NEON enumerator, and on ARM it is the whole
+ladder above scalar. It is a partial rung too, and for its own reason, below.
 
 @section vector_dispatch_avx512_experiment The AVX-512 table search, and why it is off
 
@@ -414,10 +455,12 @@ nothing else was 512 bits wide.
 
 @section vector_dispatch_gaps The shapes of the gaps
 
-The ladder has three kinds of hole in it, for three different reasons, and
-keeping them apart is the point of this page. SSE4 is missing because the case
-was never made. AVX-512's variable-bitrate half is missing because the case was
-made, built, and measured &mdash; and lost. AVX-512's table search is present but
+The ladder has four kinds of hole in it, for four different reasons, and keeping
+them apart is the point of this page. SSE4 is missing because the case was never
+made. AVX-512's variable-bitrate half is missing because the case was made,
+built, and measured &mdash; and lost. AVX-512's table search is present but
 switched off because the case has never actually been put: it was assumed to have
-been, by everyone including its measurements.
+been, by everyone including its measurements. And most of the ARM tier is missing
+because the compiler had already made the case for itself, which is the cheapest
+way there is for a routine not to exist.
 */

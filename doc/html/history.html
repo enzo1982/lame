@@ -150,6 +150,14 @@
 			        <i>--vector&nbsp;avx512</i> runs the widest set that does
 			        cover its routines. Measured and reported by Tobias
 			        Damisch, Elio Blanca and Todd Zullinger.</span></li>
+			    <li><span class="speed">ARM processors now get vector
+			        routines too, named <i>neon</i>, worth about 3.5% of a
+			        <i>-b&nbsp;320</i> encode and about 1% of a <i>-V</i>
+			        one. It is one routine rather than the seven the x86
+			        sets carry, the compiler already producing equally good
+			        or better code for the rest on this architecture. Built
+			        wherever the compiler supports it, on 64- and 32-bit ARM
+			        alike, and used where the processor reports it.</span></li>
 			    <li><span class="security">Security hardening is now
 			        enabled by default: fortified library calls, stack
 			        and control-flow protection, read-only relocations
