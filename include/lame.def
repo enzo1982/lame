@@ -339,3 +339,11 @@ lame_encode_finish @2046
 ; Reads back which instruction-set families an instance allows, the question
 ; lame_set_asm_optimizations cannot answer about its own argument.
 lame_get_asm_optimizations @2047
+
+; Which vector routines the encoder runs, the interface that replaces the
+; asm_optimizations pair. The set of names is data rather than an enum, so
+; adding an instruction set adds no entry point here.
+lame_get_num_vector_routines @2048
+lame_get_vector_routines_name @2049
+lame_set_vector_routines @2050
+lame_get_vector_routines @2051
