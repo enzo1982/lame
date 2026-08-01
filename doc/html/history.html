@@ -424,6 +424,15 @@
 			        the same as builds using LAME's own reader. Headerless
 			        PCM is still read as such when <i>-r</i> asks for
 			        it.</li>
+			    <li>ID3v2 frames identified by a description, such as
+			        <i>TXXX</i>, <i>WXXX</i> and <i>COMM</i>, are now
+			        kept apart whenever those descriptions differ,
+			        including where one description begins another:
+			        <i>--tv "TXXX=foo=..."</i> and
+			        <i>--tv "TXXX=foobar=..."</i> give two frames. A
+			        comment carrying no description keeps its own frame
+			        as well. Repeating a description still replaces the
+			        frame it names.</li>
 		</ul>
             </li>
 	</ul>

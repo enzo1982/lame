@@ -20,6 +20,11 @@
  * the two byte for byte - a test that only looked for the frame would pass on
  * an alias wired to the wrong function.
  *
+ * The third group covers the descriptions that TXXX, WXXX and COMM frames are
+ * keyed by, in both encodings. Frames are counted there rather than looked for,
+ * because what is at stake is one of them being folded into another, and the
+ * surviving frame answers a search for its own text either way.
+ *
  * These are library-level tests: they link libmp3lame and call the exported
  * API directly, so no frontend translation unit is compiled in.
  */
@@ -72,6 +77,21 @@ mem_contains(const unsigned char *hay, size_t hn, const char *needle)
             return 1;
     }
     return 0;
+}
+
+/** @brief How many times the byte string @p needle occurs in @p hay. */
+static size_t
+mem_count(const unsigned char *hay, size_t hn, const char *needle)
+{
+    size_t nn = strlen(needle);
+    size_t i, n = 0;
+    if (nn == 0 || nn > hn)
+        return 0;
+    for (i = 0; i + nn <= hn; ++i) {
+        if (memcmp(hay + i, needle, nn) == 0)
+            ++n;
+    }
+    return n;
 }
 
 /**
@@ -235,6 +255,132 @@ test_v2_fieldvalue_utf8_malformed(void **state)
     assert_int_equal(id3tag_set_fieldvalue_utf8(gfp, "TIT2v=x"), -1); /* [4] != '=' */
     assert_int_equal(id3tag_set_fieldvalue_utf8(gfp, ""), 0);        /* empty: no-op */
     assert_int_equal(id3tag_set_fieldvalue_utf8(gfp, NULL), 0);      /* NULL: no-op */
+}
+
+/* --- ID3v2 descriptors ------------------------------------------------- */
+
+/**
+ * @brief Descriptions where one begins the other name two frames, not one.
+ *
+ * A TXXX frame is keyed by its description, so "foo" and "foobar" are two
+ * frames and both texts have to survive. This is the route the --tv option
+ * takes: id3tag_set_fieldvalue() splits "TXXX=foo=alpha" into the frame id,
+ * the description and the text.
+ */
+static void
+test_v2_prefix_descriptions_stay_apart(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    size_t sz;
+    id3tag_add_v2(gfp);
+    assert_int_equal(id3tag_set_fieldvalue(gfp, "TXXX=foo=alpha"), 0);
+    assert_int_equal(id3tag_set_fieldvalue(gfp, "TXXX=foobar=beta"), 0);
+    sz = get_v2(gfp);
+    assert_int_equal(mem_count(tagbuf, sz, "TXXX"), 2);
+    assert_true(mem_contains(tagbuf, sz, "alpha"));
+    assert_true(mem_contains(tagbuf, sz, "beta"));
+}
+
+/**
+ * @brief The same description twice still replaces the frame.
+ *
+ * The control for the case above: descriptions are compared so that a repeated
+ * one updates its frame, and a test that only counted frames would pass just as
+ * well against a comparison that never matched anything.
+ */
+static void
+test_v2_same_description_replaces_frame(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    size_t sz;
+    id3tag_add_v2(gfp);
+    assert_int_equal(id3tag_set_fieldvalue(gfp, "TXXX=foo=alpha"), 0);
+    assert_int_equal(id3tag_set_fieldvalue(gfp, "TXXX=foo=beta"), 0);
+    sz = get_v2(gfp);
+    assert_int_equal(mem_count(tagbuf, sz, "TXXX"), 1);
+    assert_true(mem_contains(tagbuf, sz, "beta"));
+    assert_false(mem_contains(tagbuf, sz, "alpha"));
+}
+
+/**
+ * @brief An undescribed comment is not replaced by a described one.
+ *
+ * The empty description is the limit case of the one above, since it begins
+ * every other description. A COMM frame is keyed by language and description
+ * together, so these are two frames.
+ */
+static void
+test_v2_empty_description_keeps_its_comment(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    size_t sz;
+    id3tag_add_v2(gfp);
+    assert_int_equal(id3tag_set_comment_latin1(gfp, "eng", 0, "plain"), 0);
+    assert_int_equal(id3tag_set_comment_latin1(gfp, "eng", "desc", "described"), 0);
+    sz = get_v2(gfp);
+    assert_int_equal(mem_count(tagbuf, sz, "COMM"), 2);
+    assert_true(mem_contains(tagbuf, sz, "plain"));
+    assert_true(mem_contains(tagbuf, sz, "described"));
+}
+
+/**
+ * @brief UTF-16 descriptions are compared the same way.
+ *
+ * The UTF-16 descriptions go through a comparison of their own, which rejects a
+ * Latin-1 frame outright, so it needs its own case rather than the Latin-1 one
+ * taken on trust. The byte order marker each string carries becomes part of the
+ * stored description and is common to both, leaving the prefix relation intact.
+ */
+static void
+test_v2_prefix_descriptions_utf16(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    static const unsigned short u_foo[] = {
+        0xFEFF, 'f','o','o','=','a','l','p','h','a', 0
+    };
+    static const unsigned short u_foobar[] = {
+        0xFEFF, 'f','o','o','b','a','r','=','b','e','t','a', 0
+    };
+    size_t sz;
+    id3tag_add_v2(gfp);
+    assert_int_equal(id3tag_set_textinfo_utf16(gfp, "TXXX", u_foo), 0);
+    assert_int_equal(id3tag_set_textinfo_utf16(gfp, "TXXX", u_foobar), 0);
+    sz = get_v2(gfp);
+    assert_int_equal(mem_count(tagbuf, sz, "TXXX"), 2);
+    assert_true(mem_contains_wide(tagbuf, sz, "alpha"));
+    assert_true(mem_contains_wide(tagbuf, sz, "beta"));
+}
+
+/**
+ * @brief A UTF-16 comment with no description at all keeps its own frame.
+ *
+ * The UTF-16 setters accept an absent description, which is the one way the
+ * comparison is reached with nothing to compare against. Two undescribed
+ * comments are the same frame and the second replaces the first; a described
+ * one is a frame of its own.
+ */
+static void
+test_v2_utf16_absent_description(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    static const unsigned short u_uno[]  = { 0xFEFF, 'u','n','o', 0 };
+    static const unsigned short u_dos[]  = { 0xFEFF, 'd','o','s', 0 };
+    static const unsigned short u_tres[] = { 0xFEFF, 't','r','e','s', 0 };
+    static const unsigned short u_desc[] = { 0xFEFF, 'd','e','s','c', 0 };
+    size_t sz;
+    id3tag_add_v2(gfp);
+    assert_int_equal(id3tag_set_comment_utf16(gfp, "eng", 0, u_uno), 0);
+    assert_int_equal(id3tag_set_comment_utf16(gfp, "eng", 0, u_dos), 0);
+    sz = get_v2(gfp);
+    assert_int_equal(mem_count(tagbuf, sz, "COMM"), 1);
+    assert_true(mem_contains_wide(tagbuf, sz, "dos"));
+    assert_false(mem_contains_wide(tagbuf, sz, "uno"));
+
+    assert_int_equal(id3tag_set_comment_utf16(gfp, "eng", u_desc, u_tres), 0);
+    sz = get_v2(gfp);
+    assert_int_equal(mem_count(tagbuf, sz, "COMM"), 2);
+    assert_true(mem_contains_wide(tagbuf, sz, "dos"));
+    assert_true(mem_contains_wide(tagbuf, sz, "tres"));
 }
 
 /* --- genre ------------------------------------------------------------- */
@@ -940,6 +1086,11 @@ main(void)
         ID3_TEST(test_v2_fieldvalue_utf16),
         ID3_TEST(test_v2_fieldvalue_utf8),
         ID3_TEST(test_v2_fieldvalue_utf8_malformed),
+        ID3_TEST(test_v2_prefix_descriptions_stay_apart),
+        ID3_TEST(test_v2_same_description_replaces_frame),
+        ID3_TEST(test_v2_empty_description_keeps_its_comment),
+        ID3_TEST(test_v2_prefix_descriptions_utf16),
+        ID3_TEST(test_v2_utf16_absent_description),
         ID3_TEST(test_v2_genre),
         ID3_TEST(test_v1_basic),
         ID3_TEST(test_v1_only_suppresses_v2),

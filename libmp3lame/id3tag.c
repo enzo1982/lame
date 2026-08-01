@@ -1070,6 +1070,14 @@ isSameLang(char const *l1, char const *l2)
     return 1;
 }
 
+/*
+ * A frame which carries a description is keyed by it, so two descriptions are
+ * the same one only if they also end in the same place.  One which merely
+ * begins the other names a different frame, and an absent description is the
+ * empty one.  Both comparisons stop at the stored description's length, which
+ * is held without its terminator, so the incoming one is asked for its own end
+ * there.
+ */
 static int
 isSameDescriptor(FrameDataNode const *node, char const *dsc)
 {
@@ -1077,12 +1085,15 @@ isSameDescriptor(FrameDataNode const *node, char const *dsc)
     if (node->dsc.enc == 1 && node->dsc.dim > 0) {
         return 0;
     }
+    if (dsc == 0) {
+        return node->dsc.dim == 0;
+    }
     for (i = 0; i < node->dsc.dim; ++i) {
-        if (!dsc || node->dsc.ptr.l[i] != dsc[i]) {
+        if (node->dsc.ptr.l[i] != dsc[i]) {
             return 0;
         }
     }
-    return 1;
+    return dsc[i] == 0;
 }
 
 static int
@@ -1092,12 +1103,15 @@ isSameDescriptorUcs2(FrameDataNode const *node, unsigned short const *dsc)
     if (node->dsc.enc != 1 && node->dsc.dim > 0) {
         return 0;
     }
+    if (dsc == 0) {
+        return node->dsc.dim == 0;
+    }
     for (i = 0; i < node->dsc.dim; ++i) {
-        if (!dsc || node->dsc.ptr.u[i] != dsc[i]) {
+        if (node->dsc.ptr.u[i] != dsc[i]) {
             return 0;
         }
     }
-    return 1;
+    return dsc[i] == 0;
 }
 
 static int
