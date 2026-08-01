@@ -1676,13 +1676,22 @@ save_gain_values(lame_internal_flags * gfc)
 
     /* find the gain and scale change required for no clipping */
     if (cfg->findPeakSample) {
-        rov->noclipGainChange = (int) ceil(log10(rov->PeakSample / 32767.0) * 20.0 * 10.0); /* round up */
+        if (rov->PeakSample > 0) {
+            rov->noclipGainChange = (int) ceil(log10(rov->PeakSample / 32767.0) * 20.0 * 10.0); /* round up */
 
-        if (rov->noclipGainChange > 0) { /* clipping occurs */
-            rov->noclipScale = floor((32767.0f / rov->PeakSample) * 100.0f) / 100.0f; /* round down */
+            if (rov->noclipGainChange > 0) { /* clipping occurs */
+                rov->noclipScale = floor((32767.0f / rov->PeakSample) * 100.0f) / 100.0f; /* round down */
+            }
+            else        /* no clipping */
+                rov->noclipScale = -1.0f;
         }
-        else            /* no clipping */
+        else {
+            /* Material with no non-zero sample has no peak to measure against,
+               and the logarithm of zero is not a number this can carry. It
+               cannot clip either, so it gets the answer that says so. */
+            rov->noclipGainChange = 0;
             rov->noclipScale = -1.0f;
+        }
     }
 }
 

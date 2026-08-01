@@ -3778,7 +3778,8 @@ lame_get_AudiophileGain(const lame_global_flags * gfp)
   The largest absolute sample value encountered, on the scale where full scale
   is 32767 - so a value above that means the material would clip on playback.
   Requires \c lame_set_decode_on_the_fly(), which is what makes the encoder
-  look at its own decoded output.
+  look at its own decoded output - and so a LAME built with the decoder, since
+  a build without one refuses that setting.
 
   \param gfp the encoder instance.
   \return the peak; 0 if the measurement was not enabled or the instance has
@@ -3805,6 +3806,11 @@ lame_get_PeakSample(const lame_global_flags * gfp)
   Derived from \c lame_get_PeakSample(), so it needs the same measurement
   enabled.
 
+  Material whose samples are all zero has no peak to be measured against, and
+  reads as 0 - the same answer as material that reaches full scale exactly, and
+  as material that was never measured. A caller that needs to tell those apart
+  asks \c lame_get_PeakSample(), which needs a LAME built with the decoder.
+
   \param gfp the encoder instance.
   \return the change in tenths of a dB; 0 if the measurement was not enabled
           or the instance has not been initialized.
@@ -3828,7 +3834,8 @@ lame_get_noclipGainChange(const lame_global_flags * gfp)
   applying it is safe rather than exact.
 
   A value of **-1 means no scaling is needed**, which is also the value before anything
-  has been measured - the two are not distinguishable.
+  has been measured, and the value for material whose samples are all zero -
+  the three are not distinguishable.
 
   \param gfp the encoder instance.
   \return the factor, or -1 if the material does not clip; -1 as well if the

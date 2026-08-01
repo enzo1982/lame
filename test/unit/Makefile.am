@@ -10,7 +10,7 @@ if ENABLE_UNIT_TESTS
 check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv \
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
 	test_totalframes test_set_get test_lib_info test_vector_routines \
-	test_vector_ladder test_decoder_api
+	test_vector_ladder test_decoder_api test_encode_clipgain
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -121,6 +121,18 @@ test_encode_mono_interleaved_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_encode_mono_interleaved_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The clipping figures are read back through the public getters, so this test
+# links libmp3lame and calls it directly. Built everywhere: the peak
+# measurement is requested from the caller's setting whether or not the build
+# can decode, so the silent case has to hold in both.
+test_encode_clipgain_SOURCES = test_encode_clipgain.c
+test_encode_clipgain_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_encode_clipgain_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 

@@ -301,7 +301,12 @@ print_trailing_info(lame_global_flags * gf)
         float   noclipGainChange = (float) lame_get_noclipGainChange(gf) / 10.0f;
         float   noclipScale = lame_get_noclipScale(gf);
 
-        if (noclipGainChange > 0.0) { /* clipping occurs */
+        if (lame_get_PeakSample(gf) <= 0.0f) {
+            /* Nothing was ever above zero, so there is no distance to full
+               scale to quote - not a distance of nothing. */
+            console_printf("\nThe waveform contains no signal, so it has no headroom to report.\n");
+        }
+        else if (noclipGainChange > 0.0) { /* clipping occurs */
             console_printf
                 ("WARNING: clipping occurs at the current gain. Set your decoder to decrease\n"
                  "         the  gain  by  at least %.1fdB or encode again ", noclipGainChange);

@@ -410,6 +410,11 @@
 			        eleven characters were truncated and the stream went to
 			        a different host than the one given, without a
 			        message.</li>
+			    <li>Input whose samples are all zero is now reported as
+			        having no headroom figure by <i>--clipdetect</i> and
+			        <i>--replaygain-accurate</i>, and the library's
+			        clipping figures read as no clipping and no scaling.
+			        Such input has no peak to measure against.</li>
 		</ul>
             </li>
 	</ul>
