@@ -2106,7 +2106,7 @@ int lame123_decode_initfile(FILE *fd, mp3data_struct *mp3data, int *enc_delay, i
         hip_decode_exit(global.hip);
     }
     global. hip = hip_decode_init();
-    if(!global.hip->mh)
+    if(!global.hip || !global.hip->mh)
         return -1;
     /* TODO: enforce float format ... optionally be careful for builds
        that only know 16 bit output. */
