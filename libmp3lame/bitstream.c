@@ -978,7 +978,7 @@ static int
 do_gain_analysis(LAME_UNUSED lame_internal_flags * gfc, LAME_UNUSED unsigned char* buffer,
                  LAME_UNUSED int minimum)
 {
-#ifdef DECODE_ON_THE_FLY
+#ifdef HAVE_MPG123
     SessionConfig_t const *const cfg = &gfc->cfg;
     RpgStateVar_t const *const rsv = &gfc->sv_rpg;
     RpgResult_t *const rov = &gfc->ov_rpg;

@@ -871,11 +871,11 @@ long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramNam
             "                    \"--preset help\" gives more info on these\n"
             "    --comp  <arg>   choose bitrate to achieve a compression ratio of <arg>\n");
     fprintf(fp, "    --replaygain-fast   compute RG fast but slightly inaccurately (default)\n"
-#ifdef DECODE_ON_THE_FLY
+#ifdef HAVE_MPG123
             "    --replaygain-accurate   compute RG more accurately and find the peak sample\n"
 #endif
             "    --noreplaygain  disable ReplayGain analysis\n"
-#ifdef DECODE_ON_THE_FLY
+#ifdef HAVE_MPG123
             "    --clipdetect    enable --replaygain-accurate and print a message whether\n"
             "                    clipping occurs and how far the waveform is from full scale\n"
 #endif
@@ -1930,7 +1930,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                 T_ELIF("replaygain-fast")
                     lame_set_findReplayGain(gfp, 1);
 
-#ifdef DECODE_ON_THE_FLY
+#ifdef HAVE_MPG123
                 T_ELIF("replaygain-accurate")
                     lame_set_decode_on_the_fly(gfp, 1);
                 lame_set_findReplayGain(gfp, 1);
@@ -1941,7 +1941,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                 lame_set_findReplayGain(gfp, 0);
 
 
-#ifdef DECODE_ON_THE_FLY
+#ifdef HAVE_MPG123
                 T_ELIF("clipdetect")
                     global_ui_config.print_clipping_info = 1;
                     lame_set_decode_on_the_fly(gfp, 1);

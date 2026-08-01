@@ -889,14 +889,14 @@ lame_get_findReplayGain(const lame_global_flags * gfp)
   \param decode_on_the_fly  1 to decode and measure, 0 not to.
   \return 0 on success; -1 if the value is not 0 or 1, the instance is not
           usable, **or the library was built without this feature** - it is
-          conditional on \c DECODE_ON_THE_FLY, and a build without it refuses
-          every call here.
+          conditional on the decoder being built in, and a build without it
+          refuses every call here.
 */
 int
 lame_set_decode_on_the_fly(lame_global_flags * gfp, LAME_UNUSED int decode_on_the_fly)
 {
     if (is_lame_global_flags_valid(gfp)) {
-#ifndef DECODE_ON_THE_FLY
+#ifndef HAVE_MPG123
         return -1;
 #else
         /* default = 0 (disabled) */
@@ -919,7 +919,7 @@ lame_set_decode_on_the_fly(lame_global_flags * gfp, LAME_UNUSED int decode_on_th
 /*!
   \param gfp the encoder instance.
   \return 1 or 0; 0 if the instance is not usable, and always 0 in a build
-          without \c DECODE_ON_THE_FLY.
+          without the decoder.
 */
 int
 lame_get_decode_on_the_fly(const lame_global_flags * gfp)
@@ -1009,8 +1009,8 @@ lame_get_ReplayGain_input(const lame_global_flags * gfp)
   \param gfp  the encoder instance.
   \param arg  1 or 0.
   \return 0 if both calls succeeded, -1 if either failed - which includes a
-          build without \c DECODE_ON_THE_FLY, and leaves the first setting
-          already applied.
+          build without the decoder, and leaves the first setting already
+          applied.
 */
 int
 lame_set_ReplayGain_decode(lame_global_flags * gfp, int arg)

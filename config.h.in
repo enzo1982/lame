@@ -17,9 +17,6 @@
 /* alot of debug output */
 #undef DEBUG
 
-/* allow to compute a more accurate replaygain value */
-#undef DECODE_ON_THE_FLY
-
 /* Define to 1 if you have 'alloca', as a function or macro. */
 #undef HAVE_ALLOCA
 

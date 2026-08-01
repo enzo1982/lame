@@ -772,7 +772,6 @@ LIB_WITH_DECODER=false
 if test "${HAVE_MPG123}" = "yes" && test "${CONFIG_DECODER}" != "no"; then
 	AC_MSG_RESULT([yes])
 	AC_DEFINE(HAVE_MPG123, 1, set to 1 if you have libmpg123)
-	AC_DEFINE(DECODE_ON_THE_FLY, 1, allow to compute a more accurate replaygain value)
 	FRONTEND_LDADD="$mpg123_LIBS $FRONTEND_LDADD"
 	LIBMP3LAME_LDADD="$mpg123_LIBS $LIBMP3LAME_LDADD"
 	INCLUDES="$mpg123_CFLAGS $INCLUDES"

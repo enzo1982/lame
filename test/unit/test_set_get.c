@@ -453,7 +453,7 @@ test_deprecated_stubs(void **state)
 
 /*
  * ---- decode-on-the-fly: behaviour depends on build config -------------------
- * Without DECODE_ON_THE_FLY the setter rejects even a valid value; with it, the
+ * Without the decoder the setter rejects even a valid value; with it, the
  * usual 0/1 contract holds. Probe at runtime so the test is config-agnostic.
  */
 static void
@@ -488,7 +488,7 @@ test_decode_on_the_fly(void **state)
  * turns on decode_on_the_fly and findReplayGain together, and the getter is an
  * AND of the two. That makes "both on" the only state it reports, which is
  * what the assertions below pin: findReplayGain alone must not be enough.
- * Whether the pair can be turned on at all depends on DECODE_ON_THE_FLY, so
+ * Whether the pair can be turned on at all depends on the decoder, so
  * the build is probed at runtime the same way as above.
  */
 static void

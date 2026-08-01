@@ -80,10 +80,6 @@ typedef long double ieee854_float80_t;
 typedef double      ieee754_float64_t;
 typedef float       ieee754_float32_t;
 
-#ifdef HAVE_MPG123
-# define DECODE_ON_THE_FLY 1
-#endif
-
 #ifdef LAME_ACM
 /* memory hacking for driver purposes */
 #define calloc(x,y) acm_Calloc(x,y)

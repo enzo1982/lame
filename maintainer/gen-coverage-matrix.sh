@@ -176,10 +176,10 @@ fi
 # difference in coverage is attributable to that surface alone.
 #
 # full        base: decoder on, analyzer hooks on. Also the only cell that
-#             compiles the DECODE_ON_THE_FLY code (--replaygain-accurate,
-#             --clipdetect), which configure defines in the same branch as
-#             HAVE_MPG123 - the two are one condition under two names.
-# nodecoder   decoder off: the HAVE_MPG123 / DECODE_ON_THE_FLY blocks vanish.
+#             compiles the decode-while-encoding code (--replaygain-accurate,
+#             --clipdetect), which is conditional on HAVE_MPG123 like the rest
+#             of the decoder.
+# nodecoder   decoder off: the HAVE_MPG123 blocks vanish.
 #             Also the only cell MSan can use, since MSan needs every linked
 #             library instrumented and libmpg123 is not.
 # sndfile     file I/O through libsndfile instead of the builtin readers.

@@ -18071,9 +18071,6 @@ printf '%s\n' "yes" >&6; }
 
 printf '%s\n' "#define HAVE_MPG123 1" >>confdefs.h
 
-
-printf '%s\n' "#define DECODE_ON_THE_FLY 1" >>confdefs.h
-
 	FRONTEND_LDADD="$mpg123_LIBS $FRONTEND_LDADD"
 	LIBMP3LAME_LDADD="$mpg123_LIBS $LIBMP3LAME_LDADD"
 	INCLUDES="$mpg123_CFLAGS $INCLUDES"

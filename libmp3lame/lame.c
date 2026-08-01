@@ -1350,7 +1350,7 @@ lame_init_params(lame_global_flags * gfp)
         }
     }
 
-#ifdef DECODE_ON_THE_FLY
+#ifdef HAVE_MPG123
     if (cfg->decode_on_the_fly && !gfp->decode_only) {
         if (gfc->hip) {
             hip_decode_exit(gfc->hip);

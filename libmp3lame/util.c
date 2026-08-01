@@ -172,7 +172,7 @@ freegfc(lame_internal_flags * const gfc)
     }
     free_id3tag(gfc);
 
-#ifdef DECODE_ON_THE_FLY
+#ifdef HAVE_MPG123
     if (gfc->hip) {
         hip_decode_exit(gfc->hip);
         gfc->hip = 0;
