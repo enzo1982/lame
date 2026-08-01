@@ -721,9 +721,10 @@ void hip_finish_pinfo(LAME_UNUSED hip_t hip)
 #ifndef NOANALYSIS
 #ifdef HAVE_MPG123
     struct mpg123_frameinfo fi;
-    plotting_data *pinfo = hip->pinfo;
+    plotting_data *pinfo;
     if(!hip || !hip->pinfo)
         return;
+    pinfo = hip->pinfo;
 
     /* TODO: convert to pointers to avoid copies. Allocation should be
        on mpg123 side (in form of the struct definition), as that is

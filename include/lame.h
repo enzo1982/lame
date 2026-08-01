@@ -1165,6 +1165,9 @@ void CDECL hip_set_msgf  (hip_t gfp, lame_report_function f);
    before decoding starts. hip_finish_pinfo completes the last frame's data
    once the input ends, and does nothing if no block was installed.
 
+   Both accept a NULL decoder, so a frontend that wires the hooks up can do so
+   without first establishing that it got one.
+
    Both are no-ops unless the library was built with the mpg123 decoder. */
 #ifndef plotting_data_defined
 #define plotting_data_defined

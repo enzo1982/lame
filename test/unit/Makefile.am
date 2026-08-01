@@ -10,7 +10,7 @@ if ENABLE_UNIT_TESTS
 check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv \
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
 	test_totalframes test_set_get test_lib_info test_vector_routines \
-	test_vector_ladder
+	test_vector_ladder test_decoder_api
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -171,6 +171,18 @@ test_vector_ladder_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_builddir)
 test_vector_ladder_LDFLAGS = -static
 test_vector_ladder_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The decoder handle and its analysis hooks are public, so this test links
+# libmp3lame and calls them directly. Built everywhere and not gated on the
+# decoder: a library without libmpg123 hands back no handle at all, and that is
+# one of the configurations the calls have to survive.
+test_decoder_api_SOURCES = test_decoder_api.c
+test_decoder_api_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_decoder_api_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 
