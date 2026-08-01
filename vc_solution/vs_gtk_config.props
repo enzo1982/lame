@@ -25,9 +25,22 @@
       <Value>$(Gtk4Path)</Value>
     </BuildMacro>
   </ItemGroup>
+  <!-- ExternalIncludePath rather than AdditionalIncludeDirectories: these headers
+       belong to GTK, and compiling them at the warning level this project holds
+       its own code to says nothing about this project. The toolset adds this list
+       to the include search path and marks the same directories external, so the
+       headers are still found while ExternalWarningLevel below decides what they
+       are compiled at. Our own sources keep their level, which is the point.
+
+       It has to be a property and not ClCompile metadata: the C++ targets read
+       $(ExternalIncludePath), and an ExternalIncludeDirectories item on ClCompile
+       is silently ignored - the build then fails to find gtk/gtk.h at all. -->
+  <PropertyGroup>
+    <ExternalIncludePath Condition="$(HaveGtk) == 'true'">$(Gtk4Path)\include\gtk-4.0;$(Gtk4Path)\include\glib-2.0;$(Gtk4Path)\lib\glib-2.0\include;$(Gtk4Path)\include\pango-1.0;$(Gtk4Path)\include\cairo;$(Gtk4Path)\include\gdk-pixbuf-2.0;$(Gtk4Path)\include\graphene-1.0;$(Gtk4Path)\lib\graphene-1.0\include;$(Gtk4Path)\include\harfbuzz;$(ExternalIncludePath)</ExternalIncludePath>
+  </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories Condition="$(HaveGtk) == 'true'">$(Gtk4Path)\include\gtk-4.0;$(Gtk4Path)\include\glib-2.0;$(Gtk4Path)\lib\glib-2.0\include;$(Gtk4Path)\include\pango-1.0;$(Gtk4Path)\include\cairo;$(Gtk4Path)\include\gdk-pixbuf-2.0;$(Gtk4Path)\include\graphene-1.0;$(Gtk4Path)\lib\graphene-1.0\include;$(Gtk4Path)\include\harfbuzz;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ExternalWarningLevel Condition="$(HaveGtk) == 'true'">TurnOffAllWarnings</ExternalWarningLevel>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories Condition="$(HaveGtk) == 'true'">$(Gtk4Path)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
