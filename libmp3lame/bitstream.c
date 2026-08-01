@@ -377,7 +377,7 @@ encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
 
         for (gr = 0; gr < 2; gr++) {
             for (ch = 0; ch < cfg->channels_out; ch++) {
-                gr_info *const gi = &l3_side->tt[gr][ch];
+                gr_info const *const gi = &l3_side->tt[gr][ch];
                 writeheader(gfc, gi->part2_3_length + gi->part2_length, 12);
                 writeheader(gfc, gi->big_values / 2, 9);
                 writeheader(gfc, gi->global_gain, 8);
@@ -388,12 +388,8 @@ encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
                     writeheader(gfc, gi->block_type, 2);
                     writeheader(gfc, gi->mixed_block_flag, 1);
 
-                    if (gi->table_select[0] == 14)
-                        gi->table_select[0] = 16;
-                    writeheader(gfc, gi->table_select[0], 5);
-                    if (gi->table_select[1] == 14)
-                        gi->table_select[1] = 16;
-                    writeheader(gfc, gi->table_select[1], 5);
+                    writeheader(gfc, resolve_huffman_table(gi->table_select[0]), 5);
+                    writeheader(gfc, resolve_huffman_table(gi->table_select[1]), 5);
 
                     writeheader(gfc, gi->subblock_gain[0], 3);
                     writeheader(gfc, gi->subblock_gain[1], 3);
@@ -401,15 +397,9 @@ encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
                 }
                 else {
                     writeheader(gfc, 0, 1); /* window_switching_flag */
-                    if (gi->table_select[0] == 14)
-                        gi->table_select[0] = 16;
-                    writeheader(gfc, gi->table_select[0], 5);
-                    if (gi->table_select[1] == 14)
-                        gi->table_select[1] = 16;
-                    writeheader(gfc, gi->table_select[1], 5);
-                    if (gi->table_select[2] == 14)
-                        gi->table_select[2] = 16;
-                    writeheader(gfc, gi->table_select[2], 5);
+                    writeheader(gfc, resolve_huffman_table(gi->table_select[0]), 5);
+                    writeheader(gfc, resolve_huffman_table(gi->table_select[1]), 5);
+                    writeheader(gfc, resolve_huffman_table(gi->table_select[2]), 5);
 
                     assert(0 <= gi->region0_count && gi->region0_count < 16);
                     assert(0 <= gi->region1_count && gi->region1_count < 8);
@@ -430,7 +420,7 @@ encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
 
         gr = 0;
         for (ch = 0; ch < cfg->channels_out; ch++) {
-            gr_info *const gi = &l3_side->tt[gr][ch];
+            gr_info const *const gi = &l3_side->tt[gr][ch];
             writeheader(gfc, gi->part2_3_length + gi->part2_length, 12);
             writeheader(gfc, gi->big_values / 2, 9);
             writeheader(gfc, gi->global_gain, 8);
@@ -441,12 +431,8 @@ encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
                 writeheader(gfc, gi->block_type, 2);
                 writeheader(gfc, gi->mixed_block_flag, 1);
 
-                if (gi->table_select[0] == 14)
-                    gi->table_select[0] = 16;
-                writeheader(gfc, gi->table_select[0], 5);
-                if (gi->table_select[1] == 14)
-                    gi->table_select[1] = 16;
-                writeheader(gfc, gi->table_select[1], 5);
+                writeheader(gfc, resolve_huffman_table(gi->table_select[0]), 5);
+                writeheader(gfc, resolve_huffman_table(gi->table_select[1]), 5);
 
                 writeheader(gfc, gi->subblock_gain[0], 3);
                 writeheader(gfc, gi->subblock_gain[1], 3);
@@ -454,15 +440,9 @@ encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
             }
             else {
                 writeheader(gfc, 0, 1); /* window_switching_flag */
-                if (gi->table_select[0] == 14)
-                    gi->table_select[0] = 16;
-                writeheader(gfc, gi->table_select[0], 5);
-                if (gi->table_select[1] == 14)
-                    gi->table_select[1] = 16;
-                writeheader(gfc, gi->table_select[1], 5);
-                if (gi->table_select[2] == 14)
-                    gi->table_select[2] = 16;
-                writeheader(gfc, gi->table_select[2], 5);
+                writeheader(gfc, resolve_huffman_table(gi->table_select[0]), 5);
+                writeheader(gfc, resolve_huffman_table(gi->table_select[1]), 5);
+                writeheader(gfc, resolve_huffman_table(gi->table_select[2]), 5);
 
                 assert(0 <= gi->region0_count && gi->region0_count < 16);
                 assert(0 <= gi->region1_count && gi->region1_count < 8);
@@ -567,9 +547,10 @@ huffman_coder_count1(lame_internal_flags * gfc, gr_info const *gi)
   Implements the pseudocode of page 98 of the IS
   */
 inline static int
-Huffmancode(lame_internal_flags * const gfc, const unsigned int tableindex,
+Huffmancode(lame_internal_flags * const gfc, const unsigned int table_select,
             int start, int end, gr_info const *gi)
 {
+    const unsigned int tableindex = resolve_huffman_table(table_select);
     struct huffcodetab const *const h = &ht[tableindex];
     unsigned int const linbits = h->xlen;
     int     i, bits = 0;

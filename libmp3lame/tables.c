@@ -422,7 +422,7 @@ const struct huffcodetab ht[HTN] = {
     {8, 0, t11HB, t11l},
     {8, 0, t12HB, t12l},
     {16, 0, t13HB, t13l},
-    {0, 0, NULL, t16_5l}, /* Apparently not used */
+    {0, 0, NULL, t16_5l}, /* no codewords of its own; see resolve_huffman_table() */
     {16, 0, t15HB, t15l},
 
     {1, 1, t16HB, t16l},
@@ -447,6 +447,28 @@ const struct huffcodetab ht[HTN] = {
     {0, 0, t33HB, t33l},
 };
 
+
+/*! Maps a chosen table onto the one whose codewords encode it. */
+/*!
+  Table 14 has no codewords of its own - the standard defines none, and the
+  entry above carries a code-length table but a null codeword table. It is
+  nevertheless a real outcome of the table search, which compares candidates by
+  their code lengths, so it has to be turned into something writable before
+  either the side information or the code words are produced: 16 is what the
+  standard says a decoder shall read here.
+
+  Everything that acts on a chosen table asks this, so no part of the bitstream
+  writer depends on another part having converted the value first.
+
+  \param table_select a table number as chosen by the table search.
+  \return the number of the table to encode with, which is the same one for
+          every value that has codewords.
+*/
+unsigned int
+resolve_huffman_table(unsigned int table_select)
+{
+    return table_select == 14u ? 16u : table_select;
+}
 
 
 

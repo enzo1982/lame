@@ -10,7 +10,8 @@ if ENABLE_UNIT_TESTS
 check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv \
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
 	test_totalframes test_set_get test_lib_info test_vector_routines \
-	test_vector_ladder test_decoder_api test_encode_clipgain
+	test_vector_ladder test_decoder_api test_encode_clipgain \
+	test_huffman_tables
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -195,6 +196,20 @@ test_decoder_api_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_decoder_api_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The Huffman code tables and the call that resolves a chosen one onto a
+# writable one are internal and withheld from the shared library by
+# include/libmp3lame.sym, so this links the STATIC archive (-static) to reach
+# them, the same way test_vector_ladder does.
+test_huffman_tables_SOURCES = test_huffman_tables.c
+test_huffman_tables_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_builddir)
+test_huffman_tables_LDFLAGS = -static
+test_huffman_tables_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 
