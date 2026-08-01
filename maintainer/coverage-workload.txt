@@ -50,9 +50,7 @@ usage-short     | noinput | -      | --help                          | ok   | *
 usage-long      | noinput | -      | --longhelp                      | ok   | *
 usage-version   | noinput | -      | --version                       | ok   | *
 usage-license   | noinput | -      | --license                       | ok   | *
-# --preset help exits 1 while --help and --longhelp exit 0. That is the
-# existing behaviour, recorded here rather than asserted to be right.
-preset-help     | noinput | -      | --preset help                   | fail | *
+preset-help     | noinput | -      | --preset help                   | ok   | *
 
 # --- argument rejection ----------------------------------------------------
 # parse.c's error handling, unreachable from any successful invocation.

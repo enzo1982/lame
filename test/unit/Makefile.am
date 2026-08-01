@@ -11,7 +11,7 @@ check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_a
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
 	test_totalframes test_set_get test_lib_info test_vector_routines \
 	test_vector_ladder test_decoder_api test_encode_clipgain \
-	test_huffman_tables
+	test_huffman_tables test_help_exit
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -79,6 +79,18 @@ test_merge_argv_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_merge_argv_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	$(LTLIBICONV) -lm
+
+# The help paths run the whole option parser rather than one static helper,
+# but they reach it the same way, so the include/link setup is identical.
+test_help_exit_SOURCES = test_help_exit.c parse_test_stubs.c
+test_help_exit_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/frontend \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_help_exit_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	$(LTLIBICONV) -lm
 

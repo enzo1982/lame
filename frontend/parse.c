@@ -1124,7 +1124,7 @@ presets_set(lame_t gfp, int fast, int cbr, const char *preset_name, const char *
         && (cbr < 1)) {
         lame_version_print(stdout);
         presets_longinfo_dm(stdout);
-        return -1;
+        return -2;      /* asked for and got: stop, but not an error */
     }
 
     /*aliases for compatibility with old presets */
@@ -2230,8 +2230,11 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         nextArg = i + argUsed < argc ? argv[i + argUsed] : "";
                     }
 
-                    if (presets_set(gfp, fast, cbr, nextArg, ProgramName) < 0)
-                        return -1;
+                    {
+                        int const ret = presets_set(gfp, fast, cbr, nextArg, ProgramName);
+                        if (ret < 0)
+                            return ret;
+                    }
                 }
 
                 T_ELIF("disptime")
@@ -2645,7 +2648,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 
                     case '?':
                         long_help(gfp, stdout, ProgramName, 0 /* LESSMODE=NO */ );
-                        return -1;
+                        return -2;
 
                     default:
                         error_printf("%s: unrecognized option -%c\n", ProgramName, c);
