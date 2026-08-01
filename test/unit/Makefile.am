@@ -22,6 +22,12 @@ endif
 if WITH_NEON
 check_PROGRAMS += test_choose_table_neon
 endif
+# The RTP sender's test compiles frontend/rtp.c in and opens loopback sockets,
+# so it exists exactly where those calls do - the same answer that decides
+# whether mp3rtp can be built, rather than a second opinion about it.
+if HAVE_SOCKETS
+check_PROGRAMS += test_rtp_socket
+endif
 
 TESTS = $(check_PROGRAMS)
 
@@ -323,12 +329,28 @@ test_choose_table_neon_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/vector/liblamevectorneon.la
 endif
 
+# rtp_socket() is external but the file is a frontend translation unit, not part
+# of the library, so the test compiles it in directly - the same arrangement the
+# get_audio and parse tests use. It needs the resolver library on the platforms
+# where that is separate, which is what SOCKET_LIBS carries; mp3rtp links the
+# same one. The lone frontend symbol rtp.c reaches for, error_printf(), is
+# stubbed inside the test rather than dragging in console.c.
+if HAVE_SOCKETS
+test_rtp_socket_SOURCES = test_rtp_socket.c $(top_srcdir)/frontend/rtp.c
+test_rtp_socket_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/frontend \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_rtp_socket_LDADD = $(CMOCKA_LIBS) @SOCKET_LIBS@
+endif
+
 endif
 
 # Kept in the tarball whether or not this build configured the vector code,
 # so a dist made on one architecture still carries the tests for another.
 EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
-	test_calc_sfb_noise_vector.c test_choose_table_neon.c
+	test_calc_sfb_noise_vector.c test_choose_table_neon.c \
+	test_rtp_socket.c
 
 # Header-only unused-parameter marker shared by the tests; not a _SOURCES file,
 # so it has to be named for the tarball explicitly.

@@ -108,7 +108,8 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_encode_clipgain$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_huffman_tables$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_help_exit$(EXEEXT) \
-@ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_1) $(am__EXEEXT_2)
+@ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_1) $(am__EXEEXT_2) \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_3)
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -116,13 +117,17 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	test_calc_sfb_noise_vector
 
 @ENABLE_UNIT_TESTS_TRUE@@WITH_NEON_TRUE@am__append_2 = test_choose_table_neon
-@ENABLE_UNIT_TESTS_TRUE@@INTERNAL_OPTS_TRUE@am__append_3 = -D_ALLOW_INTERNAL_OPTIONS
-@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_4 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
-@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX512_TRUE@@WITH_XMM_TRUE@am__append_5 = $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
-@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_6 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
-@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX512_TRUE@@WITH_XMM_TRUE@am__append_7 = $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
-@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_8 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
-@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX512_TRUE@@WITH_XMM_TRUE@am__append_9 = $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
+# The RTP sender's test compiles frontend/rtp.c in and opens loopback sockets,
+# so it exists exactly where those calls do - the same answer that decides
+# whether mp3rtp can be built, rather than a second opinion about it.
+@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@am__append_3 = test_rtp_socket
+@ENABLE_UNIT_TESTS_TRUE@@INTERNAL_OPTS_TRUE@am__append_4 = -D_ALLOW_INTERNAL_OPTIONS
+@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_5 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
+@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX512_TRUE@@WITH_XMM_TRUE@am__append_6 = $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
+@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_7 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
+@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX512_TRUE@@WITH_XMM_TRUE@am__append_8 = $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
+@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_9 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
+@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX512_TRUE@@WITH_XMM_TRUE@am__append_10 = $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
 subdir = test/unit
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/host-cpu-c-abi.m4 \
@@ -143,6 +148,7 @@ CONFIG_CLEAN_VPATH_FILES =
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	test_quantize_lines_vector$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	test_calc_sfb_noise_vector$(EXEEXT)
 @ENABLE_UNIT_TESTS_TRUE@@WITH_NEON_TRUE@am__EXEEXT_2 = test_choose_table_neon$(EXEEXT)
+@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@am__EXEEXT_3 = test_rtp_socket$(EXEEXT)
 am__test_calc_sfb_noise_vector_SOURCES_DIST =  \
 	test_calc_sfb_noise_vector.c
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@am_test_calc_sfb_noise_vector_OBJECTS = test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.$(OBJEXT)
@@ -152,8 +158,8 @@ am__DEPENDENCIES_1 =
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_calc_sfb_noise_vector_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_8) \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_9)
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_9) \
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_10)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -172,8 +178,8 @@ test_choose_table_vector_OBJECTS =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_choose_table_vector_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_4) \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_5)
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_5) \
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_6)
 am__test_decoder_api_SOURCES_DIST = test_decoder_api.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_decoder_api_OBJECTS = test_decoder_api-test_decoder_api.$(OBJEXT)
 test_decoder_api_OBJECTS = $(am_test_decoder_api_OBJECTS)
@@ -278,8 +284,14 @@ test_quantize_lines_vector_OBJECTS =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_quantize_lines_vector_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_6) \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_7)
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_7) \
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_8)
+am__test_rtp_socket_SOURCES_DIST = test_rtp_socket.c \
+	$(top_srcdir)/frontend/rtp.c
+@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@am_test_rtp_socket_OBJECTS = test_rtp_socket-test_rtp_socket.$(OBJEXT) \
+@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@	test_rtp_socket-rtp.$(OBJEXT)
+test_rtp_socket_OBJECTS = $(am_test_rtp_socket_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@test_rtp_socket_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am__test_sanity_SOURCES_DIST = test_sanity.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_sanity_OBJECTS =  \
 @ENABLE_UNIT_TESTS_TRUE@	test_sanity-test_sanity.$(OBJEXT)
@@ -354,6 +366,8 @@ am__depfiles_remade = ./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise
 	./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po \
 	./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po \
 	./$(DEPDIR)/test_quantize_lines_vector-test_quantize_lines_vector.Po \
+	./$(DEPDIR)/test_rtp_socket-rtp.Po \
+	./$(DEPDIR)/test_rtp_socket-test_rtp_socket.Po \
 	./$(DEPDIR)/test_sanity-test_sanity.Po \
 	./$(DEPDIR)/test_set_get-test_set_get.Po \
 	./$(DEPDIR)/test_totalframes-test_totalframes.Po \
@@ -388,7 +402,8 @@ SOURCES = $(test_calc_sfb_noise_vector_SOURCES) \
 	$(test_huffman_tables_SOURCES) $(test_id3tag_SOURCES) \
 	$(test_lib_info_SOURCES) $(test_merge_argv_SOURCES) \
 	$(test_parse_id3_SOURCES) $(test_parse_pathlen_SOURCES) \
-	$(test_quantize_lines_vector_SOURCES) $(test_sanity_SOURCES) \
+	$(test_quantize_lines_vector_SOURCES) \
+	$(test_rtp_socket_SOURCES) $(test_sanity_SOURCES) \
 	$(test_set_get_SOURCES) $(test_totalframes_SOURCES) \
 	$(test_vector_ladder_SOURCES) $(test_vector_routines_SOURCES)
 DIST_SOURCES = $(am__test_calc_sfb_noise_vector_SOURCES_DIST) \
@@ -407,6 +422,7 @@ DIST_SOURCES = $(am__test_calc_sfb_noise_vector_SOURCES_DIST) \
 	$(am__test_parse_id3_SOURCES_DIST) \
 	$(am__test_parse_pathlen_SOURCES_DIST) \
 	$(am__test_quantize_lines_vector_SOURCES_DIST) \
+	$(am__test_rtp_socket_SOURCES_DIST) \
 	$(am__test_sanity_SOURCES_DIST) \
 	$(am__test_set_get_SOURCES_DIST) \
 	$(am__test_totalframes_SOURCES_DIST) \
@@ -1056,7 +1072,7 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@test_set_get_CPPFLAGS = $(CMOCKA_CFLAGS) \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
-@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir) $(am__append_3)
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir) $(am__append_4)
 @ENABLE_UNIT_TESTS_TRUE@@INTERNAL_OPTS_TRUE@test_set_get_LDFLAGS = -static
 @ENABLE_UNIT_TESTS_TRUE@test_set_get_LDADD = $(CMOCKA_LIBS) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
@@ -1076,8 +1092,8 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_choose_table_vector_LDADD =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(CMOCKA_LIBS) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_4) \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_5)
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_5) \
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_6)
 
 # Same arrangement for the quantization loop, and for the same reason.
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_quantize_lines_vector_SOURCES = test_quantize_lines_vector.c
@@ -1089,8 +1105,8 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_quantize_lines_vector_LDADD =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(CMOCKA_LIBS) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	-lm $(am__append_6) \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_7)
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	-lm $(am__append_7) \
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_8)
 
 # The VBR scalefactor-band noise gets the same arrangement. Its AVX-512 form is
 # linked and tested although the encoder only reaches it when the experiment is
@@ -1107,8 +1123,8 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_calc_sfb_noise_vector_LDADD =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(CMOCKA_LIBS) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	-lm $(am__append_8) \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_9)
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	-lm $(am__append_9) \
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_10)
 
 # The ARM tier carries one routine, so it gets one test program rather than an
 # arm of the x86 file - that one names the SSE2, AVX2 and AVX-512 routines
@@ -1130,6 +1146,20 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@@WITH_NEON_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorneon.la
 
 
+# rtp_socket() is external but the file is a frontend translation unit, not part
+# of the library, so the test compiles it in directly - the same arrangement the
+# get_audio and parse tests use. It needs the resolver library on the platforms
+# where that is separate, which is what SOCKET_LIBS carries; mp3rtp links the
+# same one. The lone frontend symbol rtp.c reaches for, error_printf(), is
+# stubbed inside the test rather than dragging in console.c.
+@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@test_rtp_socket_SOURCES = test_rtp_socket.c $(top_srcdir)/frontend/rtp.c
+@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@test_rtp_socket_CPPFLAGS = $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@	-I$(top_srcdir)/frontend \
+@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@test_rtp_socket_LDADD = $(CMOCKA_LIBS) @SOCKET_LIBS@
+
 # Kept in the tarball whether or not this build configured the vector code,
 # so a dist made on one architecture still carries the tests for another.
 
@@ -1137,7 +1167,7 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 # so it has to be named for the tarball explicitly.
 EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
 	test_calc_sfb_noise_vector.c test_choose_table_neon.c \
-	test_unused.h
+	test_rtp_socket.c test_unused.h
 all: all-am
 
 .SUFFIXES:
@@ -1241,6 +1271,10 @@ test_quantize_lines_vector$(EXEEXT): $(test_quantize_lines_vector_OBJECTS) $(tes
 	@rm -f test_quantize_lines_vector$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_quantize_lines_vector_OBJECTS) $(test_quantize_lines_vector_LDADD) $(LIBS)
 
+test_rtp_socket$(EXEEXT): $(test_rtp_socket_OBJECTS) $(test_rtp_socket_DEPENDENCIES) $(EXTRA_test_rtp_socket_DEPENDENCIES) 
+	@rm -f test_rtp_socket$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_rtp_socket_OBJECTS) $(test_rtp_socket_LDADD) $(LIBS)
+
 test_sanity$(EXEEXT): $(test_sanity_OBJECTS) $(test_sanity_DEPENDENCIES) $(EXTRA_test_sanity_DEPENDENCIES) 
 	@rm -f test_sanity$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_sanity_OBJECTS) $(test_sanity_LDADD) $(LIBS)
@@ -1288,6 +1322,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_quantize_lines_vector-test_quantize_lines_vector.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_rtp_socket-rtp.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_rtp_socket-test_rtp_socket.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_sanity-test_sanity.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_set_get-test_set_get.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_totalframes-test_totalframes.Po@am__quote@ # am--include-marker
@@ -1614,6 +1650,34 @@ test_quantize_lines_vector-test_quantize_lines_vector.obj: test_quantize_lines_v
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_quantize_lines_vector.c' object='test_quantize_lines_vector-test_quantize_lines_vector.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_quantize_lines_vector_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_quantize_lines_vector-test_quantize_lines_vector.obj `if test -f 'test_quantize_lines_vector.c'; then $(CYGPATH_W) 'test_quantize_lines_vector.c'; else $(CYGPATH_W) '$(srcdir)/test_quantize_lines_vector.c'; fi`
+
+test_rtp_socket-test_rtp_socket.o: test_rtp_socket.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_rtp_socket-test_rtp_socket.o -MD -MP -MF $(DEPDIR)/test_rtp_socket-test_rtp_socket.Tpo -c -o test_rtp_socket-test_rtp_socket.o `test -f 'test_rtp_socket.c' || echo '$(srcdir)/'`test_rtp_socket.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_rtp_socket-test_rtp_socket.Tpo $(DEPDIR)/test_rtp_socket-test_rtp_socket.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_rtp_socket.c' object='test_rtp_socket-test_rtp_socket.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_rtp_socket-test_rtp_socket.o `test -f 'test_rtp_socket.c' || echo '$(srcdir)/'`test_rtp_socket.c
+
+test_rtp_socket-test_rtp_socket.obj: test_rtp_socket.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_rtp_socket-test_rtp_socket.obj -MD -MP -MF $(DEPDIR)/test_rtp_socket-test_rtp_socket.Tpo -c -o test_rtp_socket-test_rtp_socket.obj `if test -f 'test_rtp_socket.c'; then $(CYGPATH_W) 'test_rtp_socket.c'; else $(CYGPATH_W) '$(srcdir)/test_rtp_socket.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_rtp_socket-test_rtp_socket.Tpo $(DEPDIR)/test_rtp_socket-test_rtp_socket.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_rtp_socket.c' object='test_rtp_socket-test_rtp_socket.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_rtp_socket-test_rtp_socket.obj `if test -f 'test_rtp_socket.c'; then $(CYGPATH_W) 'test_rtp_socket.c'; else $(CYGPATH_W) '$(srcdir)/test_rtp_socket.c'; fi`
+
+test_rtp_socket-rtp.o: $(top_srcdir)/frontend/rtp.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_rtp_socket-rtp.o -MD -MP -MF $(DEPDIR)/test_rtp_socket-rtp.Tpo -c -o test_rtp_socket-rtp.o `test -f '$(top_srcdir)/frontend/rtp.c' || echo '$(srcdir)/'`$(top_srcdir)/frontend/rtp.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_rtp_socket-rtp.Tpo $(DEPDIR)/test_rtp_socket-rtp.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/frontend/rtp.c' object='test_rtp_socket-rtp.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_rtp_socket-rtp.o `test -f '$(top_srcdir)/frontend/rtp.c' || echo '$(srcdir)/'`$(top_srcdir)/frontend/rtp.c
+
+test_rtp_socket-rtp.obj: $(top_srcdir)/frontend/rtp.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_rtp_socket-rtp.obj -MD -MP -MF $(DEPDIR)/test_rtp_socket-rtp.Tpo -c -o test_rtp_socket-rtp.obj `if test -f '$(top_srcdir)/frontend/rtp.c'; then $(CYGPATH_W) '$(top_srcdir)/frontend/rtp.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/frontend/rtp.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_rtp_socket-rtp.Tpo $(DEPDIR)/test_rtp_socket-rtp.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/frontend/rtp.c' object='test_rtp_socket-rtp.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_rtp_socket-rtp.obj `if test -f '$(top_srcdir)/frontend/rtp.c'; then $(CYGPATH_W) '$(top_srcdir)/frontend/rtp.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/frontend/rtp.c'; fi`
 
 test_sanity-test_sanity.o: test_sanity.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_sanity_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_sanity-test_sanity.o -MD -MP -MF $(DEPDIR)/test_sanity-test_sanity.Tpo -c -o test_sanity-test_sanity.o `test -f 'test_sanity.c' || echo '$(srcdir)/'`test_sanity.c
@@ -2056,6 +2120,13 @@ test_choose_table_neon.log: test_choose_table_neon$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_rtp_socket.log: test_rtp_socket$(EXEEXT)
+	@p='test_rtp_socket$(EXEEXT)'; \
+	b='test_rtp_socket'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 .test.log:
 	@p='$<'; \
 	$(am__set_b); \
@@ -2170,6 +2241,8 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po
 	-rm -f ./$(DEPDIR)/test_quantize_lines_vector-test_quantize_lines_vector.Po
+	-rm -f ./$(DEPDIR)/test_rtp_socket-rtp.Po
+	-rm -f ./$(DEPDIR)/test_rtp_socket-test_rtp_socket.Po
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
 	-rm -f ./$(DEPDIR)/test_set_get-test_set_get.Po
 	-rm -f ./$(DEPDIR)/test_totalframes-test_totalframes.Po
@@ -2241,6 +2314,8 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po
 	-rm -f ./$(DEPDIR)/test_quantize_lines_vector-test_quantize_lines_vector.Po
+	-rm -f ./$(DEPDIR)/test_rtp_socket-rtp.Po
+	-rm -f ./$(DEPDIR)/test_rtp_socket-test_rtp_socket.Po
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
 	-rm -f ./$(DEPDIR)/test_set_get-test_set_get.Po
 	-rm -f ./$(DEPDIR)/test_totalframes-test_totalframes.Po

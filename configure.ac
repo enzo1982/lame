@@ -1721,6 +1721,10 @@ if test "x${enable_unit_tests}" = "xyes"; then
 	  [AC_MSG_ERROR([--enable-unit-tests was given, but the CMocka unit-test library was not found by pkg-config. Install CMocka (e.g. libcmocka-dev / sysutils/cmocka / mingw-w64-cmocka) or configure without --enable-unit-tests.])])
 fi
 AM_CONDITIONAL([ENABLE_UNIT_TESTS], [test "x${enable_unit_tests}" = "xyes"])
+dnl The RTP sender's unit test compiles frontend/rtp.c in and opens loopback
+dnl sockets, so it exists only where those calls do - the same answer that
+dnl decides whether mp3rtp can be built at all.
+AM_CONDITIONAL([HAVE_SOCKETS], [test "x${lame_have_sockets}" = "xyes"])
 
 
 AC_CONFIG_FILES([Makefile \

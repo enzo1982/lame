@@ -641,6 +641,8 @@ ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
+HAVE_SOCKETS_FALSE
+HAVE_SOCKETS_TRUE
 ENABLE_UNIT_TESTS_FALSE
 ENABLE_UNIT_TESTS_TRUE
 CMOCKA_LIBS
@@ -21719,6 +21721,14 @@ else
   ENABLE_UNIT_TESTS_FALSE=
 fi
 
+ if test "x${lame_have_sockets}" = "xyes"; then
+  HAVE_SOCKETS_TRUE=
+  HAVE_SOCKETS_FALSE='#'
+else
+  HAVE_SOCKETS_TRUE='#'
+  HAVE_SOCKETS_FALSE=
+fi
+
 
 
 ac_config_files="$ac_config_files Makefile test/Makefile test/unit/Makefile libmp3lame/Makefile libmp3lame/lame.pc libmp3lame/vector/Makefile frontend/Makefile mpglib/Makefile doc/Makefile doc/html/Makefile doc/man/Makefile include/Makefile Dll/Makefile misc/Makefile dshow/Makefile ACM/Makefile ACM/ADbg/Makefile ACM/ddk/Makefile ACM/tinyxml/Makefile lame.spec mac/Makefile vc_solution/Makefile"
@@ -21873,6 +21883,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ENABLE_UNIT_TESTS_TRUE}" && test -z "${ENABLE_UNIT_TESTS_FALSE}"; then
   as_fn_error $? "conditional \"ENABLE_UNIT_TESTS\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${HAVE_SOCKETS_TRUE}" && test -z "${HAVE_SOCKETS_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_SOCKETS\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 
