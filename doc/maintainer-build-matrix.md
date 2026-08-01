@@ -29,6 +29,7 @@ while the build count stays small enough to run routinely.
 |--------------|---------------------------------------------------|--------------------------------------|
 | `full`       | `--enable-dynamic-frontends`                      | base: shared lib + dynamic frontends |
 | `nodecoder`  | `--enable-dynamic-frontends --disable-decoder`    | mpg123 decoder off                   |
+| `nodecstrict`| `--enable-dynamic-frontends --disable-decoder --enable-maintainer-mode` | decoder off *and* warnings fatal |
 | `sndfile`    | `--enable-dynamic-frontends --with-fileio=sndfile`| file I/O via libsndfile              |
 | `noanalyzer` | `--enable-dynamic-frontends --disable-analyzer-hooks` | analyzer hooks off (NOANALYSIS)  |
 | `static`     | `--disable-shared --enable-static`                | static-only, no dynamic frontends    |
@@ -52,6 +53,21 @@ exact flags differ between GCC and Clang &mdash; the matrix confirms each cell
 still builds and links on every compiler. (`--enable-native` is deliberately not
 a cell: native-tuned binaries are not meant to be redistributed, and the flag is
 a machine-local convenience rather than something to regression-test.)
+
+`nodecstrict` is the one cell that flips two axes at once, and it is deliberate
+rather than an oversight in an otherwise single-flip list. The star's premise is
+that a regression in one surface shows up in the cell for that surface, and that
+premise does not hold where a surface is only *reachable* through another: the
+code that compiles when the decoder is absent is not compiled anywhere else, so
+the ordinary build has nothing to warn about, and the cell that omits the
+decoder does not treat a warning as an error. Both flips are needed before there
+is anything to see. The same reasoning is why the unit tests are not a cell:
+`-x --enable-unit-tests` adds them to *every* cell including this one, which is
+the wider combination and comes free with the option that already exists.
+
+Note that this cell fails a build on any warning, unlike every other cell. That
+is what it is for; it also means it is the cell to look at first when the matrix
+reports a failure, because its bar is higher than the rest.
 
 Each detected compiler gets the whole star, so the actual build count is
 *compilers &times; cells*.

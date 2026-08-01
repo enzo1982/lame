@@ -267,11 +267,18 @@ fi
 #             it the analyzer is never built by this matrix on any platform.
 #             It is the opposite flip to noanalyzer - mp3x needs the analyzer
 #             hooks and the decoder - and is skipped where GTK 4 is absent.
+# nodecstrict the decoder off AND the strict warnings on. The one cell that
+#             flips two axes at once, because what it covers is the
+#             combination: the code compiled only when the decoder is absent
+#             is the code the ordinary build never warns about, and a warning
+#             is fatal here. Every failure this cell has ever found needed
+#             both flips to appear at all.
 #
 cells() {
 	cat <<'EOF'
 full|--enable-dynamic-frontends
 nodecoder|--enable-dynamic-frontends --disable-decoder
+nodecstrict|--enable-dynamic-frontends --disable-decoder --enable-maintainer-mode
 sndfile|--enable-dynamic-frontends --with-fileio=sndfile
 noanalyzer|--enable-dynamic-frontends --disable-analyzer-hooks
 static|--disable-shared --enable-static
