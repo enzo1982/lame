@@ -184,39 +184,6 @@ freegfc(lame_internal_flags * const gfc)
     free(gfc);
 }
 
-void
-calloc_aligned(aligned_pointer_t * ptr, unsigned int size, unsigned int bytes)
-{
-    if (ptr) {
-        if (!ptr->pointer) {
-            ptr->pointer = malloc(size + bytes);
-            if (ptr->pointer != 0) {
-                memset(ptr->pointer, 0, size + bytes);
-                if (bytes > 0) {
-                    ptr->aligned = (void *) ((((size_t) ptr->pointer + bytes - 1) / bytes) * bytes);
-                }
-                else {
-                    ptr->aligned = ptr->pointer;
-                }
-            }
-            else {
-                ptr->aligned = 0;
-            }
-        }
-    }
-}
-
-void
-free_aligned(aligned_pointer_t * ptr)
-{
-    if (ptr) {
-        if (ptr->pointer) {
-            free(ptr->pointer);
-            ptr->pointer = 0;
-            ptr->aligned = 0;
-        }
-    }
-}
 
 /*those ATH formulas are returning
 their minimum value for input = -1*/

@@ -122,15 +122,6 @@ extern  "C" {
 *
 ***********************************************************************/
 
-    typedef struct {
-        void   *aligned;     /* pointer to ie. 128 bit aligned memory */
-        void   *pointer;     /* to use with malloc/free */
-    } aligned_pointer_t;
-
-    void    calloc_aligned(aligned_pointer_t * ptr, unsigned int size, unsigned int bytes);
-    void    free_aligned(aligned_pointer_t * ptr);
-
-
     /* "bit_stream.h" Type Definitions */
 
     typedef struct bit_stream_struc {
