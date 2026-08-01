@@ -419,6 +419,11 @@
 			        successfully, as <i>--help</i> and <i>--longhelp</i>
 			        already did. Scripts that check the exit status can
 			        treat a request for help as one.</li>
+			    <li>Builds that use libsndfile for file input now refuse
+			        a file whose format libsndfile does not recognise,
+			        the same as builds using LAME's own reader. Headerless
+			        PCM is still read as such when <i>-r</i> asks for
+			        it.</li>
 		</ul>
             </li>
 	</ul>

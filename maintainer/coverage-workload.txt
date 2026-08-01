@@ -70,28 +70,14 @@ fmt-raw         | encode  | %RAW%       | -r -s 44.1 --bitwidth 16 -V5 | ok | *
 fmt-raw-swap    | encode  | %RAW%       | -r -s 44.1 -x -V5          | ok   | *
 
 # --- malformed input rejection --------------------------------------------
-# The header validation added for truncated and inconsistent files. Where
-# LAME reads the file itself, each of these must be refused; that refusal is
-# the code under test.
-fmt-ext-badbits | encode  | %WAVEXTBAD% | -V5                        | fail | ownio
-fmt-ext-badcb   | encode  | %WAVEXTCB%  | -V5                        | fail | ownio
-trunc-8         | encode  | %TRUNC8%    | -V5                        | fail | ownio
-trunc-20        | encode  | %TRUNC20%   | -V5                        | fail | ownio
-trunc-30        | encode  | %TRUNC30%   | -V5                        | fail | ownio
-
-# The same files under --with-fileio=sndfile, where they are ACCEPTED. This
-# is not a second-guess of the expectation above: when libsndfile does not
-# recognise a file, get_audio.c falls back to reading it as headerless raw
-# PCM at default rate and channel count, so an 8-byte file encodes to a
-# valid MP3 of noise and exits 0. Whether that fallback should require the
-# user to have actually asked for raw input is a question for its own
-# finding, not for this harness. Recorded here as the behaviour that exists,
-# so the divergence stays visible instead of being smoothed away.
-sf-ext-badbits  | encode  | %WAVEXTBAD% | -V5                        | ok   | sndfileio
-sf-ext-badcb    | encode  | %WAVEXTCB%  | -V5                        | ok   | sndfileio
-sf-trunc-8      | encode  | %TRUNC8%    | -V5                        | ok   | sndfileio
-sf-trunc-20     | encode  | %TRUNC20%   | -V5                        | ok   | sndfileio
-sf-trunc-30     | encode  | %TRUNC30%   | -V5                        | ok   | sndfileio
+# The header validation added for truncated and inconsistent files. Each of
+# these must be refused whichever backend reads the file; that refusal is the
+# code under test.
+fmt-ext-badbits | encode  | %WAVEXTBAD% | -V5                        | fail | *
+fmt-ext-badcb   | encode  | %WAVEXTCB%  | -V5                        | fail | *
+trunc-8         | encode  | %TRUNC8%    | -V5                        | fail | *
+trunc-20        | encode  | %TRUNC20%   | -V5                        | fail | *
+trunc-30        | encode  | %TRUNC30%   | -V5                        | fail | *
 # 44 bytes is not a truncation: it is a complete header with a zero-length
 # data chunk, which is legal and must be accepted. It covers the
 # valid-header-no-samples path, which is a different branch from a short read.

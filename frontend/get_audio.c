@@ -1058,7 +1058,12 @@ open_snd_file(lame_t gfp, char const *inPath)
         gs_pSndFileIn = sf_open(lpszFileName, SFM_READ, &gs_wfInfo);
 #endif
 
-        if (gs_pSndFileIn == NULL) {
+        /* Only a caller who asked for headerless PCM gets it. libsndfile
+           cannot recognise raw input, so -r is the only thing that can say
+           the file is meant to be read that way; without it an unrecognised
+           file is an unrecognised file, and LAME's own reader - which
+           refuses it - gets its turn instead. */
+        if (gs_pSndFileIn == NULL && global_reader.input_format == sf_raw) {
             if (global_raw_pcm.in_signed == 0 && global_raw_pcm.in_bitwidth != 8) {
                 error_printf("Unsigned input only supported with bitwidth 8\n");
 #if defined( _WIN32 ) && !defined(__MINGW32__)
@@ -1066,8 +1071,8 @@ open_snd_file(lame_t gfp, char const *inPath)
 #endif
                 return 0;
             }
-            /* set some defaults incase input is raw PCM */
-            gs_wfInfo.seekable = (global_reader.input_format != sf_raw); /* if user specified -r, set to not seekable */
+            /* the defaults raw PCM is read with */
+            gs_wfInfo.seekable = 0; /* raw input, so not seekable */
             gs_wfInfo.samplerate = lame_get_in_samplerate(gfp);
             gs_wfInfo.channels = lame_get_num_channels(gfp);
             gs_wfInfo.format = SF_FORMAT_RAW;
