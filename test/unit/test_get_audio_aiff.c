@@ -151,7 +151,9 @@ static void
 test_undersized_form_size_rejected(void **state)
 {
     lame_t gfp = (lame_t) *state;
-    uint32_t fs;
+    /* Modified between setjmp() and the longjmp() below, and read on the
+       far side of it, so it has to survive the jump. */
+    volatile uint32_t fs;
 
     for (fs = 0; fs < 4; ++fs) {
         unsigned char hdr[8];
