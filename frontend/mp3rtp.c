@@ -55,13 +55,6 @@
 # include <unistd.h>
 #endif
 
-#ifdef IPV6
-#include <netinet/in.h>
-# ifndef INET6_ADDRSTRLEN
-#  define INET6_ADDRSTRLEN     46
-# endif /* INET6_ADDRSTRLEN */
-#endif
-
 #include "lame.h"
 #include "main.h"
 #include "parse.h"
@@ -80,14 +73,13 @@
  *
  * Author: Felix von Leitner <leitner@vim.org>
  *
- *   mp3rtp ip [port[:ttl]] [lame encoding options] infile outfile
+ *   mp3rtp destination [port[:ttl]] [lame encoding options] infile outfile
  *
  * examples:
  *   arecord -b 16 -s 22050 -w | ./mp3rtp 224.17.23.42 5004:2 -b 56 - /dev/null
  *   arecord -b 16 -s 44100 -w | ./mp3rtp 10.1.1.42 -V2 -b128 -B256 - my_mp3file.mp3
- * If ipv6 is enabled :   
- *   arecord -b 16 -s 44100 -w | ./mp3rtp ff00::8 -V2 -b128 -B256 - my_mp3file.mp3
  *   arecord -b 16 -s 44100 -w | ./mp3rtp ff00::8 5004:2 -V2 -b128 -B256 - my_mp3file.mp3
+ *   arecord -b 16 -s 44100 -w | ./mp3rtp studio.example.net -b 56 - /dev/null
  *
  */
 
@@ -150,11 +142,6 @@ lame_main(lame_t gf, int argc, char **argv)
     int     wavsamples;
     int     mp3bytes;
     FILE   *outf;
-#ifdef IPV6
-    char    ip[INET6_ADDRSTRLEN];
-#else
-    char    ip[16];
-#endif    
     unsigned int port = 5004;
     unsigned int ttl = 2;
     char    dummy;
@@ -163,44 +150,36 @@ lame_main(lame_t gf, int argc, char **argv)
     if (argc <= 2) {
         console_printf("Encode (via LAME) to mp3 with RTP streaming of the output\n"
                        "\n"
-                       "    mp3rtp ip [port[:ttl]] [lame encoding options] infile outfile\n"
+                       "    mp3rtp destination [port[:ttl]] [lame encoding options] infile outfile\n"
+                       "\n"
+                       "    the destination is an IPv4 address, an IPv6 address or a host name\n"
                        "\n"
                        "    examples:\n"
                        "      arecord -b 16 -s 22050 -w | ./mp3rtp 224.17.23.42 5004:2 -b 56 - /dev/null\n"
                        "      arecord -b 16 -s 44100 -w | ./mp3rtp 10.1.1.42 -V2 -b128 -B256 - my_mp3file.mp3\n"
-                       "    If ipv6 is enabled : \n"
-                       "      arecord -b 16 -s 44100 -w | ./mp3rtp ff00::8 -b 56 - /dev/null\n"
                        "      arecord -b 16 -s 44100 -w | ./mp3rtp ff00::8 5004:2 -b 56 - /dev/null\n"
+                       "      arecord -b 16 -s 44100 -w | ./mp3rtp studio.example.net -b 56 - /dev/null\n"
                        "\n");
         return 1;
     }
 
-#ifdef IPV6
-    if((sscanf(argv[1],"%45[.:0-9a-fA-F]", ip)) == 1)
-#else
-    if((sscanf(argv[1],"%15[.0-9]", ip)) == 1)
-#endif
-    {
-        switch(sscanf(argv[2],"%u:%u%c", &port, &ttl, &dummy)){
-        case 1:
-        case 2:
-            arg = 1;
-            break;
-        case 3:
-            error_printf("Illegal destination selector '%s', must be ip [port[:ttl]]\n", argv[1]);
-            return -1;
-        default:
-            arg = 0;
-        }
-    }
-    else
-    {
-        error_printf("Illegal destination selector '%s', must be ip [port[:ttl]]\n", argv[1]);
+    /* The destination is passed to the resolver as it stands: a name is as
+       valid here as a literal address, and deciding that is the resolver's
+       job rather than this scanner's. */
+    switch(sscanf(argv[2],"%u:%u%c", &port, &ttl, &dummy)){
+    case 1:
+    case 2:
+        arg = 1;
+        break;
+    case 3:
+        error_printf("Illegal port selector '%s', must be port[:ttl]\n", argv[2]);
         return -1;
+    default:
+        arg = 0;
     }
 
     rtp_initialization();
-    if (rtp_socket(ip, port, ttl)) {
+    if (rtp_socket(argv[1], port, ttl)) {
         rtp_deinitialization();
         error_printf("fatal error during initialization\n");
         return 1;

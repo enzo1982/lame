@@ -125,12 +125,11 @@ am__v_lt_0 = --silent
 am__v_lt_1 = 
 am_mp3rtp_OBJECTS = mp3rtp.$(OBJEXT) rtp.$(OBJEXT) $(am__objects_1)
 mp3rtp_OBJECTS = $(am_mp3rtp_OBJECTS)
-mp3rtp_LDADD = $(LDADD)
-mp3rtp_DEPENDENCIES = $(top_builddir)/libmp3lame/libmp3lame.la
+am__DEPENDENCIES_1 = $(top_builddir)/libmp3lame/libmp3lame.la
+mp3rtp_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_mp3x_OBJECTS = mp3x_ui.$(OBJEXT) mp3x_plot.$(OBJEXT) \
 	mp3x_core.$(OBJEXT) mp3x_session.$(OBJEXT) $(am__objects_1)
 mp3x_OBJECTS = $(am_mp3x_OBJECTS)
-am__DEPENDENCIES_1 = $(top_builddir)/libmp3lame/libmp3lame.la
 mp3x_DEPENDENCIES = $(am__DEPENDENCIES_1)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -302,6 +301,7 @@ SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 SNDFILE_CFLAGS = @SNDFILE_CFLAGS@
 SNDFILE_LIBS = @SNDFILE_LIBS@
+SOCKET_LIBS = @SOCKET_LIBS@
 STRIP = @STRIP@
 VECTOR_AVX2_FLAGS = @VECTOR_AVX2_FLAGS@
 VECTOR_AVX512_FLAGS = @VECTOR_AVX512_FLAGS@
@@ -409,6 +409,10 @@ EXTRA_DIST = README.mp3x-gtk4
 # not export.
 @INTERNAL_OPTS_TRUE@AM_CPPFLAGS = -D_ALLOW_INTERNAL_OPTIONS
 mp3x_LDADD = $(LDADD) @GTK_LIBS@
+# The RTP sender is the only frontend that resolves names and opens a socket,
+# and on some systems those live outside libc. Kept off the common LDADD so
+# that lame and mp3x do not link a library they never call into.
+mp3rtp_LDADD = $(LDADD) @SOCKET_LIBS@
 CLEANFILES = lclint.txt $(EXTRA_PROGRAMS)
 LCLINTFLAGS = \
 	+posixlib \

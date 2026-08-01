@@ -141,7 +141,7 @@
 /* Define to 1 if you have the 'nl_langinfo' function. */
 #undef HAVE_NL_LANGINFO
 
-/* Define to 1 if you have the 'socket' function. */
+/* Define if socket, getaddrinfo and inet_ntop are usable */
 #undef HAVE_SOCKET
 
 /* Define if SSE2 intrinsics work. */
@@ -224,7 +224,7 @@
 /* Define as const if the declaration of iconv() needs const. */
 #undef ICONV_CONST
 
-/* check if system supports IPV6 */
+/* Define to offer IPv6 destinations as well as IPv4 ones */
 #undef IPV6
 
 /* requested by Frank, seems to be temporary needed for a smooth transition */

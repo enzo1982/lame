@@ -50,7 +50,24 @@ struct rtpheader {           /* in network byte order */
 };
 
 
-#if !defined( _WIN32 ) && !defined(__MINGW32__)
+/* One implementation for every platform. What differs between a Windows and a
+ * POSIX system is the spelling of a handful of calls and the way an error is
+ * reported, not what this code does, and the two used to differ in what it
+ * does: only one of them resolved names or handled IPv6, only one of them
+ * enabled broadcast, only one of them set the multicast loopback option.
+ */
+#if defined(_WIN32) || defined(__MINGW32__)
+
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define rtp_close_socket(s)  closesocket(s)
+
+#else
 
 #ifdef STDC_HEADERS
 # include <stdio.h>
@@ -70,14 +87,17 @@ struct rtpheader {           /* in network byte order */
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#ifdef __int8_t_defined
-#undef uint8_t
-#undef uint16_t
-#undef uint32_t
-#undef uint64_t
-#endif
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h>
+#include <errno.h>
+
+typedef int SOCKET;
+#define INVALID_SOCKET       (-1)
+#define SOCKET_ERROR         (-1)
+#define rtp_close_socket(s)  close(s)
+
+#endif
 
 #ifdef WITH_DMALLOC
 #include <dmalloc.h>
@@ -86,306 +106,195 @@ struct rtpheader {           /* in network byte order */
 #include "rtp.h"
 #include "console.h"
 
-#ifdef IPV6
-# include <netdb.h>
-# define MAX_PORT_LENGTH 6
-#endif
-
-typedef int SOCKET;
+#define MAX_PORT_LENGTH 6       /* "65535" and its terminator */
 
 struct rtpheader RTPheader;
 SOCKET  rtpsocket;
+
+
+/* Report the last socket error the way the platform can describe it. */
+#if defined(_WIN32) || defined(__MINGW32__)
+static void
+report_socket_error(char const *what)
+{
+    int     code = WSAGetLastError();
+    void   *p_msg_buf = NULL;
+    char   *msg;
+
+    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER,
+                   (void *) 0,
+                   (DWORD) code,
+                   MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR) & p_msg_buf, 0, NULL);
+    msg = p_msg_buf ? strdup(p_msg_buf) : NULL;
+    if (p_msg_buf)
+        LocalFree(p_msg_buf);
+    error_printf("%s failed, error %d\n%s\n", what, code, msg ? msg : "");
+    free(msg);
+}
+#else
+static void
+report_socket_error(char const *what)
+{
+    error_printf("%s failed, error %d\n%s\n", what, errno, strerror(errno));
+}
+#endif
+
+
+/* Print a resolved address into a caller supplied buffer, either family. */
+static char const *
+address_text(struct sockaddr const *sa, char *buf, size_t buflen)
+{
+    void   *addr;
+
+#ifdef IPV6
+    if (sa->sa_family == AF_INET6)
+        addr = (void *) &((struct sockaddr_in6 *) sa)->sin6_addr;
+    else
+#endif
+        addr = (void *) &((struct sockaddr_in *) sa)->sin_addr;
+
+    if (inet_ntop(sa->sa_family, addr, buf, buflen) == NULL)
+        return "?";
+    return buf;
+}
+
+
+static int
+is_multicast(struct sockaddr const *sa)
+{
+#ifdef IPV6
+    if (sa->sa_family == AF_INET6)
+        return ((struct sockaddr_in6 *) sa)->sin6_addr.s6_addr[0] == 0xFF;
+#endif
+    return (ntohl(((struct sockaddr_in *) sa)->sin_addr.s_addr) >> 28) == 0xE;
+}
+
+
+/* IPv6 has no broadcast, so this stays an IPv4 question. */
+static int
+is_broadcast(struct sockaddr const *sa)
+{
+    if (sa->sa_family != AF_INET)
+        return 0;
+    return ntohl(((struct sockaddr_in *) sa)->sin_addr.s_addr) == INADDR_BROADCAST;
+}
 
 
 /* create a sender socket. */
 int
 rtp_socket(char const *address, unsigned int port, unsigned int TTL)
 {
-    int     iRet, iLoop = 1;
-    int     iSocket = -1;
-#ifdef IPV6
-    char    cPortStr[MAX_PORT_LENGTH];
-    struct  addrinfo hint, *multicastAddr = NULL;    
-    int     iTtl = TTL;
-    unsigned int  iMulticastLoop = 0;    
-#else
-    struct sockaddr_in sin;
-    unsigned char cTtl = TTL;
-    char    cLoop = 0;
-    unsigned int tempaddr;
-#endif  
+    int     on = 1;
+    int     ttl = (int) TTL;
+    char    port_text[MAX_PORT_LENGTH];
+    char    addr_text[INET6_ADDRSTRLEN];
+    int     error;
+    struct addrinfo hint, *dest = NULL;
+    struct sockaddr_storage source;
+    SOCKET  s = INVALID_SOCKET;
 
-    if(port == 0 || port > 0xffff){
+    if (port == 0 || port > 0xffff) {
         error_printf("rtp_socket() Invalid port number.\n");
-        goto err_cleanup;
+        return 1;
     }
+    snprintf(port_text, sizeof(port_text), "%u", port);
 
-#ifdef IPV6
-    snprintf(cPortStr,MAX_PORT_LENGTH,"%d",port);
     memset(&hint, 0, sizeof(hint));
+#ifdef IPV6
     hint.ai_family = AF_UNSPEC;
-    hint.ai_socktype = SOCK_DGRAM;
-    iRet = getaddrinfo(address, cPortStr, &hint, &multicastAddr);
-    if (iRet){
-        error_printf("getaddrinfo() failed.\n");
-        goto err_cleanup; 	
-    }
-
-    iSocket = socket(multicastAddr->ai_family, multicastAddr->ai_socktype, 0);
-    if (iSocket < 0) {
-        error_printf("socket() failed.\n");
-        goto err_cleanup;
-    }
-
 #else
-    iSocket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (iSocket < 0) {
-        error_printf("socket() failed.\n");
-        goto err_cleanup;
-    }
-
-    memset(&sin, 0, sizeof(sin));
-    tempaddr = inet_addr(address);
-    sin.sin_family = AF_INET;
-    sin.sin_port = htons(port);
-    sin.sin_addr.s_addr = tempaddr;
+    hint.ai_family = AF_INET;
 #endif
+    hint.ai_socktype = SOCK_DGRAM;
+    if (getaddrinfo(address, port_text, &hint, &dest) != 0) {
+        error_printf("Unknown host %s\n", address);
+        return 1;
+    }
 
-    iRet = setsockopt(iSocket, SOL_SOCKET, SO_REUSEADDR, &iLoop, sizeof(int));
-    if (iRet < 0) {
-        error_printf("setsockopt SO_REUSEADDR failed\n");
-        close(iSocket);
+    s = socket(dest->ai_family, dest->ai_socktype, 0);
+    if (s == INVALID_SOCKET) {
+        report_socket_error("socket()");
         goto err_cleanup;
     }
+
+    /* The wildcard local address of whichever family was resolved: zeroed
+       storage is INADDR_ANY and in6addr_any alike, on port zero. */
+    memset(&source, 0, sizeof(source));
+    source.ss_family = (unsigned short) dest->ai_family;
+
+    error = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char const *) &on, sizeof(on));
+    if (error == SOCKET_ERROR) {
+        report_socket_error("setsockopt(SO_REUSEADDR)");
+        goto err_cleanup;
+    }
+    error = bind(s, (struct sockaddr *) &source, (int) dest->ai_addrlen);
+    if (error == SOCKET_ERROR) {
+        report_socket_error("bind()");
+        goto err_cleanup;
+    }
+
+    if (is_broadcast(dest->ai_addr)) {
+        error_printf("broadcast %s:%u\n",
+                     address_text(dest->ai_addr, addr_text, sizeof(addr_text)), port);
+        error = setsockopt(s, SOL_SOCKET, SO_BROADCAST, (char const *) &on, sizeof(on));
+        if (error == SOCKET_ERROR) {
+            report_socket_error("setsockopt(SO_BROADCAST)");
+            goto err_cleanup;
+        }
+    }
+
+    if (is_multicast(dest->ai_addr)) {
+        int     level = IPPROTO_IP;
+        int     opt_ttl = IP_MULTICAST_TTL;
+        int     opt_loop = IP_MULTICAST_LOOP;
 
 #ifdef IPV6
-    if(((multicastAddr->ai_family == PF_INET6)
-                ?(((struct sockaddr_in6*)multicastAddr->ai_addr)->sin6_addr.s6_addr[0] == 0xFF)
-                :(((unsigned)ntohl(((struct sockaddr_in*)multicastAddr->ai_addr)->sin_addr.s_addr)) >> 28 == 0xE)))
-    {
-        /* only set multicast parameters for multicast destination IPs */
-        iRet = setsockopt(iSocket,
-                multicastAddr->ai_family == PF_INET6 ? IPPROTO_IPV6        : IPPROTO_IP,
-                multicastAddr->ai_family == PF_INET6 ? IPV6_MULTICAST_HOPS : IP_MULTICAST_TTL,
-                (char*) &iTtl, sizeof(iTtl));
-
-        if (iRet < 0) {
-            error_printf("setsockopt IPV6_MULTICAST_HOPS failed.  multicast in kernel?\n");
-            goto err_cleanup;
+        if (dest->ai_family == AF_INET6) {
+            level = IPPROTO_IPV6;
+            opt_ttl = IPV6_MULTICAST_HOPS;
+            opt_loop = IPV6_MULTICAST_LOOP;
         }
-
-        iMulticastLoop = 1;
-        iRet = setsockopt(iSocket,
-                multicastAddr->ai_family == PF_INET6 ? IPPROTO_IPV6        : IPPROTO_IP,
-                multicastAddr->ai_family == PF_INET6 ? IPV6_MULTICAST_LOOP : IP_MULTICAST_LOOP,
-                (char*) &iMulticastLoop, sizeof(iMulticastLoop));
-
-        if (iRet < 0) {
-            error_printf("setsockopt IPV6_MULTICAST_LOOP failed.  multicast in kernel?\n");
-            goto err_cleanup;
-        }
-    }
-    iRet = connect(iSocket, multicastAddr->ai_addr, multicastAddr->ai_addrlen);
-    if (iRet < 0) {
-        error_printf("connect IPV6_MULTICAST_LOOP failed.  multicast in kernel?\n");
-        goto err_cleanup;
-    }
-    freeaddrinfo(multicastAddr);
-#else
-    if ((ntohl(tempaddr) >> 28) == 0xe) {
-        /* only set multicast parameters for multicast destination IPs */
-        iRet = setsockopt(iSocket, IPPROTO_IP, IP_MULTICAST_TTL, &cTtl, sizeof(char));
-        if (iRet < 0) {
-            error_printf("setsockopt IP_MULTICAST_TTL failed.  multicast in kernel?\n");
-            close(iSocket);
-            goto err_cleanup;
-        }
-
-        cLoop = 1;      /* !? */
-        iRet = setsockopt(iSocket, IPPROTO_IP, IP_MULTICAST_LOOP, &cLoop, sizeof(char));
-        if (iRet < 0) {
-            error_printf("setsockopt IP_MULTICAST_LOOP failed.  multicast in kernel?\n");
-            close(iSocket);
-            goto err_cleanup;
-        }
-    }
-    iRet = connect(iSocket, (struct sockaddr *) &sin, sizeof(struct sockaddr_in));
-    if (iRet < 0) {
-        error_printf("connect IP_MULTICAST_LOOP failed.  multicast in kernel?\n");
-        close(iSocket);
-        goto err_cleanup;
-    }
 #endif
+        error_printf("multicast %s:%u\n",
+                     address_text(dest->ai_addr, addr_text, sizeof(addr_text)), port);
+        error = setsockopt(s, level, opt_ttl, (char const *) &ttl, sizeof(ttl));
+        if (error == SOCKET_ERROR) {
+            report_socket_error("setsockopt(multicast TTL)");
+            goto err_cleanup;
+        }
+        error = setsockopt(s, level, opt_loop, (char const *) &on, sizeof(on));
+        if (error == SOCKET_ERROR) {
+            report_socket_error("setsockopt(multicast loop)");
+            goto err_cleanup;
+        }
+    }
 
-    rtpsocket = iSocket;
+    error = connect(s, dest->ai_addr, (int) dest->ai_addrlen);
+    if (error == SOCKET_ERROR) {
+        report_socket_error("connect()");
+        goto err_cleanup;
+    }
 
+    freeaddrinfo(dest);
+    rtpsocket = s;
     return 0;
 
 err_cleanup:
-    if(iSocket >= 0)
-        close(iSocket);
-#ifdef IPV6
-    if(multicastAddr)
-        freeaddrinfo(multicastAddr);
-#endif
+    if (s != INVALID_SOCKET)
+        rtp_close_socket(s);
+    freeaddrinfo(dest);
     return 1;
 }
 
 
-static void
-rtp_initialization_extra(void)
-{
-}
-
-static void
-rtp_close_extra(void)
-{
-}
-
-#else
-
-#include <Winsock2.h>
-#ifndef IP_MULTICAST_TTL
-#define IP_MULTICAST_TTL 3
-#endif
-#include <stdio.h>
-#include <stdarg.h>
-
-#include "rtp.h"
-#include "console.h"
-
-
-struct rtpheader RTPheader;
-SOCKET  rtpsocket;
-
-static char *
-last_error_message(int err_code)
-{
-    char   *msg;
-    void   *p_msg_buf;
-    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER,
-                   (void *) 0,
-                   (DWORD) err_code,
-                   MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR) & p_msg_buf, 0, NULL);
-    msg = strdup(p_msg_buf);
-    LocalFree(p_msg_buf);
-    return msg;
-}
-
-static int
-print_socket_error(int error)
-{
-    char   *err_txt = last_error_message(error);
-    error_printf("error %d\n%s\n", error, err_txt);
-    free(err_txt);
-    return error;
-}
-
-static int
-on_socket_error(SOCKET s)
-{
-    int     error = WSAGetLastError();
-    print_socket_error(error);
-    if (s != INVALID_SOCKET) {
-        closesocket(s);
-    }
-    return error;
-}
-
-/* create a sender socket. */
-int
-rtp_socket(char const *address, unsigned int port, unsigned int TTL)
-{
-    char const True = 1;
-    char const *c = "";
-    int     error;
-    UINT    ip;
-    PHOSTENT host;
-    SOCKET  s;
-    SOCKADDR_IN source, dest;
-
-    source.sin_family = AF_INET;
-    source.sin_addr.s_addr = htonl(INADDR_ANY);
-    source.sin_port = htons(0);
-
-    dest.sin_family = AF_INET;
-    dest.sin_addr.s_addr = inet_addr(address);
-
-    if (!strcmp(address, "255.255.255.255")) {
-    }
-    else if (dest.sin_addr.s_addr == INADDR_NONE) {
-        host = gethostbyname(address);
-
-        if (host) {
-            dest.sin_addr = *(PIN_ADDR) host->h_addr;
-        }
-        else {
-            error_printf("Unknown host %s\r\n", address);
-            return 1;
-        }
-    }
-
-    dest.sin_port = htons((u_short) port);
-
-    ip = ntohl(dest.sin_addr.s_addr);
-
-    if (IN_CLASSA(ip))
-        c = "class A";
-    if (IN_CLASSB(ip))
-        c = "class B";
-    if (IN_CLASSC(ip))
-        c = "class C";
-    if (IN_CLASSD(ip))
-        c = "class D";
-    if (ip == INADDR_LOOPBACK)
-        c = "loopback";
-    if (ip == INADDR_BROADCAST)
-        c = "broadcast";
-
-    s = socket(AF_INET, SOCK_DGRAM, PF_UNSPEC);
-    if (s == INVALID_SOCKET) {
-        error_printf("socket () ");
-        return on_socket_error(s);
-    }
-    error = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &True, sizeof(True));
-    error = bind(s, (struct sockaddr *) &source, sizeof(source));
-    if (error == SOCKET_ERROR) {
-        error_printf("bind () ");
-        return on_socket_error(s);
-    }
-    if (ip == INADDR_BROADCAST) {
-        error_printf("broadcast %s:%u %s\r\n", inet_ntoa(dest.sin_addr), ntohs(dest.sin_port), c);
-        error = setsockopt(s, SOL_SOCKET, SO_BROADCAST, &True, sizeof(True));
-        if (error == SOCKET_ERROR) {
-            error_printf("setsockopt (%u, SOL_SOCKET, SO_BROADCAST, ...) ", s);
-            return on_socket_error(s);
-        }
-    }
-    if (IN_CLASSD(ip)) {
-        error_printf("multicast %s:%u %s\r\n", inet_ntoa(dest.sin_addr), ntohs(dest.sin_port), c);
-        error = setsockopt(s, IPPROTO_IP, IP_MULTICAST_TTL, (const char *) &TTL, sizeof(TTL));
-        if (error == SOCKET_ERROR) {
-            error_printf("setsockopt (%u, IPPROTO_IP, IP_MULTICAST_TTL, ...) ", s);
-            return on_socket_error(s);
-        }
-    }
-    error = connect(s, (PSOCKADDR) & dest, sizeof(SOCKADDR_IN));
-    if (error == SOCKET_ERROR) {
-        error_printf("connect: ");
-        return on_socket_error(s);
-    }
-    rtpsocket = s;
-    return 0;
-}
-
+#if defined(_WIN32) || defined(__MINGW32__)
 static void
 rtp_initialization_extra(void)
 {
     WSADATA wsaData;
     int     rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (rc != 0) {
-        print_socket_error(rc);
-    }
+    if (rc != 0)
+        error_printf("WSAStartup() failed, error %d\n", rc);
 }
 
 static void
@@ -393,7 +302,16 @@ rtp_close_extra(void)
 {
     WSACleanup();
 }
+#else
+static void
+rtp_initialization_extra(void)
+{
+}
 
+static void
+rtp_close_extra(void)
+{
+}
 #endif
 
 

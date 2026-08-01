@@ -691,6 +691,7 @@ SNDFILE_LIBS
 SNDFILE_CFLAGS
 GTK_LIBS
 GTK_CFLAGS
+SOCKET_LIBS
 ALLOCA
 LIBTOOL_DEPS
 LT_SYS_LIBRARY_PATH
@@ -1535,8 +1536,8 @@ Optional Features:
   --disable-decoder          Exclude mpg123 decoder
   --disable-frontend      Do not build the lame executable default=build
   --enable-mp3rtp         Build mp3rtp default=no
-  --disable-ipv6          Disable IPV6 support(By default ipv6 (with ipv4)
-                          support is enabled)
+  --disable-ipv6          Build mp3rtp for IPv4 destinations only (IPv6 and
+                          IPv4 by default)
   --disable-dynamic-frontends
                           link the frontends statically against libmp3lame
                           (default: dynamic)
@@ -17308,76 +17309,70 @@ if test "X${ac_cv_func_strtol}" != "Xyes"; then
 	as_fn_error $? "function strtol is mandatory" "$LINENO" 5
 fi
 
-SOCKETFUNCTION=unknown
-ac_fn_c_check_func "$LINENO" "socket" "ac_cv_func_socket"
-if test "x$ac_cv_func_socket" = xyes
-then :
-  printf '%s\n' "#define HAVE_SOCKET 1" >>confdefs.h
-
-fi
-
-if test $ac_cv_func_socket = no; then
-	# maybe it is in libsocket
-	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for socket in -lsocket" >&5
-printf %s "checking for socket in -lsocket... " >&6; }
-if test ${ac_cv_lib_socket_socket+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) ac_check_lib_save_LIBS=$LIBS
-LIBS="-lsocket  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+SOCKET_LIBS=
+lame_have_sockets=no
+lame_socket_save_LIBS="${LIBS}"
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for the socket and resolver library" >&5
+printf %s "checking for the socket and resolver library... " >&6; }
+for lame_socket_try in "" "-lws2_32" "-lsocket -lnsl" "-lsocket"; do
+	LIBS="${lame_socket_save_LIBS} ${lame_socket_try}"
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.
-   The 'extern "C"' is for builds by C++ compilers;
-   although this is not generally supported in C code supporting it here
-   has little cost and some practical benefit (sr 110532).  */
-#ifdef __cplusplus
-extern "C"
+#ifdef _WIN32
+# include <winsock2.h>
+# include <ws2tcpip.h>
+#else
+# include <sys/types.h>
+# include <sys/socket.h>
+# include <netinet/in.h>
+# include <arpa/inet.h>
+# include <netdb.h>
 #endif
-char socket (void);
+
 int
 main (void)
 {
-return socket ();
+
+	struct addrinfo *res = 0;
+	char text[64];
+	(void) socket(AF_INET, SOCK_DGRAM, 0);
+	(void) getaddrinfo("localhost", "5004", 0, &res);
+	freeaddrinfo(res);
+	(void) inet_ntop(AF_INET, text, text, sizeof(text));
+
   ;
   return 0;
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"
 then :
-  ac_cv_lib_socket_socket=yes
-else case e in #(
-  e) ac_cv_lib_socket_socket=no ;;
-esac
+  lame_have_sockets=yes
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
     conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS ;;
-esac
-fi
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_socket_socket" >&5
-printf '%s\n' "$ac_cv_lib_socket_socket" >&6; }
-if test "x$ac_cv_lib_socket_socket" = xyes
-then :
-  printf '%s\n' "#define HAVE_SOCKET 1" >>confdefs.h
-
-	LIBS="$LIBS -lsocket"
-fi
-
-	if test "X${ac_cv_lib_socket_socket}" != "Xyes"; then
-		SOCKETFUNCTION=NO
-	else
-		case ${host_os} in
-		*solaris*)
-			LIBS="$LIBS -lnsl"
-			;;
-		esac
+	if test ${lame_have_sockets} = yes; then
+		SOCKET_LIBS="${lame_socket_try}"
+		break
 	fi
+done
+LIBS="${lame_socket_save_LIBS}"
+if test ${lame_have_sockets} = yes; then
+	if test "X${SOCKET_LIBS}" = "X"; then
+		{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: none needed" >&5
+printf '%s\n' "none needed" >&6; }
+	else
+		{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: ${SOCKET_LIBS}" >&5
+printf '%s\n' "${SOCKET_LIBS}" >&6; }
+	fi
+
+printf '%s\n' "#define HAVE_SOCKET 1" >>confdefs.h
+
+else
+	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: not found" >&5
+printf '%s\n' "not found" >&6; }
 fi
+
 
 CFLAGS=${CFLAGS}
 CONFIG_DEFS=${CONFIG_DEFS}
@@ -18149,8 +18144,8 @@ esac
 fi
 
 if test "x${WITH_MP3RTP}" = "xyes"; then
-	if test ${SOCKETFUNCTION} = NO; then
-		as_fn_error $? "function socket is mandatory for mp3rtp" "$LINENO" 5
+	if test ${lame_have_sockets} = no; then
+		as_fn_error $? "socket, getaddrinfo and inet_ntop are mandatory for mp3rtp" "$LINENO" 5
 	fi
 	WITH_MP3RTP=mp3rtp${ac_exeext}
 	MP3RTP_MAN=mp3rtp.1
@@ -18203,7 +18198,6 @@ printf '%s\n' "no" >&6; }
 	;;
 esac
 
-#Checking for IPV6 support
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for IPv6 support" >&5
 printf %s "checking for IPv6 support... " >&6; }
 # Check whether --enable-ipv6 was given.
@@ -18216,47 +18210,51 @@ esac
 fi
 
 if test "x$CONFIG_IPV6" = "xyes" ; then
-    if test ${ac_cv_ipv6+y}
+    if test ${lame_cv_ipv6+y}
 then :
   printf %s "(cached) " >&6
-else case e in #(
-  e) if test "$cross_compiling" = yes
-then :
-  ac_cv_ipv6=yes
 else case e in #(
   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
-    #include <sys/types.h>
-    #include <sys/socket.h>
-    #include <netinet/in.h>
-    #include <stdlib.h>
-    main()
-    {
-        int fd;
-        struct sockaddr_in6 foo;
-        fd = socket(AF_INET6, SOCK_STREAM, 0);
-        exit(fd >= 0 ? 0 : 1);
-    }
+#ifdef _WIN32
+# include <winsock2.h>
+# include <ws2tcpip.h>
+#else
+# include <sys/types.h>
+# include <sys/socket.h>
+# include <netinet/in.h>
+#endif
+
+int
+main (void)
+{
+
+    struct sockaddr_in6 sa;
+    int level = IPPROTO_IPV6;
+    int hops = IPV6_MULTICAST_HOPS;
+    int loop = IPV6_MULTICAST_LOOP;
+    sa.sin6_family = AF_INET6;
+    (void) level; (void) hops; (void) loop;
+
+  ;
+  return 0;
+}
 _ACEOF
-if ac_fn_c_try_run "$LINENO"
+if ac_fn_c_try_compile "$LINENO"
 then :
-  ac_cv_ipv6=yes
+  lame_cv_ipv6=yes
 else case e in #(
-  e) ac_cv_ipv6=no ;;
+  e) lame_cv_ipv6=no ;;
 esac
 fi
-rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
-  conftest.$ac_objext conftest.beam conftest.$ac_ext ;;
-esac
-fi
- ;;
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext ;;
 esac
 fi
 
-    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $ac_cv_ipv6" >&5
-printf '%s\n' "$ac_cv_ipv6" >&6; }
-    if test $ac_cv_ipv6 = yes ; then
+    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_cv_ipv6" >&5
+printf '%s\n' "$lame_cv_ipv6" >&6; }
+    if test $lame_cv_ipv6 = yes ; then
 
 printf '%s\n' "#define IPV6 1" >>confdefs.h
 

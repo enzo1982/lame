@@ -40,6 +40,12 @@
 			        graphs, the display controls and the keyboard.
 			        Patch by Maya R. Odinezenko, patch ticket
 			        <i class="ticket">[ #104 ]</i>.</li>
+			    <li><i>mp3rtp</i> takes a host name as its
+			        destination as well as an IPv4 or an IPv6
+			        address, and does so identically on every
+			        platform. Building it for IPv4 destinations
+			        only is still possible, and that switch now
+			        exists on Windows too.</li>
 			    <li>On Windows, the command line tools built with MinGW
 			        lost characters outside the active code page, both in
 			        the command line itself and in filenames, so a file the

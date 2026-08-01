@@ -545,23 +545,56 @@ if test "X${ac_cv_func_strtol}" != "Xyes"; then
 	AC_MSG_ERROR([function strtol is mandatory])
 fi
 
-dnl Check if we are on a mingw system, which needs libwsock32
-SOCKETFUNCTION=unknown
-AC_CHECK_FUNCS(socket)
-if test $ac_cv_func_socket = no; then
-	# maybe it is in libsocket
-	AC_CHECK_LIB(socket, socket, [AC_DEFINE(HAVE_SOCKET)
-	LIBS="$LIBS -lsocket"])
-	if test "X${ac_cv_lib_socket_socket}" != "Xyes"; then
-		SOCKETFUNCTION=NO
-	else
-		case ${host_os} in
-		*solaris*)
-			LIBS="$LIBS -lnsl"
-			;;
-		esac
+dnl The RTP sender is the only thing here that opens a socket, and it needs the
+dnl name resolver as well: socket(), getaddrinfo() and inet_ntop() together.
+dnl Probing them as a set, by linking the calls the code actually makes, is what
+dnl makes the answer usable - a system can have socket() in libc and the resolver
+dnl somewhere else, and MinGW has all three in ws2_32 and none of them in libc,
+dnl which an AC_CHECK_LIB(socket, socket) can never discover.
+dnl The result goes into SOCKET_LIBS, which only mp3rtp links, rather than into
+dnl the LIBS every target inherits.
+SOCKET_LIBS=
+lame_have_sockets=no
+lame_socket_save_LIBS="${LIBS}"
+AC_MSG_CHECKING([for the socket and resolver library])
+for lame_socket_try in "" "-lws2_32" "-lsocket -lnsl" "-lsocket"; do
+	LIBS="${lame_socket_save_LIBS} ${lame_socket_try}"
+	AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#ifdef _WIN32
+# include <winsock2.h>
+# include <ws2tcpip.h>
+#else
+# include <sys/types.h>
+# include <sys/socket.h>
+# include <netinet/in.h>
+# include <arpa/inet.h>
+# include <netdb.h>
+#endif
+	]], [[
+	struct addrinfo *res = 0;
+	char text[64];
+	(void) socket(AF_INET, SOCK_DGRAM, 0);
+	(void) getaddrinfo("localhost", "5004", 0, &res);
+	freeaddrinfo(res);
+	(void) inet_ntop(AF_INET, text, text, sizeof(text));
+	]])], [lame_have_sockets=yes])
+	if test ${lame_have_sockets} = yes; then
+		SOCKET_LIBS="${lame_socket_try}"
+		break
 	fi
+done
+LIBS="${lame_socket_save_LIBS}"
+if test ${lame_have_sockets} = yes; then
+	if test "X${SOCKET_LIBS}" = "X"; then
+		AC_MSG_RESULT([none needed])
+	else
+		AC_MSG_RESULT([${SOCKET_LIBS}])
+	fi
+	AC_DEFINE(HAVE_SOCKET, 1, [Define if socket, getaddrinfo and inet_ntop are usable])
+else
+	AC_MSG_RESULT([not found])
 fi
+AC_SUBST(SOCKET_LIBS)
 
 dnl Initialize configuration variables for the Makefile
 CFLAGS=${CFLAGS}
@@ -821,8 +854,8 @@ AC_ARG_ENABLE(mp3rtp,
   [  --enable-mp3rtp         Build mp3rtp [default=no]],
     WITH_MP3RTP="${enableval}", WITH_MP3RTP=no)
 if test "x${WITH_MP3RTP}" = "xyes"; then
-	if test ${SOCKETFUNCTION} = NO; then
-		AC_MSG_ERROR([function socket is mandatory for mp3rtp])
+	if test ${lame_have_sockets} = no; then
+		AC_MSG_ERROR([socket, getaddrinfo and inet_ntop are mandatory for mp3rtp])
 	fi
 	WITH_MP3RTP=mp3rtp${ac_exeext}
 	MP3RTP_MAN=mp3rtp.1
@@ -864,32 +897,46 @@ int wmain(int argc, wchar_t **argv)
 	;;
 esac
 
-#Checking for IPV6 support
+dnl Whether the RTP sender offers IPv6 destinations as well as IPv4 ones. The
+dnl same switch exists on every platform - on Windows by editing configMS.h -
+dnl and it selects the same thing everywhere: the address family the resolver is
+dnl asked for. Everything else about the sender, host name resolution included,
+dnl is the same either way.
+dnl
+dnl This asks the compiler whether the types and options exist, not the running
+dnl kernel whether a socket can be opened. The old test did the latter, which
+dnl reports "no" on a machine whose headers are fine but whose network stack has
+dnl IPv6 switched off at boot - and answers nothing at all when cross compiling.
 AC_MSG_CHECKING(for IPv6 support)
 AC_ARG_ENABLE(ipv6, AS_HELP_STRING([--disable-ipv6],
-    [Disable IPV6 support(By default ipv6 (with ipv4) support is enabled)]),
+    [Build mp3rtp for IPv4 destinations only (IPv6 and IPv4 by default)]),
     CONFIG_IPV6=$enableval,
     CONFIG_IPV6=yes)
 if test "x$CONFIG_IPV6" = "xyes" ; then
-    AC_CACHE_VAL(ac_cv_ipv6,
-    AC_RUN_IFELSE([AC_LANG_SOURCE([[
-    #include <sys/types.h>
-    #include <sys/socket.h>
-    #include <netinet/in.h>
-    #include <stdlib.h>
-    main()
-    {
-        int fd;
-        struct sockaddr_in6 foo;
-        fd = socket(AF_INET6, SOCK_STREAM, 0);
-        exit(fd >= 0 ? 0 : 1);
-    }]])],[ac_cv_ipv6=yes],[ac_cv_ipv6=no],[ac_cv_ipv6=yes]))
-    AC_MSG_RESULT($ac_cv_ipv6)
-    if test $ac_cv_ipv6 = yes ; then
-        AC_DEFINE(IPV6,1,[check if system supports IPV6])
+    AC_CACHE_VAL(lame_cv_ipv6,
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#ifdef _WIN32
+# include <winsock2.h>
+# include <ws2tcpip.h>
+#else
+# include <sys/types.h>
+# include <sys/socket.h>
+# include <netinet/in.h>
+#endif
+    ]], [[
+    struct sockaddr_in6 sa;
+    int level = IPPROTO_IPV6;
+    int hops = IPV6_MULTICAST_HOPS;
+    int loop = IPV6_MULTICAST_LOOP;
+    sa.sin6_family = AF_INET6;
+    (void) level; (void) hops; (void) loop;
+    ]])],[lame_cv_ipv6=yes],[lame_cv_ipv6=no]))
+    AC_MSG_RESULT($lame_cv_ipv6)
+    if test $lame_cv_ipv6 = yes ; then
+        AC_DEFINE(IPV6,1,[Define to offer IPv6 destinations as well as IPv4 ones])
     fi
 else
-    AC_MSG_RESULT($CONFIG_IPV6)	
+    AC_MSG_RESULT($CONFIG_IPV6)
 fi
 AC_MSG_CHECKING(if dynamic linking of the frontends is requested)
 # Dynamic linking is the default: it lets the frontends pick up the shared

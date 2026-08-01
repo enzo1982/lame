@@ -2,7 +2,7 @@
 .SH NAME
 mp3rtp \- encode audio to mp3 and stream it as RTP
 .SH SYNOPSIS
-mp3rtp <ip> [port[:ttl]] [options] <infile> <outfile>
+mp3rtp <destination> [port[:ttl]] [options] <infile> <outfile>
 .SH DESCRIPTION
 mp3rtp encodes audio the same way
 .BR lame (1)
@@ -24,17 +24,21 @@ It is available when LAME was configured with
 and the system provides the socket functions.
 .SH OPTIONS
 .TP
-.B <ip>
-Destination address of the stream, as a numeric address.
-IPv6 addresses are accepted unless LAME was configured with
-.B \-\-disable\-ipv6.
-Host names are not resolved.
+.B <destination>
+Where the stream is sent: an IPv4 address, an IPv6 address, or a host name,
+which is resolved.
+A name that resolves to both families is used with whichever the resolver
+returns first.
+IPv6 destinations are available unless LAME was built for IPv4 only, which on
+the Autotools side is
+.B \-\-disable\-ipv6
+and in a Visual Studio build means configMS.h with IPV6 not defined.
 .TP
 .B port[:ttl]
 Destination port, optionally followed by a colon and the multicast time to
 live.
 Port defaults to 5004 and TTL to 2.
-This is a separate argument from <ip>, not part of it.
+This is a separate argument from <destination>, not part of it.
 .TP
 .B options
 Any option
@@ -73,6 +77,9 @@ address followed by a separate
 .BR port[:ttl] ,
 because an IPv6 address itself contains colons.
 Scripts written for the old single-argument form need updating.
+.PP
+LAME 4.1 made the destination behave the same on every platform: host names
+are resolved, and IPv6 destinations work on Windows as well.
 .SH SEE ALSO
 .BR lame (1)
 .SH AUTHORS

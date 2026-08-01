@@ -59,6 +59,10 @@ LDADD = @LDADD@ \
 	@FRONTEND_LDADD@
 
 mp3x_LDADD = $(LDADD) @GTK_LIBS@
+# The RTP sender is the only frontend that resolves names and opens a socket,
+# and on some systems those live outside libc. Kept off the common LDADD so
+# that lame and mp3x do not link a library they never call into.
+mp3rtp_LDADD = $(LDADD) @SOCKET_LIBS@
 
 CLEANFILES = lclint.txt $(EXTRA_PROGRAMS)
 

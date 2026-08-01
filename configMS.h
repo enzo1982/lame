@@ -116,4 +116,12 @@ void acm_Free( void * mem);
     #define HAVE_AVX512_INTRINSICS
 #endif
 
+/* mp3rtp offers IPv6 destinations as well as IPv4 ones. This is the same
+ * switch the Autotools side spells --disable-ipv6, and it selects the same
+ * thing: the address family the resolver is asked for. Comment it out for a
+ * build that accepts IPv4 destinations only. Every Windows this project
+ * supports has the types and socket options it needs.
+ */
+#define IPV6 1
+
 #endif

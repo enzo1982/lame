@@ -557,7 +557,7 @@ $(T_LAME) : target_directory config.h $(MPG123_LIB) $(T_LIB_STATIC) common $(LAM
 $(T_MP3RTP) : target_directory config.h $(MPG123_LIB) $(T_LIB_STATIC) common $(MPRTP_OBJ) mp3rtp.res
 	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(LIBSNDFILE) $(MPG123_LIB) \
 	       $(TARGET_DIR)$(T_LIB_STATIC) $(CMMN_OBJ) $(MPRTP_OBJ) $(ADDL_OBJ) \
-	       ./frontend/mp3rtp.res wsock32.lib
+	       ./frontend/mp3rtp.res ws2_32.lib
 	@echo.
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
