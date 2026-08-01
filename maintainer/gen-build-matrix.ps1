@@ -34,7 +34,7 @@
 .PARAMETER VsPath
   Visual Studio installation to use (overrides autodetection).
 .PARAMETER Mpg123Dir
-  mpg123 folder with mpg123.h and libmpg123-0.lib, overriding the default
+  mpg123 folder with mpg123.h and libmpg123-0.def, overriding the default
   vc_solution\mpg123\Win32; enables the decoder-on cells.
 .PARAMETER LibsndfileDir
   libsndfile folder with lib\sndfile.lib, overriding the default
@@ -128,14 +128,15 @@ function Probe-Dep($override, $default, $marker) {
 	return ""
 }
 
-# mpg123: the MSBuild cell generates the import library from the shipped .def on
-# its own and so needs only the header; the nmake build expects the .lib to
-# exist already.
+# mpg123: both builds generate the import library from the shipped .def - the
+# MSBuild projects into their own $(IntDir), nmake into its output directory -
+# so a distribution folder needs the header and the .def and nothing else. The
+# static distributions ship neither, which is what the second test is for.
 $mpg123 = Probe-Dep $Mpg123Dir (Join-Path $vcsol "mpg123\Win32") "mpg123.h"
-$mpg123HasLib = $mpg123 -and (Test-Path (Join-Path $mpg123 "libmpg123-0.lib"))
-if ($mpg123 -and -not $mpg123HasLib) {
-	Write-Warning "no libmpg123-0.lib in '$mpg123' - the nmake decoder cell will be"
-	Write-Warning "skipped. Generate it once with: lib /def:libmpg123-0.def /machine:x86"
+if ($mpg123 -and -not (Test-Path (Join-Path $mpg123 "libmpg123-0.def"))) {
+	Write-Warning "no libmpg123-0.def in '$mpg123' - the decoder cells will be skipped."
+	Write-Warning "A static mpg123 distribution ships none; use the regular one."
+	$mpg123 = ""
 }
 
 $sndfile = Probe-Dep $LibsndfileDir (Join-Path $vcsol "libsndfile\Win32") "lib\sndfile.lib"
@@ -175,7 +176,7 @@ $cells = @()   # each: @{ Name; Cmd }
 $nmakeCommon = "call `"$vcvars`" x86`r`ncd /d `"%~dp0`"`r`nnmake /nologo /f `"$SrcDir\Makefile.MSVC`" srcdir=`"$SrcDir`" ASM=NO"
 
 $cells += @{ Name = "nmake-default"; Cmd = "$nmakeCommon SNDFILE=NO all" }
-if ($mpg123 -and $mpg123HasLib) {
+if ($mpg123) {
 	$cells += @{ Name = "nmake-mpg123"; Cmd = "$nmakeCommon SNDFILE=NO MPG123=YES MPG123_DIR=`"$mpg123`" all" }
 }
 if ($sndfile) {
@@ -218,7 +219,8 @@ $msbDirs = "/p:OutDirBase=%~dp0bin\ /p:IntDirBase=%~dp0obj\"
 # already resolves .\mpg123\$(Platform) per configuration, which is the right
 # answer for every platform this cell can be generated for - exactly as the
 # libsndfile cell below flips its switch and leaves its path alone.
-if (Test-Path (Join-Path $vcsol "mpg123\$p0\mpg123.h")) {
+if ((Test-Path (Join-Path $vcsol "mpg123\$p0\mpg123.h")) -and
+    (Test-Path (Join-Path $vcsol "mpg123\$p0\libmpg123-0.def"))) {
 	$cells += @{ Name = "msbuild-$c0-$a0-mpg123"
 		Cmd = "$msbBase /p:HaveMpg123=true $msbDirs" }
 }

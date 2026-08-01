@@ -22,8 +22,13 @@
       <AdditionalLibraryDirectories Condition="$(HaveLibsndfile) == 'true'">$(LibsndfilePath)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies Condition="$(HaveLibsndfile) == 'true'">sndfile.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PostBuildEvent>
-      <Command Condition="$(HaveLibsndfile) == 'true'">copy "$(LibsndfilePath)bin\sndfile.dll" "$(OutputPath)"</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
+  <!-- The runtime library goes beside the binaries. Every project sharing this
+       output directory would otherwise copy it there, so the copy skips a file
+       that is already current rather than racing to rewrite it. -->
+  <Target Name="CopyLibsndfileRuntime" AfterTargets="Build"
+          Condition="$(HaveLibsndfile) == 'true' And '$(ConfigurationType)' != 'StaticLibrary'">
+    <Copy SourceFiles="$(LibsndfilePath)bin\sndfile.dll" DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" Retries="3" RetryDelayMilliseconds="200" />
+  </Target>
 </Project>

@@ -379,11 +379,11 @@ CPP_OPTS = /DHAVE_CONFIG_H -I.
 #	Decoding support uses the external libmpg123 library (the internal
 #	mpglib decoder has been retired). To build with decoding, pass
 #	MPG123=YES and point MPG123_DIR at an unpacked libmpg123 folder
-#	containing mpg123.h and libmpg123-0.lib, e.g.:
+#	containing mpg123.h and libmpg123-0.def, e.g.:
 #	    nmake -f Makefile.MSVC MPG123=YES MPG123_DIR=.\vc_solution\mpg123\x64
 #	The mpg123.de binary distribution ships a .def instead of an import
-#	library; generate the .lib once with:
-#	    lib /def:libmpg123-0.def /machine:x64 /out:libmpg123-0.lib
+#	library, so this build makes its own into $(TARGET_DIR) and leaves the
+#	distribution folder alone.
 #
 #	The paths below supply their own separator, so that MPG123_DIR can be
 #	quoted against spaces: a directory quoted with a trailing backslash
@@ -392,7 +392,8 @@ CPP_OPTS = /DHAVE_CONFIG_H -I.
 #
 !	IF "$(MPG123)" == "YES"
 CPP_OPTS = $(CPP_OPTS) /DHAVE_MPG123 -I"$(MPG123_DIR)\."
-MPG123_LIB = "$(MPG123_DIR)\libmpg123-0.lib"
+MPG123_DEF = "$(MPG123_DIR)\libmpg123-0.def"
+MPG123_LIB = $(TARGET_DIR)libmpg123-0.lib
 !	ENDIF
 #___________________________________________________________ mpg123 DECODING __
 
@@ -537,7 +538,15 @@ mp3rtp.res: $(srcdir)/libmp3lame/lame.rc
 lame_enc.res: $(srcdir)/libmp3lame/lame.rc
 	@rc.exe /d "NDEBUG" /d "_DLL=lame_enc.dll" /l 0x409 /fo"./frontend/lame_enc.res" "$(srcdir)/libmp3lame/lame.rc"
 
-$(T_LAME) : target_directory config.h $(T_LIB_STATIC) common $(LAME_OBJ) lame.res
+!	IF "$(MPG123)" == "YES"
+#	The distribution ships a .def and no import library. $(MACHINE) rather
+#	than a literal architecture: it is where this build's target is decided,
+#	and an import library built for another one links nothing.
+$(MPG123_LIB) : $(MPG123_DEF)
+	@lib /nologo /def:$(MPG123_DEF) $(MACHINE) /out:$(MPG123_LIB)
+!	ENDIF
+
+$(T_LAME) : target_directory config.h $(MPG123_LIB) $(T_LIB_STATIC) common $(LAME_OBJ) lame.res
 	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(LIBSNDFILE) $(MPG123_LIB) \
 	       $(TARGET_DIR)$(T_LIB_STATIC) $(CMMN_OBJ) $(LAME_OBJ) $(ADDL_OBJ) \
 	       ./frontend/lame.res
@@ -545,7 +554,7 @@ $(T_LAME) : target_directory config.h $(T_LIB_STATIC) common $(LAME_OBJ) lame.re
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
 
-$(T_MP3RTP) : target_directory config.h $(T_LIB_STATIC) common $(MPRTP_OBJ) mp3rtp.res
+$(T_MP3RTP) : target_directory config.h $(MPG123_LIB) $(T_LIB_STATIC) common $(MPRTP_OBJ) mp3rtp.res
 	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) $(LIBSNDFILE) $(MPG123_LIB) \
 	       $(TARGET_DIR)$(T_LIB_STATIC) $(CMMN_OBJ) $(MPRTP_OBJ) $(ADDL_OBJ) \
 	       ./frontend/mp3rtp.res wsock32.lib
@@ -553,7 +562,7 @@ $(T_MP3RTP) : target_directory config.h $(T_LIB_STATIC) common $(MPRTP_OBJ) mp3r
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
 
-$(T_LEGACY_DLL) : target_directory config.h $(DLL_OBJ) lame_enc.res
+$(T_LEGACY_DLL) : target_directory config.h $(MPG123_LIB) $(DLL_OBJ) lame_enc.res
 	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) \
 	       $(TARGET_DIR)$(T_LIB_STATIC) $(LN_DLL) \
 	       $(DLL_OBJ) $(ADDL_OBJ) $(MPG123_LIB) ./frontend/lame_enc.res user32.lib
@@ -561,7 +570,7 @@ $(T_LEGACY_DLL) : target_directory config.h $(DLL_OBJ) lame_enc.res
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
 
-$(T_DLL) : target_directory config.h $(T_LIB_STATIC) 
+$(T_DLL) : target_directory config.h $(MPG123_LIB) $(T_LIB_STATIC) 
 	@$(LN) $(LN_DLL) $(SECURITY_LN_OPTS) $(MACHINE) \
 		/DEF:"$(srcdir)\include\lame.def" \
 		$(ADDL_OBJ) \

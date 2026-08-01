@@ -89,8 +89,10 @@ following  two user macro parameters:
   When set to false, decoding is not available in LAME. This includes
   calculating accurate Replaygain by decoding the just encoded data on-the-fly.
 - `Mpg123Path` specifies the path to the root folder of mpg123, ending
-  the path with a backslash. The folder should contain the `mpg123.h` and
-  `libmpg123-0.dll` files, among others.
+  the path with a backslash. The folder should contain the `mpg123.h`,
+  `libmpg123-0.def` and `libmpg123-0.dll` files, among others. The build
+  makes its own import library from the `.def`, so none is needed there and
+  nothing is written into that folder.
 
 As described above, you can also use the Property Manager view to change the
 values.
