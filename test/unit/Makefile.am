@@ -9,7 +9,8 @@ if ENABLE_UNIT_TESTS
 
 check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv \
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
-	test_totalframes test_set_get test_lib_info test_vector_routines
+	test_totalframes test_set_get test_lib_info test_vector_routines \
+	test_vector_ladder
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -153,6 +154,23 @@ test_vector_routines_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_vector_routines_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The rung the encoder picks for itself is decided by vector_impl_init(), which
+# is internal and withheld from the shared library by include/libmp3lame.sym -
+# so this one links the STATIC archive (-static) to reach it, the same way
+# test_set_get does for the internal tuning setters. Built everywhere and not
+# gated on WITH_XMM/WITH_NEON: the decision has to be right in a build carrying
+# no vector routines at all, and that configuration is exactly the one an
+# architecture gate would stop testing.
+test_vector_ladder_SOURCES = test_vector_ladder.c
+test_vector_ladder_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_builddir)
+test_vector_ladder_LDFLAGS = -static
+test_vector_ladder_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 

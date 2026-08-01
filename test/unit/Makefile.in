@@ -103,6 +103,7 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_set_get$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_lib_info$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_vector_routines$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_vector_ladder$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_1) $(am__EXEEXT_2)
 
 # The vectorised routines exist only where the vector code was built, so there
@@ -267,6 +268,16 @@ test_totalframes_OBJECTS = $(am_test_totalframes_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@test_totalframes_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+am__test_vector_ladder_SOURCES_DIST = test_vector_ladder.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_vector_ladder_OBJECTS = test_vector_ladder-test_vector_ladder.$(OBJEXT)
+test_vector_ladder_OBJECTS = $(am_test_vector_ladder_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_vector_ladder_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+test_vector_ladder_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(AM_CFLAGS) $(CFLAGS) $(test_vector_ladder_LDFLAGS) \
+	$(LDFLAGS) -o $@
 am__test_vector_routines_SOURCES_DIST = test_vector_routines.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_vector_routines_OBJECTS = test_vector_routines-test_vector_routines.$(OBJEXT)
 test_vector_routines_OBJECTS = $(am_test_vector_routines_OBJECTS)
@@ -307,6 +318,7 @@ am__depfiles_remade = ./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise
 	./$(DEPDIR)/test_sanity-test_sanity.Po \
 	./$(DEPDIR)/test_set_get-test_set_get.Po \
 	./$(DEPDIR)/test_totalframes-test_totalframes.Po \
+	./$(DEPDIR)/test_vector_ladder-test_vector_ladder.Po \
 	./$(DEPDIR)/test_vector_routines-test_vector_routines.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
@@ -337,7 +349,7 @@ SOURCES = $(test_calc_sfb_noise_vector_SOURCES) \
 	$(test_parse_id3_SOURCES) $(test_parse_pathlen_SOURCES) \
 	$(test_quantize_lines_vector_SOURCES) $(test_sanity_SOURCES) \
 	$(test_set_get_SOURCES) $(test_totalframes_SOURCES) \
-	$(test_vector_routines_SOURCES)
+	$(test_vector_ladder_SOURCES) $(test_vector_routines_SOURCES)
 DIST_SOURCES = $(am__test_calc_sfb_noise_vector_SOURCES_DIST) \
 	$(am__test_choose_table_neon_SOURCES_DIST) \
 	$(am__test_choose_table_vector_SOURCES_DIST) \
@@ -353,6 +365,7 @@ DIST_SOURCES = $(am__test_calc_sfb_noise_vector_SOURCES_DIST) \
 	$(am__test_sanity_SOURCES_DIST) \
 	$(am__test_set_get_SOURCES_DIST) \
 	$(am__test_totalframes_SOURCES_DIST) \
+	$(am__test_vector_ladder_SOURCES_DIST) \
 	$(am__test_vector_routines_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
@@ -908,6 +921,25 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
 
+# The rung the encoder picks for itself is decided by vector_impl_init(), which
+# is internal and withheld from the shared library by include/libmp3lame.sym -
+# so this one links the STATIC archive (-static) to reach it, the same way
+# test_set_get does for the internal tuning setters. Built everywhere and not
+# gated on WITH_XMM/WITH_NEON: the decision has to be right in a build carrying
+# no vector routines at all, and that configuration is exactly the one an
+# architecture gate would stop testing.
+@ENABLE_UNIT_TESTS_TRUE@test_vector_ladder_SOURCES = test_vector_ladder.c
+@ENABLE_UNIT_TESTS_TRUE@test_vector_ladder_CPPFLAGS = $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_vector_ladder_LDFLAGS = -static
+@ENABLE_UNIT_TESTS_TRUE@test_vector_ladder_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
+
 # Exercises the parameter API in set_get.c. The exported getters/setters are
 # tested in every build; the internal-only tuning setters are additionally
 # tested when configured with --enable-internal (the same gate the frontend
@@ -1101,6 +1133,10 @@ test_totalframes$(EXEEXT): $(test_totalframes_OBJECTS) $(test_totalframes_DEPEND
 	@rm -f test_totalframes$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_totalframes_OBJECTS) $(test_totalframes_LDADD) $(LIBS)
 
+test_vector_ladder$(EXEEXT): $(test_vector_ladder_OBJECTS) $(test_vector_ladder_DEPENDENCIES) $(EXTRA_test_vector_ladder_DEPENDENCIES) 
+	@rm -f test_vector_ladder$(EXEEXT)
+	$(AM_V_CCLD)$(test_vector_ladder_LINK) $(test_vector_ladder_OBJECTS) $(test_vector_ladder_LDADD) $(LIBS)
+
 test_vector_routines$(EXEEXT): $(test_vector_routines_OBJECTS) $(test_vector_routines_DEPENDENCIES) $(EXTRA_test_vector_routines_DEPENDENCIES) 
 	@rm -f test_vector_routines$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_vector_routines_OBJECTS) $(test_vector_routines_LDADD) $(LIBS)
@@ -1130,6 +1166,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_sanity-test_sanity.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_set_get-test_set_get.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_totalframes-test_totalframes.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_vector_ladder-test_vector_ladder.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_vector_routines-test_vector_routines.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
@@ -1424,6 +1461,20 @@ test_totalframes-test_totalframes.obj: test_totalframes.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_totalframes.c' object='test_totalframes-test_totalframes.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_totalframes_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_totalframes-test_totalframes.obj `if test -f 'test_totalframes.c'; then $(CYGPATH_W) 'test_totalframes.c'; else $(CYGPATH_W) '$(srcdir)/test_totalframes.c'; fi`
+
+test_vector_ladder-test_vector_ladder.o: test_vector_ladder.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_vector_ladder_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_vector_ladder-test_vector_ladder.o -MD -MP -MF $(DEPDIR)/test_vector_ladder-test_vector_ladder.Tpo -c -o test_vector_ladder-test_vector_ladder.o `test -f 'test_vector_ladder.c' || echo '$(srcdir)/'`test_vector_ladder.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_vector_ladder-test_vector_ladder.Tpo $(DEPDIR)/test_vector_ladder-test_vector_ladder.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_vector_ladder.c' object='test_vector_ladder-test_vector_ladder.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_vector_ladder_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_vector_ladder-test_vector_ladder.o `test -f 'test_vector_ladder.c' || echo '$(srcdir)/'`test_vector_ladder.c
+
+test_vector_ladder-test_vector_ladder.obj: test_vector_ladder.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_vector_ladder_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_vector_ladder-test_vector_ladder.obj -MD -MP -MF $(DEPDIR)/test_vector_ladder-test_vector_ladder.Tpo -c -o test_vector_ladder-test_vector_ladder.obj `if test -f 'test_vector_ladder.c'; then $(CYGPATH_W) 'test_vector_ladder.c'; else $(CYGPATH_W) '$(srcdir)/test_vector_ladder.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_vector_ladder-test_vector_ladder.Tpo $(DEPDIR)/test_vector_ladder-test_vector_ladder.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_vector_ladder.c' object='test_vector_ladder-test_vector_ladder.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_vector_ladder_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_vector_ladder-test_vector_ladder.obj `if test -f 'test_vector_ladder.c'; then $(CYGPATH_W) 'test_vector_ladder.c'; else $(CYGPATH_W) '$(srcdir)/test_vector_ladder.c'; fi`
 
 test_vector_routines-test_vector_routines.o: test_vector_routines.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_vector_routines_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_vector_routines-test_vector_routines.o -MD -MP -MF $(DEPDIR)/test_vector_routines-test_vector_routines.Tpo -c -o test_vector_routines-test_vector_routines.o `test -f 'test_vector_routines.c' || echo '$(srcdir)/'`test_vector_routines.c
@@ -1747,6 +1798,13 @@ test_vector_routines.log: test_vector_routines$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_vector_ladder.log: test_vector_ladder$(EXEEXT)
+	@p='test_vector_ladder$(EXEEXT)'; \
+	b='test_vector_ladder'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 test_choose_table_vector.log: test_choose_table_vector$(EXEEXT)
 	@p='test_choose_table_vector$(EXEEXT)'; \
 	b='test_choose_table_vector'; \
@@ -1887,6 +1945,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
 	-rm -f ./$(DEPDIR)/test_set_get-test_set_get.Po
 	-rm -f ./$(DEPDIR)/test_totalframes-test_totalframes.Po
+	-rm -f ./$(DEPDIR)/test_vector_ladder-test_vector_ladder.Po
 	-rm -f ./$(DEPDIR)/test_vector_routines-test_vector_routines.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
@@ -1952,6 +2011,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
 	-rm -f ./$(DEPDIR)/test_set_get-test_set_get.Po
 	-rm -f ./$(DEPDIR)/test_totalframes-test_totalframes.Po
+	-rm -f ./$(DEPDIR)/test_vector_ladder-test_vector_ladder.Po
 	-rm -f ./$(DEPDIR)/test_vector_routines-test_vector_routines.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
