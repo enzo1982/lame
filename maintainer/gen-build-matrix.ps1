@@ -219,14 +219,24 @@ $msbDirs = "/p:OutDirBase=%~dp0bin\ /p:IntDirBase=%~dp0obj\"
 # already resolves .\mpg123\$(Platform) per configuration, which is the right
 # answer for every platform this cell can be generated for - exactly as the
 # libsndfile cell below flips its switch and leaves its path alone.
-if ((Test-Path (Join-Path $vcsol "mpg123\$p0\mpg123.h")) -and
-    (Test-Path (Join-Path $vcsol "mpg123\$p0\libmpg123-0.def"))) {
+# These gates ask about the platform being built; the probes above ask about the
+# 32-bit one the nmake cells use. A machine can easily satisfy one and not the
+# other, so a gate that does not fire has to say so - reporting the nmake probe
+# alone would leave the run claiming a library it did not build a cell for.
+$msbSkipped = @()
+$mpg123Marker = Join-Path $vcsol "mpg123\$p0\libmpg123-0.def"
+if ((Test-Path (Join-Path $vcsol "mpg123\$p0\mpg123.h")) -and (Test-Path $mpg123Marker)) {
 	$cells += @{ Name = "msbuild-$c0-$a0-mpg123"
 		Cmd = "$msbBase /p:HaveMpg123=true $msbDirs" }
+} else {
+	$msbSkipped += "mpg123 (decoder) for $p0 - no $mpg123Marker"
 }
-if (Test-Path (Join-Path $vcsol "libsndfile\$p0\lib\sndfile.lib")) {
+$sndfileMarker = Join-Path $vcsol "libsndfile\$p0\lib\sndfile.lib"
+if (Test-Path $sndfileMarker) {
 	$cells += @{ Name = "msbuild-$c0-$a0-sndfile"
 		Cmd = "$msbBase /p:HaveLibsndfile=true $msbDirs" }
+} else {
+	$msbSkipped += "libsndfile for $p0 - no $sndfileMarker"
 }
 if ($gtk) {
 	# The analyzer builds x64 only - the published GTK 4 for MSVC is x64 - and
@@ -251,6 +261,13 @@ foreach ($cell in $cells) {
 		$cell.Cmd
 	) -join "`r`n" | Set-Content -Encoding ASCII $bc
 	Add-Content -Encoding ASCII $info "  [gen]  $($cell.Name)"
+}
+
+# The console notice scrolls away; this file is what anyone reads afterwards, so
+# the cells that were NOT generated belong in it beside the ones that were.
+if ($msbSkipped.Count -gt 0) {
+	Add-Content -Encoding ASCII $info "skipped:"
+	foreach ($s in $msbSkipped) { Add-Content -Encoding ASCII $info "  [skip] $s" }
 }
 
 # --- driver -----------------------------------------------------------------
@@ -298,12 +315,19 @@ Write-Host "Generated $($cells.Count) build cell(s) under: $master"
 Write-Host "Driver: $driver"
 Write-Host "Matrix info: $info"
 $absent = @()
-if (-not $mpg123) { $absent += "mpg123 (decoder)" }
+if (-not $mpg123)  { $absent += "mpg123 (decoder)" }
 if (-not $sndfile) { $absent += "libsndfile" }
 if (-not $gtk)     { $absent += "GTK4 (mp3x analyzer)" }
 if ($absent.Count -gt 0) {
 	Write-Host ""
-	Write-Host "NOTE: not found, cells skipped: $($absent -join ', ')."
+	Write-Host "NOTE: not found for the 32-bit nmake cells, skipped: $($absent -join ', ')."
+}
+if ($msbSkipped.Count -gt 0) {
+	Write-Host ""
+	Write-Host "NOTE: MSBuild cells skipped, the library is not laid out for that platform:"
+	foreach ($s in $msbSkipped) { Write-Host "        $s" }
+}
+if ($absent.Count -gt 0 -or $msbSkipped.Count -gt 0) {
 	Write-Host "      Lay them out with setup-windows-deps.ps1 or pass -<name>Dir."
 }
 Write-Host ""
