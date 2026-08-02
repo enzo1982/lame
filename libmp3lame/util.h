@@ -257,14 +257,24 @@ extern  "C" {
         int     slot_lag;
 
         /* variables for bitstream.c */
-        /* mpeg1: buffer=511 bytes  smallest frame: 96-38(sideinfo)=58
+        /* A frame's header is produced when the frame is encoded and written
+         * to the stream when the stream reaches its position, so the number of
+         * headers waiting here is the reservoir divided by what a frame has
+         * room for beyond its own side info.
+         *
+         * mpeg1: buffer=511 bytes  smallest frame: 96-38(sideinfo)=58
          * max number of frames in reservoir:  8
          * mpeg2: buffer=255 bytes.  smallest frame: 24-23bytes=1
-         * with VBR, if you are encoding all silence, it is possible to
-         * have 8kbs/24khz frames with 1byte of data each, which means we need
-         * to buffer up to 255 headers! */
-        /* also, max_header_buf has to be a power of two */
-#define MAX_HEADER_BUF 256
+         * Encoding silence at 8kbs/24khz therefore leaves 255 headers waiting,
+         * and the frame being encoded needs a slot of its own beside them:
+         * encodeSideInfo2 takes the next one before this frame's data has
+         * written any of the waiting headers out. So the demand is 256, and a
+         * ring of exactly 256 overwrites the oldest waiting header instead of
+         * holding it - which loses every header from that one on until the
+         * stream catches up, some 255 frames later.
+         *
+         * also, max_header_buf has to be a power of two */
+#define MAX_HEADER_BUF 512
 #define MAX_HEADER_LEN 40    /* max size of header is 38 */
         struct {
             int     write_timing;

@@ -11,7 +11,7 @@ check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_a
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
 	test_totalframes test_set_get test_lib_info test_vector_routines \
 	test_vector_ladder test_decoder_api test_encode_clipgain \
-	test_huffman_tables test_help_exit
+	test_huffman_tables test_help_exit test_bitstream_headers
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -152,6 +152,18 @@ test_encode_clipgain_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_encode_clipgain_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The framing of the encoded stream is read out of the bytes the public encode
+# calls return, so this test links libmp3lame and calls it directly. It is
+# built everywhere: the settings it needs are the format's own low end, not a
+# property of any build.
+test_bitstream_headers_SOURCES = test_bitstream_headers.c
+test_bitstream_headers_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_bitstream_headers_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 

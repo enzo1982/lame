@@ -46,6 +46,14 @@
 			        platform. Building it for IPv4 destinations
 			        only is still possible, and that switch now
 			        exists on Windows too.</li>
+			    <li><span class="quality">Encoding to MPEG-2 at
+			        8&nbsp;kbit/s with two channels and CRC now
+			        produces a correctly framed file when the audio
+			        starts with more than six seconds of silence.
+			        Such a file used to lose the frame headers of a
+			        long stretch of the audio that followed the
+			        silence, and the encoder reported it once and
+			        carried on.</span></li>
 			    <li>On Windows, the command line tools built with MinGW
 			        lost characters outside the active code page, both in
 			        the command line itself and in filenames, so a file the
