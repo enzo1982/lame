@@ -700,6 +700,25 @@ hip_decode1_headersB(hip_t hip, LAME_UNUSED unsigned char *buffer,
 }
 
 
+/*! Install the block the decoder describes each frame into. */
+/*!
+  A frontend that plots what the decoder saw - the frame analyzer is the one in
+  this tree - gives the decoder somewhere to put it. From here on the decoder
+  fills \a pinfo in as it decodes, and \c hip_finish_pinfo() completes the last
+  frame at the end of the input.
+
+  Install it before decoding starts; a block installed later describes only the
+  frames decoded after it. The block belongs to the caller and must outlive the
+  decoder, which keeps the pointer rather than a copy.
+
+  \c plotting_data is an incomplete type in \c lame.h on purpose: its layout is
+  internal and changes with the encoder, so a caller that only wires the hooks
+  up passes the pointer around and never needs the fields. One that does read
+  them takes the internal header and the risk that comes with it.
+
+  \param hip    the decoder instance, or \c NULL, which does nothing.
+  \param pinfo  the block to fill in, or \c NULL to stop filling one in.
+*/
 void hip_set_pinfo(hip_t hip, plotting_data* pinfo)
 {
     if (hip) {
@@ -710,6 +729,16 @@ void hip_set_pinfo(hip_t hip, plotting_data* pinfo)
     }
 }
 
+/*! Complete the last frame's entry in the installed block. */
+/*!
+  The decoder describes a frame once it has read the next one, so when the
+  input ends the final frame is still incomplete. This fills it in, and is
+  what a frontend calls after its last \c hip_decode() call.
+
+  It does nothing if no block was installed with \c hip_set_pinfo().
+
+  \param hip  the decoder instance, or \c NULL, which does nothing.
+*/
 void hip_finish_pinfo(LAME_UNUSED hip_t hip)
 {
 #ifndef NOANALYSIS

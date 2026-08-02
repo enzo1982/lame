@@ -8,8 +8,9 @@ nothing else carries a stability or ABI guarantee.
 
 The sections below are in the order a program uses them: create an encoder,
 choose the encoding parameters, then feed audio and collect MP3 frames.
-Tagging is set up before the first frame is encoded. The decoder is
-independent of all of it.
+Tagging is set up before the first frame is encoded, and the statistics are
+read at the end, before the encoder is released. The decoder is independent of
+all of it.
 */
 
 /**
@@ -70,6 +71,36 @@ Four properties hold throughout and are not repeated on each function:
 - the setters that return @c void cannot report failure at all, including a
   failure to allocate; the ones that return @c int return 0 on success and
   non-zero on failure.
+*/
+
+/**
+@defgroup api_statistics Statistics
+@ingroup api
+@brief What the encoder did, counted while it did it.
+
+The encoder keeps counters as it writes frames, and these report them: how the
+bitrates, the stereo modes and the block types were distributed over the
+encode. Reading them costs nothing and changes nothing.
+
+Five properties hold throughout and are not repeated on each function:
+
+- **when they can be read.** The counters live in the encoder instance, so the
+  order is lame_encode_flush(), then these, then lame_close(). Anything that
+  releases the instance takes the counters with it.
+- **they are reset by lame_init_bitstream()**, which lame_init_params() calls
+  as well - so the counts describe the current bitstream, not the process.
+- **they cannot report an error.** Given an instance that is not usable they
+  return having written nothing, leaving the caller's array as it was. An array
+  the caller did not initialise is therefore indistinguishable from a result.
+- **the 14 bitrate slots are the bitrates of the chosen MPEG version**, in the
+  order the standard lists them. The 4-bit field in an MP3 frame header holds
+  16 values, of which 0 means free format and 15 is invalid; the 14 that remain
+  are what these arrays hold, and lame_bitrate_kbps() reports which bitrate
+  each slot is. A free-format encode uses no index at all, so the entire count
+  is in slot 0 and the other 13 are empty.
+- **the stereo-mode slots are** 0 left/right, 1 left/right with intensity
+  stereo, 2 mid/side, 3 mid/side with intensity stereo. They are counted only
+  where the output has two channels; a mono encode leaves all four at zero.
 */
 
 /**
