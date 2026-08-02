@@ -25,6 +25,12 @@ USE_MDFILE_AS_MAINPAGE = @LAME_SRCDIR@/doc/doxygen/internal.md
 # Everything the public docs cover, plus the Windows-only components (the Blade
 # encoder DLL, the DirectShow filter and the ACM codec), the unit tests and an
 # internal-only front page in place of the public main page.
+#
+# This list replaces the common one rather than adding to it, so anything both
+# configurations need has to appear in both. api.dox is the case that bites:
+# without it here, the group commands in the sources still create the groups,
+# but unnamed and unattached - the pages render, carry every member, and are
+# titled after the group's identifier.
 INPUT                  = @LAME_SRCDIR@/include \
                          @LAME_SRCDIR@/libmp3lame \
                          @LAME_SRCDIR@/frontend \
@@ -32,6 +38,7 @@ INPUT                  = @LAME_SRCDIR@/include \
                          @LAME_SRCDIR@/dshow \
                          @LAME_SRCDIR@/ACM \
                          @LAME_SRCDIR@/test/unit \
+                         @LAME_SRCDIR@/doc/doxygen/api.dox \
                          @LAME_SRCDIR@/doc/doxygen/internal.md \
                          @LAME_SRCDIR@/doc/doxygen/maintainer.md \
                          @LAME_SRCDIR@/doc/doxygen/unit_tests.dox \

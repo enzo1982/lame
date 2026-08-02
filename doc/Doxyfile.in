@@ -38,15 +38,26 @@ HIDE_UNDOC_MEMBERS     = YES
 # not in the reference as a bare name.
 HIDE_UNDOC_CLASSES     = YES
 
-# The public interface is one header, so its file page is the API reference.
-# This layout is Doxygen's own default plus an entry naming it, so a caller
-# does not have to find it under a list of implementation files.
+# The API reference is a group tree, so this layout is Doxygen's own default
+# plus an entry naming its root - a caller lands on the reference rather than
+# having to find it.
 LAYOUT_FILE            = @LAME_SRCDIR@/doc/doxygen/DoxygenLayout.xml
 
 # A file page here lists the headers that translation unit includes, which for
 # the public reference means internal headers a caller may not include and that
 # are not even installed. The internal documentation is where that is useful.
 SHOW_INCLUDE_FILES     = NO
+
+# The reference describes an interface, not a source layout, so it carries no
+# file pages at all: the API's descriptions are written at the definitions, and
+# publishing them as file pages presented five implementation files - and the
+# file index naming them - as though they were part of what a caller may use.
+# The group tree in doxygen/api.dox is what carries those descriptions instead,
+# so nothing is lost by dropping the pages; that is measured against the
+# rendered HTML rather than argued from the settings. The internal
+# configuration does not override the common YES, so it goes on showing files,
+# which is where a source layout belongs.
+SHOW_FILES             = NO
 
 # The frame analyzer is a program, not part of the library interface, so its
 # sources are described for the user on their own page rather than published as

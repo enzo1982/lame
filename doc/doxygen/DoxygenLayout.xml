@@ -4,11 +4,10 @@
   <!-- Navigation index tabs for HTML output -->
   <navindex>
     <tab type="mainpage" visible="yes" title=""/>
-    <!-- The whole public interface is declared in one header, so its file page
-         is the API reference. Reaching it through "Files" makes a caller walk
-         a list of implementation files first; this names it and puts it where
-         the reference belongs. -->
-    <tab type="usergroup" visible="yes" title="API Reference" url="@ref lame.h" intro=""/>
+    <!-- The API reference is the group tree rooted at "api", so name it here
+         rather than leaving a caller to reach it through "Topics" beside
+         whatever else the documentation groups. -->
+    <tab type="usergroup" visible="yes" title="API Reference" url="@ref api" intro=""/>
     <tab type="pages" visible="yes" title="" intro=""/>
     <tab type="topics" visible="yes" title="" intro=""/>
     <tab type="modules" visible="yes" title="" intro="">

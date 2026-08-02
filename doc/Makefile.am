@@ -49,6 +49,7 @@ EXTRA_DIST = Doxyfile.in Doxyfile-common.in Doxyfile-internal.in \
 	maintainer-abi.md \
 	maintainer-check-dist.md \
 	maintainer-gen-api-docs.md \
+	doxygen/api.dox \
 	doxygen/mainpage.md \
 	doxygen/maintainer.md \
 	doxygen/DoxygenLayout.xml \

@@ -28,22 +28,16 @@
   \file   mpglib_interface.c
   \brief  The decoding side of the public API.
 
-  LAME is an encoder, but it ships a decoder as well, because encoding needs
-  one: measuring what the encoded file will actually sound like means decoding
-  it again. The same decoder is exposed for its own sake through the functions
-  here, whose names all begin with \c hip_.
-
-  Two properties hold throughout and are not repeated on each function:
-
-  - the decoder is **a separate object from the encoder**. It is created by
-    \c hip_decode_init(), passed as the first argument to everything here, and
-    destroyed by \c hip_decode_exit(); an encoder instance is neither needed
-    nor accepted.
-  - **the actual decoding is done by libmpg123**, which is optional. A library
-    built without it cannot decode at all, and says so where it can still be
-    acted on: neither creation call hands back a decoder, so the absence is
-    met before any input has been read.
+  What holds for these functions as a whole, and what the decoder is, is
+  described with the group: \ref api_decoding.
 */
+
+/* Every function below is part of that interface, so the group is opened once
+   here rather than named on each of them. Text inside the \addtogroup block
+   would be appended to the group's description, so keep this comment out of
+   it. */
+/*! \addtogroup api_decoding
+    @{ */
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>
@@ -803,5 +797,7 @@ void hip_set_msgf  (LAME_UNUSED hip_t hip, LAME_UNUSED lame_report_function func
     /* TODO: implement something */
 #endif
 }
+
+/*! @} */
 
 /* end of mpglib_interface.c */

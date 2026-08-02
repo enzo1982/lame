@@ -23,12 +23,19 @@
   \file   version.c
   \brief  Version numbering for LAME.
 
-  Contains functions which describe the version of LAME.
+  Contains functions which describe the version of LAME. What each form is
+  for is described with the group: \ref api_version.
 
   \author A.L. Faber
   \version \$Id$
-  \ingroup libmp3lame
 */
+
+/* Every function below is part of that interface, so the group is opened once
+   here rather than named on each of them. Text inside the \addtogroup block
+   would be appended to the group's description, so keep this comment out of
+   it. */
+/*! \addtogroup api_version
+    @{ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -346,5 +353,7 @@ get_lame_os_bitness(void)
         return strXX;
     }
 }
+
+/*! @} */
 
 /* end of version.c */

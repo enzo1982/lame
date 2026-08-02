@@ -700,6 +700,7 @@ const char*  CDECL get_lame_url           ( void );
 const char*  CDECL get_lame_os_bitness    ( void );
 
 /**
+ * \ingroup api_version
  * The version of LAME and of its psychoacoustic model in comparable form.
  *
  * Filled in by get_lame_version_numerical(). Every field is an integer, so a
@@ -735,6 +736,7 @@ void CDECL lame_print_internals( const lame_global_flags *gfp);
 
 
 /**
+ * \ingroup api_encoding
  * Input pcm data, output (maybe) mp3 frames.
  * This routine handles all buffering, resampling and filtering for you.
  *
@@ -798,6 +800,7 @@ int CDECL lame_encode_buffer_interleaved(
 
 
 /**
+ * \ingroup api_encoding
  * As lame_encode_buffer(), but for 'float's.
  *
  * !! NOTE: !! data must still be scaled to be in the same range as
@@ -816,6 +819,7 @@ int CDECL lame_encode_buffer_float(
                                               stream                        */
 
 /**
+ * \ingroup api_encoding
  * As lame_encode_buffer(), but for 'float's.
  *
  * !! NOTE: !! data must be scaled to +/- 1 full scale
@@ -835,6 +839,7 @@ int CDECL lame_encode_buffer_ieee_float(
         unsigned char * mp3buf,
         const int       mp3buf_size);
 /**
+ * \ingroup api_encoding
  * As lame_encode_buffer_ieee_float(), but for interleaved data.
  *
  * !! NOTE: !! data must be scaled to +/- 1 full scale
@@ -851,6 +856,7 @@ int CDECL lame_encode_buffer_interleaved_ieee_float(
         const int       mp3buf_size);
 
 /**
+ * \ingroup api_encoding
  * As lame_encode_buffer(), but for 'double's.
  *
  * !! NOTE: !! data must be scaled to +/- 1 full scale
@@ -866,6 +872,7 @@ int CDECL lame_encode_buffer_ieee_double(
         unsigned char * mp3buf,
         const int       mp3buf_size);
 /**
+ * \ingroup api_encoding
  * As lame_encode_buffer_ieee_double(), but for interleaved data.
  *
  * !! NOTE: !! data must be scaled to +/- 1 full scale
@@ -1456,6 +1463,7 @@ int CDECL lame_get_samplerate(int mpeg_version, int table_index);
 
 
 /**
+ *  \ingroup api
  *  Status values returned by the encoding and decoding calls. A negative
  *  value is an error; the `FRONTEND_` codes are produced by the command line
  *  tools rather than by the library.

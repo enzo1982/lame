@@ -1,0 +1,110 @@
+/**
+@defgroup api API Reference
+@brief Everything a program linking against libmp3lame may use.
+
+The public interface is declared in @c include/lame.h, the only header LAME
+installs. Nothing else in the source tree is part of the interface, and
+nothing else carries a stability or ABI guarantee.
+
+The sections below are in the order a program uses them: create an encoder,
+choose the encoding parameters, then feed audio and collect MP3 frames.
+Tagging is set up before the first frame is encoded. The decoder is
+independent of all of it.
+*/
+
+/**
+@defgroup api_encoding Encoding
+@ingroup api
+@brief Creating an encoder, running it, and releasing it.
+
+The encoder lifecycle: creating an instance, turning the settings into a
+usable encoder, starting a bitstream, finishing one, and releasing the
+instance - together with the reporting calls that describe the configuration
+those steps arrived at.
+
+A session is lame_init(), then any number of the calls under
+@ref api_settings, then lame_init_params(), which decides whether the
+combination is usable. Audio goes in through one of the lame_encode_buffer()
+variants and the last frames come out of lame_encode_flush(); lame_close()
+releases the instance.
+*/
+
+/**
+@defgroup api_settings Settings
+@ingroup api
+@brief The encoder parameters, as set/get pairs.
+
+Every encoder setting a caller can change is a set/get pair. The setters
+record a value and validate it in isolation; whether the resulting combination
+is usable is decided later, by lame_init_params().
+
+Two properties hold throughout and are not repeated on each function:
+
+- a setter returns 0 on success and -1 if the value was rejected or the
+  instance is not usable;
+- **a getter cannot report an error.** Given an unusable instance it returns
+  0, which for most of these settings is also a legitimate value, so a caller
+  has no way to tell the two apart. Check the instance, not the result.
+*/
+
+/**
+@defgroup api_tags Tags
+@ingroup api
+@brief The ID3 metadata written alongside the audio.
+
+Everything a caller can put in the ID3 tags of the encoded file: the familiar
+fields, arbitrary ID3v2 frames, and cover art. These functions only record
+what to write; the tags themselves are produced during encoding, or handed to
+the caller on request.
+
+Four properties hold throughout and are not repeated on each function:
+
+- **all of this must be set first**, before lame_init_params(), since that is
+  where the ID3v2 tag is assembled and it goes ahead of the audio.
+- which tags are written is chosen by id3tag_init() and the handful of
+  functions after it. By default LAME writes an ID3v1 tag, and an ID3v2 one as
+  soon as a field that ID3v1 cannot hold is set.
+- **ID3v1 is a fixed-size format with fixed-length fields.** Anything longer
+  than the field is truncated there without complaint. ID3v2 has no such
+  limit, so the same call can be lossy in one tag and exact in the other.
+- the setters that return @c void cannot report failure at all, including a
+  failure to allocate; the ones that return @c int return 0 on success and
+  non-zero on failure.
+*/
+
+/**
+@defgroup api_decoding Decoding
+@ingroup api
+@brief Reading MP3, through the optional decoder library.
+
+libmp3lame does not decode MP3 itself. Decoding is done by libmpg123, an
+external library it can be built against, and that is optional: a build
+without it encodes everything it otherwise would, and decodes nothing at all.
+
+The encoder reaches for it on its own, through none of the calls below, when
+it is asked to measure its own output instead of its input - see
+lame_set_decode_on_the_fly() under @ref api_settings, which has the encoder
+create and release a decoder for the purpose. The functions here are for the other direction: an
+application that wants to read MP3 itself, to re-encode it or to write it out
+as PCM. It is the interface LAME's own frontend uses to accept MP3 input.
+
+Two properties hold throughout and are not repeated on each function:
+
+- the decoder is **a separate object from the encoder**. It is created by
+  hip_decode_init(), passed as the first argument to everything here, and
+  destroyed by hip_decode_exit(); an encoder instance is neither needed nor
+  accepted.
+- **a library built without libmpg123 cannot decode at all**, and says so
+  where it can still be acted on: neither creation call hands back a decoder,
+  so the absence is met before any input has been read.
+*/
+
+/**
+@defgroup api_version Version
+@ingroup api
+@brief Which LAME a program is talking to.
+
+The calls that report the version of LAME a program has linked against: a
+numerical form meant for comparison, and string forms meant for display or for
+embedding in an encoded stream.
+*/

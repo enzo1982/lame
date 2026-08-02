@@ -30,10 +30,10 @@
   \file   lame.c
   \brief  The LAME MP3 encoding engine.
 
-  Holds the encoder lifecycle of the public API - creating an instance,
-  turning the settings into a usable encoder, starting a bitstream, finishing
-  one, and releasing the instance - together with the reporting calls that
-  describe the configuration those steps arrived at.
+  Holds the encoder lifecycle of the public API, described with the group
+  those functions belong to: \ref api_encoding. Most of this file is the
+  engine behind them and is not part of the interface, so the group is named
+  on each public function rather than opened over the file.
 */
 
 #ifdef HAVE_CONFIG_H
@@ -613,6 +613,7 @@ lowest_usable_free_format_bitrate(SessionConfig_t const *const cfg)
  ********************************************************************/
 /*! Validate the settings and prepare the encoder for use. */
 /*!
+  \ingroup api_encoding
   Called once, after \c lame_init() and after every parameter the caller wants
   to change, and before the first \c lame_encode_buffer(). It checks what was
   set, derives everything that was left at its default from it, allocates the
@@ -1444,6 +1445,7 @@ lame_init_params(lame_global_flags * gfp)
 
 /*! Report the encoding parameters that were settled on. */
 /*!
+  \ingroup api_encoding
   Writes a short human-readable summary - version, CPU features in use, input
   and output sample rate and any resampling between them, the encoding mode -
   through the message callback (\c lame_set_msgf()), which by default prints
@@ -1543,6 +1545,7 @@ lame_print_config(const lame_global_flags * gfp)
 
 /*! Report the full internal encoder configuration. */
 /*!
+  \ingroup api_encoding
   A far more detailed counterpart to \c lame_print_config(): dozens of lines
   covering the psychoacoustic settings, the filters, the quantization
   parameters and the VBR configuration, again through the message callback
@@ -2255,6 +2258,7 @@ lame_encode_buffer_interleaved_int(lame_t gfp,
 *********************************************************************/
 /*! Finish one MP3 of a gapless series, keeping the encoder running. */
 /*!
+  \ingroup api_encoding
   Completes the current frame with ancillary data and empties the MP3 buffer,
   but keeps the buffered PCM and the encoder state, so encoding continues into
   the next output file. It also resets the bit reservoir, which is what lets
@@ -2297,6 +2301,7 @@ lame_encode_flush_nogap(lame_global_flags * gfp, unsigned char *mp3buffer, int m
 
 /*! Start a new bitstream: write the leading tags and reset the counters. */
 /*!
+  \ingroup api_encoding
   Writes the ID3v2 tag (unless the caller has taken that over with
   \c lame_set_write_id3tag_automatic()) and the Xing/LAME header to the front
   of the stream, and zeroes the frame number, the histograms and the peak
@@ -2371,6 +2376,7 @@ calc_mp3buffer_size_remaining( int mp3buffer_size, int mp3count)
 
 /*! Finish the stream: encode what is still buffered and emit the last frames. */
 /*!
+  \ingroup api_encoding
   The last encoding call for a file. It pads the buffered PCM with silence so
   the final frame is complete, encodes it, empties the MP3 buffer and - if the
   library is writing tags itself, see \c lame_set_write_id3tag_automatic() -
@@ -2539,6 +2545,7 @@ lame_encode_flush(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buff
 
 /*! Release an encoder instance and everything it allocated. */
 /*!
+  \ingroup api_encoding
   The last call for an instance. It frees the internal buffers and, for an
   instance that came from \c lame_init(), the instance itself, so the pointer
   must not be used again afterwards.
@@ -2589,6 +2596,7 @@ lame_encode_finish(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buf
 
 /*! Flush the stream and release the instance in one call. */
 /*!
+  \ingroup api_encoding
   \deprecated Obsolete. Its declaration is compiled out of the installed
   \c lame.h, so no new program can call it; the definition is still built and
   exported only so that programs linked against an older release keep working.
@@ -2803,6 +2811,7 @@ lame_init_old(lame_global_flags * gfp)
 
 /*! Create an encoder instance and fill it with the default settings. */
 /*!
+  \ingroup api_encoding
   The first call of the encoding API. It allocates the context every other
   \c lame_* function takes, and sets every parameter to its default, so a
   caller only has to set what it wants to differ from the default.

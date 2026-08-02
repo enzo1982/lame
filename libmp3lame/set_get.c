@@ -26,19 +26,16 @@
   \file   set_get.c
   \brief  The parameter interface of the public API.
 
-  Every encoder setting a caller can change lives here as a set/get pair. The
-  setters record a value and validate it in isolation; whether the resulting
-  combination is usable is decided later, by \c lame_init_params().
-
-  Two properties hold throughout and are not repeated on each function:
-
-  - a setter returns 0 on success and -1 if the value was rejected or the
-    instance is not usable;
-  - **a getter cannot report an error.** Given an unusable instance it returns
-    0, which for most of these settings is also a legitimate value, so a
-    caller has no way to tell the two apart. Check the instance, not the
-    result.
+  What holds for these functions as a whole, and the shape of the interface
+  they make up, is described with the group: \ref api_settings.
 */
+
+/* Every function below is part of that interface, so the group is opened once
+   here rather than named on each of them. Text inside the \addtogroup block
+   would be appended to the group's description, so keep this comment out of
+   it. */
+/*! \addtogroup api_settings
+    @{ */
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>
@@ -4496,3 +4493,5 @@ lame_get_maximum_number_of_samples(lame_t gfp, size_t buffer_size)
     }
     return LAME_GENERICERROR;
 }
+
+/*! @} */

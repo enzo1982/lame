@@ -1040,6 +1040,7 @@ WARN_LOGFILE           =
 INPUT                  = @LAME_SRCDIR@/include \
                          @LAME_SRCDIR@/libmp3lame \
                          @LAME_SRCDIR@/frontend \
+                         @LAME_SRCDIR@/doc/doxygen/api.dox \
                          @LAME_SRCDIR@/doc/doxygen/mainpage.md
 
 # This tag can be used to specify the character encoding of the source files

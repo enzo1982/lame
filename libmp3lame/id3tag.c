@@ -35,24 +35,10 @@
   \file   id3tag.c
   \brief  The metadata interface of the public API.
 
-  Everything a caller can put in the ID3 tags of the encoded file: the
-  familiar fields, arbitrary ID3v2 frames, and cover art. The functions here
-  only record what to write; the tags themselves are produced during encoding,
-  or handed to the caller on request.
-
-  Four properties hold throughout and are not repeated on each function:
-
-  - **all of this must be set first**, before \c lame_init_params(), since that
-    is where the ID3v2 tag is assembled and it goes ahead of the audio.
-  - which tags are written is chosen by \c id3tag_init() and the handful of
-    functions after it. By default LAME writes an ID3v1 tag, and an ID3v2 one
-    as soon as a field that ID3v1 cannot hold is set.
-  - **ID3v1 is a fixed-size format with fixed-length fields.** Anything longer
-    than the field is truncated there without complaint. ID3v2 has no such
-    limit, so the same call can be lossy in one tag and exact in the other.
-  - the setters that return \c void cannot report failure at all, including a
-    failure to allocate; the ones that return \c int return 0 on success and
-    non-zero on failure.
+  Holds the tagging calls of the public API, described with the group they
+  belong to: \ref api_tags. Most of this file is the tag machinery behind
+  them and is not part of the interface, so the group is named on each public
+  function rather than opened over the file.
 */
 
 #ifdef HAVE_CONFIG_H
@@ -318,6 +304,7 @@ id3v2AddAudioDuration(lame_t gfp, double ms)
 
 /*! Enumerate the ID3v1 genres. */
 /*!
+  \ingroup api_tags
   Calls \a handler once per genre in the ID3v1 list, in alphabetical order,
   with the genre's number and its name. Intended for building a menu, or for
   checking a name before handing it to \c id3tag_set_genre().
@@ -349,6 +336,7 @@ id3tag_genre_list(void (*handler) (int, const char *, void *), void *cookie)
 
 /*! Discard every tag field set so far. */
 /*!
+  \ingroup api_tags
   Frees whatever has been recorded and returns the instance to its initial
   tagging state: no fields, the genre unset, ID3v2 padding at its default of
   128 bytes, and LAME's own version stamped into the tag as it is on a fresh
@@ -380,6 +368,7 @@ id3tag_init(lame_t gfp)
 
 /*! Write an ID3v2 tag as well as the ID3v1 one. */
 /*!
+  \ingroup api_tags
   Asks for both tags unconditionally, rather than leaving LAME to add the
   ID3v2 tag only when a field needs it. Worth doing when the file will be read
   by something that expects an ID3v2 tag whatever the fields contain.
@@ -403,6 +392,7 @@ id3tag_add_v2(lame_t gfp)
 
 /*! Write a UTF-8 ID3v2.4 tag as well as the ID3v1 one. */
 /*!
+  \ingroup api_tags
   As \c id3tag_add_v2(), but the ID3v2 tag is written in version 2.4 with its
   text encoded as UTF-8. That is the combination to choose for text outside
   Latin-1 - non-European scripts, or European text with characters ID3v2.3's
@@ -432,6 +422,7 @@ id3tag_add_v2_4_UTF8(lame_t gfp)
 
 /*! Write only the ID3v1 tag. */
 /*!
+  \ingroup api_tags
   Suppresses the ID3v2 tag even where a field would have called for one, so
   anything ID3v1 cannot hold is silently lost. The reason to accept that is
   compatibility with players that mishandle a tag before the audio.
@@ -453,6 +444,7 @@ id3tag_v1_only(lame_t gfp)
 
 /*! Write only the ID3v2 tag. */
 /*!
+  \ingroup api_tags
   Suppresses the 128-byte ID3v1 tag at the end of the file. Nothing is lost by
   it - every ID3v1 field has an ID3v2 counterpart - and the result is cleaner
   for anything that reads ID3v2.
@@ -474,6 +466,7 @@ id3tag_v2_only(lame_t gfp)
 
 /*! Write only a UTF-8 ID3v2.4 tag. */
 /*!
+  \ingroup api_tags
   \c id3tag_v2_only() with the version and encoding of
   \c id3tag_add_v2_4_UTF8(): one tag, ID3v2.4, text in UTF-8. The right choice
   where the metadata is not Latin-1 and the truncated ID3v1 copy would be
@@ -501,6 +494,7 @@ id3tag_v2_4_UTF8_only(lame_t gfp)
 
 /*! Pad the ID3v1 fields with spaces instead of zeros. */
 /*!
+  \ingroup api_tags
   ID3v1 fields are fixed-length and the standard says nothing about what fills
   the unused bytes. LAME writes zeros; this switches to spaces, which a few
   older readers require. The text itself is identical either way.
@@ -525,6 +519,7 @@ id3tag_space_v1(lame_t gfp)
 
 /*! Pad the ID3v2 tag with the default amount of free space. */
 /*!
+  \ingroup api_tags
   \c id3tag_set_pad() with 128 bytes. The padding lets a tag editor grow the
   tag later without rewriting the whole file.
 
@@ -538,6 +533,7 @@ id3tag_pad_v2(lame_t gfp)
 
 /*! Reserve free space at the end of the ID3v2 tag. */
 /*!
+  \ingroup api_tags
   Writes \a n bytes of padding after the tag's frames, so that an editor can
   add or lengthen a frame later by overwriting padding instead of moving the
   audio. Generous padding costs only file size.
@@ -832,6 +828,7 @@ as follows.
 
 /*! Attach cover art. */
 /*!
+  \ingroup api_tags
   Embeds an image in the ID3v2 tag, and enables that tag. The image is copied,
   so the caller's buffer can be released afterwards.
 
@@ -1289,6 +1286,7 @@ id3tag_set_userinfo_ucs2(lame_t gfp, uint32_t id, unsigned short const *fieldval
 
 /*! Set an ID3v2 text frame, taking UTF-8 text. */
 /*!
+  \ingroup api_tags
   \c id3tag_set_textinfo_latin1() for UTF-8 input. Pair it with
   \c id3tag_add_v2_4_UTF8() or \c id3tag_v2_4_UTF8_only(), since UTF-8 text is
   only stored as such in an ID3v2.4 tag.
@@ -1340,6 +1338,7 @@ id3tag_set_textinfo_utf8(lame_t gfp, char const *id, char const *text)
 
 /*! Set an ID3v2 text frame, taking UTF-16 text. */
 /*!
+  \ingroup api_tags
   \c id3tag_set_textinfo_latin1() for UTF-16 input.
 
   The text **must begin with a byte order mark**, and the call is refused
@@ -1401,6 +1400,7 @@ id3tag_set_textinfo_ucs2(lame_t gfp, char const *id, unsigned short const *text)
 
 /*! Set an ID3v2 text frame, taking UCS-2 text. */
 /*!
+  \ingroup api_tags
   \deprecated An alias for \c id3tag_set_textinfo_utf16(), under the name
   UCS-2 had before it was superseded by UTF-16. The declaration is compiled
   out of the installed header; the definition remains so that programs linked
@@ -1419,6 +1419,7 @@ id3tag_set_textinfo_ucs2(lame_t gfp, char const *id, unsigned short const *text)
 
 /*! Set an ID3v2 text frame, taking Latin-1 text. */
 /*!
+  \ingroup api_tags
   The same as \c id3tag_set_fieldvalue(), with the frame identifier and the
   text as separate arguments instead of one "ID=text" string.
 
@@ -1473,6 +1474,7 @@ id3tag_set_textinfo_latin1(lame_t gfp, char const *id, char const *text)
 
 /*! Add a comment frame, taking Latin-1 text. */
 /*!
+  \ingroup api_tags
   The full form of \c id3tag_set_comment(). An ID3v2 comment frame carries a
   language and a short description alongside the text, which is what lets a
   file hold several comments - liner notes in two languages, say - instead of
@@ -1499,6 +1501,7 @@ id3tag_set_comment_latin1(lame_t gfp, char const *lang, char const *desc, char c
 
 /*! Add a comment frame, taking UTF-8 text. */
 /*!
+  \ingroup api_tags
   \c id3tag_set_comment_latin1() for UTF-8 input; pair it with an ID3v2.4 tag.
 
   \param gfp   the encoder instance.
@@ -1519,6 +1522,7 @@ id3tag_set_comment_utf8(lame_t gfp, char const *lang, char const *desc, char con
 
 /*! Add a comment frame, taking UTF-16 text. */
 /*!
+  \ingroup api_tags
   \c id3tag_set_comment_latin1() for UTF-16 input. Both \a desc and \a text
   must carry a byte order mark, for the reason given at
   \c id3tag_set_textinfo_utf16().
@@ -1544,6 +1548,7 @@ id3tag_set_comment_ucs2(lame_t gfp, char const *lang, unsigned short const *desc
 
 /*! Add a comment frame, taking UCS-2 text. */
 /*!
+  \ingroup api_tags
   \deprecated An alias for \c id3tag_set_comment_utf16(); see
   \c id3tag_set_textinfo_ucs2() for why the name survives.
 
@@ -1565,6 +1570,7 @@ id3tag_set_comment_ucs2(lame_t gfp, char const *lang, unsigned short const *desc
 
 /*! Set the track title. */
 /*!
+  \ingroup api_tags
   Written to both tags: to the ID3v1 title field, where it is cut to 30
   characters, and to the corresponding ID3v2 frame in full. Setting it enables
   the ID3v2 tag if the text needs one.
@@ -1588,6 +1594,7 @@ id3tag_set_title(lame_t gfp, const char *title)
 
 /*! Set the artist. */
 /*!
+  \ingroup api_tags
   Written to both tags; the ID3v1 field holds 30 characters and the rest is
   cut. A NULL or empty \a artist is ignored.
 
@@ -1607,6 +1614,7 @@ id3tag_set_artist(lame_t gfp, const char *artist)
 
 /*! Set the album. */
 /*!
+  \ingroup api_tags
   Written to both tags; the ID3v1 field holds 30 characters and the rest is
   cut. A NULL or empty \a album is ignored.
 
@@ -1626,6 +1634,7 @@ id3tag_set_album(lame_t gfp, const char *album)
 
 /*! Set the year. */
 /*!
+  \ingroup api_tags
   Takes text, but the ID3v1 field is four digits, so the string is read as a
   number and clamped to 0 to 9999 before being written there. The ID3v2 frame
   receives the string as given, which is how a fuller date survives.
@@ -1660,6 +1669,7 @@ id3tag_set_year(lame_t gfp, const char *year)
 
 /*! Set the comment. */
 /*!
+  \ingroup api_tags
   Written to both tags. The ID3v1 comment field holds 30 characters - **or 28
   if a track number is set**, because the last two bytes of the field are what
   carries the track number in ID3v1.1. So setting a track can shorten a
@@ -1698,6 +1708,7 @@ id3tag_set_comment(lame_t gfp, const char *comment)
 
 /*! Set the track number. */
 /*!
+  \ingroup api_tags
   Accepts either a plain number or the <tt>number/total</tt> form. ID3v1 has
   room for a single byte, so only 1 to 255 fits there and only the number
   before the slash; the ID3v2 frame takes the string as given, total included.
@@ -1826,6 +1837,7 @@ searchGenre(const char* genre)
 
 /*! Set the genre. */
 /*!
+  \ingroup api_tags
   Accepts either an ID3v1 genre number or a genre name. A name is looked up in
   the ID3v1 list - exactly first, then loosely, so that "R & B" finds "R&B" -
   and if it matches, **the stored text is replaced by the list's spelling**,
@@ -2136,6 +2148,7 @@ set_frame_apic(unsigned char *frame, const char *mimetype, const unsigned char *
 
 /*! Set an arbitrary ID3v2 text frame. */
 /*!
+  \ingroup api_tags
   The escape hatch for frames LAME has no named setter for. The argument is
   one string of the form <tt>"TPE2=Various Artists"</tt>: a four-character
   ID3v2 frame identifier, an equals sign, then the text. Anything the format
@@ -2167,6 +2180,7 @@ id3tag_set_fieldvalue(lame_t gfp, const char *fieldvalue)
 
 /*! Set an arbitrary ID3v2 text frame, taking UTF-16. */
 /*!
+  \ingroup api_tags
   \c id3tag_set_fieldvalue() for UTF-16 input: the whole
   <tt>"TPE2=Various Artists"</tt> string, identifier and all, is UTF-16, and a
   leading byte order mark is allowed for and skipped.
@@ -2213,6 +2227,7 @@ id3tag_set_fieldvalue_ucs2(lame_t gfp, const unsigned short *fieldvalue);
 
 /*! Set an arbitrary ID3v2 text frame, taking UCS-2. */
 /*!
+  \ingroup api_tags
   \deprecated An alias for \c id3tag_set_fieldvalue_utf16(); see
   \c id3tag_set_textinfo_ucs2().
 
@@ -2232,6 +2247,7 @@ id3tag_set_fieldvalue_ucs2(lame_t gfp, const unsigned short *fieldvalue)
 
 /*! Set an arbitrary ID3v2 text frame, taking UTF-8. */
 /*!
+  \ingroup api_tags
   \c id3tag_set_fieldvalue() for UTF-8 input. The frame identifier is plain
   ASCII either way, so the string is parsed the same and only the text differs.
 
@@ -2258,6 +2274,7 @@ id3tag_set_fieldvalue_utf8(lame_t gfp, const char *fieldvalue)
 
 /*! Copy the ID3v2 tag into a buffer. */
 /*!
+  \ingroup api_tags
   Renders the tag as it would be written to the file. A caller that has turned
   off automatic tag writing with \c lame_set_write_id3tag_automatic() uses this
   to obtain the bytes and place them itself.
@@ -2497,6 +2514,7 @@ set_text_field(unsigned char *field, const char *text, size_t size, int pad)
 
 /*! Copy the ID3v1 tag into a buffer. */
 /*!
+  \ingroup api_tags
   The ID3v1 counterpart of \c lame_get_id3v2_tag(), for a caller writing the
   tags itself. An ID3v1 tag is always exactly 128 bytes and goes at the very
   end of the file.
