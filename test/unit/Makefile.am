@@ -11,7 +11,8 @@ check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_a
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
 	test_totalframes test_set_get test_lib_info test_vector_routines \
 	test_vector_ladder test_decoder_api test_encode_clipgain \
-	test_huffman_tables test_help_exit test_bitstream_headers
+	test_huffman_tables test_help_exit test_bitstream_headers \
+	test_free_format
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -164,6 +165,17 @@ test_bitstream_headers_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_bitstream_headers_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The bitrates a free format stream can be prepared for are decided by
+# lame_init_params(), so this test links libmp3lame and asks it directly. It
+# encodes nothing, which is why it costs microseconds.
+test_free_format_SOURCES = test_free_format.c
+test_free_format_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_free_format_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 

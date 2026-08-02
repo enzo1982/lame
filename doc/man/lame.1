@@ -207,9 +207,14 @@ will always produce a mono .mp3 file from both mono and stereo input.
 .B \-\-freeformat
 Produces a free format bitstream.
 With this option,
-you can use
 .B \-b
-with any bitrate higher than 8 kbps.
+takes any bitrate from 8 to 640 kbps.
+The lowest one that can actually be used is higher than 8 kbps for some
+settings, because every frame has to have room for audio beside its own side
+information, and how much that leaves depends on the output sample rate and the
+number of channels.
+Where the requested bitrate is too low, encoding stops before it starts and the
+lowest usable one is reported.
 
 However,
 even if an mp3 decoder is required to support free bitrates at

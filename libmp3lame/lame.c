@@ -512,6 +512,56 @@ linear_int(double a, double b, double m)
 }
 
 
+/* A frame carries its side information and then whatever is left, shared
+   between its granules. Below this many bits per granule there is not enough
+   left to place a granule at all, whatever the audio is: the bit allocation
+   goes negative and the quantization loop cannot meet its target.
+
+   Eight is measured rather than chosen. It is the boundary in every one of the
+   28 combinations of MPEG version, sample rate, channel count and CRC that
+   were tried, identically for near-silent and for full-scale material, and it
+   is also exactly what the tightest configuration the standard's bitrate
+   tables allow - MPEG-2 at 24 kHz and 8 kbit/s, two channels with CRC - leaves
+   over. So it cannot be raised without refusing a stream that is legal and
+   encodes correctly today. */
+#define MIN_MEAN_BITS_PER_GRANULE 8
+
+/* The bits a frame at this bitrate leaves for audio, per granule. Padding is
+   not counted: a padded frame is one byte larger, so leaving it out asks the
+   question of the smaller of the two frame sizes, which is the one that has to
+   work. */
+static int
+mean_bits_per_granule(SessionConfig_t const *const cfg, int kbps)
+{
+    int const frame_bits = 8 * ((cfg->version + 1) * 72000 * kbps
+                                / cfg->samplerate_out);
+
+    return (frame_bits - 8 * cfg->sideinfo_len) / cfg->mode_gr;
+}
+
+static int
+frame_has_room_for_audio(SessionConfig_t const *const cfg)
+{
+    return mean_bits_per_granule(cfg, cfg->avg_bitrate)
+        >= MIN_MEAN_BITS_PER_GRANULE;
+}
+
+/* The lowest bitrate that would work for this sample rate and channel count,
+   for a caller who has asked for one that does not, or 0 if the format has
+   none. */
+static int
+lowest_usable_free_format_bitrate(SessionConfig_t const *const cfg)
+{
+    int     kbps;
+
+    for (kbps = 8; kbps <= 640; ++kbps) {
+        if (mean_bits_per_granule(cfg, kbps) >= MIN_MEAN_BITS_PER_GRANULE)
+            return kbps;
+    }
+    return 0;
+}
+
+
 
 /********************************************************************
  *   initialize internal params based on data in gf
@@ -1177,6 +1227,31 @@ lame_init_params(lame_global_flags * gfp)
     cfg->avg_bitrate = gfp->brate;
     cfg->vbr_avg_bitrate_kbps = gfp->VBR_mean_bitrate_kbps;
     cfg->compression_ratio = gfp->compression_ratio;
+
+    /* A free format bitrate is the caller's own number rather than one from
+       the standard's tables, so this is the first point at which anything has
+       looked at whether a frame that size can hold a frame at all. It is asked
+       here because it needs the side information length, the number of
+       granules and the output sample rate, and this is where the last of them
+       is known. */
+    if (cfg->free_format && !frame_has_room_for_audio(cfg)) {
+        int const lowest = lowest_usable_free_format_bitrate(cfg);
+
+        if (lowest > 0) {
+            ERRORF(gfc, "Error: a free format stream at %d Hz with %d channel(s) "
+                   "cannot be encoded at %d kbit/s - a frame that size has no "
+                   "room for audio beside its own side information. The lowest "
+                   "usable bitrate here is %d kbit/s.\n",
+                   cfg->samplerate_out, cfg->channels_out, cfg->avg_bitrate,
+                   lowest);
+        }
+        else {
+            ERRORF(gfc, "Error: a free format stream at %d Hz with %d channel(s) "
+                   "cannot be encoded at any bitrate this format allows.\n",
+                   cfg->samplerate_out, cfg->channels_out);
+        }
+        return -1;
+    }
 
     /* initialize internal qval settings */
     lame_init_qval(gfp);

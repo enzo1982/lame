@@ -2780,7 +2780,9 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
     if (lame_get_free_format(gfp)) {
         if (lame_get_brate(gfp) < 8 || lame_get_brate(gfp) > 640) {
             error_printf("For free format, specify a bitrate between 8 and 640 kbps\n");
-            error_printf("with the -b <bitrate> option\n");
+            error_printf("with the -b <bitrate> option. The lowest one that can\n");
+            error_printf("be used depends on the sample rate and the number of\n");
+            error_printf("channels; the encoder reports it if the choice is too low.\n");
             return -1;
         }
     }

@@ -54,6 +54,18 @@
 			        long stretch of the audio that followed the
 			        silence, and the encoder reported it once and
 			        carried on.</span></li>
+			    <li><span class="quality">A free format bitrate too
+			        low to leave room for audio beside a frame's own
+			        side information is now refused when encoding is
+			        prepared, naming the lowest bitrate that will
+			        work for the chosen sample rate and number of
+			        channels. Such a setting used to end the
+			        encoding process outright, or, in a build
+			        without assertions, produce a large file that
+			        was not an MP3 while reporting success. The
+			        lowest usable bitrate is 8&nbsp;kbit/s for most
+			        settings, and up to 14 for MPEG-1 in stereo with
+			        CRC.</span></li>
 			    <li>On Windows, the command line tools built with MinGW
 			        lost characters outside the active code page, both in
 			        the command line itself and in filenames, so a file the

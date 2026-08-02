@@ -109,6 +109,7 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_huffman_tables$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_help_exit$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_bitstream_headers$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_free_format$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_1) $(am__EXEEXT_2) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_3)
 
@@ -211,6 +212,12 @@ am__test_encode_nonfinite_SOURCES_DIST = test_encode_nonfinite.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_encode_nonfinite_OBJECTS = test_encode_nonfinite-test_encode_nonfinite.$(OBJEXT)
 test_encode_nonfinite_OBJECTS = $(am_test_encode_nonfinite_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@test_encode_nonfinite_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+am__test_free_format_SOURCES_DIST = test_free_format.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_free_format_OBJECTS = test_free_format-test_free_format.$(OBJEXT)
+test_free_format_OBJECTS = $(am_test_free_format_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_free_format_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 am__test_get_audio_aiff_SOURCES_DIST = test_get_audio_aiff.c \
@@ -361,6 +368,7 @@ am__depfiles_remade =  \
 	./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po \
 	./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po \
 	./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po \
+	./$(DEPDIR)/test_free_format-test_free_format.Po \
 	./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po \
 	./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po \
 	./$(DEPDIR)/test_help_exit-parse_test_stubs.Po \
@@ -407,7 +415,7 @@ SOURCES = $(test_bitstream_headers_SOURCES) \
 	$(test_choose_table_vector_SOURCES) \
 	$(test_decoder_api_SOURCES) $(test_encode_clipgain_SOURCES) \
 	$(test_encode_mono_interleaved_SOURCES) \
-	$(test_encode_nonfinite_SOURCES) \
+	$(test_encode_nonfinite_SOURCES) $(test_free_format_SOURCES) \
 	$(test_get_audio_aiff_SOURCES) $(test_help_exit_SOURCES) \
 	$(test_huffman_tables_SOURCES) $(test_id3tag_SOURCES) \
 	$(test_lib_info_SOURCES) $(test_merge_argv_SOURCES) \
@@ -424,6 +432,7 @@ DIST_SOURCES = $(am__test_bitstream_headers_SOURCES_DIST) \
 	$(am__test_encode_clipgain_SOURCES_DIST) \
 	$(am__test_encode_mono_interleaved_SOURCES_DIST) \
 	$(am__test_encode_nonfinite_SOURCES_DIST) \
+	$(am__test_free_format_SOURCES_DIST) \
 	$(am__test_get_audio_aiff_SOURCES_DIST) \
 	$(am__test_help_exit_SOURCES_DIST) \
 	$(am__test_huffman_tables_SOURCES_DIST) \
@@ -997,6 +1006,19 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
 
+# The bitrates a free format stream can be prepared for are decided by
+# lame_init_params(), so this test links libmp3lame and asks it directly. It
+# encodes nothing, which is why it costs microseconds.
+@ENABLE_UNIT_TESTS_TRUE@test_free_format_SOURCES = test_free_format.c
+@ENABLE_UNIT_TESTS_TRUE@test_free_format_CPPFLAGS = $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_free_format_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
+
 # lame_get_totalframes() is public, so this test links libmp3lame and calls it
 # directly - no frontend translation unit compiled in.
 @ENABLE_UNIT_TESTS_TRUE@test_totalframes_SOURCES = test_totalframes.c
@@ -1264,6 +1286,10 @@ test_encode_nonfinite$(EXEEXT): $(test_encode_nonfinite_OBJECTS) $(test_encode_n
 	@rm -f test_encode_nonfinite$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_encode_nonfinite_OBJECTS) $(test_encode_nonfinite_LDADD) $(LIBS)
 
+test_free_format$(EXEEXT): $(test_free_format_OBJECTS) $(test_free_format_DEPENDENCIES) $(EXTRA_test_free_format_DEPENDENCIES) 
+	@rm -f test_free_format$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_free_format_OBJECTS) $(test_free_format_LDADD) $(LIBS)
+
 test_get_audio_aiff$(EXEEXT): $(test_get_audio_aiff_OBJECTS) $(test_get_audio_aiff_DEPENDENCIES) $(EXTRA_test_get_audio_aiff_DEPENDENCIES) 
 	@rm -f test_get_audio_aiff$(EXEEXT)
 	$(AM_V_CCLD)$(test_get_audio_aiff_LINK) $(test_get_audio_aiff_OBJECTS) $(test_get_audio_aiff_LDADD) $(LIBS)
@@ -1338,6 +1364,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_free_format-test_free_format.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_help_exit-parse_test_stubs.Po@am__quote@ # am--include-marker
@@ -1498,6 +1525,20 @@ test_encode_nonfinite-test_encode_nonfinite.obj: test_encode_nonfinite.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_encode_nonfinite.c' object='test_encode_nonfinite-test_encode_nonfinite.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_nonfinite_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_encode_nonfinite-test_encode_nonfinite.obj `if test -f 'test_encode_nonfinite.c'; then $(CYGPATH_W) 'test_encode_nonfinite.c'; else $(CYGPATH_W) '$(srcdir)/test_encode_nonfinite.c'; fi`
+
+test_free_format-test_free_format.o: test_free_format.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_free_format_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_free_format-test_free_format.o -MD -MP -MF $(DEPDIR)/test_free_format-test_free_format.Tpo -c -o test_free_format-test_free_format.o `test -f 'test_free_format.c' || echo '$(srcdir)/'`test_free_format.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_free_format-test_free_format.Tpo $(DEPDIR)/test_free_format-test_free_format.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_free_format.c' object='test_free_format-test_free_format.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_free_format_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_free_format-test_free_format.o `test -f 'test_free_format.c' || echo '$(srcdir)/'`test_free_format.c
+
+test_free_format-test_free_format.obj: test_free_format.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_free_format_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_free_format-test_free_format.obj -MD -MP -MF $(DEPDIR)/test_free_format-test_free_format.Tpo -c -o test_free_format-test_free_format.obj `if test -f 'test_free_format.c'; then $(CYGPATH_W) 'test_free_format.c'; else $(CYGPATH_W) '$(srcdir)/test_free_format.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_free_format-test_free_format.Tpo $(DEPDIR)/test_free_format-test_free_format.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_free_format.c' object='test_free_format-test_free_format.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_free_format_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_free_format-test_free_format.obj `if test -f 'test_free_format.c'; then $(CYGPATH_W) 'test_free_format.c'; else $(CYGPATH_W) '$(srcdir)/test_free_format.c'; fi`
 
 test_get_audio_aiff-test_get_audio_aiff.o: test_get_audio_aiff.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_get_audio_aiff_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_get_audio_aiff-test_get_audio_aiff.o -MD -MP -MF $(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Tpo -c -o test_get_audio_aiff-test_get_audio_aiff.o `test -f 'test_get_audio_aiff.c' || echo '$(srcdir)/'`test_get_audio_aiff.c
@@ -2143,6 +2184,13 @@ test_bitstream_headers.log: test_bitstream_headers$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_free_format.log: test_free_format$(EXEEXT)
+	@p='test_free_format$(EXEEXT)'; \
+	b='test_free_format'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 test_choose_table_vector.log: test_choose_table_vector$(EXEEXT)
 	@p='test_choose_table_vector$(EXEEXT)'; \
 	b='test_choose_table_vector'; \
@@ -2279,6 +2327,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po
 	-rm -f ./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po
 	-rm -f ./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po
+	-rm -f ./$(DEPDIR)/test_free_format-test_free_format.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_help_exit-parse_test_stubs.Po
@@ -2353,6 +2402,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po
 	-rm -f ./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po
 	-rm -f ./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po
+	-rm -f ./$(DEPDIR)/test_free_format-test_free_format.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_help_exit-parse_test_stubs.Po
