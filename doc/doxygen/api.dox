@@ -83,8 +83,8 @@ without it encodes everything it otherwise would, and decodes nothing at all.
 
 The encoder reaches for it on its own, through none of the calls below, when
 it is asked to measure its own output instead of its input - see
-lame_set_decode_on_the_fly() under @ref api_settings, which has the encoder
-create and release a decoder for the purpose. The functions here are for the other direction: an
+lame_set_decode_on_the_fly(), which has the encoder create and release a
+decoder for the purpose. The functions here are for the other direction: an
 application that wants to read MP3 itself, to re-encode it or to write it out
 as PCM. It is the interface LAME's own frontend uses to accept MP3 input.
 

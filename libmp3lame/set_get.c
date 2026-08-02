@@ -1129,7 +1129,7 @@ lame_get_nogap_currentindex(const lame_global_flags * gfp)
   \return 0 on success, -1 if the instance is not usable.
 */
 int
-lame_set_errorf(lame_global_flags * gfp, void (*func) (const char *, va_list))
+lame_set_errorf(lame_global_flags * gfp, lame_report_function func)
 {
     if (is_lame_global_flags_valid(gfp)) {
         gfp->report.errorf = func;
@@ -1148,7 +1148,7 @@ lame_set_errorf(lame_global_flags * gfp, void (*func) (const char *, va_list))
   \return 0 on success, -1 if the instance is not usable.
 */
 int
-lame_set_debugf(lame_global_flags * gfp, void (*func) (const char *, va_list))
+lame_set_debugf(lame_global_flags * gfp, lame_report_function func)
 {
     if (is_lame_global_flags_valid(gfp)) {
         gfp->report.debugf = func;
@@ -1167,7 +1167,7 @@ lame_set_debugf(lame_global_flags * gfp, void (*func) (const char *, va_list))
   \return 0 on success, -1 if the instance is not usable.
 */
 int
-lame_set_msgf(lame_global_flags * gfp, void (*func) (const char *, va_list))
+lame_set_msgf(lame_global_flags * gfp, lame_report_function func)
 {
     if (is_lame_global_flags_valid(gfp)) {
         gfp->report.msgf = func;

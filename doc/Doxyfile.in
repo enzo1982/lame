@@ -80,3 +80,25 @@ VERBATIM_HEADERS       = NO
 # Call graphs need Graphviz/dot and slow the build; off for the public docs.
 CALL_GRAPH             = NO
 CALLER_GRAPH           = NO
+
+# A parameter a build may legitimately not use is marked LAME_UNUSED at the
+# definition, and the declaration in include/lame.h gives it the plain type.
+# An unexpanded macro is part of the type as far as Doxygen is concerned, so
+# such a function becomes two members - the documented one and an empty one -
+# and a reference to it by name in the reference text resolves to the empty
+# one, which SHOW_FILES = NO has left without a page. The result is a mention
+# that renders as plain words while every mention beside it is a link, and
+# nothing reports it. Defining the marker away is what makes a definition
+# match its declaration again.
+#
+# Scoped to this configuration on purpose. Expanding macros changes how every
+# conditional in the sources is read, and the internal documentation covers
+# files this one does not - version.h, machine.h, the frontend - where that
+# reading costs more than it buys: entries that depend on a macro's *value*
+# either disappear or are replaced by what the macro expands to. The internal
+# set keeps file pages, so a reference there resolves to the header's page and
+# links correctly without any of this. Measured against both rendered sets, not
+# argued from the settings.
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = NO
+PREDEFINED             = LAME_UNUSED=
