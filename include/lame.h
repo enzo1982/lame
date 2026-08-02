@@ -1056,8 +1056,8 @@ void CDECL lame_bitrate_block_type_hist (
  * and all mp3 data has been written to the file before calling this
  * function.
  * NOTE:
- * if VBR  tags are turned off by the user, or turned off by LAME because
- * the output is not a regular file, this call does nothing
+ * if VBR  tags are turned off by the user, or turned off by LAME itself,
+ * this call does nothing
  * NOTE:
  * LAME wants to read from the file to skip an optional ID3v2 tag, so
  * make sure you opened the file for writing and reading.
