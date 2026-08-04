@@ -369,6 +369,28 @@ else
 	fi
 	cells=$(find "$matrix" -mindepth 3 -maxdepth 3 -name build.sh 2>/dev/null \
 		| sed 's|/build.sh$||' | sort)
+
+	# A cell the generator could not lay out here - a missing library, or an
+	# automake that does not match the one this tree was generated with - is
+	# recorded in matrix-info.txt and then has no directory, so the loop below
+	# never sees it and it leaves no trace in this report at all. Report each
+	# one as a SKIP, which is exactly what SKIP means: a prerequisite is
+	# missing on this machine. A configuration that silently stops being
+	# checked is worse than one that says it is not being checked.
+	if [ -f "$matrix/matrix-info.txt" ]; then
+		# One pass, into a file rather than a pipeline: `while read` on the
+		# right of a pipe runs in a subshell on most shells, and the verdict
+		# helpers are easier to reason about outside one.
+		sed -n 's|^ *\[skip\] *\([^ ]*\) *(\(.*\))$|\1 \2|p' \
+			"$matrix/matrix-info.txt" > "$target/skipped-cells.txt"
+		while read -r skipped skipwhy; do
+			[ -n "$skipped" ] || continue
+			skiptag=$(echo "$skipped" | tr '/' '-')
+			check_begin "build[$skiptag]" \
+				"this configuration compiles and links from the extracted tarball"
+			check_end SKIP "build[$skiptag]" "not generated here: $skipwhy"
+		done < "$target/skipped-cells.txt"
+	fi
 fi
 
 # --- per-cell: build, then unit tests ---------------------------------------

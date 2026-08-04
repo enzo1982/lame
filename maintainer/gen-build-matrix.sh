@@ -234,6 +234,24 @@ else
 	echo "$prog:          fail to configure if libmpg123 / libsndfile are absent)." >&2
 fi
 
+# The maintainer-mode cell has a prerequisite that is not a library: it turns on
+# the Autotools *rebuild* rules, and those call the version-suffixed tool the
+# tree was generated with (the generated Makefiles hold
+# ACLOCAL = ... missing aclocal-<version>). On a machine carrying a different
+# automake the tool is simply absent, `missing` reports it, and make stops with
+# status 127 - a failure about this host rather than about the source. So the
+# version is read out of the tree itself rather than guessed, and the cell is
+# skipped where it cannot be built, exactly as a missing library skips its own.
+am_version=$(sed -n "s/^am__api_version='\([^']*\)'.*/\1/p" "$srcdir/configure" 2>/dev/null | head -1)
+have_automake=unknown
+if [ -n "$am_version" ]; then
+	if command -v "aclocal-$am_version" >/dev/null 2>&1; then
+		have_automake=yes
+	else
+		have_automake=no
+	fi
+fi
+
 if [ "$have_mpg123" = no ]; then
 	echo "$prog: WARNING: libmpg123 not found via $pkgconf - decoder-on cells" >&2
 	echo "$prog:          will be skipped (they cover most of the code base)." >&2
@@ -246,6 +264,13 @@ if [ "$have_gtk" = no ]; then
 	echo "$prog: WARNING: GTK 4 >= 4.10 not found via $pkgconf - the mp3x cell" >&2
 	echo "$prog:          will be skipped, so the analyzer frontend is not built" >&2
 	echo "$prog:          or linked on this host at all." >&2
+fi
+if [ "$have_automake" = no ]; then
+	echo "$prog: WARNING: aclocal-$am_version not found - this tree was generated" >&2
+	echo "$prog:          with automake $am_version, and maintainer mode rebuilds" >&2
+	echo "$prog:          with that exact version. The strict cell will be skipped;" >&2
+	echo "$prog:          install automake $am_version to get the warnings-are-errors" >&2
+	echo "$prog:          coverage back." >&2
 fi
 
 # --- configuration cells (the "star") ---------------------------------------
@@ -326,6 +351,19 @@ cell_needs_gtk() {
 	esac
 }
 
+# A cell needs the tree's own automake only when it enables maintainer mode,
+# which is what switches the Autotools rebuild rules on.
+cell_needs_automake() {
+	case " $1 " in
+		*"--enable-maintainer-mode"*)
+			return 0
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
 # --- generate ---------------------------------------------------------------
 
 mkdir -p "$master" || {
@@ -371,6 +409,8 @@ for d in $detected; do
 			skip_reason="libsndfile missing"
 		elif cell_needs_gtk "$args" && [ "$have_gtk" = no ]; then
 			skip_reason="GTK 4 >= 4.10 missing"
+		elif cell_needs_automake "$args" && [ "$have_automake" = no ]; then
+			skip_reason="automake $am_version missing (maintainer mode rebuilds with it)"
 		fi
 		if [ -n "$skip_reason" ]; then
 			echo "  [skip] $cname/$cell ($skip_reason)" >> "$info"
@@ -479,6 +519,12 @@ fi
 if [ "$have_sndfile" = no ]; then
 	echo
 	echo "NOTE: libsndfile not found - the sndfile cell was skipped."
+fi
+if [ "$have_automake" = no ]; then
+	echo
+	echo "NOTE: automake $am_version not found - the maintainer-mode cell was"
+	echo "      skipped. That cell is the only one where a warning is an error,"
+	echo "      so this host is not checking that bar at all."
 fi
 
 echo

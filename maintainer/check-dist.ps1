@@ -196,6 +196,29 @@ if (-not (Test-Path -LiteralPath $gen)) {
 	} catch {
 		End-Check "FAIL" "matrix-generate" "the harness failed: $_"
 	}
+
+	# A cell the generator could not lay out here - an optional library that is
+	# not unpacked for that platform - is recorded in matrix-info.txt and then
+	# has no build.cmd, so the loop below never sees it and it leaves no trace
+	# in this report. Report each as a SKIP naming its reason, the same as the
+	# POSIX half does. A configuration that quietly stops being checked is
+	# worse than one that says it is not being checked.
+	$info = Join-Path $matrix "matrix-info.txt"
+	if (Test-Path -LiteralPath $info) {
+		foreach ($line in (Get-Content -LiteralPath $info)) {
+			if ($line -notmatch '^\s*\[skip\]\s*(.+)$') { continue }
+			$what = $Matches[1].Trim()
+			# "<cell> - <reason>" where the generator gives one; otherwise the
+			# whole text names the cell and there is no separate reason.
+			if ($what -match '^(.*?)\s+-\s+(.*)$') {
+				$tag = $Matches[1]; $why = $Matches[2]
+			} else {
+				$tag = $what; $why = "not laid out on this machine"
+			}
+			Start-Check "build[$tag]" "this configuration compiles from the extracted tarball"
+			End-Check "SKIP" "build[$tag]" "not generated here: $why"
+		}
+	}
 }
 
 # --- per-cell: build, then unit tests ---------------------------------------

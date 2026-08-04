@@ -114,6 +114,14 @@ a note in `matrix-info.txt`, so the driver's failure list stays meaningful:
 
 - every cell except `nodecoder` needs **libmpg123** (the decoder is on by
   default and `configure` errors out if it is absent);
+- the `nodecstrict` cell needs the **automake the tree was generated with**, and
+  that is not a library. `--enable-maintainer-mode` turns on the Autotools
+  rebuild rules, which invoke the version-suffixed tool the generated Makefiles
+  name (`aclocal-1.18` and friends); on a machine with a different automake that
+  tool is absent and `make` stops with status 127, which says something about the
+  host and nothing about the source. The generator reads the required version out
+  of the tree's own `configure` and skips the cell when it is not installed, so
+  the version never has to be kept in step by hand;
 - the `sndfile` cell additionally needs **libsndfile**;
 - the `mp3x` cell additionally needs **GTK 4 &ge; 4.10**, probed with exactly
   the version constraint `configure` applies, so a GTK 4 too old to build the
