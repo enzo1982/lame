@@ -61,8 +61,14 @@ test_get_audio_aiff_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_get_audio_aiff_LDFLAGS = -Wl,--wrap=fread
+# Compiling get_audio.c in means this test inherits whichever file io backend
+# configure selected, so it needs that backend's libraries too: under
+# --with-fileio=sndfile the file calls libsndfile directly. SNDFILE_LIBS is
+# empty for the default backend, so this costs nothing there. The compile side
+# already works, because SNDFILE_CFLAGS reaches every target through INCLUDES.
 test_get_audio_aiff_LDADD = $(CMOCKA_LIBS) \
-	$(top_builddir)/libmp3lame/libmp3lame.la
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	$(SNDFILE_LIBS)
 
 # The positional-filename length guard set_path_arg() lives in
 # frontend/parse.c and is static, so the test compiles that file in directly;

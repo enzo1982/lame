@@ -227,7 +227,8 @@ am__test_get_audio_aiff_SOURCES_DIST = test_get_audio_aiff.c \
 test_get_audio_aiff_OBJECTS = $(am_test_get_audio_aiff_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@test_get_audio_aiff_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
-@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1)
 test_get_audio_aiff_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(AM_CFLAGS) $(CFLAGS) $(test_get_audio_aiff_LDFLAGS) \
@@ -880,8 +881,14 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
 
 @ENABLE_UNIT_TESTS_TRUE@test_get_audio_aiff_LDFLAGS = -Wl,--wrap=fread
+# Compiling get_audio.c in means this test inherits whichever file io backend
+# configure selected, so it needs that backend's libraries too: under
+# --with-fileio=sndfile the file calls libsndfile directly. SNDFILE_LIBS is
+# empty for the default backend, so this costs nothing there. The compile side
+# already works, because SNDFILE_CFLAGS reaches every target through INCLUDES.
 @ENABLE_UNIT_TESTS_TRUE@test_get_audio_aiff_LDADD = $(CMOCKA_LIBS) \
-@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	$(SNDFILE_LIBS)
 
 
 # The positional-filename length guard set_path_arg() lives in
