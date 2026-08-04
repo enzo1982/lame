@@ -1056,7 +1056,11 @@ has_NEON(void)
  * Both conditions, and the second one alone would not do: an environment
  * variable that changes a released encoder's output is a support problem.
  * Once there are numbers this becomes either a plain dispatch or a deletion,
- * and either way the whole experiment is this function and its two callers.
+ * and either way the whole experiment is the read in vector_impl_init(), these
+ * two predicates and their callers - the variable's own name finds every part.
+ *
+ * The environment is consulted once per encode, not once per query, so setting
+ * the variable after the encoder has been initialised has no effect.
  *
  * @return nonzero if the experimental path should be used.
  */
@@ -1070,13 +1074,21 @@ env_switch_on(const char *name)
 
     return v != 0 && v[0] != '\0' && !(v[0] == '0' && v[1] == '\0');
 }
+
+/* What the environment said, read once by vector_impl_init().  One of the two
+   is consulted from the scalefactor-band loop, which runs millions of times in
+   a variable-bitrate encode, and an unset variable costs a walk of the whole
+   environment block on every one of them.  An experiment that is answered at
+   the start of an encode has no business being asked again inside it. */
+static int avx512_choose_table_on = 0;
+static int avx512_sfb_noise_on = 0;
 #endif
 
 int
 vector_avx512_choose_table_experiment(void)
 {
 #if defined( HAVE_AVX512_INTRINSICS ) && LAME_ALPHA_VERSION
-    return env_switch_on("LAME_AVX512_CHOOSE_TABLE");
+    return avx512_choose_table_on;
 #else
     return 0;
 #endif
@@ -1101,7 +1113,7 @@ int
 vector_avx512_sfb_noise_experiment(void)
 {
 #if defined( HAVE_AVX512_INTRINSICS ) && LAME_ALPHA_VERSION
-    return env_switch_on("LAME_AVX512_SFB_NOISE");
+    return avx512_sfb_noise_on;
 #else
     return 0;
 #endif
@@ -1252,11 +1264,20 @@ vector_impl_supported(vector_impl_t impl)
  * deprecated asm_optimizations mask still allows - which is exactly what this
  * library did before the selection existed, and has to stay so, because the
  * encoder's output must not depend on which of the two APIs a caller used.
+ *
+ * The experiment switches are read here too, for the same reason and at the
+ * same moment: they are settings of the run, so an encode asks the environment
+ * once and then asks these variables.
  */
 void
 vector_impl_init(lame_internal_flags * gfc, int request)
 {
     int     i;
+
+#if defined( HAVE_AVX512_INTRINSICS ) && LAME_ALPHA_VERSION
+    avx512_choose_table_on = env_switch_on("LAME_AVX512_CHOOSE_TABLE");
+    avx512_sfb_noise_on = env_switch_on("LAME_AVX512_SFB_NOISE");
+#endif
 
     if (request != VECTOR_IMPL_AUTO) {
         gfc->vector_impl = (vector_impl_t) request;

@@ -432,8 +432,14 @@ this whole section exists to prevent.
 The routines are compiled unconditionally rather than hidden behind a build
 switch, so that the code being asked about is the code in the tree and a tester
 needs no special build. When there are numbers this becomes either an ordinary
-dispatch arm or a deletion; either way the experiment is one function in
-@c util.c and its two callers, and @c LAME_AVX512_CHOOSE_TABLE finds all of it.
+dispatch arm or a deletion; either way the experiment is the read in
+@c vector_impl_init(), two predicates in @c util.c and their callers, and
+@c LAME_AVX512_CHOOSE_TABLE finds all of it.
+
+The environment is read where the rung itself is chosen &mdash; once, as the
+encoder is initialised &mdash; so both switches are settings of a run rather
+than questions asked again inside it. Setting either variable after
+@c lame_init_params() has no effect on that encoder.
 
 <b>It is not a constant-bitrate experiment.</b> The table search is reached
 through @c noquant_count_bits(), which @c vbrquantize.c calls as well, so
