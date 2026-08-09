@@ -36,7 +36,13 @@
 
 #include <cmocka.h>
 
-#if defined(_WIN32) && !defined(__MINGW32__)
+/* Spelled the way rtp.c spells it, and that is a requirement rather than a
+ * matter of taste: rtp.c is compiled into this program, so the two files have
+ * to reach the same answer. They declare the same socket in terms of SOCKET,
+ * which is Winsock's type on one side of this and a typedef below on the
+ * other. MinGW targets Winsock like every other Windows compiler.
+ */
+#if defined(_WIN32) || defined(__MINGW32__)
 # include <winsock2.h>
 # include <ws2tcpip.h>
 # define rtp_close_socket(s)  closesocket(s)
@@ -124,7 +130,7 @@ open_receiver(int family, char const *host, unsigned int *port)
 static void
 set_receive_timeout(SOCKET s)
 {
-#if defined(_WIN32) && !defined(__MINGW32__)
+#if defined(_WIN32) || defined(__MINGW32__)
     int     t = RECV_TIMEOUT_MS;
 #else
     struct timeval t;
