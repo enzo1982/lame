@@ -945,8 +945,7 @@ int CDECL lame_encode_buffer_int(
  * num_samples = number of samples in the L (or R)
  * channel, not the total number of samples in pcm[]
  */
-int
-lame_encode_buffer_interleaved_int(
+int CDECL lame_encode_buffer_interleaved_int(
         lame_t          gfp,
         const int       pcm [],            /* PCM data for left and right
                                               channel, interleaved          */
