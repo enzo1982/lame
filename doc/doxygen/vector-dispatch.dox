@@ -331,17 +331,19 @@ behaviour; nothing has produced that yet.
 
 @subsection vector_dispatch_avx512_open What is still open
 
-Two things, neither of them blocking.
+One thing, and it is not blocking.
 
 <b>The mechanism of the Intel gain</b>, above. It matters less for whether to
 carry the tier than for predicting the next microarchitecture, and it is the sort
 of question that gets answered by hardware counters rather than by more encodes.
 
-<b>Stage 1 at @c -V2 on Intel.</b> The one variable-bitrate figure taken under a
-harness on that machine was a stage-2 build, so it prices the rejected kernel
-rather than the shipped one. The evidence that stage 1 is neutral there is Zen
-5's harness measurement, three sequential-run washes, and the call-frequency
-argument &mdash; good enough to ship, not good enough to state as measured.
+<b>Stage 1 at @c -V2 on Intel is no longer open.</b> It used to be, for a
+specific reason: the one variable-bitrate figure taken under a harness on that
+machine was a stage-2 build, so it priced the rejected kernel rather than the
+shipped one. It has since been measured directly on the Ice Lake part, 25 runs
+per arm in both orderings &mdash; the shipped tier against AVX2 at @c -V @c 2
+comes out at <b>-0.17 % and +0.17 %</b> against a 0.32 % floor. Neutral, as the
+indirect evidence had said, and now stated as measured.
 
 One note on scope, because it bounds how much any of this matters. Intel's client
 parts have carried AVX-512 only within a window &mdash; Ice Lake through Tiger
@@ -400,100 +402,95 @@ slower at @c -V2 on the one machine where AVX-512 is worth anything at all.
 There <em>is</em> a @c VECTOR_IMPL_NEON enumerator, and on ARM it is the whole
 ladder above scalar. It is a partial rung too, and for its own reason, below.
 
-@section vector_dispatch_avx512_experiment The AVX-512 table search, and why it is off
+@section vector_dispatch_avx512_experiment Why there is no AVX-512 table search, and no AVX-512 band noise
 
-@c avx512_choose_table.c holds AVX-512 forms of @c ix_max() and the escape
-counter. They compile, they are exported and they pass their unit tests. They do
-not run, and that is on purpose for now.
+Both routines existed. Both were written, unit-tested, kept behind an
+environment switch until they could be measured on silicon that has AVX-512, and
+then <b>removed once they had been</b>. This section is the record of that, and
+of why a third attempt should not start without new grounds.
 
-There has never been a wrapper installing @c VECTOR_IMPL_AVX512 into
-@c gfc->choose_table, so by the route described above the two routines were
-unreachable from any encode &mdash; on every machine, at every setting, since
-they were written. That is not a detail that changes a percentage: the field
-measurements were taken on a build in which these routines could not execute, so
-the number they produced belongs to the quantization loop alone, and nothing at
-all is known about what the table-search kernels do to an encode's speed.
+@subsection vector_dispatch_avx512_experiment_what What was measured
 
-The wrapper now exists, and is installed only when
-@c vector_avx512_choose_table_experiment() says so:
+The two kernels were carried in a shape designed to make exactly one question
+answerable: each behind its own environment variable, on an alpha build only, so
+a run could switch one on and leave the other off. That turns the question into
+two subtractions <em>within a single run on a single binary</em>, which carry no
+cross-run confound:
 
 <ul>
-<li>the build must be an <b>alpha</b>, so no release can take the path, and</li>
-<li><b>@c LAME_AVX512_CHOOSE_TABLE</b> must be set in the environment to
-something other than @c 0.</li>
+<li><b>arm 3 &minus; arm 2</b> = the Huffman table search on its own;</li>
+<li><b>arm 4 &minus; arm 3</b> = the band-noise estimate on its own.</li>
 </ul>
 
-An alpha that has it on says so in the @c --verbose header
-("<tt>experimental: AVX-512 Huffman table search enabled</tt>"), and only when
-the processor really is running the AVX-512 tier &mdash; a tester who cannot see
-the line did not measure the thing being asked about, which is the failure mode
-this whole section exists to prevent.
+Both were run on two microarchitectures, 25 runs per arm, both orderings, on a
+build of the same revision, by testers who own the hardware &mdash; the project
+has none. Positive time means the kernel <em>costs</em>.
 
-The routines are compiled unconditionally rather than hidden behind a build
-switch, so that the code being asked about is the code in the tree and a tester
-needs no special build. When there are numbers this becomes either an ordinary
-dispatch arm or a deletion; either way the experiment is the read in
-@c vector_impl_init(), two predicates in @c util.c and their callers, and
-@c LAME_AVX512_CHOOSE_TABLE finds all of it.
+<table>
+<tr><th></th><th>Ice Lake (i5-1035G1)</th><th>Zen 4 (7950X3D)</th></tr>
+<tr><td>table search, @c -V @c 2</td><td>+0.99 / +0.92 %</td><td>+0.86 / +0.76 %</td></tr>
+<tr><td>band noise, @c -V @c 2</td><td><b>+5.63 / +5.57 %</b></td><td>-0.85 / -0.40 %, at that machine's floor</td></tr>
+<tr><td>table search, @c -b @c 320</td><td>-1.5 %, a gain</td><td>+2.5 %</td></tr>
+</table>
 
-The environment is read where the rung itself is chosen &mdash; once, as the
-encoder is initialised &mdash; so both switches are settings of a run rather
-than questions asked again inside it. Setting either variable after
-@c lame_init_params() has no effect on that encoder.
+@subsection vector_dispatch_avx512_experiment_why Why they are gone
 
-<b>It is not a constant-bitrate experiment.</b> The table search is reached
-through @c noquant_count_bits(), which @c vbrquantize.c calls as well, so
-switching this on changes which code a @c -V encode runs too. Both modes want
-measuring.
+<b>The band-noise routine costs time where it can run at all.</b> On Ice Lake it
+is seventeen times the machine's measured floor, and on Zen 4 it cannot be
+distinguished from zero. Nothing here is a gain on any machine, at any setting.
+The reason is the one the SSE2 tier's own note gives: the reduction is pinned to
+a four-block association so every CPU of an architecture produces the same bits,
+so doubling the register width doubles nothing in the fold &mdash; the extra
+lanes buy the cost of entering them and nothing else. That is a property of the
+routine's contract, not of a microarchitecture, which is why the third attempt
+would need a different contract rather than newer hardware.
 
-That also puts a question mark next to a decision recorded above, and it is why
-there is a second switch.
+<b>The table search cannot ride along.</b> It is not VBR-only: it is reached
+through @c noquant_count_bits(), which the variable-bitrate path calls too, so
+enabling it "for VBR" would need a mode test in the dispatch &mdash; exactly what
+the ladder decided against. And its own evidence splits by vendor, a gain at
+@c -b @c 320 on Intel and a cost on Zen 4, so there is no setting at which it can
+be switched on for everybody. Note the careful form of that: it is not "the
+kernel is slow", it is "there is no rule that turns it on correctly".
 
-@c calc_sfb_noise_x34_avx512() was written, measured at 6.6% slower than the
-narrower code on a @c -V2 encode, and dropped. As a comparison that measurement
-is sound &mdash; both arms had the same table search, which in neither case
-executed &mdash; but the two routines are not independent on real hardware:
-512-bit instructions can pull the core clock down, and a routine that is the
-only 512-bit code in an encode pays that on its own, where one running alongside
-an already-512-bit table search does not. The number was taken in a @c -V encode
-where nothing else was 512 bits wide, and there is now a configuration in which
-something else is.
+@subsection vector_dispatch_avx512_experiment_lesson What the exercise is worth keeping for
 
-So the routine is back, under <b>@c LAME_AVX512_SFB_NOISE</b>, on the same two
-conditions as the other switch and off by default. Note what it is <em>not</em>
-back for: it is not being un-rejected, and nothing about it is enabled in any
-build a user can get. It is there so that the pair can be measured as a pair.
+Three things outlived the code.
 
-<b>Its default form is bit-exact.</b> It quantizes four blocks at a time but
-folds their sums in one at a time in the pinned association, so it computes the
-value the SSE2 tier computes; the freely-reducing form is a separate build,
-@c LAME_AVX512_UNSAFE_REDUCTION, and is not what this switch selects. A tester
-should therefore expect identical output with the switch on and off, and report
-it if the files differ &mdash; that would be a defect, not a trade-off.
+<b>An experiment that cannot be measured must still be dispatchable.</b> The
+kernels sat in the tree for weeks with no wrapper installing them, so they were
+unreachable from any encode on any machine &mdash; and the field numbers taken in
+that period were quietly numbers about the quantization loop alone. A routine
+nothing can call is not "not yet measured", it is a routine whose measurements
+are about something else.
 
-@subsection vector_dispatch_avx512_arms What to measure
+<b>The switch must announce itself.</b> Each arm printed which experiment it had
+taken in the @c --verbose header, so a report from a run that did not take the
+path could be told apart from one that did. Without that, the failure mode is a
+result rather than a gap.
 
-Three runs on the same file, same settings, both @c -b @c 320 and @c -V:
-
-<ol>
-<li>neither variable set &mdash; the baseline the tier ships as;</li>
-<li>@c LAME_AVX512_CHOOSE_TABLE=1 alone &mdash; the table search, which is used
-by constant <em>and</em> variable bitrate;</li>
-<li>both variables set &mdash; the pair, which is the only arm that can show the
-interaction.</li>
-</ol>
-
-Each run's @c --verbose header names the experiments it actually took, and a run
-whose header does not name them did not measure them.
+<b>The scaffolding is software too.</b> The first round of @c -V @c 2 numbers
+from both testers turned out to be measuring an uncached @c getenv() in the
+gate's own inner loop &mdash; 5.9 million lookups per encode &mdash; and read as
+a 10 % AVX-512 regression on two vendors. The defect was ours, in the machinery
+built to run the experiment, and it was found on a machine with no AVX-512 at
+all. When a measurement of an experiment surprises you, suspect the experiment's
+plumbing before the silicon.
 
 @section vector_dispatch_gaps The shapes of the gaps
 
 The ladder has four kinds of hole in it, for four different reasons, and keeping
 them apart is the point of this page. SSE4 is missing because the case was never
 made. AVX-512's variable-bitrate half is missing because the case was made,
-built, and measured &mdash; and lost. AVX-512's table search is present but
-switched off because the case has never actually been put: it was assumed to have
-been, by everyone including its measurements. And most of the ARM tier is missing
-because the compiler had already made the case for itself, which is the cheapest
-way there is for a routine not to exist.
+built, and measured &mdash; twice, the second time on hardware that could
+actually run it &mdash; and lost both times. AVX-512's table search is missing
+for a different reason again: its evidence splits by vendor, so there is no
+setting at which it can be switched on for everybody, and a rung that needs a
+mode test is the thing this ladder exists to avoid. And most of the ARM tier is
+missing because the compiler had already made the case for itself, which is the
+cheapest way there is for a routine not to exist.
+
+Only the first of those is an absence of evidence. The other three are results,
+and the code that produced them is gone precisely because the result is
+recorded here.
 */

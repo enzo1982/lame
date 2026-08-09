@@ -1471,20 +1471,6 @@ lame_print_config(const lame_global_flags * gfp)
 
 #if (LAME_ALPHA_VERSION)
     MSGF(gfc, "warning: alpha versions should be used for testing only\n");
-#if defined( HAVE_AVX512_INTRINSICS )
-    /* Said out loud, because the point of the switch is to collect
-       measurements and a measurement of a run that did not take the path is
-       worse than none: it looks like a result.  The same two conditions
-       huffman_init() applies, and for the same reason they are both here -
-       asking for the experiment on a processor that cannot run it must not
-       report it as enabled. */
-    if (vector_implementation(gfc) >= VECTOR_IMPL_AVX512
-        && vector_avx512_choose_table_experiment())
-        MSGF(gfc, "experimental: AVX-512 Huffman table search enabled\n");
-    if (vector_implementation(gfc) >= VECTOR_IMPL_AVX512
-        && vector_avx512_sfb_noise_experiment())
-        MSGF(gfc, "experimental: AVX-512 band noise estimate enabled\n");
-#endif
 #endif
     {
         char    text[256];

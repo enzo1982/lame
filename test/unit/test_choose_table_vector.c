@@ -80,58 +80,6 @@ avx2_max(const int *ix, const int *end)
 #endif
 }
 
-/**
- * @brief Does the running CPU offer the AVX-512 subsets the tier needs?
- *
- * All four, because the kernels use all four.
- */
-static int
-have_avx512(void)
-{
-#if defined( HAVE_AVX512_INTRINSICS )
-# if defined( __AVX512F__ ) && defined( __AVX512VL__ ) \
-  && defined( __AVX512BW__ ) && defined( __AVX512DQ__ )
-    return 1;
-# elif defined( __GNUC__ ) || defined( __clang__ )
-    return __builtin_cpu_supports("avx512f") != 0
-        && __builtin_cpu_supports("avx512vl") != 0
-        && __builtin_cpu_supports("avx512bw") != 0
-        && __builtin_cpu_supports("avx512dq") != 0;
-# else
-    return 0;               /* no way to ask; skip rather than crash */
-# endif
-#else
-    return 0;
-#endif
-}
-
-/** @brief The AVX-512 maximum, or a stand-in where it was not compiled. */
-static int
-avx512_max(const int *ix, const int *end)
-{
-#if defined( HAVE_AVX512_INTRINSICS )
-    return ix_max_avx512(ix, end);
-#else
-    (void) ix;
-    (void) end;
-    return 0;
-#endif
-}
-
-/** @brief The AVX-512 escape search, or a stand-in. */
-static unsigned int
-avx512_esc(const int *ix, const int *end, const uint32_t * tbl, unsigned int *nclamped)
-{
-#if defined( HAVE_AVX512_INTRINSICS )
-    return count_bit_esc_avx512(ix, end, tbl, nclamped);
-#else
-    (void) ix;
-    (void) end;
-    (void) tbl;
-    *nclamped = 0;
-    return 0;
-#endif
-}
 
 /* ------------------------------------------------------------------ */
 /* synthetic tables                                                    */
@@ -237,8 +185,6 @@ test_ix_max_lengths(LAME_UNUSED void **state)
         assert_int_equal(ix_max_sse2(ix, ix + n), ref_max(ix, n));
         if (have_avx2())
             assert_int_equal(avx2_max(ix, ix + n), ref_max(ix, n));
-        if (have_avx512())
-            assert_int_equal(avx512_max(ix, ix + n), ref_max(ix, n));
     }
 }
 
@@ -268,8 +214,6 @@ test_ix_max_boundaries(LAME_UNUSED void **state)
             assert_int_equal(ix_max_sse2(ix, ix + 64), v);
             if (have_avx2())
                 assert_int_equal(avx2_max(ix, ix + 64), v);
-            if (have_avx512())
-                assert_int_equal(avx512_max(ix, ix + 64), v);
         }
     }
 }
@@ -298,11 +242,6 @@ test_ix_max_saturation(LAME_UNUSED void **state)
         assert_true(ix_max_sse2(ix, ix + 64) > IXMAX_VAL);
         if (have_avx2())
             assert_true(avx2_max(ix, ix + 64) > IXMAX_VAL);
-        /* The widest tier compares full thirty-two-bit values and so returns
-           these exactly rather than saturated.  That is a stronger answer than
-           the contract asks for, and it satisfies it the same way. */
-        if (have_avx512())
-            assert_int_equal(avx512_max(ix, ix + 64), huge[k]);
     }
 }
 
@@ -325,12 +264,6 @@ test_esc_lengths(LAME_UNUSED void **state)
         sr = ref_esc(ix, n, &nc_r);
         assert_int_equal(sv, sr);
         assert_int_equal(nc_v, nc_r);
-        if (have_avx512()) {
-            unsigned int nc_w = 12345;
-            unsigned int sw = avx512_esc(ix, ix + n, largetbl_t, &nc_w);
-            assert_int_equal(sw, sr);
-            assert_int_equal(nc_w, nc_r);
-        }
     }
 }
 
@@ -357,13 +290,6 @@ test_esc_clamp_boundary(LAME_UNUSED void **state)
         assert_int_equal(sv, sr);
         assert_int_equal(nc_v, nc_r);
         assert_int_equal(nc_v, v >= 15 ? 64u : 0u);
-        if (have_avx512()) {
-            unsigned int nc_w = 0;
-            unsigned int sw = avx512_esc(ix, ix + 64, largetbl_t, &nc_w);
-            assert_int_equal(sw, sr);
-            assert_int_equal(nc_w, nc_r);
-            assert_int_equal(nc_w, v >= 15 ? 64u : 0u);
-        }
     }
 }
 
@@ -382,12 +308,6 @@ test_esc_large_values(LAME_UNUSED void **state)
     sr = ref_esc(ix, 64, &nc_r);
     assert_int_equal(sv, sr);
     assert_int_equal(nc_v, nc_r);
-    if (have_avx512()) {
-        unsigned int nc_w = 0;
-        unsigned int sw = avx512_esc(ix, ix + 64, largetbl_t, &nc_w);
-        assert_int_equal(sw, sr);
-        assert_int_equal(nc_w, nc_r);
-    }
 }
 
 /* ------------------------------------------------------------------ */

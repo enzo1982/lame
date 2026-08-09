@@ -81,11 +81,6 @@ ix_max_sse2(const int *ix, const int *end);
 int
 ix_max_avx2(const int *ix, const int *end);
 
-/* Same contract, with the saturation caveat lifted: this one compares full
- * thirty-two-bit values, so it is the exact maximum whatever its size. */
-int
-ix_max_avx512(const int *ix, const int *end);
-
 /* Sums largetbl[] over the region's pairs and reports how many values had to
  * be clamped to 15.  The linbits each clamp costs are the caller's to add:
  * it is the caller that knows the two candidate tables.
@@ -93,10 +88,6 @@ ix_max_avx512(const int *ix, const int *end);
 unsigned int
 count_bit_esc_sse2(const int *ix, const int *end, const uint32_t *largetbl,
                    unsigned int *nclamped);
-
-unsigned int
-count_bit_esc_avx512(const int *ix, const int *end, const uint32_t *largetbl,
-                     unsigned int *nclamped);
 
 /* The ARM form of the same counter, under the same contract.  It is the only
  * ARM routine here: every other one in this header was either already being
@@ -163,28 +154,15 @@ quantize_lines_xrpow_avx512(unsigned int l, FLOAT istep, const FLOAT *xr, int *i
  *  bitstream-identity one.  bw is the band width in values; adj is adj43[] and
  *  pw43 is pow43[].
  *
- *  SSE2 only: an AVX2 tier was measured and added nothing on this routine's
- *  variable-bitrate workload, so it is not carried (the ladder allows one tier).
+ *  SSE2 only, and it is the widest form this routine carries on any
+ *  architecture: neither an AVX2 nor an AVX-512 tier repaid itself here, both
+ *  having been written and measured - see @ref vector_dispatch for the numbers
+ *  and for why the width buys so little on this shape.
  */
 FLOAT
 calc_sfb_noise_x34_sse2(const FLOAT *xr, const FLOAT *xr34, unsigned int bw,
                         FLOAT sfpow, FLOAT sfpow34, const FLOAT *adj,
                         const FLOAT *pw43);
-
-/* Same contract and, by default, the same last bit: the wider form quantizes
- * four blocks at a time but folds their sums in one at a time, in the pinned
- * association, so it computes the value the SSE2 tier and the C code compute.
- * Built with LAME_AVX512_UNSAFE_REDUCTION it reduces freely instead, which is
- * faster and no longer bit-exact - that build exists to measure the difference,
- * not to ship.
- *
- * Reached only when the experiment is switched on; see
- * vector_avx512_sfb_noise_experiment() and @ref vector_dispatch.
- */
-FLOAT
-calc_sfb_noise_x34_avx512(const FLOAT *xr, const FLOAT *xr34, unsigned int bw,
-                          FLOAT sfpow, FLOAT sfpow34, const FLOAT *adj,
-                          const FLOAT *pw43);
 
 
 #endif

@@ -528,10 +528,6 @@ ix_max_v(const int *ix, const int *const end, vector_impl_t impl)
 {
 #if defined( HAVE_SSE2_INTRINSICS )
     if (end - ix >= TABLE_SEARCH_VECTOR_MIN) {
-# if defined( HAVE_AVX512_INTRINSICS )
-        if (impl >= VECTOR_IMPL_AVX512)
-            return ix_max_avx512(ix, end);
-# endif
 # if defined( HAVE_AVX2_INTRINSICS )
         if (impl >= VECTOR_IMPL_AVX2)
             return ix_max_avx2(ix, end);
@@ -564,12 +560,7 @@ count_bit_ESC(const int *ix, const int *const end, int t1, const int t2,
     if (impl >= VECTOR_IMPL_SSE2 && end - ix >= TABLE_SEARCH_VECTOR_MIN) {
         unsigned int nclamped;
 
-# if defined( HAVE_AVX512_INTRINSICS )
-        if (impl >= VECTOR_IMPL_AVX512)
-            sum = count_bit_esc_avx512(ix, end, largetbl, &nclamped);
-        else
-# endif
-            sum = count_bit_esc_sse2(ix, end, largetbl, &nclamped);
+        sum = count_bit_esc_sse2(ix, end, largetbl, &nclamped);
         sum += nclamped * linbits;
     }
     else
@@ -821,19 +812,6 @@ static int
 choose_table_avx2(const int *ix, const int *const end, int *const _s)
 {
     return choose_table_x(ix, end, _s, VECTOR_IMPL_AVX2);
-}
-#endif
-
-#if defined( HAVE_AVX512_INTRINSICS )
-/* Installed only for the experiment - vector_avx512_choose_table_experiment().
-   This wrapper is the only thing that ever passes VECTOR_IMPL_AVX512 down to
-   the table search, so without it the AVX-512 forms of ix_max() and the
-   escape counter cannot be reached from an encode at all, whatever the
-   processor offers. */
-static int
-choose_table_avx512(const int *ix, const int *const end, int *const _s)
-{
-    return choose_table_x(ix, end, _s, VECTOR_IMPL_AVX512);
 }
 #endif
 
@@ -1542,13 +1520,6 @@ huffman_init(lame_internal_flags * const gfc)
 #if defined( HAVE_AVX2_INTRINSICS )
     if (vector_implementation(gfc) >= VECTOR_IMPL_AVX2)
         gfc->choose_table = choose_table_avx2;
-#endif
-#if defined( HAVE_AVX512_INTRINSICS )
-    /* Off unless the experiment is switched on, so the rung above AVX2 keeps
-       the AVX2 table search by default. */
-    if (vector_implementation(gfc) >= VECTOR_IMPL_AVX512
-        && vector_avx512_choose_table_experiment())
-        gfc->choose_table = choose_table_avx512;
 #endif
 #if defined( HAVE_NEON_INTRINSICS )
     if (vector_implementation(gfc) >= VECTOR_IMPL_NEON)

@@ -324,9 +324,6 @@ test_choose_table_vector_LDADD = $(CMOCKA_LIBS) \
 if WITH_AVX2
 test_choose_table_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
 endif
-if WITH_AVX512
-test_choose_table_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
-endif
 
 # Same arrangement for the quantization loop, and for the same reason.
 test_quantize_lines_vector_SOURCES = test_quantize_lines_vector.c
@@ -344,12 +341,9 @@ if WITH_AVX512
 test_quantize_lines_vector_LDADD += $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
 endif
 
-# The VBR scalefactor-band noise gets the same arrangement. Its AVX-512 form is
-# linked and tested although the encoder only reaches it when the experiment is
-# switched on: the test is about whether the routine computes the right value,
-# which is a separate question from whether it is worth running, and the answer
-# to the first has to be known before the second can be asked. See
-# @ref vector_dispatch.
+# The VBR scalefactor-band noise gets the same arrangement, minus the AVX-512
+# library: that routine was measured on hardware that has AVX-512, found to cost
+# time, and removed. See @ref vector_dispatch.
 test_calc_sfb_noise_vector_SOURCES = test_calc_sfb_noise_vector.c
 test_calc_sfb_noise_vector_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/libmp3lame \
@@ -367,8 +361,8 @@ endif
 endif
 
 # The ARM tier carries one routine, so it gets one test program rather than an
-# arm of the x86 file - that one names the SSE2, AVX2 and AVX-512 routines
-# throughout, so there is no shared body to add to.
+# arm of the x86 file - that one names the SSE2 and AVX2 routines throughout, so
+# there is no shared body to add to.
 #
 # OUTSIDE the WITH_XMM block above, which is the whole point: the first version
 # of this sat inside it, so on an ARM host - where WITH_XMM is false - the

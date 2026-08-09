@@ -6,9 +6,11 @@
  * calc_sfb_noise_x34 returns one number - a sum of squared quantization errors -
  * so unlike the quantize_lines test there is no output array to diff, and the
  * sum is a floating-point reduction whose exact last bit depends on association.
- * There is a single vector tier here (SSE2): an AVX2 version was measured and
- * added nothing on the variable-bitrate workload, so it is not carried.  The
- * test checks:
+ * There is a single vector tier here (SSE2).  Both wider ones were written and
+ * measured rather than reasoned away: AVX2 added nothing on the variable-bitrate
+ * workload, and AVX-512 cost about 5 % of a -V 2 encode on the one machine that
+ * could run it, so neither is carried - see @ref vector_dispatch.  The test
+ * checks:
  *
  *   - The SSE2 tier must match a reference to within float rounding.  The
  *     reference accumulates in double, so it is association-independent and
@@ -92,42 +94,6 @@ ref_noise(const FLOAT * xr, const FLOAT * xr34, unsigned int bw, FLOAT sfpow, FL
     return sum;
 }
 
-/**
- * @brief Does the running CPU offer the AVX-512 subsets the tier needs?
- */
-static int
-have_avx512(void)
-{
-#if defined( HAVE_AVX512_INTRINSICS )
-# if defined( __AVX512F__ ) && defined( __AVX512VL__ ) \
-  && defined( __AVX512BW__ ) && defined( __AVX512DQ__ )
-    return 1;
-# elif defined( __GNUC__ ) || defined( __clang__ )
-    return __builtin_cpu_supports("avx512f") != 0
-        && __builtin_cpu_supports("avx512vl") != 0
-        && __builtin_cpu_supports("avx512bw") != 0
-        && __builtin_cpu_supports("avx512dq") != 0;
-# else
-    return 0;
-# endif
-#else
-    return 0;
-#endif
-}
-
-/** @brief The AVX-512 form, or a stand-in where it was not compiled. */
-static FLOAT
-avx512_noise(const FLOAT * xr, const FLOAT * xr34, unsigned int bw,
-             FLOAT sfpow, FLOAT sfpow34)
-{
-#if defined( HAVE_AVX512_INTRINSICS )
-    return calc_sfb_noise_x34_avx512(xr, xr34, bw, sfpow, sfpow34, adj_t, pw43_t);
-#else
-    (void) xr; (void) xr34; (void) bw; (void) sfpow; (void) sfpow34;
-    return 0.0f;
-#endif
-}
-
 /* The vector tiers vs the double reference (within float rounding).  rel
    tolerance is generous: a float sum over up to 576 terms. */
 static void
@@ -138,11 +104,6 @@ check_one(unsigned int bw, FLOAT sfpow, FLOAT sfpow34, const FLOAT * xr, const F
     double const tol = 1e-4 * (r > 0 ? r : 1.0);
 
     assert_true(fabs((double) s - r) <= tol);
-    if (have_avx512()) {
-        FLOAT const w = avx512_noise(xr, xr34, bw, sfpow, sfpow34);
-
-        assert_true(fabs((double) w - r) <= tol);
-    }
 }
 
 static void
@@ -221,45 +182,6 @@ test_reference_can_disagree(LAME_UNUSED void **state)
     }
 }
 
-/**
- * @brief The wider tier's sum is the narrower one's, to the last bit.
- *
- * This is an exact comparison and it is meant to be: the value chooses a
- * scalefactor, so a sum that is merely close enough would move the bitstream.
- * The tolerance-based checks above cannot see that - a re-associated sum still
- * lands well inside them - which is why this test exists separately.
- *
- * It is therefore also the test that fails, by design, in a build configured
- * with LAME_AVX512_UNSAFE_REDUCTION. That build exists to measure what the
- * pinned order costs, and is not a shipping configuration.
- *
- * Lengths cover both sides of the tier's threshold, every remainder against a
- * sixteen-value pass, and the four-value block boundary within it.
- */
-static void
-test_matches_sse2_exactly(LAME_UNUSED void **state)
-{
-    FLOAT xr[MAX_BW + 8], xr34[MAX_BW + 8];
-    unsigned int bw;
-
-    if (!have_avx512())
-        return;
-
-    fill(xr, xr34);
-    for (bw = 0; bw <= 200; ++bw) {
-        FLOAT const a = calc_sfb_noise_x34_sse2(xr, xr34, bw, 0.85f, 1.9f, adj_t, pw43_t);
-        FLOAT const b = avx512_noise(xr, xr34, bw, 0.85f, 1.9f);
-
-        assert_true(a == b);
-    }
-    for (bw = MAX_BW - 3; bw <= MAX_BW; ++bw) {
-        FLOAT const a = calc_sfb_noise_x34_sse2(xr, xr34, bw, 0.85f, 1.9f, adj_t, pw43_t);
-        FLOAT const b = avx512_noise(xr, xr34, bw, 0.85f, 1.9f);
-
-        assert_true(a == b);
-    }
-}
-
 int
 main(void)
 {
@@ -268,7 +190,6 @@ main(void)
         cmocka_unit_test(test_index_boundaries),
         cmocka_unit_test(test_all_zero),
         cmocka_unit_test(test_reference_can_disagree),
-        cmocka_unit_test(test_matches_sse2_exactly),
     };
     tables_init();
     return cmocka_run_group_tests(tests, NULL, NULL);

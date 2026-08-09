@@ -1041,85 +1041,6 @@ has_NEON(void)
 }
 
 /** @internal
- * Whether the experimental AVX-512 Huffman table search is switched on.
- *
- * Temporary, and deliberately shaped so that it costs nothing to carry and
- * nothing to remove.  The routines exist and are unit-tested; what has never
- * happened is a measurement of them inside an encode, because no machine the
- * project can reach has AVX-512.  Rather than enable them on the strength of a
- * number that came from a different kernel, they are compiled in unconditionally
- * and dispatched only when someone deliberately asks:
- *
- *   - the build must be an alpha, so no release ever takes this path, and
- *   - LAME_AVX512_CHOOSE_TABLE must be set to something other than 0.
- *
- * Both conditions, and the second one alone would not do: an environment
- * variable that changes a released encoder's output is a support problem.
- * Once there are numbers this becomes either a plain dispatch or a deletion,
- * and either way the whole experiment is the read in vector_impl_init(), these
- * two predicates and their callers - the variable's own name finds every part.
- *
- * The environment is consulted once per encode, not once per query, so setting
- * the variable after the encoder has been initialised has no effect.
- *
- * @return nonzero if the experimental path should be used.
- */
-#if defined( HAVE_AVX512_INTRINSICS ) && LAME_ALPHA_VERSION
-/* Set, not empty, and not the single character "0".  Inside the same guard as
-   its callers so that a build without the experiments has no unused static. */
-static int
-env_switch_on(const char *name)
-{
-    const char *const v = getenv(name);
-
-    return v != 0 && v[0] != '\0' && !(v[0] == '0' && v[1] == '\0');
-}
-
-/* What the environment said, read once by vector_impl_init().  One of the two
-   is consulted from the scalefactor-band loop, which runs millions of times in
-   a variable-bitrate encode, and an unset variable costs a walk of the whole
-   environment block on every one of them.  An experiment that is answered at
-   the start of an encode has no business being asked again inside it. */
-static int avx512_choose_table_on = 0;
-static int avx512_sfb_noise_on = 0;
-#endif
-
-int
-vector_avx512_choose_table_experiment(void)
-{
-#if defined( HAVE_AVX512_INTRINSICS ) && LAME_ALPHA_VERSION
-    return avx512_choose_table_on;
-#else
-    return 0;
-#endif
-}
-
-/** @internal
- * Whether the experimental AVX-512 scalefactor-band noise estimate is switched
- * on.  The second half of the same experiment, under the same two conditions
- * and one more variable - see @ref vector_dispatch.
- *
- * This one is a re-run of a decision rather than a first measurement: the
- * routine was written, measured at 6.6% slower than the narrower code on a
- * variable-bitrate encode, and dropped.  What that measurement could not
- * account for is that it was taken with nothing else in the encode executing
- * 512-bit instructions, because the table-search kernels above were unreachable
- * at the time.  Whether the two together behave like the sum of their parts is
- * the question the pair of switches exists to answer.
- *
- * @return nonzero if the experimental routine should be used.
- */
-int
-vector_avx512_sfb_noise_experiment(void)
-{
-#if defined( HAVE_AVX512_INTRINSICS ) && LAME_ALPHA_VERSION
-    return avx512_sfb_noise_on;
-#else
-    return 0;
-#endif
-}
-
-/** @internal
  * The one table.  Every question about vector routines is answered from it -
  * how many this build carries, what they are called, whether a name is one of
  * them, whether this CPU can run it, and which one an encode ends up using.
@@ -1264,20 +1185,11 @@ vector_impl_supported(vector_impl_t impl)
  * deprecated asm_optimizations mask still allows - which is exactly what this
  * library did before the selection existed, and has to stay so, because the
  * encoder's output must not depend on which of the two APIs a caller used.
- *
- * The experiment switches are read here too, for the same reason and at the
- * same moment: they are settings of the run, so an encode asks the environment
- * once and then asks these variables.
  */
 void
 vector_impl_init(lame_internal_flags * gfc, int request)
 {
     int     i;
-
-#if defined( HAVE_AVX512_INTRINSICS ) && LAME_ALPHA_VERSION
-    avx512_choose_table_on = env_switch_on("LAME_AVX512_CHOOSE_TABLE");
-    avx512_sfb_noise_on = env_switch_on("LAME_AVX512_SFB_NOISE");
-#endif
 
     if (request != VECTOR_IMPL_AUTO) {
         gfc->vector_impl = (vector_impl_t) request;

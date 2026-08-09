@@ -222,18 +222,25 @@ k_34_4(DOUBLEX x[4], int l3[4])
  * back their cost.  Taken from that histogram, not tuned.
  */
 #define CALC_SFB_NOISE_VECTOR_MIN      8
-/* One full pass of the wider tier.  Below this the masked form has nothing to
-   win over the narrower one and still pays to enter the wide registers. */
-#define CALC_SFB_NOISE_VECTOR_MIN_AVX512 16
 
 /** @internal
- * Only an SSE2 tier: an AVX2 version was written and measured, and it adds
- * nothing on the variable-bitrate encode this routine serves (the gain would be
- * the eight-wide gather, but hardware gather is no faster than the SSE2 manual
- * gather on the tested cores, and the reduction is done a four-block at a time
- * for cross-CPU output stability, so the wider vector never accumulates).  The
- * capability ladder permits a routine to exist at one tier only, and this is
- * that case; see @ref vector_dispatch.
+ * Only an SSE2 tier, and both wider ones were tried rather than assumed away.
+ *
+ * An AVX2 version was written and measured, and it adds nothing on the
+ * variable-bitrate encode this routine serves (the gain would be the eight-wide
+ * gather, but hardware gather is no faster than the SSE2 manual gather on the
+ * tested cores, and the reduction is done a four-block at a time for cross-CPU
+ * output stability, so the wider vector never accumulates).
+ *
+ * An AVX-512 version was written too, kept behind a switch until it could be
+ * measured on silicon that has AVX-512, and **removed once it was**: it costs
+ * about 5 % of a `-V 2` encode on Ice Lake and is at the noise floor on Zen 4.
+ * The same reduction pin is why - the width doubles again and the fold does
+ * not, so all the extra lanes buy is the cost of entering them.  Numbers and
+ * method: @ref vector_dispatch.
+ *
+ * The capability ladder permits a routine to exist at one tier only, and this
+ * is that case.
  */
 static  FLOAT
 calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, unsigned int bw, uint8_t sf,
@@ -252,14 +259,6 @@ calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, unsigned int bw, uint8_
 #if !TAKEHIRO_IEEE754_HACK
 #if defined( HAVE_SSE2_INTRINSICS )
     if (impl >= VECTOR_IMPL_SSE2 && bw >= CALC_SFB_NOISE_VECTOR_MIN) {
-# if defined( HAVE_AVX512_INTRINSICS )
-        /* Off unless the experiment is switched on: this routine was measured
-           slower than the narrower one and dropped, and it is back only to be
-           measured again alongside the table search. */
-        if (impl >= VECTOR_IMPL_AVX512 && bw >= CALC_SFB_NOISE_VECTOR_MIN_AVX512
-            && vector_avx512_sfb_noise_experiment())
-            return calc_sfb_noise_x34_avx512(xr, xr34, bw, sfpow, sfpow34, adj43, pow43);
-# endif
         return calc_sfb_noise_x34_sse2(xr, xr34, bw, sfpow, sfpow34, adj43, pow43);
     }
 #endif
