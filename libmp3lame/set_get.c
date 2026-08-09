@@ -109,6 +109,17 @@ lame_get_num_samples(const lame_global_flags * gfp)
   necessarily the rate written into the stream. If it differs from the output
   rate (\c lame_set_out_samplerate()), LAME resamples.
 
+  **The input rate is not preserved in the MP3.** A frame names its own
+  sampling frequency from the fixed set the format defines - the table under
+  \c lame_set_out_samplerate() lists them - so the stream records the rate LAME
+  encoded at and nothing else. Whatever rate the input arrived at, a decoder
+  reports the output rate, and the original cannot be recovered from the file:
+  there is no field for it. High-rate material is resampled down and encoded as
+  an ordinary MP3, not carried through.
+
+  There is no upper limit here beyond the parameter's own type. Rates far above
+  anything the output formats allow are accepted and resampled.
+
   \param gfp             the encoder instance.
   \param in_samplerate   input sample rate in Hz. Any positive value is
                          accepted here - whether it can be encoded is settled
