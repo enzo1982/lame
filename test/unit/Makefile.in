@@ -111,6 +111,7 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_help_exit$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_bitstream_headers$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_free_format$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_encode_api$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_1) $(am__EXEEXT_2) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_3)
 
@@ -193,6 +194,12 @@ am__test_decoder_api_SOURCES_DIST = test_decoder_api.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_decoder_api_OBJECTS = test_decoder_api-test_decoder_api.$(OBJEXT)
 test_decoder_api_OBJECTS = $(am_test_decoder_api_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@test_decoder_api_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+am__test_encode_api_SOURCES_DIST = test_encode_api.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_encode_api_OBJECTS = test_encode_api-test_encode_api.$(OBJEXT)
+test_encode_api_OBJECTS = $(am_test_encode_api_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_encode_api_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 am__test_encode_clipgain_SOURCES_DIST = test_encode_clipgain.c
@@ -376,6 +383,7 @@ am__depfiles_remade =  \
 	./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po \
 	./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po \
 	./$(DEPDIR)/test_decoder_api-test_decoder_api.Po \
+	./$(DEPDIR)/test_encode_api-test_encode_api.Po \
 	./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po \
 	./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po \
 	./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po \
@@ -426,7 +434,8 @@ SOURCES = $(test_bitstream_headers_SOURCES) \
 	$(test_calc_sfb_noise_vector_SOURCES) \
 	$(test_choose_table_neon_SOURCES) \
 	$(test_choose_table_vector_SOURCES) \
-	$(test_decoder_api_SOURCES) $(test_encode_clipgain_SOURCES) \
+	$(test_decoder_api_SOURCES) $(test_encode_api_SOURCES) \
+	$(test_encode_clipgain_SOURCES) \
 	$(test_encode_mono_interleaved_SOURCES) \
 	$(test_encode_nonfinite_SOURCES) $(test_free_format_SOURCES) \
 	$(test_get_audio_aiff_SOURCES) $(test_get_audio_wav_SOURCES) \
@@ -443,6 +452,7 @@ DIST_SOURCES = $(am__test_bitstream_headers_SOURCES_DIST) \
 	$(am__test_choose_table_neon_SOURCES_DIST) \
 	$(am__test_choose_table_vector_SOURCES_DIST) \
 	$(am__test_decoder_api_SOURCES_DIST) \
+	$(am__test_encode_api_SOURCES_DIST) \
 	$(am__test_encode_clipgain_SOURCES_DIST) \
 	$(am__test_encode_mono_interleaved_SOURCES_DIST) \
 	$(am__test_encode_nonfinite_SOURCES_DIST) \
@@ -1055,6 +1065,21 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
 
+# The encode entry points, the statistics, the LAME tag and the reporting calls
+# are all public, so this test links libmp3lame and calls them directly - no
+# frontend translation unit compiled in. It is the slowest test in the suite by
+# some way: proving the four integer entry points agree means encoding the same
+# audio five times over, and there is no shortcut that still compares streams.
+@ENABLE_UNIT_TESTS_TRUE@test_encode_api_SOURCES = test_encode_api.c
+@ENABLE_UNIT_TESTS_TRUE@test_encode_api_CPPFLAGS = $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_encode_api_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
+
 # lame_get_totalframes() is public, so this test links libmp3lame and calls it
 # directly - no frontend translation unit compiled in.
 @ENABLE_UNIT_TESTS_TRUE@test_totalframes_SOURCES = test_totalframes.c
@@ -1310,6 +1335,10 @@ test_decoder_api$(EXEEXT): $(test_decoder_api_OBJECTS) $(test_decoder_api_DEPEND
 	@rm -f test_decoder_api$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_decoder_api_OBJECTS) $(test_decoder_api_LDADD) $(LIBS)
 
+test_encode_api$(EXEEXT): $(test_encode_api_OBJECTS) $(test_encode_api_DEPENDENCIES) $(EXTRA_test_encode_api_DEPENDENCIES) 
+	@rm -f test_encode_api$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_encode_api_OBJECTS) $(test_encode_api_LDADD) $(LIBS)
+
 test_encode_clipgain$(EXEEXT): $(test_encode_clipgain_OBJECTS) $(test_encode_clipgain_DEPENDENCIES) $(EXTRA_test_encode_clipgain_DEPENDENCIES) 
 	@rm -f test_encode_clipgain$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_encode_clipgain_OBJECTS) $(test_encode_clipgain_LDADD) $(LIBS)
@@ -1401,6 +1430,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_decoder_api-test_decoder_api.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_api-test_encode_api.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po@am__quote@ # am--include-marker
@@ -1525,6 +1555,20 @@ test_decoder_api-test_decoder_api.obj: test_decoder_api.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_decoder_api.c' object='test_decoder_api-test_decoder_api.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_decoder_api_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_decoder_api-test_decoder_api.obj `if test -f 'test_decoder_api.c'; then $(CYGPATH_W) 'test_decoder_api.c'; else $(CYGPATH_W) '$(srcdir)/test_decoder_api.c'; fi`
+
+test_encode_api-test_encode_api.o: test_encode_api.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_api_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_encode_api-test_encode_api.o -MD -MP -MF $(DEPDIR)/test_encode_api-test_encode_api.Tpo -c -o test_encode_api-test_encode_api.o `test -f 'test_encode_api.c' || echo '$(srcdir)/'`test_encode_api.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_encode_api-test_encode_api.Tpo $(DEPDIR)/test_encode_api-test_encode_api.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_encode_api.c' object='test_encode_api-test_encode_api.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_api_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_encode_api-test_encode_api.o `test -f 'test_encode_api.c' || echo '$(srcdir)/'`test_encode_api.c
+
+test_encode_api-test_encode_api.obj: test_encode_api.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_api_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_encode_api-test_encode_api.obj -MD -MP -MF $(DEPDIR)/test_encode_api-test_encode_api.Tpo -c -o test_encode_api-test_encode_api.obj `if test -f 'test_encode_api.c'; then $(CYGPATH_W) 'test_encode_api.c'; else $(CYGPATH_W) '$(srcdir)/test_encode_api.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_encode_api-test_encode_api.Tpo $(DEPDIR)/test_encode_api-test_encode_api.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_encode_api.c' object='test_encode_api-test_encode_api.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_api_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_encode_api-test_encode_api.obj `if test -f 'test_encode_api.c'; then $(CYGPATH_W) 'test_encode_api.c'; else $(CYGPATH_W) '$(srcdir)/test_encode_api.c'; fi`
 
 test_encode_clipgain-test_encode_clipgain.o: test_encode_clipgain.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_clipgain_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_encode_clipgain-test_encode_clipgain.o -MD -MP -MF $(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Tpo -c -o test_encode_clipgain-test_encode_clipgain.o `test -f 'test_encode_clipgain.c' || echo '$(srcdir)/'`test_encode_clipgain.c
@@ -2268,6 +2312,13 @@ test_free_format.log: test_free_format$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_encode_api.log: test_encode_api$(EXEEXT)
+	@p='test_encode_api$(EXEEXT)'; \
+	b='test_encode_api'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 test_choose_table_vector.log: test_choose_table_vector$(EXEEXT)
 	@p='test_choose_table_vector$(EXEEXT)'; \
 	b='test_choose_table_vector'; \
@@ -2401,6 +2452,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po
 	-rm -f ./$(DEPDIR)/test_decoder_api-test_decoder_api.Po
+	-rm -f ./$(DEPDIR)/test_encode_api-test_encode_api.Po
 	-rm -f ./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po
 	-rm -f ./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po
 	-rm -f ./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po
@@ -2478,6 +2530,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po
 	-rm -f ./$(DEPDIR)/test_decoder_api-test_decoder_api.Po
+	-rm -f ./$(DEPDIR)/test_encode_api-test_encode_api.Po
 	-rm -f ./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po
 	-rm -f ./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po
 	-rm -f ./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po

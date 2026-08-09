@@ -13,7 +13,7 @@ check_PROGRAMS = test_sanity test_get_audio_aiff test_get_audio_wav \
 	test_totalframes test_set_get test_lib_info test_vector_routines \
 	test_vector_ladder test_decoder_api test_encode_clipgain \
 	test_huffman_tables test_help_exit test_bitstream_headers \
-	test_free_format
+	test_free_format test_encode_api
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -196,6 +196,19 @@ test_free_format_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_free_format_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The encode entry points, the statistics, the LAME tag and the reporting calls
+# are all public, so this test links libmp3lame and calls them directly - no
+# frontend translation unit compiled in. It is the slowest test in the suite by
+# some way: proving the four integer entry points agree means encoding the same
+# audio five times over, and there is no shortcut that still compares streams.
+test_encode_api_SOURCES = test_encode_api.c
+test_encode_api_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_encode_api_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 
