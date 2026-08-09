@@ -7,7 +7,8 @@ include $(top_srcdir)/Makefile.am.global
 # "make" / "make check" behaves exactly as it did before the harness existed.
 if ENABLE_UNIT_TESTS
 
-check_PROGRAMS = test_sanity test_get_audio_aiff test_parse_pathlen test_merge_argv \
+check_PROGRAMS = test_sanity test_get_audio_aiff test_get_audio_wav \
+	test_parse_pathlen test_merge_argv \
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
 	test_totalframes test_set_get test_lib_info test_vector_routines \
 	test_vector_ladder test_decoder_api test_encode_clipgain \
@@ -67,6 +68,19 @@ test_get_audio_aiff_LDFLAGS = -Wl,--wrap=fread
 # empty for the default backend, so this costs nothing there. The compile side
 # already works, because SNDFILE_CFLAGS reaches every target through INCLUDES.
 test_get_audio_aiff_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	$(SNDFILE_LIBS)
+
+# The WAVE header parser is static in the same file, so the same arrangement
+# applies - minus the fread wrapper, which exists for an AIFF chunk loop this
+# parser does not have.
+test_get_audio_wav_SOURCES = test_get_audio_wav.c test_stubs.c
+test_get_audio_wav_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/frontend \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_get_audio_wav_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	$(SNDFILE_LIBS)
 

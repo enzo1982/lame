@@ -1586,7 +1586,19 @@ parse_wave_header(lame_global_flags * gfp, FILE * sf)
         /* make sure the header is sane */
         if (!set_input_num_channels(gfp, ui16_nChannels))
             return 0;
-        if (!set_input_samplerate(gfp, ui32_nSamplesPerSec))
+        /* The header carries the rate as 32 unsigned bits and the encoder
+           takes it as an int, so the upper half of that range cannot be
+           passed on at all. Refuse it here, while the declared value is
+           still intact: converting first and letting the "not below 1"
+           check catch the result reports a negative rate that appears
+           nowhere in the file. */
+        if (ui32_nSamplesPerSec > (uint32_t) INT_MAX) {
+            if (global_ui_config.silent < 10)
+                error_printf("Unsupported sample rate: %u\n",
+                             (unsigned int) ui32_nSamplesPerSec);
+            return -1;
+        }
+        if (!set_input_samplerate(gfp, (int) ui32_nSamplesPerSec))
             return 0;
         /* avoid division by zero */
         if (ui16_wBitsPerSample < 1) {
