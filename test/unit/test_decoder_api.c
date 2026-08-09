@@ -462,16 +462,22 @@ test_headersB_reports_the_tags_delay_and_padding(LAME_UNUSED void **state)
 }
 
 /**
- * @brief hip_decode1_headersB() refuses a handle it was not given.
+ * @brief Every decoding entry point refuses a handle it was not given.
  *
- * The header states its return is -1 on an error including a NULL handle, and
- * that a caller who did not check hip_decode_init() meets the failure at the
- * first decode instead. This is the entry point that keeps that promise, and
- * the one an unchecked caller is most likely to be holding, since it is the
- * one with the delay and padding.
+ * hip_decode_init() returns NULL where the library has no decoder, and its
+ * documentation tells callers that checking the result is enough - because a
+ * caller who skips the check meets the same absence at the first decode
+ * instead, as an error. All five have to answer -1 for that to be true, and it
+ * has to be true in both builds: the entry points are exported whether or not
+ * there is a decoder behind them.
+ *
+ * This is a case where the test can only be written once the library is right.
+ * Four of the five used to dereference the handle here, and a unit test that
+ * segfaults does not fail - it ends the run and takes every test after it,
+ * which is a suite outage rather than a red result.
  */
 static void
-test_headersB_refuses_a_null_handle(LAME_UNUSED void **state)
+test_decode_calls_refuse_a_null_handle(LAME_UNUSED void **state)
 {
     short   pcm_l[FRAME], pcm_r[FRAME];
     unsigned char buf[64];
@@ -480,8 +486,15 @@ test_headersB_refuses_a_null_handle(LAME_UNUSED void **state)
 
     memset(buf, 0, sizeof(buf));
     memset(&mp3data, 0, sizeof(mp3data));
+
     assert_int_equal(hip_decode1_headersB(NULL, buf, sizeof(buf), pcm_l, pcm_r,
                                           &mp3data, &enc_delay, &enc_padding), -1);
+    assert_int_equal(hip_decode1_headers(NULL, buf, sizeof(buf), pcm_l, pcm_r,
+                                         &mp3data), -1);
+    assert_int_equal(hip_decode1(NULL, buf, sizeof(buf), pcm_l, pcm_r), -1);
+    assert_int_equal(hip_decode_headers(NULL, buf, sizeof(buf), pcm_l, pcm_r,
+                                        &mp3data), -1);
+    assert_int_equal(hip_decode(NULL, buf, sizeof(buf), pcm_l, pcm_r), -1);
 }
 
 /**
@@ -597,7 +610,7 @@ main(void)
         cmocka_unit_test(test_decode1_headers_round_trip),
         cmocka_unit_test(test_decode_matches_the_piecewise_total),
         cmocka_unit_test(test_headersB_reports_the_tags_delay_and_padding),
-        cmocka_unit_test(test_headersB_refuses_a_null_handle),
+        cmocka_unit_test(test_decode_calls_refuse_a_null_handle),
         cmocka_unit_test(test_gapless_handle_decodes),
         cmocka_unit_test(test_obsolete_decoders_are_inert),
     };

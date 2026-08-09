@@ -385,6 +385,16 @@ int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
     int samples = 0;
     int want_enc = unclipped ? MPG123_ENC_FLOAT_32 : MPG123_ENC_SIGNED_16;
 
+    /* Every decoding entry point arrives here, and hip_decode_init() hands back
+       NULL where there is no decoder to give - so a caller who did not check
+       that result reaches this with nothing. The answer they are promised is an
+       error from the decode; without this it is a dereference of hip->mh below.
+       hip_decode1_headersB() asks the same question at its own level, which is
+       where it has to be asked in a build with no libmpg123, since none of this
+       is compiled then. */
+    if(!hip)
+        return -1;
+
     if(MPG123_OK != mpg123_feed(hip->mh, buffer, len))
         return -1;
     ret = mpg123_getformat(hip->mh, &rate, &channels, &encoding);
@@ -576,7 +586,7 @@ hip_decode1_headers(hip_t hip, unsigned char *buffer,
   \param pcm_r   receives the right channel, on the same terms. Written only
                  for a stereo stream.
   \return the number of samples per channel written, 0 if more input is
-          needed first, or -1 on an error.
+          needed first, or -1 on an error - including a NULL \a hip.
 */
 int
 hip_decode1(hip_t hip, unsigned char *buffer, size_t len, short pcm_l[], short pcm_r[])
@@ -606,7 +616,7 @@ hip_decode1(hip_t hip, unsigned char *buffer, size_t len, short pcm_l[], short p
   \param pcm_r    receives the right channel.
   \param mp3data  receives the description of the last frame decoded.
   \return the total number of samples per channel written, 0 if more input is
-          needed, or -1 on an error.
+          needed, or -1 on an error - including a NULL \a hip.
 */
 int
 hip_decode_headers(hip_t hip, unsigned char *buffer,
@@ -648,7 +658,7 @@ hip_decode_headers(hip_t hip, unsigned char *buffer,
                  frames in \a buffer.
   \param pcm_r   receives the right channel, on the same terms.
   \return the total number of samples per channel written, 0 if more input is
-          needed, or -1 on an error.
+          needed, or -1 on an error - including a NULL \a hip.
 */
 int
 hip_decode(hip_t hip, unsigned char *buffer, size_t len, short pcm_l[], short pcm_r[])
