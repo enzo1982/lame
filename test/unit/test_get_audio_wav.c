@@ -91,7 +91,7 @@ put_le32(unsigned char *p, uint32_t v)
  * @brief A minimal well-formed 16-bit stereo WAVE, from just past "RIFF".
  *
  * Post-"RIFF" bytes: size + "WAVE" + "fmt " + cksize + 16 bytes of fmt +
- * "data" + size = 36 bytes. Identifiers are big-endian on disk, numeric
+ * "data" + size = 40 bytes. Identifiers are big-endian on disk, numeric
  * fields little-endian, which is what the reader expects.
  */
 static const unsigned char valid_wav[] = {
@@ -274,6 +274,165 @@ test_zero_sample_rate_rejected(void **state)
     fclose(sf);
 }
 
+/* --- bits per sample --------------------------------------------------- */
+
+/** @brief Offset of wFormatTag within ::valid_wav. */
+#define WAV_FORMAT_OFFSET 16
+/** @brief Offset of wBitsPerSample within ::valid_wav. */
+#define WAV_BITS_OFFSET 30
+
+/** @brief One (format tag, sample width) pair to feed the parser. */
+struct wav_width_case {
+    uint16_t    tag;    /**< the format tag to declare */
+    uint16_t    bits;   /**< the sample width to declare */
+    char const *what;   /**< how to name it in a failure message */
+};
+
+/** @brief Writes @p v into @p p as 2 little-endian bytes (WAVE field order). */
+static void
+put_le16(unsigned char *p, uint16_t v)
+{
+    p[0] = (unsigned char) (v);
+    p[1] = (unsigned char) (v >> 8);
+}
+
+/**
+ * @brief Builds ::valid_wav with the format tag and sample width replaced.
+ * @param hdr  destination, ::valid_wav sized.
+ * @param tag  the format tag to declare.
+ * @param bits the sample width to declare.
+ */
+static void
+build_wav_with_format(unsigned char *hdr, uint16_t tag, uint16_t bits)
+{
+    memcpy(hdr, valid_wav, sizeof valid_wav);
+    put_le16(hdr + WAV_FORMAT_OFFSET, tag);
+    put_le16(hdr + WAV_BITS_OFFSET, bits);
+}
+
+/**
+ * @brief The widths the sample reader implements must be accepted.
+ *
+ * These are the four the unpacker has cases for, plus 32-bit float, which it
+ * reads through the same path and converts. Pinning them stops the allow-list
+ * from being tightened past what the reader can actually do.
+ *
+ * @param state fixture state holding an initialised @c lame_t.
+ */
+static void
+test_supported_sample_widths_accepted(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    static const struct {
+        uint16_t tag;
+        uint16_t bits;
+    } cases[] = {
+        { WAVE_FORMAT_PCM,        8 },
+        { WAVE_FORMAT_PCM,       16 },
+        { WAVE_FORMAT_PCM,       24 },
+        { WAVE_FORMAT_PCM,       32 },
+        { WAVE_FORMAT_IEEE_FLOAT, 32 }
+    };
+    size_t  i;
+
+    /* the fields have not moved out from under this test */
+    assert_int_equal(valid_wav[WAV_FORMAT_OFFSET], WAVE_FORMAT_PCM);
+    assert_int_equal(valid_wav[WAV_BITS_OFFSET], 16);
+
+    for (i = 0; i < sizeof cases / sizeof cases[0]; ++i) {
+        unsigned char hdr[sizeof valid_wav];
+        FILE   *sf;
+        int     r;
+
+        build_wav_with_format(hdr, cases[i].tag, cases[i].bits);
+        sf = wav_stream(hdr, sizeof hdr);
+        r = parse_wave_header(gfp, sf);
+        if (r != 1) {
+            fail_msg("format 0x%04X at %u bits was refused (returned %d)",
+                     (unsigned int) cases[i].tag, (unsigned int) cases[i].bits, r);
+        }
+        fclose(sf);
+    }
+}
+
+/**
+ * @brief Runs a table of (format, width) pairs and requires each to be refused.
+ * @param gfp   the encoder instance.
+ * @param cases the table.
+ * @param n     entries in @p cases.
+ */
+static void
+expect_widths_rejected(lame_t gfp, const struct wav_width_case *cases, size_t n)
+{
+    size_t i;
+
+    for (i = 0; i < n; ++i) {
+        unsigned char hdr[sizeof valid_wav];
+        FILE   *sf;
+        int     r;
+
+        build_wav_with_format(hdr, cases[i].tag, cases[i].bits);
+        sf = wav_stream(hdr, sizeof hdr);
+        r = parse_wave_header(gfp, sf);
+        if (r != -1) {
+            fail_msg("%s (format 0x%04X, %u bits) was accepted (returned %d)",
+                     cases[i].what, (unsigned int) cases[i].tag,
+                     (unsigned int) cases[i].bits, r);
+        }
+        fclose(sf);
+    }
+}
+
+/**
+ * @brief An integer width the unpacker has no case for must be refused here.
+ *
+ * These would otherwise reach the unpacker and be refused there, one buffer
+ * later, by a message naming neither the header nor the field.
+ *
+ * Kept separate from the floating point widths below on purpose. A single test
+ * covering both stops at its first failure, so when it is run against a build
+ * without the allow-list it only ever demonstrates the integer half - and the
+ * floating point half is the one worth demonstrating.
+ *
+ * @param state fixture state holding an initialised @c lame_t.
+ */
+static void
+test_unsupported_integer_widths_rejected(void **state)
+{
+    static const struct wav_width_case cases[] = {
+        { WAVE_FORMAT_PCM,     0, "zero" },
+        { WAVE_FORMAT_PCM,     3, "3 bit" },
+        { WAVE_FORMAT_PCM,    12, "12 bit" },
+        { WAVE_FORMAT_PCM,    64, "64 bit integer" },
+        { WAVE_FORMAT_PCM, 65535, "the whole field" }
+    };
+    expect_widths_rejected((lame_t) *state, cases,
+                           sizeof cases / sizeof cases[0]);
+}
+
+/**
+ * @brief A floating point width other than 32 must be refused by the header.
+ *
+ * This is the case with teeth. Such a file was unpacked as integers of the
+ * declared width and the resulting buffer then reinterpreted as 32-bit floats,
+ * so it produced noise rather than an error - nothing along the way had any
+ * reason to complain.
+ *
+ * @param state fixture state holding an initialised @c lame_t.
+ */
+static void
+test_unsupported_float_widths_rejected(void **state)
+{
+    static const struct wav_width_case cases[] = {
+        { WAVE_FORMAT_IEEE_FLOAT,  8, "8 bit float" },
+        { WAVE_FORMAT_IEEE_FLOAT, 16, "16 bit float" },
+        { WAVE_FORMAT_IEEE_FLOAT, 24, "24 bit float" },
+        { WAVE_FORMAT_IEEE_FLOAT, 64, "64 bit float" }
+    };
+    expect_widths_rejected((lame_t) *state, cases,
+                           sizeof cases / sizeof cases[0]);
+}
+
 /* --- fixture ----------------------------------------------------------- */
 
 /** @brief Per-test fixture: creates a @c lame_t into @p state. */
@@ -312,6 +471,12 @@ main(void)
         cmocka_unit_test_setup_teardown(test_unrepresentable_sample_rate_rejected,
                                         setup_lame, teardown_lame),
         cmocka_unit_test_setup_teardown(test_zero_sample_rate_rejected,
+                                        setup_lame, teardown_lame),
+        cmocka_unit_test_setup_teardown(test_supported_sample_widths_accepted,
+                                        setup_lame, teardown_lame),
+        cmocka_unit_test_setup_teardown(test_unsupported_integer_widths_rejected,
+                                        setup_lame, teardown_lame),
+        cmocka_unit_test_setup_teardown(test_unsupported_float_widths_rejected,
                                         setup_lame, teardown_lame),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);

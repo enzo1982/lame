@@ -1600,11 +1600,27 @@ parse_wave_header(lame_global_flags * gfp, FILE * sf)
         }
         if (!set_input_samplerate(gfp, (int) ui32_nSamplesPerSec))
             return 0;
-        /* avoid division by zero */
-        if (ui16_wBitsPerSample < 1) {
-            if (global_ui_config.silent < 10)
-                error_printf("Unsupported bits per sample: %d\n", ui16_wBitsPerSample);
-            return -1;
+        /* The reader unpacks 8, 16, 24 and 32 bit integer samples, and reads
+           floating point ones as 32 bit; no other width can be turned into
+           audio. Deciding that here rather than at the first read names the
+           field that is wrong while the header is still in view, and it keeps
+           a floating point file of some other width from being unpacked as
+           integers and then reinterpreted as floats, which produces noise
+           rather than an error. The sibling AIFF reader has enumerated its
+           accepted widths all along. */
+        {
+            int     width_ok;
+
+            if (ui16_wFormatTag == WAVE_FORMAT_IEEE_FLOAT)
+                width_ok = (ui16_wBitsPerSample == 32);
+            else
+                width_ok = (ui16_wBitsPerSample == 8 || ui16_wBitsPerSample == 16
+                            || ui16_wBitsPerSample == 24 || ui16_wBitsPerSample == 32);
+            if (!width_ok) {
+                if (global_ui_config.silent < 10)
+                    error_printf("Unsupported bits per sample: %d\n", ui16_wBitsPerSample);
+                return -1;
+            }
         }
         global. pcmbitwidth = ui16_wBitsPerSample;
         global. pcm_is_unsigned_8bit = 1;
