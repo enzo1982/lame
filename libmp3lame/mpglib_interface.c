@@ -497,14 +497,21 @@ int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
             mp3data->bitrate = fi.bitrate;
         }
     }
+    /* A call that fails leaves val as it found it, so it has to be asked
+       whether it answered - otherwise the figure handed back is whatever was
+       on the stack, and it would be handed back as a sample count the caller
+       trims audio by. -1 is what the callers already read as "not available",
+       which is also what this reports for a stream that never carried it. */
     if(enc_delay) {
         long val;
-        mpg123_getstate(hip->mh, MPG123_ENC_DELAY, &val, NULL);
+        if(MPG123_OK != mpg123_getstate(hip->mh, MPG123_ENC_DELAY, &val, NULL))
+            val = -1;
         *enc_delay = val > INT_MAX ? -1 : val;
     }
     if(enc_padding) {
         long val;
-        mpg123_getstate(hip->mh, MPG123_ENC_PADDING, &val, NULL);
+        if(MPG123_OK != mpg123_getstate(hip->mh, MPG123_ENC_PADDING, &val, NULL))
+            val = -1;
         *enc_padding = val > INT_MAX ? -1 : val;
     }
     if(hip->pinfo)
@@ -685,8 +692,12 @@ hip_decode(hip_t hip, unsigned char *buffer, size_t len, short pcm_l[], short pc
                       required.
   \param pcm_r        receives the right channel, on the same terms.
   \param mp3data      receives the frame description.
-  \param enc_delay    receives the encoder delay in samples, or -1 if the
-                      figure does not fit an \c int.
+  \param enc_delay    receives the encoder delay in samples, or **-1 if the
+                      figure is not available**. The two figures are carried by
+                      the LAME tag, so a stream without one reports -1 for both
+                      and there is nothing to undo; that is the ordinary case,
+                      not an error. A value too large for an \c int reports -1
+                      as well, since a caller can do nothing with either.
   \param enc_padding  receives the trailing padding in samples, on the same
                       terms.
   \return the number of samples per channel written, 0 if more input is
