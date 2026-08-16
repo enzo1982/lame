@@ -182,7 +182,7 @@ test_smart_ratio_round_trip(void)
                "the fractional part survives being read");
 
     printf("the same ratio written back out by the codec and read again\n");
-    first.SaveValuesToStringKey("Current");
+    first.ParamsSave();
     AEncodeProperties second(NULL);
     second.ParamsRestore();
     CHECK_EQ_D(second.GetSmartRatio(), wanted, 0.0001,
@@ -267,6 +267,56 @@ test_malformed_config(void)
            than skipped. */
         CHECK_EQ_D(props.GetSmartRatio(), ACM_DEFAULT_SMART_RATIO, 0.0001,
                    cases[i].what);
+    }
+
+    ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Saving works with no configuration file to start from.
+ *
+ * The installer lays one down beside the codec, so the writer used to be able
+ * to assume the document was there - and returned having written nothing when
+ * it was not, which is what a lost or emptied file looks like. From then on the
+ * user's settings silently stopped being kept.
+ *
+ * The round trip is what is asserted, not the file's existence: a save that
+ * produced a file the codec cannot read back would pass the weaker check.
+ */
+static void
+test_save_without_a_file(void)
+{
+    /* Not the default. A value the defaults would also produce could not tell
+       a save that wrote it from a save that did nothing. */
+    const double wanted = 11.75;
+
+    printf("saving after the configuration file has been lost\n");
+
+    ::DeleteFileA(CONFIG_NAME);
+    if (!write_config(wanted)) {
+        CHECK(0, "the configuration file could be written");
+        return;
+    }
+
+    AEncodeProperties held(NULL);
+    held.ParamsRestore();
+    CHECK_EQ_D(held.GetSmartRatio(), wanted, 0.0001,
+               "a setting is loaded from the file");
+
+    /* The file goes away with the setting still held in memory - an uninstall
+       that took it, a failed write, a user tidying up. */
+    ::DeleteFileA(CONFIG_NAME);
+    CHECK(::GetFileAttributesA(CONFIG_NAME) == INVALID_FILE_ATTRIBUTES,
+          "the file is gone before the save");
+
+    held.ParamsSave();
+
+    {
+        AEncodeProperties reread(NULL);
+
+        reread.ParamsRestore();
+        CHECK_EQ_D(reread.GetSmartRatio(), wanted, 0.0001,
+                   "saving rebuilt the file and the setting came back");
     }
 
     ::DeleteFileA(CONFIG_NAME);
@@ -626,6 +676,7 @@ main(int argc, char **argv)
     test_output_sample_rate();
     test_smart_ratio_round_trip();
     test_malformed_config();
+    test_save_without_a_file();
 
     if (argc > 1) {
         strncpy(driver, argv[1], sizeof(driver) - 1);

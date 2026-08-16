@@ -856,14 +856,25 @@ void AEncodeProperties::ParamsRestore()
 	}
 	else
 	{
-		/**
-			\todo save the data in the file !
-		*/
+		/*  Nothing is written here on purpose.  The defaults assigned above are
+		    what this instance will encode with, and they reach the file the
+		    first time something calls ParamsSave() - which now builds the
+		    document when there is none.  Writing at load time instead would
+		    have every driver instance write into the directory the codec was
+		    installed into, which on an ordinary account is not the codec's to
+		    write to, for a file the user has not asked to change. */
 	}
 }
 
+/*  The counterpart of ParamsRestore(): the parameters this instance holds,
+    written back to the configuration they were restored from.
+
+    Only "Current" is written, which is the one configuration the rest of the
+    class supports; the dialog's own save says the same thing where it names it.
+ */
 void AEncodeProperties::ParamsSave()
 {
+	SaveValuesToStringKey("Current");
 }
 
 /*
@@ -946,56 +957,86 @@ AEncodeProperties::AEncodeProperties(HMODULE hModule)
 	my_debug.OutPut("AEncodeProperties creation completed (0x%08X)",this);
 }
 
-// Save the values to the right XML saved config
+/*  Save the values to the right XML saved config.
+
+    Whatever the file already holds is read back first, so that saving one
+    configuration keeps the others.  A file that is missing, empty or shaped
+    some other way is not an error: the elements this needs are created, which
+    is what lets a save succeed when the configuration file the installer lays
+    down beside the codec has been lost.  Until that was so, this returned
+    having written nothing, and a user's settings stopped being kept with
+    nothing said about it.
+
+    InsertEndChild() stores a copy and hands back a pointer to that copy, so
+    each element is filled in through the pointer it returns and not through
+    the one handed to it.
+ */
 void AEncodeProperties::SaveValuesToStringKey(const std::string & config_name)
 {
 	// get the current data in the file to keep them
-	if (my_stored_data.LoadFile(my_store_location))
+	my_stored_data.LoadFile(my_store_location);
+
+	TiXmlNode* node = my_stored_data.FirstChild("lame_acm");
+
+	if (node == NULL)
 	{
-		// check if the Node corresponding to the config_name already exist.
-		TiXmlNode* node = my_stored_data.FirstChild("lame_acm");
+		node = my_stored_data.InsertEndChild(TiXmlElement("lame_acm"));
 
-		if (node != NULL)
-		{
-			TiXmlElement* ConfigNode = node->FirstChildElement("encodings");
-
-			if (ConfigNode != NULL)
-			{
-				// look all the <config> tags
-				TiXmlElement* tmpNode = ConfigNode->FirstChildElement("config");
-				while (tmpNode != NULL)
-				{
-					const std::string * tmpname = tmpNode->Attribute("name");
-					if (tmpname->compare(config_name) == 0)
-					{
-						break;
-					}
-					tmpNode = tmpNode->NextSiblingElement("config");
-				}
-
-				if (tmpNode == NULL)
-				{
-					// Create the node
-					tmpNode = new TiXmlElement("config");
-					tmpNode->SetAttribute("name",config_name);
-
-					// save data in the node
-					SaveValuesToElement(tmpNode);
-
-					ConfigNode->InsertEndChild(*tmpNode);
-				}
-				else
-				{
-					// save data in the node
-					SaveValuesToElement(tmpNode);
-				}
-
-
-				// and save the file
-				my_stored_data.SaveFile(my_store_location);
-			}
-		}
+		if (node == NULL)
+			return;
 	}
+
+	TiXmlElement* ConfigNode = node->FirstChildElement("encodings");
+
+	if (ConfigNode == NULL)
+	{
+		TiXmlElement encodings("encodings");
+
+		encodings.SetAttribute("default", config_name);
+
+		TiXmlNode* inserted = node->InsertEndChild(encodings);
+
+		if (inserted == NULL)
+			return;
+
+		ConfigNode = inserted->ToElement();
+	}
+
+	// check if the Node corresponding to the config_name already exist.
+	// look all the <config> tags
+	TiXmlElement* tmpNode = ConfigNode->FirstChildElement("config");
+	while (tmpNode != NULL)
+	{
+		const std::string * tmpname = tmpNode->Attribute("name");
+		// a <config> carrying no name is not the one being looked for, and
+		// asking it to compare itself would follow a null pointer
+		if (tmpname != NULL && tmpname->compare(config_name) == 0)
+		{
+			break;
+		}
+		tmpNode = tmpNode->NextSiblingElement("config");
+	}
+
+	if (tmpNode == NULL)
+	{
+		// Create the node
+		TiXmlElement created("config");
+
+		created.SetAttribute("name",config_name);
+
+		TiXmlNode* inserted = ConfigNode->InsertEndChild(created);
+
+		if (inserted == NULL)
+			return;
+
+		tmpNode = inserted->ToElement();
+	}
+
+	// save data in the node
+	SaveValuesToElement(tmpNode);
+
+	// and save the file
+	my_stored_data.SaveFile(my_store_location);
 }
 
 void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const TiXmlNode & parentNode)
@@ -1605,9 +1646,9 @@ my_debug.OutPut("call UpdateValueFromDlg");
 
 		UpdateValueFromDlg(parentWnd);
 
-my_debug.OutPut("call SaveValuesToStringKey");
+my_debug.OutPut("call ParamsSave");
 
-		SaveValuesToStringKey("Current"); // only Current config is supported now
+		ParamsSave(); // only the Current config is supported now
 
 //my_debug.OutPut("call SelectSavedParams");
 
