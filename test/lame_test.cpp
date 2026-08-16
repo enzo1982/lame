@@ -61,14 +61,16 @@ public:
   float const* ch0() const { return m_buffer_ch0; }
   float const* ch1() const { return m_buffer_ch1; }
 
-  void advance( int x ) {
+  // The whole buffer is regenerated on every call, so how much the caller
+  // consumed does not enter into it and the count is deliberately unused.
+  void advance( int ) {
     float a = m_a;
     float b = m_b;
     for (int i = 0; i < m_size; ++i) {
       a += 10;
-      if (a > 32768) a = random();
+      if (a > 32768) a = (float) random();
       b -= 10;
-      if (b < -32767) b = random();
+      if (b < -32767) b = (float) random();
       m_buffer_ch0[i] = a;
       m_buffer_ch1[i] = b;
     }

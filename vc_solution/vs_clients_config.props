@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Settings shared by the Windows client components - the ACM codec and the
+       DirectShow filter - which the rest of the tree gets from elsewhere.
+
+       C4100, unreferenced formal parameter: the library suppresses this for
+       MSVC in libmp3lame/machine.h, with the reasoning that it is intentional
+       in stub and compatibility entry points and that the GCC/Clang
+       -Wunused-parameter build is where a genuinely unused parameter is caught
+       (see LAME_UNUSED).  That reasoning holds here for the same shape of code
+       - debug-output stubs whose parameters go unreferenced exactly when debug
+       output is compiled out, and window procedures that must accept the full
+       message signature - but machine.h is an internal library header, so a
+       C++ client of the public API never sees it.  Hence the same policy,
+       stated in the one place all three client projects share.
+
+       Deliberate narrowing conversions are NOT suppressed here.  The library
+       disables C4244 wholesale; the clients have few enough of them to cast at
+       the site and say what bounds the value, which is the more useful thing
+       to leave behind. -->
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <DisableSpecificWarnings>4100;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+  </ItemDefinitionGroup>
+</Project>

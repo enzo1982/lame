@@ -1226,14 +1226,18 @@ void ACM::GetMP3FormatForIndex(const DWORD the_Index, WAVEFORMATEX & the_Format,
 		else
 			Block_size = 576;
 	
-		the_Format.nChannels = bitrate_table[the_Index].channels;
+		// Both narrowings are into WAVEFORMATEX's 16-bit fields and both are
+		// bounded well inside it: the channel count is 1 or 2, and the block
+		// size is the byte length of one frame - at most 1152 samples at 320
+		// kbit/s and 32 kHz, under 1500 bytes.
+		the_Format.nChannels = (WORD) bitrate_table[the_Index].channels;
 
 		the_Format.cbSize = sizeof(MPEGLAYER3WAVEFORMAT) - sizeof(WAVEFORMATEX);
 		MPEGLAYER3WAVEFORMAT * tmpFormat = (MPEGLAYER3WAVEFORMAT *) &the_Format;
 		tmpFormat->wID             = 1;
 		// this is the only way I found to know if we do CBR or ABR
 		tmpFormat->fdwFlags        = 2 + ((bitrate_table[the_Index].mode == vbr_abr)?0:2);
-		tmpFormat->nBlockSize      = Block_size * the_Format.nAvgBytesPerSec / the_Format.nSamplesPerSec;
+		tmpFormat->nBlockSize      = (WORD) (Block_size * the_Format.nAvgBytesPerSec / the_Format.nSamplesPerSec);
 		tmpFormat->nFramesPerBlock = 1;
 		tmpFormat->nCodecDelay     = 0; // 0x0571 on FHG
 	

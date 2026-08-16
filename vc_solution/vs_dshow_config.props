@@ -32,7 +32,12 @@
        project holds its own code to says nothing about this project.  It has
        to be a property and not ClCompile metadata - the C++ targets read
        $(ExternalIncludePath), and an ExternalIncludeDirectories item is
-       silently ignored, after which the build cannot find streams.h at all. -->
+       silently ignored, after which the build cannot find streams.h at all.
+
+       This covers the base class HEADERS only.  The .cpp files below are
+       compiled directly, so they are this project's own compilations and
+       /external: never applies to them - they need the warning level set on
+       the items themselves, further down. -->
   <PropertyGroup>
     <ExternalIncludePath Condition="$(HaveDShowBaseClasses) == 'true'">$(DShowBaseClassesPath);$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
@@ -41,8 +46,15 @@
       <ExternalWarningLevel Condition="$(HaveDShowBaseClasses) == 'true'">TurnOffAllWarnings</ExternalWarningLevel>
     </ClCompile>
   </ItemDefinitionGroup>
+  <!-- Microsoft's sources, compiled here because the filter derives from the
+       classes they implement.  They are held to their author's warning bar and
+       not to this project's: at /W4 they carry unused locals, a possibly
+       uninitialised read and a macro redefinition, none of which anyone here
+       can act on without forking them. -->
   <ItemGroup Condition="$(HaveDShowBaseClasses) == 'true'">
-    <ClCompile Include="$(DShowBaseClassesPath)\*.cpp" />
+    <ClCompile Include="$(DShowBaseClassesPath)\*.cpp">
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+    </ClCompile>
   </ItemGroup>
   <Target Name="CheckDShowBaseClasses" BeforeTargets="ClCompile">
     <Error Condition="'$(HaveDShowBaseClasses)' != 'true'"

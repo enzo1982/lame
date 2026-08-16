@@ -241,8 +241,6 @@ BOOL CMpegAudEncPropertyPageAdv::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wPa
     default:
         return FALSE;
     }
-
-    return TRUE;
 }
 
 //

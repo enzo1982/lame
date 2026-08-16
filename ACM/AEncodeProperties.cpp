@@ -398,7 +398,7 @@ bool AEncodeProperties::Config(const HINSTANCE Hinstance, const HWND HwndParent)
 //	hDllInstance = Hinstance;
 
 	my_debug.OutPut("here");
-	int ret = ::DialogBoxParam(Hinstance, MAKEINTRESOURCE(IDD_CONFIG), HwndParent, ::ConfigProc, (LPARAM) this);
+	::DialogBoxParam(Hinstance, MAKEINTRESOURCE(IDD_CONFIG), HwndParent, ::ConfigProc, (LPARAM) this);
 /*	if (ret == -1)
 	{
 		LPVOID lpMsgBuf;

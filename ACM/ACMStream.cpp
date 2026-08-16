@@ -386,10 +386,13 @@ unsigned int ACMStream::GetOutputSampleRate(int samples_per_sec, int bitrate, in
         /// \todo pass through the same LAME routine
 	unsigned int OutputFrequency;
 	double compression_ratio = double(samples_per_sec * 16 * channels / (bitrate * 8));
+	// map2MP3Frequency() takes a frequency in Hz as an int, so the fractional
+	// part of both expressions has always been discarded here.  The casts
+	// write that down; they do not change which rate comes back.
 	if (compression_ratio > 13.)
-		OutputFrequency = map2MP3Frequency( (10. * bitrate * 8) / (16 * channels));
+		OutputFrequency = map2MP3Frequency( (int) ((10. * bitrate * 8) / (16 * channels)));
 	else
-		OutputFrequency = map2MP3Frequency( 0.97 * samples_per_sec );
+		OutputFrequency = map2MP3Frequency( (int) (0.97 * samples_per_sec) );
 
 	return OutputFrequency;
 

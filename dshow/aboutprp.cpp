@@ -176,8 +176,6 @@ BOOL CMAEAbout::OnReceiveMessage( HWND hwnd
     default:
         return FALSE;
     }
-
-    return TRUE;
 }
 
 //

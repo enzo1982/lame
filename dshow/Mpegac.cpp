@@ -593,8 +593,6 @@ HRESULT CMpegAudEnc::BeginFlush()
     {
         CAutoLock lock(&m_cs);
 
-        DWORD dwDstSize = 0;
-
         // Flush data
         m_Encoder.Finish();
         FlushEncodedSamples();
@@ -1110,7 +1108,6 @@ STDMETHODIMP CMpegAudEnc::set_SampleRate(DWORD dwSampleRate)
 {
     MPEG_ENCODER_CONFIG mec;
     m_Encoder.GetOutputType(&mec);
-    DWORD dwOldSampleRate = mec.dwSampleRate;
     mec.dwSampleRate = dwSampleRate;
     m_Encoder.SetOutputType(mec);
     DbgLog((LOG_TRACE, 1, TEXT("set_SampleRate(%d)"), dwSampleRate));

@@ -142,7 +142,7 @@ HRESULT CEncoder::Init()
         // note: newer, safer interface which doesn't 
         // allow or require direct access to 'gf' struct is being written
         // see the file 'API' included with LAME.
-        if (pgf = lame_init())
+        if ((pgf = lame_init()) != NULL)
         {
             lame_set_num_channels(pgf, m_wfex.nChannels);
             lame_set_in_samplerate(pgf, m_wfex.nSamplesPerSec);
