@@ -20,20 +20,20 @@
  * Boston, MA 02111-1307, USA.
  */
 
-// {b8d27088-df5f-4b7c-98dc-0e91a1696286}
+// {b8d27088-ff5f-4b7c-98dc-0e91a1696286}
 DEFINE_GUID(CLSID_LAMEDShowFilter,
 0xb8d27088, 0xff5f, 0x4b7c, 0x98, 0xdc, 0x0e, 0x91, 0xa1, 0x69, 0x62, 0x86);
 
 
-// {b8d27089-df5f-4b7c-98dc-0e91a1696286}
+// {b8d27089-ff5f-4b7c-98dc-0e91a1696286}
 DEFINE_GUID(CLSID_LAMEDShow_PropertyPage,
 0xb8d27089, 0xff5f, 0x4b7c, 0x98, 0xdc, 0x0e, 0x91, 0xa1, 0x69, 0x62, 0x86);
 
-// {b8d2708a-df5f-4b7c-98dc-0e91a1696286}
+// {b8d2708a-ff5f-4b7c-98dc-0e91a1696286}
 DEFINE_GUID(CLSID_LAMEDShow_PropertyPageAdv,
 0xb8d2708a, 0xff5f, 0x4b7c, 0x98, 0xdc, 0x0e, 0x91, 0xa1, 0x69, 0x62, 0x86);
 
-// {FE69EDD1-04CB-11d5-994A-000021D1FE2F}
+// {FE69EDD1-F4CB-11d5-994A-000021D1FE2F}
 DEFINE_GUID(CLSID_LAMEDShow_About,
 0xfe69edd1, 0xf4cb, 0x11d5, 0x99, 0x4a, 0x0, 0x0, 0x21, 0xd1, 0xfe, 0x2f);
 
