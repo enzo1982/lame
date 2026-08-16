@@ -8,6 +8,7 @@ EXTRA_DIST = \
 	vs_gtk_config.props \
 	vs_lame_acm_adbg.vcxproj \
 	vs_lame_acm_adbg.vcxproj.filters \
+	vs_lame_acm_test.vcxproj \
 	vs_lame_acm_tinyxml.vcxproj \
 	vs_lame_acm.vcxproj \
 	vs_lame_acm.vcxproj.filters \
