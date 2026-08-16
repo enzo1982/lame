@@ -12,6 +12,7 @@ SUBDIRS = unit
 # tarball with a Visual Studio.
 EXTRA_DIST = \
 	clients/ctest.h \
+	clients/mp3frame.h \
 	clients/acm_test.cpp \
 	lame_test.cpp \
 	lametest.py \

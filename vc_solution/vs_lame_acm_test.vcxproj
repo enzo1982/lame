@@ -86,6 +86,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\test\clients\ctest.h" />
+    <ClInclude Include="..\test\clients\mp3frame.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="vs_lame_acm_adbg.vcxproj">

@@ -20,8 +20,11 @@
 
 #include <windows.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "ctest.h"
+#include "mp3frame.h"
 
 #include "ACMStream.h"
 #include "AEncodeProperties.h"
@@ -201,11 +204,371 @@ test_smart_ratio_round_trip(void)
     ::DeleteFileA(CONFIG_NAME);
 }
 
-int
-main(void)
+/** @brief Asserts a multimedia call succeeded, reporting the code when not. */
+#define CHECK_MM(mr, what)                                               \
+    do {                                                                 \
+        MMRESULT ctest_mr_ = (mr);                                       \
+        char ctest_d_[CTEST_DETAIL_CHARS];                               \
+        sprintf(ctest_d_, "mmresult %u", (unsigned) ctest_mr_);           \
+        ctest_record(ctest_mr_ == MMSYSERR_NOERROR, (what), ctest_d_);   \
+    } while (0)
+
+/** @brief Concert A, the test tone the source buffer is filled with. */
+#define TONE_HZ         440.0
+/** @brief Its amplitude, comfortably below full scale, so nothing clips. */
+#define TONE_AMPLITUDE  16000.0
+/** @brief One turn of the circle, for the sine's argument. */
+#define TWO_PI          6.283185307179586
+
+/** @brief The MPEG Layer-3 descriptor an application hands to the ACM. */
+static void
+fill_mp3_format(MPEGLAYER3WAVEFORMAT *mp3, DWORD rate, WORD channels, DWORD bps)
 {
-    printf("acm_test: the ACM codec's rate selection and configuration\n");
+    memset(mp3, 0, sizeof(*mp3));
+    mp3->wfx.wFormatTag = WAVE_FORMAT_MPEGLAYER3;
+    mp3->wfx.nChannels = channels;
+    mp3->wfx.nSamplesPerSec = rate;
+    mp3->wfx.nAvgBytesPerSec = bps / 8;
+    mp3->wfx.nBlockAlign = 1;
+    mp3->wfx.wBitsPerSample = 0;
+    mp3->wfx.cbSize = MPEGLAYER3_WFX_EXTRA_BYTES;
+    mp3->wID = MPEGLAYER3_ID_MPEG;
+    mp3->fdwFlags = MPEGLAYER3_FLAG_PADDING_OFF;
+    mp3->nBlockSize = MP3_SAMPLES_PER_FRAME;
+    mp3->nFramesPerBlock = 1;
+    mp3->nCodecDelay = 0;
+}
+
+/** @brief The PCM descriptor for the source side of the conversion. */
+static void
+fill_pcm_format(WAVEFORMATEX *pcm, DWORD rate, WORD channels)
+{
+    memset(pcm, 0, sizeof(*pcm));
+    pcm->wFormatTag = WAVE_FORMAT_PCM;
+    pcm->nChannels = channels;
+    pcm->nSamplesPerSec = rate;
+    pcm->wBitsPerSample = 16;
+    pcm->nBlockAlign = (WORD) (channels * 2);
+    pcm->nAvgBytesPerSec = rate * pcm->nBlockAlign;
+    pcm->cbSize = 0;
+}
+
+/*
+ * The ACM types below are named with an explicit A suffix, and so are the two
+ * calls that take them.
+ *
+ * ACM/ddk/msacmdrv.h redefines ACMDRIVERDETAILS, ACMFORMATDETAILS and their
+ * pointer forms to the wide variants unconditionally - not under UNICODE, which
+ * this build does not define. That is the driver side's convention, and it is
+ * right for the codec's own sources, which is why the header does it. But this
+ * file reaches the ACM from the application side in the same translation unit,
+ * where acmDriverDetails() and acmFormatEnum() resolve to their narrow forms.
+ * Spelling both halves explicitly is what keeps the pair consistent; leaving
+ * the macros to decide gives a wide structure to a narrow function.
+ */
+
+/** @brief Counts the formats the codec offers, printing the first few. */
+static BOOL CALLBACK
+format_cb(HACMDRIVERID hadid, LPACMFORMATDETAILSA pafd, DWORD_PTR user, DWORD fdw)
+{
+    unsigned *count = (unsigned *) user;
+
+    (void) hadid;
+    (void) fdw;
+    if (*count < 3) {
+        printf("        %s\n", pafd->szFormat);
+    }
+    ++*count;
+    return TRUE;
+}
+
+/**
+ * @brief Counts MPEG frames in an encoded buffer and the distinct bitrates.
+ *
+ * A byte total that comes out low has three possible causes - a tail the codec
+ * never flushed, a bitrate it silently substituted, or a variable rate - and
+ * the total cannot tell them apart. The frame headers can.
+ */
+static int
+count_frames(const BYTE *buf, DWORD len, DWORD rate, int *distinct, int *sole_kbps)
+{
+    int seen = 0;
+    int rates[MP3_BITRATE_INDEX_COUNT];
+    int j;
+    DWORD off = 0;
+
+    memset(rates, 0, sizeof(rates));
+    *distinct = 0;
+    *sole_kbps = 0;
+    while (off + MP3_HEADER_BYTES <= len) {
+        const BYTE *h = buf + off;
+        int index, padding, framelen;
+
+        if (!mp3_is_frame_sync(h)) {
+            ++off;
+            continue;
+        }
+        index = mp3_bitrate_index(h);
+        padding = mp3_padding_bytes(h);
+        if (index == MP3_BITRATE_FREE_FORMAT || index == MP3_BITRATE_INVALID) {
+            break;
+        }
+        framelen = mp3_frame_bytes(index, padding, rate);
+        if (framelen <= 0) {
+            break;
+        }
+        if (!rates[index]) {
+            rates[index] = 1;
+            ++*distinct;
+        }
+        ++seen;
+        off += (DWORD) framelen;
+    }
+    if (*distinct == 1) {
+        for (j = MP3_BITRATE_FREE_FORMAT + 1; j < MP3_BITRATE_INVALID; j++) {
+            if (rates[j]) {
+                *sole_kbps = mp3_bitrate_kbps[j];
+            }
+        }
+    }
+    return seen;
+}
+
+/**
+ * @brief Drives the built codec through the Audio Compression Manager.
+ *
+ * The smoke test asks whether the DLL loads and exports what it should. This
+ * asks whether the codec works when Windows drives it: msacm does the driver
+ * message dispatch, the format negotiation and the buffer handling, exactly as
+ * an application calling acmStreamConvert() would.
+ *
+ * No registry and no administrator are involved. acmDriverAdd() with
+ * ACM_DRIVERADDF_FUNCTION registers a driver with the real framework for the
+ * calling process only, given a DriverProc, and everything past that point is
+ * the framework rather than a stand-in. What it cannot cover is the
+ * machine-wide registration itself, which needs a registry change.
+ */
+static void
+test_under_the_acm(const char *driver)
+{
+    const DWORD seconds = 1;
+    const DWORD rate = 44100;
+    const WORD channels = 2;
+    const DWORD frames = rate * seconds;
+
+    HMODULE mod;
+    FARPROC proc;
+    HACMDRIVERID hadid = NULL;
+    HACMDRIVER had = NULL;
+    HACMSTREAM has = NULL;
+    ACMDRIVERDETAILSA details;
+    ACMFORMATDETAILSA fd;
+    WAVEFORMATEX pcm;
+    MPEGLAYER3WAVEFORMAT mp3;
+    ACMSTREAMHEADER hdr;
+    MMRESULT mr;
+    DWORD dst_bytes = 0;
+    DWORD src_bytes;
+    unsigned formats = 0;
+    short *src = NULL;
+    BYTE *dst = NULL;
+    DWORD i;
+
+    printf("the codec under the real Audio Compression Manager\n");
+    printf("        driver: %s\n", driver);
+
+    mod = LoadLibraryA(driver);
+    if (mod == NULL) {
+        char detail[CTEST_DETAIL_CHARS];
+        sprintf(detail, "Win32 error %lu", GetLastError());
+        ctest_record(0, "the driver image loads", detail);
+        return;
+    }
+    CHECK(mod != NULL, "the driver image loads");
+
+    proc = GetProcAddress(mod, "DriverProc");
+    CHECK(proc != NULL, "DriverProc resolves");
+    if (proc == NULL) {
+        return;
+    }
+
+    mr = acmDriverAdd(&hadid, (HINSTANCE) mod, (LPARAM) proc, 0,
+                      ACM_DRIVERADDF_FUNCTION);
+    CHECK_MM(mr, "the ACM accepts it as a driver");
+    if (mr != MMSYSERR_NOERROR) {
+        return;
+    }
+
+    mr = acmDriverOpen(&had, hadid, 0);
+    CHECK_MM(mr, "the driver handles being opened");
+    if (mr != MMSYSERR_NOERROR) {
+        goto out;
+    }
+
+    memset(&details, 0, sizeof(details));
+    details.cbStruct = sizeof(details);
+    mr = acmDriverDetailsA(hadid, &details, 0);
+    CHECK_MM(mr, "the driver reports its details");
+    if (mr == MMSYSERR_NOERROR) {
+        printf("        \"%s\", %u format tag(s)\n",
+               details.szLongName, (unsigned) details.cFormatTags);
+    }
+
+    memset(&fd, 0, sizeof(fd));
+    fd.cbStruct = sizeof(fd);
+    fd.pwfx = (WAVEFORMATEX *) &mp3;
+    fd.cbwfx = sizeof(mp3);
+    fd.dwFormatTag = WAVE_FORMAT_MPEGLAYER3;
+    fill_mp3_format(&mp3, rate, channels, 128000);
+    mr = acmFormatEnumA(had, &fd, format_cb, (DWORD_PTR) &formats, 0);
+    CHECK_MM(mr, "the driver enumerates its formats");
+    CHECK(formats > 0, "it offers at least one MPEG Layer-3 format");
+
+    fill_pcm_format(&pcm, rate, channels);
+    fill_mp3_format(&mp3, rate, channels, 128000);
+    mr = acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) &mp3, NULL, 0, 0, 0);
+    CHECK_MM(mr, "44100/16/stereo to 128 kbps is negotiated");
+    if (mr != MMSYSERR_NOERROR) {
+        goto out;
+    }
+
+    src_bytes = frames * pcm.nBlockAlign;
+    src = (short *) calloc(1, src_bytes);
+    if (src == NULL) {
+        CHECK(0, "the source buffer could be allocated");
+        goto out;
+    }
+    /* A sine rather than silence: an encoder that drops everything still
+       produces output for silence, so silence would prove nothing. */
+    for (i = 0; i < frames; i++) {
+        double t = (double) i / (double) rate;
+        short v = (short) (TONE_AMPLITUDE * sin(TWO_PI * TONE_HZ * t));
+        src[2 * i] = v;
+        src[2 * i + 1] = v;
+    }
+
+    mr = acmStreamSize(has, src_bytes, &dst_bytes, ACM_STREAMSIZEF_SOURCE);
+    CHECK_MM(mr, "the driver sizes the destination buffer");
+    CHECK(dst_bytes > 0, "the size it asks for is not zero");
+    if (mr != MMSYSERR_NOERROR || dst_bytes == 0) {
+        goto out;
+    }
+
+    dst = (BYTE *) calloc(1, dst_bytes);
+    if (dst == NULL) {
+        CHECK(0, "the destination buffer could be allocated");
+        goto out;
+    }
+
+    memset(&hdr, 0, sizeof(hdr));
+    hdr.cbStruct = sizeof(hdr);
+    hdr.pbSrc = (BYTE *) src;
+    hdr.cbSrcLength = src_bytes;
+    hdr.pbDst = dst;
+    hdr.cbDstLength = dst_bytes;
+
+    mr = acmStreamPrepareHeader(has, &hdr, 0);
+    CHECK_MM(mr, "the header is prepared");
+    if (mr != MMSYSERR_NOERROR) {
+        goto out;
+    }
+
+    /* BLOCKALIGN | END is the documented single-shot form: convert everything,
+       then flush. Without END the encoder's last frames stay in its own buffer
+       and the byte count lands well below the requested rate. */
+    mr = acmStreamConvert(has, &hdr,
+                          ACM_STREAMCONVERTF_BLOCKALIGN | ACM_STREAMCONVERTF_END);
+    CHECK_MM(mr, "a second of audio is converted");
+    if (mr == MMSYSERR_NOERROR) {
+        int distinct = 0;
+        int sole_kbps = 0;
+        int seen = count_frames(dst, hdr.cbDstLengthUsed, rate, &distinct, &sole_kbps);
+
+        CHECK(hdr.cbDstLengthUsed > 0, "the conversion produced output");
+        CHECK_EQ_U(hdr.cbSrcLengthUsed, src_bytes, "all of the PCM was consumed");
+        /* An MPEG audio frame begins with eleven set bits. Without this the
+           test would accept any non-empty buffer, which is what "it produced
+           output" usually means and rarely proves. */
+        CHECK(hdr.cbDstLengthUsed >= MP3_HEADER_BYTES && mp3_is_frame_sync(dst),
+              "the output begins with an MPEG frame sync");
+        printf("        %lu bytes, %d frame(s), %d distinct bitrate(s)\n",
+               (unsigned long) hdr.cbDstLengthUsed, seen, distinct);
+        /* The first and the last frame are allowed to be missing: the encoder
+           may hold one back, and the tail is only as long as what is left. */
+        CHECK(seen >= (int) (mp3_frames_per_second(rate) * seconds) - 2,
+              "the whole second is there in frames, tail included");
+        /* More than one bitrate means the encoder chose a variable rate, where
+           the average is expected to differ from the nominal one. A single rate
+           that is not the requested one is a substitution, and the byte total
+           alone cannot tell the two apart. */
+        if (distinct == 1) {
+            CHECK_EQ_U(sole_kbps, 128,
+                       "a constant rate is the 128 kbps that was asked for");
+        } else {
+            CHECK(distinct > 1, "a variable rate, so no single rate to check");
+        }
+        acmStreamUnprepareHeader(has, &hdr, 0);
+    }
+
+out:
+    free(src);
+    free(dst);
+    if (has != NULL) {
+        acmStreamClose(has, 0);
+    }
+    if (had != NULL) {
+        acmDriverClose(had, 0);
+    }
+    if (hadid != NULL) {
+        CHECK_MM(acmDriverRemove(hadid, 0), "the driver handles being withdrawn");
+    }
+}
+
+/**
+ * @brief Finds the codec beside this executable, where the build puts both.
+ * @return 1 and fills @a out, or 0 if it is not there.
+ */
+static int
+driver_beside_us(char *out, size_t n)
+{
+    char self[MAX_PATH];
+    char *slash;
+
+    if (::GetModuleFileNameA(NULL, self, MAX_PATH) == 0) {
+        return 0;
+    }
+    slash = strrchr(self, '\\');
+    if (slash == NULL) {
+        return 0;
+    }
+    *(slash + 1) = '\0';
+    if (strlen(self) + strlen("lameACM.acm") >= n) {
+        return 0;
+    }
+    sprintf(out, "%slameACM.acm", self);
+    return ::GetFileAttributesA(out) != INVALID_FILE_ATTRIBUTES;
+}
+
+int
+main(int argc, char **argv)
+{
+    char driver[MAX_PATH];
+
+    printf("acm_test: the ACM codec's rate selection, configuration and conversion\n");
     test_output_sample_rate();
     test_smart_ratio_round_trip();
+
+    if (argc > 1) {
+        strncpy(driver, argv[1], sizeof(driver) - 1);
+        driver[sizeof(driver) - 1] = '\0';
+        test_under_the_acm(driver);
+    } else if (driver_beside_us(driver, sizeof(driver))) {
+        test_under_the_acm(driver);
+    } else {
+        /* Not a skip. The codec is built by the same solution as this test, so
+           its absence is a failure of the build and not a missing option. */
+        CHECK(0, "the built codec is beside this executable or named on the command line");
+    }
+
     return ctest_summary("acm_test");
 }
