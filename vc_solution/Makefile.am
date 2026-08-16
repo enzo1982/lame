@@ -4,6 +4,7 @@ include $(top_srcdir)/Makefile.am.global
 
 EXTRA_DIST = \
 	README.vs.txt \
+	vs_dshow_config.props \
 	vs_gtk_config.props \
 	vs_lame_acm_adbg.vcxproj \
 	vs_lame_acm_adbg.vcxproj.filters \
@@ -28,5 +29,4 @@ EXTRA_DIST = \
 	vs_libmp3lame.vcxproj \
 	vs_libmp3lame.vcxproj.filters \
 	vs_libmpg123_config.props \
-	vs_libsndfile_config.props \
-	vs_win71sdk_config.props
+	vs_libsndfile_config.props

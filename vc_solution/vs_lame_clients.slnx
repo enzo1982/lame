@@ -13,6 +13,7 @@
     </Project>
   </Folder>
   <Project Path="vs_lame_dshow.vcxproj">
+    <Build Project="false" />
   </Project>
   <Project Path="vs_lame_test.vcxproj">
   </Project>

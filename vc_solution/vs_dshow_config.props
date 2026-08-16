@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="UserMacros">
+    <!-- The DirectShow base classes for the lame_DirectShow filter.  Set
+         HaveDShowBaseClasses to true and put the base class sources into
+         vc_solution\baseclasses, or point DShowBaseClassesPath elsewhere.
+
+         What is needed is the source, not a built library and not an SDK: the
+         classes the filter derives from are implemented in those .cpp files,
+         which are compiled into the filter here.  They come from the Windows
+         classic samples repository,
+         https://github.com/microsoft/Windows-classic-samples, under
+         Samples\Win7Samples\multimedia\directshow\baseclasses.
+
+         The path below supplies its own separator, so that
+         DShowBaseClassesPath can be quoted against spaces: a path quoted with
+         a trailing backslash would escape the closing quote and the value
+         would be lost on an MSBuild command line. -->
+    <HaveDShowBaseClasses>false</HaveDShowBaseClasses>
+    <DShowBaseClassesPath>.\baseclasses</DShowBaseClassesPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <BuildMacro Include="HaveDShowBaseClasses">
+      <Value>$(HaveDShowBaseClasses)</Value>
+    </BuildMacro>
+    <BuildMacro Include="DShowBaseClassesPath">
+      <Value>$(DShowBaseClassesPath)</Value>
+    </BuildMacro>
+  </ItemGroup>
+  <!-- ExternalIncludePath rather than AdditionalIncludeDirectories: these
+       headers are Microsoft's, and compiling them at the warning level this
+       project holds its own code to says nothing about this project.  It has
+       to be a property and not ClCompile metadata - the C++ targets read
+       $(ExternalIncludePath), and an ExternalIncludeDirectories item is
+       silently ignored, after which the build cannot find streams.h at all. -->
+  <PropertyGroup>
+    <ExternalIncludePath Condition="$(HaveDShowBaseClasses) == 'true'">$(DShowBaseClassesPath);$(ExternalIncludePath)</ExternalIncludePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <ExternalWarningLevel Condition="$(HaveDShowBaseClasses) == 'true'">TurnOffAllWarnings</ExternalWarningLevel>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup Condition="$(HaveDShowBaseClasses) == 'true'">
+    <ClCompile Include="$(DShowBaseClassesPath)\*.cpp" />
+  </ItemGroup>
+  <Target Name="CheckDShowBaseClasses" BeforeTargets="ClCompile">
+    <Error Condition="'$(HaveDShowBaseClasses)' != 'true'"
+           Text="The DirectShow filter needs the base class sources. Set HaveDShowBaseClasses and DShowBaseClassesPath in vs_dshow_config.props - see README.vs.txt." />
+    <Error Condition="!Exists('$(DShowBaseClassesPath)\streams.h')"
+           Text="No streams.h under DShowBaseClassesPath ($(DShowBaseClassesPath)) - see README.vs.txt for what to put there." />
+  </Target>
+</Project>

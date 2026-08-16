@@ -32,12 +32,12 @@
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="vs_win71sdk_config.props" />
+    <Import Project="vs_dshow_config.props" />
     <Import Project="vs_lame_config.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="vs_win71sdk_config.props" />
+    <Import Project="vs_dshow_config.props" />
     <Import Project="vs_lame_config.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -62,10 +62,9 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>strmbasD.lib;strmiids.lib;vfw32.lib;winmm.lib;version.lib;Comdlg32.lib;comctl32.lib;quartz.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>strmiids.lib;vfw32.lib;winmm.lib;version.lib;Comdlg32.lib;comctl32.lib;quartz.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>..\DShow\Mpegac.def</ModuleDefinitionFile>
       <SubSystem>Windows</SubSystem>
-      <AdditionalLibraryDirectories>..\DShow;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -82,10 +81,9 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>strmbase.lib;strmiids.lib;vfw32.lib;winmm.lib;version.lib;Comdlg32.lib;comctl32.lib;quartz.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>strmiids.lib;vfw32.lib;winmm.lib;version.lib;Comdlg32.lib;comctl32.lib;quartz.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>..\DShow\Mpegac.def</ModuleDefinitionFile>
       <SubSystem>Windows</SubSystem>
-      <AdditionalLibraryDirectories>..\DShow;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
