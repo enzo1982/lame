@@ -117,6 +117,13 @@
 			        build again with a current Visual Studio, and both
 			        link the static runtime, so neither needs a
 			        redistributable installed in order to load.</li>
+			    <li>The Windows ACM codec derives the output sample
+			        rate for smart output mode from the compression
+			        ratio as computed rather than rounded down, so
+			        48 kHz stereo at 112 kbps, 48 kHz mono at 56 kbps
+			        and 24 kHz stereo at 56 kbps resample the way that
+			        mode intends. A smart output ratio configured with
+			        a fractional part is kept as configured.</li>
 			    <li><span class="speed">Optimization flags are now
 			        detected from the compiler at configure time
 			        instead of chosen from hard-coded, per-compiler
