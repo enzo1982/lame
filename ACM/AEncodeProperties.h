@@ -343,14 +343,10 @@ public:
 	static void DisplayVbrOptions(const HWND hDialog, const BRMode the_mode);
 
 	/**
-		\brief Handle the saving of parameters when something has changed in the config dialog box
-	*/
-	void SaveParams(const HWND hDialog);
-
-	/**
 		\brief Save the current parameters (current config in use)
 	*/
 	void ParamsSave(void);
+
 	/**
 		\brief Load the parameters (current config in use)
 	*/

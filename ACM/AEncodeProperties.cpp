@@ -850,25 +850,8 @@ void AEncodeProperties::ParamsRestore()
 
 void AEncodeProperties::ParamsSave()
 {
-/*
-
-
-	save the current parameters in the corresponding subkey
-	
-
-
-
-	HKEY OssKey;
-
-	if (RegCreateKeyEx ( HKEY_LOCAL_MACHINE, "SOFTWARE\\MUKOLI\\out_lame", 0, "", REG_OPTION_NON_VOLATILE, KEY_WRITE , NULL, &OssKey, NULL ) == ERROR_SUCCESS) {
-
-		if (RegSetValueEx(OssKey, "DLL Location", 0, REG_EXPAND_SZ, (CONST BYTE *)DllLocation, strlen(DllLocation)+1 ) != ERROR_SUCCESS)
-			return;
-		
-		RegCloseKey(OssKey); 
-	}
-*/
 }
+
 /*
 void AEncodeProperties::DisplayVbrOptions(const HWND hDialog, const BRMode the_mode)
 {
@@ -1239,17 +1222,6 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 	}
 }
 
-/**
-	\todo save the parameters
-* /
-void AEncodeProperties::SaveParams(const HWND hParentWnd)
-{
-	char string[MAX_PATH];
-/*	int nIdx = SendMessage(::GetDlgItem( hParentWnd ,IDC_COMBO_SETTINGS ), CB_GETCURSEL, NULL, NULL);
-	::SendMessage(::GetDlgItem( hParentWnd ,IDC_COMBO_SETTINGS ), CB_GETLBTEXT , nIdx, (LPARAM) string);
-* /
-}*/
-
 bool AEncodeProperties::operator !=(const AEncodeProperties & the_instance) const
 {
 /*
@@ -1619,8 +1591,6 @@ my_debug.OutPut("call UpdateValueFromDlg");
 my_debug.OutPut("call SaveValuesToStringKey");
 
 		SaveValuesToStringKey("Current"); // only Current config is supported now
-
-//		SaveParams(parentWnd);
 
 //my_debug.OutPut("call SelectSavedParams");
 
