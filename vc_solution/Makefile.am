@@ -14,6 +14,7 @@ EXTRA_DIST = \
 	vs_lame_acm.vcxproj.filters \
 	vs_lame_clients.slnx \
 	vs_lame_config.props \
+	vs_lame_dshow_test.vcxproj \
 	vs_lame_dshow.vcxproj \
 	vs_lame_dshow.vcxproj.filters \
 	vs_lame_enc_dll.vcxproj \
