@@ -4,6 +4,7 @@ include $(top_srcdir)/Makefile.am.global
 
 EXTRA_DIST = \
 	README.vs.txt \
+	vs_clients_config.props \
 	vs_dshow_config.props \
 	vs_gtk_config.props \
 	vs_lame_acm_adbg.vcxproj \

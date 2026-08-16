@@ -296,6 +296,7 @@ top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = 1.15 foreign
 EXTRA_DIST = \
 	README.vs.txt \
+	vs_clients_config.props \
 	vs_dshow_config.props \
 	vs_gtk_config.props \
 	vs_lame_acm_adbg.vcxproj \
