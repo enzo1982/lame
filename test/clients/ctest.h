@@ -40,6 +40,22 @@ static int ctest_checks = 0;
 /** @brief Checks that failed. */
 static int ctest_failures = 0;
 
+/**
+ * @brief Starts a run: prints its name and stops buffering the output.
+ *
+ * These tests drive code that can take the process down - a driver that
+ * mishandles a message, a configuration file the codec reads without checking
+ * its shape. When that happens with the output buffered, the buffer dies with
+ * the process and the transcript is empty, which says nothing about how far the
+ * run got. Unbuffered, the last line printed is the last thing that ran.
+ */
+static void
+ctest_start(const char *name)
+{
+    setvbuf(stdout, NULL, _IONBF, 0);
+    printf("%s\n", name);
+}
+
 /** @brief Records one check and prints its outcome with a detail line. */
 static void
 ctest_record(int ok, const char *what, const char *detail)

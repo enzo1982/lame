@@ -818,7 +818,21 @@ void AEncodeProperties::ParamsRestore()
 
 		node = my_stored_data.FirstChild("lame_acm");
 
+		/* A file can parse and still not be one of ours.  This one sits beside
+		   the codec, where anything may edit or truncate it, and both lookups
+		   answer with a null pointer for a document shaped some other way.
+		   Following one takes down whichever application the ACM loaded this
+		   driver into, so a document that is well formed and wrong is treated
+		   the way one that will not parse at all already is: the defaults
+		   assigned above stand.  The same pair of checks guards every other
+		   place this file is read. */
+		if (node == NULL)
+			return;
+
 		TiXmlElement* CurrentNode = node->FirstChildElement("encodings");
+
+		if (CurrentNode == NULL)
+			return;
 
 		std::string CurrentConfig = "";
 
@@ -1286,6 +1300,9 @@ void AEncodeProperties::SelectSavedParams(const std::string the_string)
 		TiXmlNode* node;
 
 		node = my_stored_data.FirstChild("lame_acm");
+
+		if (node == NULL)
+			return;
 
 		TiXmlElement* CurrentNode = node->FirstChildElement("encodings");
 
@@ -1813,7 +1830,13 @@ bool AEncodeProperties::RenameCurrentTo(const std::string & new_config_name)
 
 		node = my_stored_data.FirstChild("lame_acm");
 
+		if (node == NULL)
+			return bResult;
+
 		TiXmlElement* CurrentNode = node->FirstChildElement("encodings");
+
+		if (CurrentNode == NULL)
+			return bResult;
 
 		if (CurrentNode->Attribute("default") != NULL)
 		{
@@ -1875,7 +1898,13 @@ bool AEncodeProperties::DeleteConfig(const std::string & config_name)
 
 			node = my_stored_data.FirstChild("lame_acm");
 
+			if (node == NULL)
+				return bResult;
+
 			TiXmlElement* CurrentNode = node->FirstChildElement("encodings");
+
+			if (CurrentNode == NULL)
+				return bResult;
 
 			TiXmlElement* iterateElmt = CurrentNode->FirstChildElement("config");
 //			int Idx = 0;
@@ -1925,7 +1954,13 @@ void AEncodeProperties::UpdateConfigs(const HWND HwndDlg)
 
 		node = my_stored_data.FirstChild("lame_acm");
 
+		if (node == NULL)
+			return;
+
 		TiXmlElement* CurrentNode = node->FirstChildElement("encodings");
+
+		if (CurrentNode == NULL)
+			return;
 
 		std::string CurrentConfig = "";
 

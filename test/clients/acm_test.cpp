@@ -204,6 +204,74 @@ test_smart_ratio_round_trip(void)
     ::DeleteFileA(CONFIG_NAME);
 }
 
+/** @brief Writes a configuration file with the given content verbatim. */
+static int
+write_raw_config(const char *content)
+{
+    FILE *f = fopen(CONFIG_NAME, "wb");
+
+    if (f == NULL) {
+        return 0;
+    }
+    fputs(content, f);
+    fclose(f);
+    return 1;
+}
+
+/**
+ * @brief A configuration file that parses but is not one of ours is survived.
+ *
+ * Both structural lookups can come back empty, and this class runs inside a
+ * driver the ACM has loaded into some application's process, so following an
+ * empty one takes that application down rather than the codec. The file is
+ * hand-editable and sits beside the codec, so the shapes below are the ones a
+ * failed write or an edit produce.
+ *
+ * Reaching this at all is the point: each case has to be *read*, which is why
+ * the ratio is checked afterwards. A build that stopped opening the file would
+ * pass a test that only asserted "did not crash".
+ */
+static void
+test_malformed_config(void)
+{
+    /* What AEncodeProperties::ParamsRestore() assigns to SmartRatioMax before
+       it consults the file. Kept in step with the codec by the checks below: a
+       different default there fails every case here. */
+    const double ACM_DEFAULT_SMART_RATIO = 15.0;
+
+    static const struct {
+        const char *what;
+        const char *content;
+    } cases[] = {
+        { "a document with some other root element",
+          "<not_lame_acm>\n    <encodings default=\"Current\" />\n</not_lame_acm>\n" },
+        { "our root element with no encodings under it",
+          "<lame_acm>\n    <something_else />\n</lame_acm>\n" },
+        { "our root element, empty",
+          "<lame_acm />\n" },
+    };
+    size_t i;
+
+    printf("configuration files that parse and are not ours\n");
+    for (i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        ::DeleteFileA(CONFIG_NAME);
+        if (!write_raw_config(cases[i].content)) {
+            CHECK(0, "the configuration file could be written");
+            continue;
+        }
+
+        AEncodeProperties props(NULL);
+        props.ParamsRestore();
+        /* The default is what the constructor assigns before the file is
+           consulted, so this says the read was attempted and abandoned rather
+           than skipped. */
+        CHECK_EQ_D(props.GetSmartRatio(), ACM_DEFAULT_SMART_RATIO, 0.0001,
+                   cases[i].what);
+    }
+
+    ::DeleteFileA(CONFIG_NAME);
+}
+
 /** @brief Asserts a multimedia call succeeded, reporting the code when not. */
 #define CHECK_MM(mr, what)                                               \
     do {                                                                 \
@@ -554,9 +622,10 @@ main(int argc, char **argv)
 {
     char driver[MAX_PATH];
 
-    printf("acm_test: the ACM codec's rate selection, configuration and conversion\n");
+    ctest_start("acm_test: the ACM codec's rate selection, configuration and conversion");
     test_output_sample_rate();
     test_smart_ratio_round_trip();
+    test_malformed_config();
 
     if (argc > 1) {
         strncpy(driver, argv[1], sizeof(driver) - 1);

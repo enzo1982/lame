@@ -312,7 +312,7 @@ main(int argc, char **argv)
     int require = 0;
     int i;
 
-    printf("dshow_test: the LAME DirectShow filter in a real filter graph\n");
+    ctest_start("dshow_test: the LAME DirectShow filter in a real filter graph");
 
     /* --require mirrors the smoke test's parameter of the same name, and for
        the same reason: the filter is built only where the base class sources
