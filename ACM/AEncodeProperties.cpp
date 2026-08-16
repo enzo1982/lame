@@ -33,6 +33,9 @@
 #include <windowsx.h>
 #include <shlobj.h>
 #include <assert.h>
+#include <locale.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #ifdef _MSC_VER
 // no problem with unknown pragmas
@@ -74,6 +77,46 @@ ToolTipItem AEncodeProperties::Tooltips[13]={
 	{ IDC_SLIDER_AVERAGE_SAMPLE, "Check the resulting values of the (min,max,step) combination.\r\n\r\nUse the keyboard to navigate (right -> left)." },
 };
 //int AEncodeProperties::tst = 0;
+
+/* The configuration file carries exactly one value that is not a whole number,
+ * the smart-output ratio, and both directions below go through the C locale
+ * instead of the host's.  This codec is a DLL running inside whatever
+ * application loaded it, so LC_NUMERIC belongs to that application: a ratio
+ * written as "2,5" by a host whose locale uses a comma would read back as 2 on
+ * the next one.  Everything else in the file is a whole number, a flag or a
+ * name, so nothing an earlier build wrote is at risk - but a decimal point in
+ * it would be.
+ */
+static double DoubleFromAttribute(const std::string & the_text)
+{
+	/* A null locale handle makes these two behave exactly as atof() and
+	 * sprintf() do, which is what this code did before, so failing to create
+	 * one degrades instead of breaking. */
+	_locale_t c_locale = _create_locale(LC_NUMERIC, "C");
+	double the_value = _atof_l(the_text.c_str(), c_locale);
+
+	if (c_locale != NULL)
+		_free_locale(c_locale);
+
+	return the_value;
+}
+
+static void SetAttributeDouble(TiXmlElement * the_elt, const std::string & the_string, const double the_value)
+{
+	/* Long enough for any double %g can produce, sign and exponent included. */
+	char the_text[32];
+	_locale_t c_locale = _create_locale(LC_NUMERIC, "C");
+
+	/* %g leaves a whole value whole, so a configuration file written by an
+	 * earlier build of this codec comes back byte for byte as it was unless
+	 * the ratio really does have a fractional part. */
+	_sprintf_s_l(the_text, sizeof the_text, "%.6g", c_locale, the_value);
+
+	if (c_locale != NULL)
+		_free_locale(c_locale);
+
+	the_elt->SetAttribute(the_string, std::string(the_text));
+}
 
 /*
 #pragma argsused
@@ -990,7 +1033,7 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 			
 			tmpname = tmpElt->Attribute("ratio");
 			if (tmpname != NULL)
-				SmartRatioMax = atof(tmpname->c_str());
+				SmartRatioMax = DoubleFromAttribute(*tmpname);
 		}
 
 		// Smart output parameter
@@ -1329,13 +1372,13 @@ void AEncodeProperties::SaveValuesToElement(TiXmlElement * the_element) const
 	{
 		tmpElt = new TiXmlElement("Smart");
 		SetAttributeBool( tmpElt, "use", bSmartOutput);
-		tmpElt->SetAttribute("ratio", SmartRatioMax);
+		SetAttributeDouble( tmpElt, "ratio", SmartRatioMax);
 		the_element->InsertEndChild(*tmpElt);
 	}
 	else
 	{
 		SetAttributeBool( tmpElt, "use", bSmartOutput);
-		tmpElt->SetAttribute("ratio", SmartRatioMax);
+		SetAttributeDouble( tmpElt, "ratio", SmartRatioMax);
 	}
 
 	// Smart Output parameter
