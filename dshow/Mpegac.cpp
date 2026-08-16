@@ -233,6 +233,21 @@ STDAPI DllUnregisterServer()
 }
 
 
+//  The base classes provide DllEntryPoint(), which sets up the class factory
+//  table, but no DllMain().  The C runtime supplies a do-nothing DllMain() of
+//  its own when a DLL declares none, so without this forwarder the filter
+//  links and DllEntryPoint() is simply never called.  Letting the runtime pick
+//  the entry point is what makes the runtime initialise at all, so the
+//  arrangement has to be this way round: the runtime first, the filter second.
+
+extern "C" BOOL WINAPI DllEntryPoint(HINSTANCE hModule, ULONG dwReason, LPVOID lpReserved);
+
+BOOL WINAPI
+DllMain(HINSTANCE hModule, DWORD dwReason, LPVOID lpReserved)
+{
+    return DllEntryPoint(hModule, dwReason, lpReserved);
+}
+
 
 CUnknown *CMpegAudEnc::CreateInstance(LPUNKNOWN lpunk, HRESULT *phr) 
 {
