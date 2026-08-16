@@ -436,7 +436,9 @@ quantize_xrpow(const FLOAT * xp, int *pi, FLOAT istep, gr_info const *const cod_
                 acc_iData = iData;
                 acc_xp = xp;
             }
-            if (prev_noise &&
+            /* the "upper zero part" shortcut above puts sfb past sfbmax, and
+               the previous-noise cache has no entry for that index */
+            if (prev_noise && sfb <= sfbmax &&
                 prev_noise->sfb_count1 > 0 &&
                 sfb >= prev_noise->sfb_count1 &&
                 prev_noise->step[sfb] > 0 && step >= prev_noise->step[sfb]) {
@@ -885,7 +887,7 @@ noquant_count_bits(lame_internal_flags const *const gfc,
 
     }
     else if (gi->block_type == NORM_TYPE) {
-        assert(i <= 576); /* bv_scf has 576 entries (0..575) */
+        assert(i >= 2 && i <= 576); /* reads bv_scf[i-2] and bv_scf[i-1] of 576 */
         a1 = gi->region0_count = gfc->sv_qnt.bv_scf[i - 2];
         a2 = gi->region1_count = gfc->sv_qnt.bv_scf[i - 1];
 
