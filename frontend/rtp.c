@@ -33,13 +33,13 @@
 #endif
 
 struct rtpbits {
-    int     sequence:16;     /* sequence number: random */
-    int     pt:7;            /* payload type: 14 for MPEG audio */
-    int     m:1;             /* marker: 0 */
-    int     cc:4;            /* number of CSRC identifiers: 0 */
-    int     x:1;             /* number of extension headers: 0 */
-    int     p:1;             /* is there padding appended: 0 */
-    int     v:2;             /* version: 2 */
+    unsigned int sequence:16; /* sequence number: random */
+    unsigned int pt:7;        /* payload type: 14 for MPEG audio */
+    unsigned int m:1;         /* marker: 0 */
+    unsigned int cc:4;        /* number of CSRC identifiers: 0 */
+    unsigned int x:1;         /* number of extension headers: 0 */
+    unsigned int p:1;         /* is there padding appended: 0 */
+    unsigned int v:2;         /* version: 2 */
 };
 
 struct rtpheader {           /* in network byte order */
