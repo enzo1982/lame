@@ -1269,8 +1269,8 @@ local_strcasecmp(const char *s1, const char *s2)
     unsigned char c2;
 
     do {
-        c1 = (unsigned char) tolower(*s1);
-        c2 = (unsigned char) tolower(*s2);
+        c1 = (unsigned char) tolower((unsigned char) *s1);
+        c2 = (unsigned char) tolower((unsigned char) *s2);
         if (!c1) {
             break;
         }
@@ -1291,8 +1291,8 @@ local_strncasecmp(const char *s1, const char *s2, int n)
         if (cnt == n) {
             break;
         }
-        c1 = (unsigned char) tolower(*s1);
-        c2 = (unsigned char) tolower(*s2);
+        c1 = (unsigned char) tolower((unsigned char) *s1);
+        c2 = (unsigned char) tolower((unsigned char) *s2);
         if (!c1) {
             break;
         }
@@ -2799,7 +2799,7 @@ string_to_argv(char* str, char** argv, int N)
     argv[argc++] = "lhama";
     for (;;) {
         int     quoted = 0;
-        while (isspace(*str)) { /* skip blanks */
+        while (isspace((unsigned char) *str)) { /* skip blanks */
             ++str;
         }
         if (*str == '\"') { /* is quoted argument ? */
@@ -2822,7 +2822,7 @@ string_to_argv(char* str, char** argv, int N)
                 }
             }
             else {
-                if (isspace(*str)) { /* parameter separator reached */
+                if (isspace((unsigned char) *str)) { /* parameter separator reached */
                     *str++ = '\0';
                     break;
                 }

@@ -960,7 +960,7 @@ int  readwave ( stereo_t* buff, size_t maxlen, const char* name, size_t* len )
         name_q[j++] = '/';
 
     while (name[i]) {
-        if ( !isalnum (name[i]) && name[i]!='-' && name[i]!='_' && name[i]!='.' )
+        if ( !isalnum ((unsigned char)name[i]) && name[i]!='-' && name[i]!='_' && name[i]!='.' )
             name_q[j++] = '\\';
         name_q[j++] = name[i++];
     }
