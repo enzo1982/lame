@@ -174,10 +174,21 @@ The Windows cells cover:
   objects apart. The configuration and platform still split the tree below
   those, which is what lets one cell hold more than one of them.
 
+- **The client components** (`vs_lame_clients.slnx`, Win32 only): one cell for
+  the ACM codec, which needs nothing beyond Visual Studio and is therefore
+  always generated, and one for the DirectShow filter, which is generated only
+  where the base class sources are laid out. Both cells end in
+  `smoke-clients.ps1` rather than at the build, and its exit status is the
+  cell's: these two are DLLs that Windows loads into another program's process,
+  so it loads each one, resolves the entry points it exists to provide, and
+  reads its import table for a runtime that would have to be shipped alongside.
+  A clean build says the component linked, which is a different question.
+
 The optional libraries are looked for under `vc_solution` where
 `setup-windows-deps.ps1` lays them out, or wherever a `-Mpg123Dir` /
-`-LibsndfileDir` / `-GtkDir` override points. A library that is not present
-simply drops its cells, so the matrix runs with whatever is installed.
+`-LibsndfileDir` / `-GtkDir` / `-DShowBaseClassesDir` override points. A library
+that is not present simply drops its cells, so the matrix runs with whatever is
+installed.
 
 The solution carries the `mp3x` analyzer project but leaves it unselected,
 since it needs a GTK build that LAME does not ship. When one is present the

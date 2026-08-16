@@ -42,6 +42,9 @@
 .PARAMETER GtkDir
   GTK 4 install prefix with lib\gtk-4.lib (a gvsbuild tree), overriding the
   default vc_solution\gtk4\x64; enables the mp3x analyzer cell.
+.PARAMETER DShowBaseClassesDir
+  DirectShow base class sources (the folder holding streams.h), overriding the
+  default vc_solution\baseclasses; enables the DirectShow filter cell.
 .PARAMETER Config
   MSBuild configurations, comma-separated (default "Release,Debug").
 .PARAMETER Arch
@@ -55,6 +58,7 @@ param(
 	[string]$Mpg123Dir,
 	[string]$LibsndfileDir,
 	[string]$GtkDir,
+	[string]$DShowBaseClassesDir,
 	[string]$Config        = "Release,Debug",
 	[string]$Arch          = "x64"
 )
@@ -116,6 +120,15 @@ if (-not $sln) { Fail "No main solution found under vc_solution\." }
 # unselected (it needs GTK 4, which is not shipped)
 $mp3x = Join-Path $SrcDir "vc_solution\vs_lame_mp3x.vcxproj"
 
+# the client components - the ACM codec and the DirectShow filter - live in
+# their own solution, which is Win32 only. The filter is built on its own for
+# the same reason mp3x is: the solution leaves it unselected because it needs
+# sources that are not shipped.
+$clientsSln = Get-ChildItem (Join-Path $SrcDir "vc_solution\*.sln*") -ErrorAction SilentlyContinue |
+	Where-Object { $_.Name -match 'client' } | Select-Object -First 1 -ExpandProperty FullName
+$dshow = Join-Path $SrcDir "vc_solution\vs_lame_dshow.vcxproj"
+$smoke = Join-Path $SrcDir "maintainer\smoke-clients.ps1"
+
 # Probe the optional libraries, so that only locally buildable cells are
 # emitted. Each is taken from its -<name>Dir override, or the conventional
 # vc_solution location setup-windows-deps.ps1 lays it out in. The nmake build is
@@ -141,6 +154,7 @@ if ($mpg123 -and -not (Test-Path (Join-Path $mpg123 "libmpg123-0.def"))) {
 
 $sndfile = Probe-Dep $LibsndfileDir (Join-Path $vcsol "libsndfile\Win32") "lib\sndfile.lib"
 $gtk     = Probe-Dep $GtkDir        (Join-Path $vcsol "gtk4\x64")        "lib\gtk-4.lib"
+$baseCls = Probe-Dep $DShowBaseClassesDir (Join-Path $vcsol "baseclasses") "streams.h"
 
 # --- master directory -------------------------------------------------------
 
@@ -159,6 +173,7 @@ $info = Join-Path $master "matrix-info.txt"
 	"mpg123     = $(if ($mpg123) { $mpg123 } else { '(none - decoder cells skipped)' })"
 	"libsndfile = $(if ($sndfile) { $sndfile } else { '(none - libsndfile cells skipped)' })"
 	"gtk4       = $(if ($gtk) { $gtk } else { '(none - mp3x cells skipped)' })"
+	"baseclasses = $(if ($baseCls) { $baseCls } else { '(none - DirectShow cell skipped)' })"
 	"config   = $Config"
 	"arch     = $Arch"
 	"cells:"
@@ -246,6 +261,34 @@ if ($gtk) {
 		# No trailing separator on Gtk4Path: quoted, it would escape the
 		# closing quote and MSBuild would receive no usable value at all.
 		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$mp3x`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=x64 /p:HaveGtk=true /p:Gtk4Path=`"$gtk`" $msbDirs" }
+}
+
+# --- client component cells (Win32 only) ------------------------------------
+#
+# The ACM codec needs nothing that Visual Studio does not install, so it is
+# always built. The DirectShow filter needs base class sources that are not
+# shipped, so it gets a cell only where they are laid out.
+#
+# Each cell ends in the smoke test rather than at the build, because these two
+# are DLLs that Windows loads into another program's process: a clean build says
+# they linked, not that they load, and not that their own initialisation runs.
+# cmd.exe reports the last command's exit code, so a failed smoke test fails the
+# cell.
+$smokeCmd = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$smoke`""
+
+if ($clientsSln) {
+	$cells += @{ Name = "msbuild-Release-Win32-clients"
+		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$clientsSln`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 $msbDirs`r`nif errorlevel 1 exit /b 1`r`n$smokeCmd -Path `"%~dp0bin`" -Require acm" }
+} else {
+	$msbSkipped += "the client components - no clients solution under vc_solution\"
+}
+
+if ($baseCls -and $clientsSln) {
+	# No trailing separator on the path, for the reason the GTK cell above gives.
+	$cells += @{ Name = "msbuild-Release-Win32-dshow"
+		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$dshow`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 /p:HaveDShowBaseClasses=true /p:DShowBaseClassesPath=`"$baseCls`" $msbDirs`r`nif errorlevel 1 exit /b 1`r`n$smokeCmd -Path `"%~dp0bin`" -Require dshow" }
+} elseif ($clientsSln) {
+	$msbSkipped += "the DirectShow filter - no base class sources (streams.h) under vc_solution\baseclasses"
 }
 
 # --- emit cell build.cmd files ----------------------------------------------

@@ -37,6 +37,7 @@ EXTRA_DIST = \
 	maintainer/gen-build-matrix.sh \
 	maintainer/gen-build-matrix.ps1 \
 	maintainer/setup-windows-deps.ps1 \
+	maintainer/smoke-clients.ps1 \
 	maintainer/perf-compare.sh \
 	maintainer/setup-quality-corpus.sh \
 	maintainer/quality-compare.py \
