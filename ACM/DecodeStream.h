@@ -58,8 +58,6 @@ public:
 	DWORD GetOutputSizeForInput(const DWORD the_SrcLength) const;
 	bool  ConvertBuffer(LPACMDRVSTREAMHEADER a_StreamHeader);
 
-	static unsigned int GetOutputSampleRate(int samples_per_sec, int bitrate, int channels);
-
 protected:
 	lame_global_flags * gfp;
 
