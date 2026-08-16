@@ -127,6 +127,10 @@ $mp3x = Join-Path $SrcDir "vc_solution\vs_lame_mp3x.vcxproj"
 $clientsSln = Get-ChildItem (Join-Path $SrcDir "vc_solution\*.sln*") -ErrorAction SilentlyContinue |
 	Where-Object { $_.Name -match 'client' } | Select-Object -First 1 -ExpandProperty FullName
 $dshow = Join-Path $SrcDir "vc_solution\vs_lame_dshow.vcxproj"
+# The filter's cell builds that one project rather than the solution, so the
+# program that exercises it has to be named too or the cell would look for a
+# binary nothing in the cell built.
+$dshowTestProj = Join-Path $SrcDir "vc_solution\vs_lame_dshow_test.vcxproj"
 $smoke = Join-Path $SrcDir "maintainer\smoke-clients.ps1"
 
 # Probe the optional libraries, so that only locally buildable cells are
@@ -269,16 +273,24 @@ if ($gtk) {
 # always built. The DirectShow filter needs base class sources that are not
 # shipped, so it gets a cell only where they are laid out.
 #
-# Each cell ends in the smoke test rather than at the build, because these two
-# are DLLs that Windows loads into another program's process: a clean build says
-# they linked, not that they load, and not that their own initialisation runs.
-# cmd.exe reports the last command's exit code, so a failed smoke test fails the
-# cell.
+# Each cell goes past the build, because these two are DLLs that Windows loads
+# into another program's process: a clean build says they linked, not that they
+# load, and not that their own initialisation runs. The smoke test answers that
+# much; the component tests then drive each one through the framework it exists
+# for - the ACM converting a buffer, the filter running a graph.
+#
+# cmd.exe reports the last command's exit code, so every step but the last needs
+# its own errorlevel check or a failure ahead of the end is lost.
 $smokeCmd = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$smoke`""
+$binDir = "%~dp0bin\Win32\Release"
+$acmTest = "`"$binDir\lame_acm_test.exe`""
+# Not required here: this cell does not build the filter, so the test finding no
+# lame.ax is the expected outcome and it says so rather than failing.
+$dshowTest = "`"$binDir\lame_dshow_test.exe`""
 
 if ($clientsSln) {
 	$cells += @{ Name = "msbuild-Release-Win32-clients"
-		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$clientsSln`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 $msbDirs`r`nif errorlevel 1 exit /b 1`r`n$smokeCmd -Path `"%~dp0bin`" -Require acm" }
+		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$clientsSln`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 $msbDirs`r`nif errorlevel 1 exit /b 1`r`n$smokeCmd -Path `"%~dp0bin`" -Require acm`r`nif errorlevel 1 exit /b 1`r`n$acmTest`r`nif errorlevel 1 exit /b 1`r`n$dshowTest" }
 } else {
 	$msbSkipped += "the client components - no clients solution under vc_solution\"
 }
@@ -286,7 +298,7 @@ if ($clientsSln) {
 if ($baseCls -and $clientsSln) {
 	# No trailing separator on the path, for the reason the GTK cell above gives.
 	$cells += @{ Name = "msbuild-Release-Win32-dshow"
-		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$dshow`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 /p:HaveDShowBaseClasses=true /p:DShowBaseClassesPath=`"$baseCls`" $msbDirs`r`nif errorlevel 1 exit /b 1`r`n$smokeCmd -Path `"%~dp0bin`" -Require dshow" }
+		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$dshow`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 /p:HaveDShowBaseClasses=true /p:DShowBaseClassesPath=`"$baseCls`" $msbDirs`r`nif errorlevel 1 exit /b 1`r`n`"$msbuild`" `"$dshowTestProj`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 $msbDirs`r`nif errorlevel 1 exit /b 1`r`n$smokeCmd -Path `"%~dp0bin`" -Require dshow`r`nif errorlevel 1 exit /b 1`r`n$dshowTest --require" }
 } elseif ($clientsSln) {
 	$msbSkipped += "the DirectShow filter - no base class sources (streams.h) under vc_solution\baseclasses"
 }
