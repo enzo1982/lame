@@ -143,26 +143,31 @@ values.
 
 Note that compiling mp3x for 64-bit platforms is currently not available.
 
-### Windows SDK 7.1
+### DirectShow base classes
 
-For the DirectShow filter, the Windows SDK 7.1 is needed, especially the
-samples folder where a multimedia base class library must be compiled before.
+The lame_DirectShow filter derives from the DirectShow base classes. Microsoft
+publishes those as source rather than as part of the Windows SDK, in the
+Windows classic samples repository:
+https://github.com/microsoft/Windows-classic-samples
 
-Download the Windows SDK 7.1 installer from here:
-https://www.microsoft.com/en-us/download/details.aspx?id=8279
-(or search for "Microsoft Windows SDK for Windows 7 and .NET Framework 4",
-version 7.1)
+Take the folder "Samples\Win7Samples\multimedia\directshow\baseclasses" from it
+and extract that into the "vc_solution\baseclasses" folder, the same way as
+mpg123 and libsndfile above. Nothing needs to be built there: the sources are
+compiled into the filter.
 
-When starting the web setup, you can choose the installation options. Only the
-"Samples" under "Windows Native Code Development" is actually necessary.
+Open the file "lame/vc_solution/vs_dshow_config.props" and edit the following
+two user macro parameters:
 
-Open the file "lame/vc_solution/vs_win71sdk_config.props" and edit the
-`Win71SdkPath` in the first few lines of the file, ending the path with a
-backslash. As described above, you can also use the Property Manager view to
-change the values.
+- The value of `HaveDShowBaseClasses` can be set to false or true, and
+  specifies whether the base class sources are available and lame_DirectShow
+  can be built. The filter is not selected for building in the solution by
+  default, since it needs them.
+- `DShowBaseClassesPath` specifies the folder that holds the base class
+  sources (the default value is `.\baseclasses`). Do not end it with a
+  backslash: the paths built from it supply their own separator, so that the
+  value can be quoted against spaces.
 
-In the Win71SdkPath path, locate the solution file
-"Samples\multimedia\directshow\baseclasses\baseclasses.sln", convert it from
-the old Visual Studio project format and compile the "Debug_MBCS" and
-"Release_MBCS" configurations. The resulting files strmbasd.lib and
-strmbase.lib are used by the lame_DirectShow project for linking.
+As described above, you can also use the Property Manager view to change the
+values.
+
+The filter is built for the Win32 platform.
