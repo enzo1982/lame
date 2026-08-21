@@ -53,6 +53,28 @@
  *   gfp->internal_flags->ATH
  *   (gfc->ATH)
  */
+/**
+ * \brief Scale the absolute threshold of hearing to the loudness of the
+ *        granule.
+ *
+ * A listener turns a quiet passage up, so a threshold fixed at one playback
+ * level is wrong for quiet material: noise that would sit inaudibly below the
+ * threshold at a normal level becomes audible once the volume is raised. This
+ * lowers the threshold as the granule gets quieter, by up to about 32 dB.
+ *
+ * The loudness it responds to is psycho_loudness_approx(), an
+ * equal-loudness-weighted power sum, offset by a configurable sensitivity so
+ * the caller can move the range over which the adjustment engages.
+ *
+ * The response is deliberately asymmetric. A rise takes effect after a single
+ * frame's delay, so that a loud passage is not encoded against a threshold
+ * still lowered for the quiet one before it; a fall is approached gradually,
+ * so that a brief dip does not swing the threshold and swing it back.
+ *
+ * Doing nothing at all is a supported setting - see lame_set_athaa_type() -
+ * and is the only way to encode against a threshold that makes no assumption
+ * about playback level.
+ */
 static void
 adjust_ATH(lame_internal_flags const *const gfc)
 {

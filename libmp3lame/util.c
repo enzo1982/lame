@@ -188,6 +188,27 @@ freegfc(lame_internal_flags * const gfc)
 /*those ATH formulas are returning
 their minimum value for input = -1*/
 
+/**
+ * \brief The absolute threshold of hearing, in dB, at frequency \a f.
+ *
+ * Terhardt's threshold formula, as given by Painter and Spanias, with two
+ * changes made here after measuring real threshold values: an added term
+ * lifting the curve around 8-9 kHz, and a high-frequency tail whose steepness
+ * \a value selects. The tree records that the unmodified formula was
+ * inaccurate at high frequencies, and that correcting it costs a substantial
+ * amount of bitrate in VBR.
+ *
+ * \a value is what lets one formula serve the whole quality range: the tail
+ * moves from something close to the published curve at the lowest quality
+ * settings towards the measured one at the highest.
+ *
+ * \param f      frequency in Hz. Passing a value below -0.3 asks for the
+ *               curve's minimum instead of evaluating it at a frequency.
+ * \param value  selects the high-frequency tail.
+ * \param f_min  frequency range the curve is evaluated over; \a f is clamped
+ * \param f_max  into it first, so the curve is flat outside.
+ * \return the threshold in dB.
+ */
 static  FLOAT
 ATHformula_GB(FLOAT f, FLOAT value, FLOAT f_min, FLOAT f_max)
 {
@@ -232,6 +253,19 @@ bitrate is more balanced according to the -V value.*/
 
 
 
+/**
+ * \internal
+ * \brief The absolute threshold of hearing for the configured curve.
+ *
+ * Dispatches on the selected curve type to ATHformula_GB(). The types differ
+ * in which high-frequency tail they ask for, whether the caller may choose it,
+ * and over what frequency range the curve is evaluated before it flattens; one
+ * of them additionally offsets the whole curve.
+ *
+ * The threshold that finally reaches the quantizer is not this value alone: a
+ * configured offset is added, and adjust_ATH() may scale the result down in
+ * quiet passages.
+ */
 FLOAT
 ATHformula(SessionConfig_t const *cfg, FLOAT freq)
 {
@@ -263,6 +297,16 @@ ATHformula(SessionConfig_t const *cfg, FLOAT freq)
 }
 
 /* see for example "Zwicker: Psychoakustik, 1982; ISBN 3-540-11401-7 */
+/**
+ * \internal
+ * \brief Convert a frequency in Hz to the Bark scale.
+ *
+ * The scale on which masking is roughly translation-invariant, so that a
+ * single spreading function can serve all frequencies. Zwicker's analytic
+ * approximation.
+ *
+ * \see s3_func(), init_numline()
+ */
 FLOAT
 freq2bark(FLOAT freq)
 {
