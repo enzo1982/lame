@@ -475,6 +475,12 @@
 			        comment carrying no description keeps its own frame
 			        as well. Repeating a description still replaces the
 			        frame it names.</li>
+			    <li>The installed pkg-config file <i>lame.pc</i> now
+			        names the libraries libmp3lame itself links
+			        against, so a program built against a static
+			        libmp3lame through <i>pkg-config --static</i>
+			        resolves them. Reported with a patch by Maarten,
+			        bug ticket <i class="ticket">[ #526 ]</i>.</li>
 		</ul>
             </li>
 	</ul>

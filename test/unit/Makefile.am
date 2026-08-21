@@ -33,6 +33,10 @@ endif
 
 TESTS = $(check_PROGRAMS)
 
+TEST_EXTENSIONS = .sh
+SH_LOG_COMPILER = $(SHELL)
+TESTS += test_pkgconfig.sh
+
 # Every test here links libmp3lame, and every one of them has to load the copy
 # this build just produced - not one the host happens to have installed. That
 # is not automatic. Libtool's Unix wrapper is a shell script and exports
@@ -47,6 +51,16 @@ AM_TESTS_ENVIRONMENT = \
 	export LD_LIBRARY_PATH; \
 	PATH="$(abs_top_builddir)/libmp3lame/.libs:$$PATH"; \
 	export PATH;
+
+# test_pkgconfig.sh reads the generated lame.pc and the libmp3lame.la libtool
+# wrote beside it, and asks pkg-config what the first one means. It needs the
+# build and source roots by absolute path because it runs from this directory,
+# and the pkg-config configure settled on rather than whichever one is first
+# on PATH.
+AM_TESTS_ENVIRONMENT += \
+	abs_top_builddir='$(abs_top_builddir)'; export abs_top_builddir; \
+	abs_top_srcdir='$(abs_top_srcdir)'; export abs_top_srcdir; \
+	PKG_CONFIG='$(PKG_CONFIG)'; export PKG_CONFIG;
 
 test_sanity_SOURCES = test_sanity.c
 test_sanity_CPPFLAGS = $(CMOCKA_CFLAGS)
@@ -406,3 +420,8 @@ EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
 # Header-only unused-parameter marker shared by the tests; not a _SOURCES file,
 # so it has to be named for the tarball explicitly.
 EXTRA_DIST += test_unused.h
+
+# Likewise the pkg-config test: it is a TESTS entry rather than a _SOURCES
+# file, and it is inside the --enable-unit-tests conditional, so neither route
+# would put it in the tarball on its own.
+EXTRA_DIST += test_pkgconfig.sh

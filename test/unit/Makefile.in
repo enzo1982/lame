@@ -684,7 +684,6 @@ AM_TESTSUITE_SUMMARY_HEADER = ' for $(PACKAGE_STRING)'
 RECHECK_LOGS = $(TEST_LOGS)
 AM_RECURSIVE_TARGETS = check recheck
 TEST_SUITE_LOG = test-suite.log
-TEST_EXTENSIONS = @EXEEXT@ .test
 LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
 LOG_COMPILE = $(LOG_COMPILER) $(AM_LOG_FLAGS) $(LOG_FLAGS)
 am__set_b = \
@@ -699,10 +698,9 @@ am__set_b = \
   esac
 am__test_logs1 = $(TESTS:=.log)
 am__test_logs2 = $(am__test_logs1:@EXEEXT@.log=.log)
-TEST_LOGS = $(am__test_logs2:.test.log=.log)
-TEST_LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
-TEST_LOG_COMPILE = $(TEST_LOG_COMPILER) $(AM_TEST_LOG_FLAGS) \
-	$(TEST_LOG_FLAGS)
+TEST_LOGS = $(am__test_logs2:.sh.log=.log)
+SH_LOG_DRIVER = $(SHELL) $(top_srcdir)/test-driver
+SH_LOG_COMPILE = $(SH_LOG_COMPILER) $(AM_SH_LOG_FLAGS) $(SH_LOG_FLAGS)
 am__DIST_COMMON = $(srcdir)/Makefile.in \
 	$(top_srcdir)/Makefile.am.global $(top_srcdir)/depcomp \
 	$(top_srcdir)/test-driver
@@ -793,6 +791,8 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PC_LIBS_PRIVATE = @PC_LIBS_PRIVATE@
+PC_REQUIRES_PRIVATE = @PC_REQUIRES_PRIVATE@
 PKG_CONFIG = @PKG_CONFIG@
 PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
 PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
@@ -871,7 +871,9 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = 1.15 foreign
-@ENABLE_UNIT_TESTS_TRUE@TESTS = $(check_PROGRAMS)
+@ENABLE_UNIT_TESTS_TRUE@TESTS = $(check_PROGRAMS) test_pkgconfig.sh
+@ENABLE_UNIT_TESTS_TRUE@TEST_EXTENSIONS = .sh
+@ENABLE_UNIT_TESTS_TRUE@SH_LOG_COMPILER = $(SHELL)
 
 # Every test here links libmp3lame, and every one of them has to load the copy
 # this build just produced - not one the host happens to have installed. That
@@ -882,12 +884,22 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 # here settles it the same way on every platform rather than leaving it to
 # libtool. Both variables are set because the two families of systems consult
 # different ones, and neither is harmful where it is not used.
-@ENABLE_UNIT_TESTS_TRUE@AM_TESTS_ENVIRONMENT = \
-@ENABLE_UNIT_TESTS_TRUE@	LD_LIBRARY_PATH="$(abs_top_builddir)/libmp3lame/.libs$${LD_LIBRARY_PATH:+:$$LD_LIBRARY_PATH}"; \
+
+# test_pkgconfig.sh reads the generated lame.pc and the libmp3lame.la libtool
+# wrote beside it, and asks pkg-config what the first one means. It needs the
+# build and source roots by absolute path because it runs from this directory,
+# and the pkg-config configure settled on rather than whichever one is first
+# on PATH.
+@ENABLE_UNIT_TESTS_TRUE@AM_TESTS_ENVIRONMENT = LD_LIBRARY_PATH="$(abs_top_builddir)/libmp3lame/.libs$${LD_LIBRARY_PATH:+:$$LD_LIBRARY_PATH}"; \
 @ENABLE_UNIT_TESTS_TRUE@	export LD_LIBRARY_PATH; \
 @ENABLE_UNIT_TESTS_TRUE@	PATH="$(abs_top_builddir)/libmp3lame/.libs:$$PATH"; \
-@ENABLE_UNIT_TESTS_TRUE@	export PATH;
-
+@ENABLE_UNIT_TESTS_TRUE@	export PATH; \
+@ENABLE_UNIT_TESTS_TRUE@	abs_top_builddir='$(abs_top_builddir)'; \
+@ENABLE_UNIT_TESTS_TRUE@	export abs_top_builddir; \
+@ENABLE_UNIT_TESTS_TRUE@	abs_top_srcdir='$(abs_top_srcdir)'; \
+@ENABLE_UNIT_TESTS_TRUE@	export abs_top_srcdir; \
+@ENABLE_UNIT_TESTS_TRUE@	PKG_CONFIG='$(PKG_CONFIG)'; export \
+@ENABLE_UNIT_TESTS_TRUE@	PKG_CONFIG;
 @ENABLE_UNIT_TESTS_TRUE@test_sanity_SOURCES = test_sanity.c
 @ENABLE_UNIT_TESTS_TRUE@test_sanity_CPPFLAGS = $(CMOCKA_CFLAGS)
 @ENABLE_UNIT_TESTS_TRUE@test_sanity_LDADD = $(CMOCKA_LIBS)
@@ -1267,13 +1279,17 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 
 # Header-only unused-parameter marker shared by the tests; not a _SOURCES file,
 # so it has to be named for the tarball explicitly.
+
+# Likewise the pkg-config test: it is a TESTS entry rather than a _SOURCES
+# file, and it is inside the --enable-unit-tests conditional, so neither route
+# would put it in the tarball on its own.
 EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
 	test_calc_sfb_noise_vector.c test_choose_table_neon.c \
-	test_rtp_socket.c test_unused.h
+	test_rtp_socket.c test_unused.h test_pkgconfig.sh
 all: all-am
 
 .SUFFIXES:
-.SUFFIXES: .c .lo .log .o .obj .test .test$(EXEEXT) .trs
+.SUFFIXES: .c .lo .log .o .obj .sh .sh$(EXEEXT) .trs
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(top_srcdir)/Makefile.am.global $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -2348,19 +2364,19 @@ test_rtp_socket.log: test_rtp_socket$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
-.test.log:
+.sh.log:
 	@p='$<'; \
 	$(am__set_b); \
-	$(am__check_pre) $(TEST_LOG_DRIVER) --test-name "$$f" \
+	$(am__check_pre) $(SH_LOG_DRIVER) --test-name "$$f" \
 	--log-file $$b.log --trs-file $$b.trs \
-	$(am__common_driver_flags) $(AM_TEST_LOG_DRIVER_FLAGS) $(TEST_LOG_DRIVER_FLAGS) -- $(TEST_LOG_COMPILE) \
+	$(am__common_driver_flags) $(AM_SH_LOG_DRIVER_FLAGS) $(SH_LOG_DRIVER_FLAGS) -- $(SH_LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
-@am__EXEEXT_TRUE@.test$(EXEEXT).log:
+@am__EXEEXT_TRUE@.sh$(EXEEXT).log:
 @am__EXEEXT_TRUE@	@p='$<'; \
 @am__EXEEXT_TRUE@	$(am__set_b); \
-@am__EXEEXT_TRUE@	$(am__check_pre) $(TEST_LOG_DRIVER) --test-name "$$f" \
+@am__EXEEXT_TRUE@	$(am__check_pre) $(SH_LOG_DRIVER) --test-name "$$f" \
 @am__EXEEXT_TRUE@	--log-file $$b.log --trs-file $$b.trs \
-@am__EXEEXT_TRUE@	$(am__common_driver_flags) $(AM_TEST_LOG_DRIVER_FLAGS) $(TEST_LOG_DRIVER_FLAGS) -- $(TEST_LOG_COMPILE) \
+@am__EXEEXT_TRUE@	$(am__common_driver_flags) $(AM_SH_LOG_DRIVER_FLAGS) $(SH_LOG_DRIVER_FLAGS) -- $(SH_LOG_COMPILE) \
 @am__EXEEXT_TRUE@	"$$tst" $(AM_TESTS_FD_REDIRECT)
 
 distdir: $(BUILT_SOURCES)

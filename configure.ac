@@ -683,6 +683,17 @@ if test "${CONFIG_CPML}" = yes; then
 fi
 CONFIG_MATH_LIB="${USE_LIBM}"
 
+dnl pkg-config metadata for libmp3lame's private link dependencies: what a
+dnl consumer has to add to -lmp3lame when it links statically. The list is
+dnl libmp3lame_la_LIBADD and nothing else.
+dnl
+dnl Which of the two fields a dependency goes in is pkg-config's rule, not a
+dnl preference: one that ships a .pc file of its own goes in Requires.private,
+dnl so that its search paths and its own private libraries come with it; one
+dnl that does not goes in Libs.private. The math library has no .pc file.
+PC_REQUIRES_PRIVATE=
+PC_LIBS_PRIVATE="${CONFIG_MATH_LIB}"
+
 dnl configure use of features
 
 dnl The frame analyzer (mp3x) is a GTK4 program.  An absent GTK4 must stay
@@ -808,6 +819,10 @@ if test "${HAVE_MPG123}" = "yes" && test "${CONFIG_DECODER}" != "no"; then
 	FRONTEND_LDADD="$mpg123_LIBS $FRONTEND_LDADD"
 	LIBMP3LAME_LDADD="$mpg123_LIBS $LIBMP3LAME_LDADD"
 	INCLUDES="$mpg123_CFLAGS $INCLUDES"
+	dnl Keep this version in step with the PKG_CHECK_MODULES above: a
+	dnl consumer linking libmp3lame statically needs the same libmpg123
+	dnl this build was checked against.
+	PC_REQUIRES_PRIVATE="libmpg123 >= 1.26.0 ${PC_REQUIRES_PRIVATE}"
 else
 	if test "${CONFIG_DECODER}" = "yes" ; then
 		AC_MSG_ERROR([no, libmpg123 not found])
@@ -1686,6 +1701,8 @@ AC_SUBST(FRONTEND_CFLAGS)
 AC_SUBST(FRONTEND_LDADD)
 AC_SUBST(LIBMP3LAME_LDADD)
 AC_SUBST(CONFIG_MATH_LIB)
+AC_SUBST(PC_REQUIRES_PRIVATE)
+AC_SUBST(PC_LIBS_PRIVATE)
 AC_SUBST(LDADD)
 
 AC_SUBST(LIB_MAJOR_VERSION)
