@@ -48,16 +48,20 @@
 /*
  *    4 bytes for Header Tag
  *    4 bytes for Header Flags
- *  100 bytes for entry (NUMTOCENTRIES)
  *    4 bytes for FRAME SIZE
  *    4 bytes for STREAM_SIZE
+ *  100 bytes for entry (NUMTOCENTRIES)
  *    4 bytes for VBR SCALE. a VBR quality indicator: 0=best 100=worst
- *   20 bytes for LAME tag.  for example, "LAME3.12 (beta 6)"
  * ___________
- *  140 bytes
+ *  120 bytes
 */
 #define VBRHEADERSIZE (NUMTOCENTRIES+4+4+4+4+4)
 
+/*  the Xing/Info header above, followed by the 36-byte LAME tag, which opens
+ *  with the encoder version string
+ * ___________
+ *  156 bytes
+*/
 #define LAMEHEADERSIZE (VBRHEADERSIZE + 9 + 1 + 1 + 8 + 1 + 1 + 3 + 1 + 1 + 2 + 4 + 2 + 2)
 
 /* the size of the Xing header (MPEG1 and MPEG2) in kbps */
