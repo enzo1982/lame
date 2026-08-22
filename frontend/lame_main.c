@@ -234,6 +234,11 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
             if (put_audio16(outf, Buffer, iread, tmp_num_channels) < 0)
                 goto write_failure;
         }
+        else {
+            if (global_ui_config.silent < 10)
+                error_printf("Error reading input file\n");
+            return -1;
+        }
     } while (iread > 0);
 
     i = (16 / 8) * tmp_num_channels;
@@ -484,6 +489,11 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
                     return 1;
                 }
             } while (rest > 0);
+        }
+        else {
+            if (global_ui_config.silent < 10)
+                error_printf("Error reading input file\n");
+            return -1;
         }
         if (global_writer.flush_write == 1) {
             fflush(outf);

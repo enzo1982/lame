@@ -871,7 +871,12 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = 1.15 foreign
-@ENABLE_UNIT_TESTS_TRUE@TESTS = $(check_PROGRAMS) test_pkgconfig.sh
+
+# The frontend's exit status on a failed read. This one drives the built lame
+# binary rather than the library, so it needs the source root for the test
+# input as well as the build root for the binary; both are exported below.
+@ENABLE_UNIT_TESTS_TRUE@TESTS = $(check_PROGRAMS) test_pkgconfig.sh \
+@ENABLE_UNIT_TESTS_TRUE@	test_exit_status.sh
 @ENABLE_UNIT_TESTS_TRUE@TEST_EXTENSIONS = .sh
 @ENABLE_UNIT_TESTS_TRUE@SH_LOG_COMPILER = $(SHELL)
 
@@ -1283,9 +1288,12 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 # Likewise the pkg-config test: it is a TESTS entry rather than a _SOURCES
 # file, and it is inside the --enable-unit-tests conditional, so neither route
 # would put it in the tarball on its own.
+
+# And the exit-status test, for the same two reasons.
 EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
 	test_calc_sfb_noise_vector.c test_choose_table_neon.c \
-	test_rtp_socket.c test_unused.h test_pkgconfig.sh
+	test_rtp_socket.c test_unused.h test_pkgconfig.sh \
+	test_exit_status.sh
 all: all-am
 
 .SUFFIXES:

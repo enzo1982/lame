@@ -37,6 +37,11 @@ TEST_EXTENSIONS = .sh
 SH_LOG_COMPILER = $(SHELL)
 TESTS += test_pkgconfig.sh
 
+# The frontend's exit status on a failed read. This one drives the built lame
+# binary rather than the library, so it needs the source root for the test
+# input as well as the build root for the binary; both are exported below.
+TESTS += test_exit_status.sh
+
 # Every test here links libmp3lame, and every one of them has to load the copy
 # this build just produced - not one the host happens to have installed. That
 # is not automatic. Libtool's Unix wrapper is a shell script and exports
@@ -425,3 +430,6 @@ EXTRA_DIST += test_unused.h
 # file, and it is inside the --enable-unit-tests conditional, so neither route
 # would put it in the tarball on its own.
 EXTRA_DIST += test_pkgconfig.sh
+
+# And the exit-status test, for the same two reasons.
+EXTRA_DIST += test_exit_status.sh

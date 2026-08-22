@@ -481,6 +481,14 @@
 			        libmp3lame through <i>pkg-config --static</i>
 			        resolves them. Reported with a patch by Maarten,
 			        bug ticket <i class="ticket">[ #526 ]</i>.</li>
+			    <li>An input file whose audio cannot be read to the
+			        end is now reported: encoding and decoding both
+			        stop where the failure happened and exit with a
+			        non-zero status. Such an input used to leave a
+			        truncated output file behind while reporting
+			        success. Reported, with a patch for the encoding
+			        case, by Van de Bugger, bug ticket
+			        <i class="ticket">[ #513 ]</i>.</li>
 		</ul>
             </li>
 	</ul>
