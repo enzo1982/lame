@@ -112,6 +112,7 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_bitstream_headers$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_free_format$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_encode_api$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_resample_decision$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_1) $(am__EXEEXT_2) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_3)
 
@@ -316,6 +317,16 @@ test_quantize_lines_vector_OBJECTS =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_6) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_7)
+am__test_resample_decision_SOURCES_DIST = test_resample_decision.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_resample_decision_OBJECTS = test_resample_decision-test_resample_decision.$(OBJEXT)
+test_resample_decision_OBJECTS = $(am_test_resample_decision_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_resample_decision_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+test_resample_decision_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(AM_CFLAGS) $(CFLAGS) $(test_resample_decision_LDFLAGS) \
+	$(LDFLAGS) -o $@
 am__test_rtp_socket_SOURCES_DIST = test_rtp_socket.c \
 	$(top_srcdir)/frontend/rtp.c
 @ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@am_test_rtp_socket_OBJECTS = test_rtp_socket-test_rtp_socket.$(OBJEXT) \
@@ -402,6 +413,7 @@ am__depfiles_remade =  \
 	./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po \
 	./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po \
 	./$(DEPDIR)/test_quantize_lines_vector-test_quantize_lines_vector.Po \
+	./$(DEPDIR)/test_resample_decision-test_resample_decision.Po \
 	./$(DEPDIR)/test_rtp_socket-rtp.Po \
 	./$(DEPDIR)/test_rtp_socket-test_rtp_socket.Po \
 	./$(DEPDIR)/test_sanity-test_sanity.Po \
@@ -442,9 +454,10 @@ SOURCES = $(test_bitstream_headers_SOURCES) \
 	$(test_merge_argv_SOURCES) $(test_parse_id3_SOURCES) \
 	$(test_parse_pathlen_SOURCES) \
 	$(test_quantize_lines_vector_SOURCES) \
-	$(test_rtp_socket_SOURCES) $(test_sanity_SOURCES) \
-	$(test_set_get_SOURCES) $(test_totalframes_SOURCES) \
-	$(test_vector_ladder_SOURCES) $(test_vector_routines_SOURCES)
+	$(test_resample_decision_SOURCES) $(test_rtp_socket_SOURCES) \
+	$(test_sanity_SOURCES) $(test_set_get_SOURCES) \
+	$(test_totalframes_SOURCES) $(test_vector_ladder_SOURCES) \
+	$(test_vector_routines_SOURCES)
 DIST_SOURCES = $(am__test_bitstream_headers_SOURCES_DIST) \
 	$(am__test_calc_sfb_noise_vector_SOURCES_DIST) \
 	$(am__test_choose_table_neon_SOURCES_DIST) \
@@ -465,6 +478,7 @@ DIST_SOURCES = $(am__test_bitstream_headers_SOURCES_DIST) \
 	$(am__test_parse_id3_SOURCES_DIST) \
 	$(am__test_parse_pathlen_SOURCES_DIST) \
 	$(am__test_quantize_lines_vector_SOURCES_DIST) \
+	$(am__test_resample_decision_SOURCES_DIST) \
 	$(am__test_rtp_socket_SOURCES_DIST) \
 	$(am__test_sanity_SOURCES_DIST) \
 	$(am__test_set_get_SOURCES_DIST) \
@@ -1095,6 +1109,22 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
 
+# isResamplingNecessary() is internal and withheld from the shared library by
+# include/libmp3lame.sym, so this links the STATIC archive (-static) to reach
+# it, the same way test_vector_ladder does. The encode arms in the same file go
+# through the public API and need no such help.
+@ENABLE_UNIT_TESTS_TRUE@test_resample_decision_SOURCES = test_resample_decision.c
+@ENABLE_UNIT_TESTS_TRUE@test_resample_decision_CPPFLAGS = $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_resample_decision_LDFLAGS = -static
+@ENABLE_UNIT_TESTS_TRUE@test_resample_decision_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
+
 # lame_get_totalframes() is public, so this test links libmp3lame and calls it
 # directly - no frontend translation unit compiled in.
 @ENABLE_UNIT_TESTS_TRUE@test_totalframes_SOURCES = test_totalframes.c
@@ -1413,6 +1443,10 @@ test_quantize_lines_vector$(EXEEXT): $(test_quantize_lines_vector_OBJECTS) $(tes
 	@rm -f test_quantize_lines_vector$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_quantize_lines_vector_OBJECTS) $(test_quantize_lines_vector_LDADD) $(LIBS)
 
+test_resample_decision$(EXEEXT): $(test_resample_decision_OBJECTS) $(test_resample_decision_DEPENDENCIES) $(EXTRA_test_resample_decision_DEPENDENCIES) 
+	@rm -f test_resample_decision$(EXEEXT)
+	$(AM_V_CCLD)$(test_resample_decision_LINK) $(test_resample_decision_OBJECTS) $(test_resample_decision_LDADD) $(LIBS)
+
 test_rtp_socket$(EXEEXT): $(test_rtp_socket_OBJECTS) $(test_rtp_socket_DEPENDENCIES) $(EXTRA_test_rtp_socket_DEPENDENCIES) 
 	@rm -f test_rtp_socket$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_rtp_socket_OBJECTS) $(test_rtp_socket_LDADD) $(LIBS)
@@ -1469,6 +1503,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_quantize_lines_vector-test_quantize_lines_vector.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_resample_decision-test_resample_decision.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_rtp_socket-rtp.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_rtp_socket-test_rtp_socket.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_sanity-test_sanity.Po@am__quote@ # am--include-marker
@@ -1867,6 +1902,20 @@ test_quantize_lines_vector-test_quantize_lines_vector.obj: test_quantize_lines_v
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_quantize_lines_vector.c' object='test_quantize_lines_vector-test_quantize_lines_vector.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_quantize_lines_vector_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_quantize_lines_vector-test_quantize_lines_vector.obj `if test -f 'test_quantize_lines_vector.c'; then $(CYGPATH_W) 'test_quantize_lines_vector.c'; else $(CYGPATH_W) '$(srcdir)/test_quantize_lines_vector.c'; fi`
+
+test_resample_decision-test_resample_decision.o: test_resample_decision.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_resample_decision_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_resample_decision-test_resample_decision.o -MD -MP -MF $(DEPDIR)/test_resample_decision-test_resample_decision.Tpo -c -o test_resample_decision-test_resample_decision.o `test -f 'test_resample_decision.c' || echo '$(srcdir)/'`test_resample_decision.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_resample_decision-test_resample_decision.Tpo $(DEPDIR)/test_resample_decision-test_resample_decision.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_resample_decision.c' object='test_resample_decision-test_resample_decision.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_resample_decision_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_resample_decision-test_resample_decision.o `test -f 'test_resample_decision.c' || echo '$(srcdir)/'`test_resample_decision.c
+
+test_resample_decision-test_resample_decision.obj: test_resample_decision.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_resample_decision_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_resample_decision-test_resample_decision.obj -MD -MP -MF $(DEPDIR)/test_resample_decision-test_resample_decision.Tpo -c -o test_resample_decision-test_resample_decision.obj `if test -f 'test_resample_decision.c'; then $(CYGPATH_W) 'test_resample_decision.c'; else $(CYGPATH_W) '$(srcdir)/test_resample_decision.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_resample_decision-test_resample_decision.Tpo $(DEPDIR)/test_resample_decision-test_resample_decision.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_resample_decision.c' object='test_resample_decision-test_resample_decision.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_resample_decision_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_resample_decision-test_resample_decision.obj `if test -f 'test_resample_decision.c'; then $(CYGPATH_W) 'test_resample_decision.c'; else $(CYGPATH_W) '$(srcdir)/test_resample_decision.c'; fi`
 
 test_rtp_socket-test_rtp_socket.o: test_rtp_socket.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_rtp_socket-test_rtp_socket.o -MD -MP -MF $(DEPDIR)/test_rtp_socket-test_rtp_socket.Tpo -c -o test_rtp_socket-test_rtp_socket.o `test -f 'test_rtp_socket.c' || echo '$(srcdir)/'`test_rtp_socket.c
@@ -2337,6 +2386,13 @@ test_encode_api.log: test_encode_api$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_resample_decision.log: test_resample_decision$(EXEEXT)
+	@p='test_resample_decision$(EXEEXT)'; \
+	b='test_resample_decision'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 test_choose_table_vector.log: test_choose_table_vector$(EXEEXT)
 	@p='test_choose_table_vector$(EXEEXT)'; \
 	b='test_choose_table_vector'; \
@@ -2491,6 +2547,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po
 	-rm -f ./$(DEPDIR)/test_quantize_lines_vector-test_quantize_lines_vector.Po
+	-rm -f ./$(DEPDIR)/test_resample_decision-test_resample_decision.Po
 	-rm -f ./$(DEPDIR)/test_rtp_socket-rtp.Po
 	-rm -f ./$(DEPDIR)/test_rtp_socket-test_rtp_socket.Po
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
@@ -2569,6 +2626,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-parse_test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po
 	-rm -f ./$(DEPDIR)/test_quantize_lines_vector-test_quantize_lines_vector.Po
+	-rm -f ./$(DEPDIR)/test_resample_decision-test_resample_decision.Po
 	-rm -f ./$(DEPDIR)/test_rtp_socket-rtp.Po
 	-rm -f ./$(DEPDIR)/test_rtp_socket-test_rtp_socket.Po
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po

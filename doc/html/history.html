@@ -489,6 +489,13 @@
 			        success. Reported, with a patch for the encoding
 			        case, by Van de Bugger, bug ticket
 			        <i class="ticket">[ #513 ]</i>.</li>
+			    <li>Input whose sample rate differs from the output
+			        sample rate by a fraction of a percent is now
+			        resampled, like any other mismatch. Such input
+			        used to be passed through unresampled, which
+			        shifted its pitch and duration by the difference.
+			        Reported, with a patch, by Riley Gabriel, patch
+			        ticket <i class="ticket">[ #101 ]</i>.</li>
 		</ul>
             </li>
 	</ul>

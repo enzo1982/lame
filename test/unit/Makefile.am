@@ -13,7 +13,7 @@ check_PROGRAMS = test_sanity test_get_audio_aiff test_get_audio_wav \
 	test_totalframes test_set_get test_lib_info test_vector_routines \
 	test_vector_ladder test_decoder_api test_encode_clipgain \
 	test_huffman_tables test_help_exit test_bitstream_headers \
-	test_free_format test_encode_api
+	test_free_format test_encode_api test_resample_decision
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -228,6 +228,20 @@ test_encode_api_CPPFLAGS = $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_encode_api_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# isResamplingNecessary() is internal and withheld from the shared library by
+# include/libmp3lame.sym, so this links the STATIC archive (-static) to reach
+# it, the same way test_vector_ladder does. The encode arms in the same file go
+# through the public API and need no such help.
+test_resample_decision_SOURCES = test_resample_decision.c
+test_resample_decision_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_builddir)
+test_resample_decision_LDFLAGS = -static
+test_resample_decision_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 

@@ -726,9 +726,7 @@ fill_buffer_resample(lame_internal_flags * gfc,
 int
 isResamplingNecessary(SessionConfig_t const* cfg)
 {
-    int const l = cfg->samplerate_out * 0.9995f;
-    int const h = cfg->samplerate_out * 1.0005f;
-    return (cfg->samplerate_in < l) || (h < cfg->samplerate_in) ? 1 : 0;
+    return cfg->samplerate_in != cfg->samplerate_out ? 1 : 0;
 }
 
 /* copy in new samples from in_buffer into mfbuf, with resampling
