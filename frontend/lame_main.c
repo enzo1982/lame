@@ -66,6 +66,7 @@ char   *strchr(), *strrchr();
 */
 #include "lame.h"
 
+#include "brhist.h"
 #include "console.h"
 #include "parse.h"
 #include "main.h"
@@ -483,6 +484,7 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
                         error_printf("mp3 internal error:  error code=%i\n", imp3);
                     return 1;
                 }
+                brhist_add_encoded_bytes(imp3);
                 owrite = (int) fwrite(mp3buffer, 1, imp3, outf);
                 if (owrite != imp3) {
                     error_printf("Error writing mp3 output \n");
@@ -513,6 +515,11 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
         return 1;
 
     }
+
+    /*  Before the closing display, not after the write below it: the flush is
+     *  part of the audio and the last figure drawn should include it.
+     */
+    brhist_add_encoded_bytes(imp3);
 
     encoder_progress_end(gf);
 

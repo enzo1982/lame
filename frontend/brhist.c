@@ -68,6 +68,9 @@ static struct brhist_struct {
     char    bar_percent[512 + 1]; /* buffer filled up with a lot of '%' to print a bar     */
     char    bar_coded[512 + 1]; /* buffer filled up with a lot of ' ' to print a bar     */
     char    bar_space[512 + 1]; /* buffer filled up with a lot of ' ' to print a bar     */
+    double  encoded_bytes; /* what the encoder has produced so far; a double
+                              because a long encode can pass what a 32 bit
+                              size_t holds, and only a ratio is wanted */
 } brhist;
 
 static int
@@ -87,6 +90,7 @@ brhist_init(const lame_global_flags * gf, const int bitrate_kbps_min, const int 
     brhist.hist_printed_lines = 0;
 
     /* initialize histogramming data structure */
+    brhist.encoded_bytes = 0.;
     lame_bitrate_kbps(gf, brhist.kbps);
     brhist.vbr_bitrate_min_index = calculate_index(brhist.kbps, BRHIST_WIDTH, bitrate_kbps_min);
     brhist.vbr_bitrate_max_index = calculate_index(brhist.kbps, BRHIST_WIDTH, bitrate_kbps_max);
@@ -299,6 +303,20 @@ stats_line(double *stat)
 #define LR  0
 #define MS  2
 
+/*  Called by the caller that writes the encoder's output, with the size of
+ *  every block the encoder hands over.  A caller that does not report its
+ *  writes still gets a bitrate figure - the mean of the nominal frame
+ *  bitrates, as before - rather than a zero.
+ */
+void
+brhist_add_encoded_bytes(int nbytes)
+{
+    if (nbytes > 0) {
+        brhist.encoded_bytes += (double) nbytes;
+    }
+}
+
+
 void
 brhist_disp(const lame_global_flags * gf)
 {
@@ -342,7 +360,26 @@ brhist_disp(const lame_global_flags * gf)
         st_frames += st_mode[i];
     }
     if (frames > 0) {
-        stat[0] = sum / frames;
+        /*  The bitrate the encoded audio actually has: the bytes the encoder
+         *  produced, over their playing time.  The Xing/Info tag frame is
+         *  subtracted because it is not audio and is not among the frames
+         *  counted here; leaving it in would report a constant excess, largest
+         *  on the shortest files.  Where the caller does not report what it
+         *  writes, or no tag-bearing byte has arrived yet, the mean of the
+         *  nominal frame bitrates stands in.
+         */
+        int const srate = lame_get_out_samplerate(gf);
+        double const tag_bytes = (double) lame_get_lametag_frame(gf, 0, 0);
+        double const audio_bytes = brhist.encoded_bytes - tag_bytes;
+        double const seconds = srate > 0
+            ? frames * (double) lame_get_framesize(gf) / srate : 0.;
+
+        if (audio_bytes > 0. && seconds > 0.) {
+            stat[0] = audio_bytes * 8. / (seconds * 1000.);
+        }
+        else {
+            stat[0] = sum / frames;
+        }
         stat[1] = 100. * (frames - st_frames) / frames;
     }
     if (st_frames > 0) {

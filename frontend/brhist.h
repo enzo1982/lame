@@ -30,6 +30,7 @@ extern "C" {
 
 int     brhist_init(const lame_global_flags * gf, const int bitrate_kbps_min,
                     const int bitrate_kbps_max);
+void    brhist_add_encoded_bytes(int nbytes);
 void    brhist_disp(const lame_global_flags * gf);
 void    brhist_jump_back(void);
 
