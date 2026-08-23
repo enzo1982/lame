@@ -791,10 +791,10 @@ vector_choices(char *buf, size_t size)
         return "";
     buf[0] = '\0';
     strncat(buf, "auto, none", size - 1);
-    used = strnlen(buf, size);
+    used = lame_strnlen(buf, size);
     for (i = 0; i < n; ++i) {
         const char *const name = lame_get_vector_routines_name(i);
-        size_t const len = strnlen(name, size);
+        size_t const len = lame_strnlen(name, size);
 
         if (used + 2 + len + 1 > size)
             break;
@@ -1701,7 +1701,7 @@ set_vector_routines(lame_global_flags * gfp, const char *name)
 static int
 set_path_arg(char const *const src, char *const dst)
 {
-    int const arg_n = (int)strnlen(src, PATH_MAX);
+    int const arg_n = (int)lame_strnlen(src, PATH_MAX);
     if (arg_n >= PATH_MAX) {
         error_printf("input/output file name too long (limit %d): %s\n",
                      PATH_MAX, src);
@@ -2246,7 +2246,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     nogap_tags = 1;
 
                 T_ELIF("nogapout")
-                    int const arg_n = (int)strnlen(nextArg, PATH_MAX);
+                    int const arg_n = (int)lame_strnlen(nextArg, PATH_MAX);
                     if (arg_n >= PATH_MAX) {
                         error_printf("%s: %s argument length (%d) exceeds limit (%d)\n", ProgramName, token, arg_n, PATH_MAX);
                         return -1;
@@ -2256,7 +2256,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     argUsed = 1;
 
                 T_ELIF("out-dir")
-                    int const arg_n = (int)strnlen(nextArg, PATH_MAX);
+                    int const arg_n = (int)lame_strnlen(nextArg, PATH_MAX);
                     if (arg_n >= PATH_MAX) {
                         error_printf("%s: %s argument length (%d) exceeds limit (%d)\n", ProgramName, token, arg_n, PATH_MAX);
                         return -1;

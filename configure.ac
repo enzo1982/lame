@@ -535,7 +535,7 @@ fi
 
 dnl Checks for library functions.
 AC_FUNC_ALLOCA
-AC_CHECK_FUNCS(gettimeofday strtol)
+AC_CHECK_FUNCS(gettimeofday strnlen strtol)
 
 dnl For the ARM capability probe in libmp3lame/util.c.  The header and the
 dnl function are separate questions - a system can have <sys/auxv.h> and only

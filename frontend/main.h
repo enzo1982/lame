@@ -88,6 +88,15 @@ extern DecoderConfig global_decoder;
 extern RawPCMConfig global_raw_pcm;
 
 
+/*  strnlen is C11 and POSIX.1-2008; older systems do not have it.  The calls
+    that use it are bounded on purpose - the buffer need not contain a NUL at
+    all - so strlen is not a substitute for it. */
+#ifdef HAVE_STRNLEN
+# define lame_strnlen strnlen
+#else
+extern size_t lame_strnlen(char const* s, size_t n);
+#endif
+
 extern FILE* lame_fopen(char const* file, char const* mode);
 extern char* utf8ToConsole8Bit(const char* str);
 extern char* utf8ToLocal8Bit(const char* str);

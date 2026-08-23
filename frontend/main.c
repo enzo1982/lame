@@ -92,6 +92,19 @@ char   *strchr(), *strrchr();
 #endif
 
 
+#ifndef HAVE_STRNLEN
+size_t
+lame_strnlen(char const* s, size_t n)
+{
+    size_t  i;
+
+    for (i = 0; i < n && s[i] != '\0'; ++i) {
+    }
+    return i;
+}
+#endif
+
+
 static int c_main(int argc, char *argv[]);
 extern int lame_main(lame_t gf, int argc, char *argv[]);
 
@@ -151,7 +164,7 @@ dosToLongFileName(char *filename)
         size_t  namelen, prefix;
 
         FindClose(h);
-        namelen = strnlen(lpFindFileData.cFileName, sizeof(lpFindFileData.cFileName));
+        namelen = lame_strnlen(lpFindFileData.cFileName, sizeof(lpFindFileData.cFileName));
         if (namelen == 0 || namelen >= sizeof(lpFindFileData.cFileName))
             return;             /* empty, or not terminated within the field */
 

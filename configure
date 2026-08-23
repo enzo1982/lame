@@ -17259,6 +17259,12 @@ then :
   printf '%s\n' "#define HAVE_GETTIMEOFDAY 1" >>confdefs.h
 
 fi
+ac_fn_c_check_func "$LINENO" "strnlen" "ac_cv_func_strnlen"
+if test "x$ac_cv_func_strnlen" = xyes
+then :
+  printf '%s\n' "#define HAVE_STRNLEN 1" >>confdefs.h
+
+fi
 ac_fn_c_check_func "$LINENO" "strtol" "ac_cv_func_strtol"
 if test "x$ac_cv_func_strtol" = xyes
 then :
