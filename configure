@@ -18890,14 +18890,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -18921,14 +18922,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -18952,14 +18954,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -18983,14 +18986,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -19018,14 +19022,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -19049,14 +19054,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -19085,14 +19091,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -19116,14 +19123,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -19159,14 +19167,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -19190,14 +19199,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -19221,14 +19231,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -19252,14 +19263,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -19403,14 +19415,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -20124,14 +20137,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -20155,14 +20169,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }
@@ -20186,14 +20201,15 @@ main (void)
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"
+if ac_fn_c_try_link "$LINENO"
 then :
   lame_check_flag_ok=yes
 else case e in #(
   e) lame_check_flag_ok=no ;;
 esac
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
 CFLAGS=$lame_check_flag_save
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
 printf '%s\n' "$lame_check_flag_ok" >&6; }

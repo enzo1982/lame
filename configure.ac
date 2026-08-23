@@ -128,11 +128,14 @@ dnl   Append FLAG to shell VARIABLE if the C compiler accepts it.  -Werror is
 dnl   added so that a flag which only warns (e.g. clang's "unknown argument")
 dnl   still counts as a rejection, and -O2 is added so that flags which are
 dnl   only meaningful with optimization (e.g. _FORTIFY_SOURCE) probe correctly.
+dnl   The probe links rather than only compiling: several of these flags make
+dnl   the compiler emit references to a support library, so a toolchain can
+dnl   accept the flag and still be unable to produce a program with it.
 AC_DEFUN([LAME_CHECK_CFLAG],
 [AC_MSG_CHECKING([whether $CC accepts $1])
 lame_check_flag_save=$CFLAGS
 CFLAGS="$CFLAGS -O2 $1 -Werror"
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[]])],
   [lame_check_flag_ok=yes], [lame_check_flag_ok=no])
 CFLAGS=$lame_check_flag_save
 AC_MSG_RESULT([$lame_check_flag_ok])
