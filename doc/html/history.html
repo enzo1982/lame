@@ -499,6 +499,12 @@
 			    <li>The command line tools build on systems whose C
 			        library has no <i>strnlen</i>, such as Mac OS&nbsp;X
 			        10.5. Reported by Robert Kausch.</li>
+			    <li>LAME builds with a toolchain that cannot restrict
+			        which symbols a shared library exports, such as
+			        <i>tcc</i>. <i>libmp3lame</i> then exports every
+			        symbol it defines rather than only its documented
+			        interface, and configure says so. Reported by Elio
+			        Blanca.</li>
 		</ul>
             </li>
 	</ul>

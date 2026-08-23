@@ -29,8 +29,14 @@ endif
 
 libmp3lame_la_LIBADD =	$(vector_ldadd) $(decoder_ldadd) \
 			@LIBMP3LAME_LDADD@ $(CONFIG_MATH_LIB)
+if WITH_EXPORT_LIST
+export_list_flags = -export-symbols $(top_srcdir)/include/libmp3lame.sym
+else
+export_list_flags =
+endif
+
 libmp3lame_la_LDFLAGS = -version-info @LIB_MAJOR_VERSION@:@LIB_MINOR_VERSION@ \
-			-export-symbols $(top_srcdir)/include/libmp3lame.sym \
+			$(export_list_flags) \
 			-no-undefined
 
 INCLUDES = @INCLUDES@ -I$(top_srcdir) -I$(top_builddir)

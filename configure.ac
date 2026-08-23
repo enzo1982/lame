@@ -59,6 +59,43 @@ LT_INIT
 AC_SUBST(LIBTOOL_DEPS)
 CFLAGS="${ac_save_CFLAGS}"
 
+# libmp3lame is linked with an export list (include/libmp3lame.sym) so that
+# only the public API leaves the shared library.  libtool implements that with
+# whatever the host offers - a linker version script, an exported-symbols list
+# - and a toolchain that offers neither cannot link the library at all.  Ask
+# libtool itself: deciding from the compiler's name, or from whether a version
+# script is accepted, throws the export list away on hosts where it works by a
+# different mechanism.  LT_OUTPUT writes the script now so it can be asked.
+LT_OUTPUT
+if test "x${enable_shared}" = "xno"; then
+	lame_export_list="n/a (static only)"
+else
+	AC_CACHE_CHECK([whether libtool can link a shared library with an export list],
+		[lame_cv_export_list],
+		[cat >conftest_el.c <<_LAME_EOF
+int lame_conftest_public(void);
+int lame_conftest_public(void) { return 0; }
+_LAME_EOF
+		echo lame_conftest_public >conftest_el.sym
+		lame_cv_export_list=no
+		if ./libtool --tag=CC --mode=compile ${CC} ${CFLAGS} -c conftest_el.c \
+			>&AS_MESSAGE_LOG_FD 2>&1 &&
+		   ./libtool --tag=CC --mode=link ${CC} ${CFLAGS} ${LDFLAGS} \
+			-o libconftest_el.la -rpath /usr/lib \
+			-export-symbols conftest_el.sym conftest_el.lo \
+			>&AS_MESSAGE_LOG_FD 2>&1; then
+			lame_cv_export_list=yes
+		fi
+		rm -rf conftest_el.* libconftest_el.* .libs/conftest_el* .libs/libconftest_el*])
+	lame_export_list=${lame_cv_export_list}
+	if test "x${lame_export_list}" = "xno"; then
+		AC_MSG_WARN([this toolchain cannot link a shared library with an export
+	list, so libmp3lame will export every symbol it defines rather than only
+	its public API.])
+	fi
+fi
+AM_CONDITIONAL([WITH_EXPORT_LIST], [test "x${lame_export_list}" = "xyes"])
+
 # increase this when the shared lib becomes totally incompatible
 LIB_MAJOR_VERSION=0
 
@@ -1859,6 +1896,7 @@ echo "      file io ............. ${CONFIG_FILEIO}"
 echo "      analyzer hooks ...... ${CONFIG_ANALYZER:-no}"
 echo "      vector routines ..... ${lame_vector_sets}"
 echo "      hardening ........... ${enable_hardening:-no}"
+echo "      export list ......... ${lame_export_list}"
 echo "      native tuning ....... ${enable_native:-no}"
 echo "      debug ............... ${CONFIG_DEBUG:-no}"
 if test -n "${internal_static_note}"; then

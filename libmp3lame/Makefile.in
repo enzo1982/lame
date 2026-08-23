@@ -450,8 +450,10 @@ lib_LTLIBRARIES = libmp3lame.la
 libmp3lame_la_LIBADD = $(vector_ldadd) $(decoder_ldadd) \
 			@LIBMP3LAME_LDADD@ $(CONFIG_MATH_LIB)
 
+@WITH_EXPORT_LIST_FALSE@export_list_flags = 
+@WITH_EXPORT_LIST_TRUE@export_list_flags = -export-symbols $(top_srcdir)/include/libmp3lame.sym
 libmp3lame_la_LDFLAGS = -version-info @LIB_MAJOR_VERSION@:@LIB_MINOR_VERSION@ \
-			-export-symbols $(top_srcdir)/include/libmp3lame.sym \
+			$(export_list_flags) \
 			-no-undefined
 
 EXTRA_DIST = \
