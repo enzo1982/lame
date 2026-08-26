@@ -12,20 +12,6 @@
     features it will be a lot of work to re-write.
 
 
--   MSVC project files.  It would be nice to create a working
-    MSVC6 workspace, which included all the projects as possible
-    targets:
-          lame.exe
-          mp3x.exe   (require GTK libs)
-          lame_enc.dll   
-          ACM codec
-          directshow codec
-
-    I think the only MSVC5 project that we need to preserve is
-    for lame_enc.dll, since Albert Faber (still?) doesn't use VC6?
-    But no reason we cant have VC5 and VC6 project files for the dll.
-
-
 -   NOGAP encoding:
 
     -nogap:  more testing, fix options, test id3 tags?
@@ -46,17 +32,9 @@
                   tags at the beginning of file2.mp3 and file3.mp3.
 
 
--   Does stdin work when LAME is compiled to use libsndfile? 
-    (new version of libsndfile will support this - try this out)
-
-
 -   LAME has problems with pure DC input.  i.e. a square wave with
     a frequency well below 20 Hz.  Not very important, but it should
     be fixed.
-
-
--   mgplib has bugs with i-stereo.  flag denoting invalid
-    i-stereo value (= frame is m/s stereo) is not correct.  
 
 
 -   lowpass filter: for M/S stereo, use more filtering for the side
@@ -90,14 +68,6 @@
 
 
 
--   Different ATH handling for sfb21. We are using the minimum value of ath
-    in each whole sfb. in sfb21 this leads to very high bitrates.
-    We could perhaps use 2 or 3 ath partitions in sfb21
-
-    note: partially done
-
-
-
 -   Use mixed blocks.
 
 
@@ -110,10 +80,6 @@
 
 
 
--   Merge GOGO's fast assembler routines.
-
-
-
 -   It would be nice to save some information whilst encoding
     a: wave -> mp3
         a RIFF/wave can contain LIST chunks with information
@@ -123,10 +89,6 @@
         ==> we could copy the TAG directly
     c: mp3 -> wave
         ==> copy TAG into LIST chunk
-
-
-
--   Integrate plusV extensions
 
 
 
