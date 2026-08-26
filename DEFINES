@@ -10,9 +10,6 @@ KLEMM_36:
 NON_LINEAR_PSYMODEL
  - use a non linear psymodel in the GPSYCHO case
 
-USE_GOGO_SUBBAND:
- ?
-
 NOTABLES (default):
  ?
 
