@@ -18597,6 +18597,27 @@ then :
 fi
 
 
+ac_fn_c_check_header_compile "$LINENO" "utime.h" "ac_cv_header_utime_h" "$ac_includes_default"
+if test "x$ac_cv_header_utime_h" = xyes
+then :
+  printf '%s\n' "#define HAVE_UTIME_H 1" >>confdefs.h
+
+fi
+ac_fn_c_check_header_compile "$LINENO" "sys/utime.h" "ac_cv_header_sys_utime_h" "$ac_includes_default"
+if test "x$ac_cv_header_sys_utime_h" = xyes
+then :
+  printf '%s\n' "#define HAVE_SYS_UTIME_H 1" >>confdefs.h
+
+fi
+
+ac_fn_c_check_func "$LINENO" "utime" "ac_cv_func_utime"
+if test "x$ac_cv_func_utime" = xyes
+then :
+  printf '%s\n' "#define HAVE_UTIME 1" >>confdefs.h
+
+fi
+
+
 ac_fn_c_check_header_compile "$LINENO" "sys/auxv.h" "ac_cv_header_sys_auxv_h" "$ac_includes_default"
 if test "x$ac_cv_header_sys_auxv_h" = xyes
 then :

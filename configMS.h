@@ -72,6 +72,12 @@
 /* Define if you have the <stdint.h> header file.  */
 #define HAVE_STDINT_H 1
 
+/* Define if you have the <sys/utime.h> header file and utime().  The Windows
+   compilers put utime() there rather than in <utime.h>; the frontend needs
+   both answers for --preserve-modtime.  */
+#define HAVE_SYS_UTIME_H 1
+#define HAVE_UTIME 1
+
 #if defined(_MSC_VER) || defined(__BORLANDC__)
 #pragma warning( disable : 4305 )
 #endif

@@ -54,6 +54,7 @@ typedef struct ReaderConfig
 typedef struct WriterConfig
 {
     int   flush_write;
+    int   preserve_modtime;        /* give the output file the input file's times */
 } WriterConfig;
 
 typedef struct UiConfig

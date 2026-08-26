@@ -13,7 +13,8 @@ check_PROGRAMS = test_sanity test_get_audio_aiff test_get_audio_wav \
 	test_totalframes test_set_get test_lib_info test_vector_routines \
 	test_vector_ladder test_decoder_api test_encode_clipgain \
 	test_huffman_tables test_help_exit test_bitstream_headers \
-	test_free_format test_encode_api test_resample_decision
+	test_free_format test_encode_api test_resample_decision \
+	test_file_times
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -412,6 +413,17 @@ test_choose_table_neon_CPPFLAGS = $(CMOCKA_CFLAGS) \
 test_choose_table_neon_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/vector/liblamevectorneon.la
 endif
+
+# The file-time helpers are external but lametime.c is a frontend translation
+# unit, not part of the library, so the test compiles it in directly - the same
+# arrangement the get_audio and rtp tests use. It touches no encoder state, so
+# it links nothing beyond cmocka.
+test_file_times_SOURCES = test_file_times.c $(top_srcdir)/frontend/lametime.c
+test_file_times_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/frontend \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_file_times_LDADD = $(CMOCKA_LIBS)
 
 # rtp_socket() is external but the file is a frontend translation unit, not part
 # of the library, so the test compiles it in directly - the same arrangement the

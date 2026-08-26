@@ -72,6 +72,7 @@ char   *strchr(), *strrchr();
 #include "main.h"
 #include "get_audio.h"
 #include "timestatus.h"
+#include "lametime.h"
 
 /* PLL 14/04/2000 */
 #if macintosh
@@ -95,6 +96,53 @@ char   *strchr(), *strrchr();
 ************************************************************************/
 
 
+/** @internal @brief The input's times, captured before anything opens it. */
+static lame_file_times input_file_times;
+
+/**
+ * @internal
+ * @brief Takes the input file's times, before anything opens it.
+ *
+ * Does nothing unless @c --preserve-modtime was given, and nothing for
+ * standard input, which has no file to take them from.
+ *
+ * @param inPath  the input file name, "-" for standard input.
+ */
+static void
+capture_file_times(char const *inPath)
+{
+    input_file_times.valid = 0;
+    if (global_writer.preserve_modtime == 0)
+        return;
+    if (strcmp(inPath, "-") == 0)
+        return;
+    (void) lame_read_file_times(inPath, &input_file_times);
+}
+
+/**
+ * @internal
+ * @brief Gives the output file the times captured from the input.
+ *
+ * A pipe on either side is passed over silently - the request was about files.
+ * A named file that could not be stamped is reported, because the request then
+ * went unfulfilled.
+ *
+ * @param inPath   the input file name, "-" for standard input.
+ * @param outPath  the output file name, "-" for standard output.
+ */
+static void
+preserve_file_times(char const *inPath, char const *outPath)
+{
+    if (global_writer.preserve_modtime == 0)
+        return;
+    if (strcmp(inPath, "-") == 0 || strcmp(outPath, "-") == 0)
+        return;
+    if (lame_write_file_times(outPath, &input_file_times) != 0)
+        if (global_ui_config.silent < 10)
+            error_printf("WARNING: could not give %s the times of %s\n", outPath, inPath);
+}
+
+
 static FILE *
 init_files(lame_global_flags * gf, char const *inPath, char const *outPath)
 {
@@ -114,6 +162,7 @@ init_files(lame_global_flags * gf, char const *inPath, char const *outPath)
      * if you want to do your own file input, skip this call and set
      * samplerate, num_channels and num_samples yourself.
      */
+    capture_file_times(inPath);
     if (init_infile(gf, inPath) < 0) {
         error_printf("Can't init infile '%s'\n", inPath);
         return NULL;
@@ -284,6 +333,8 @@ lame_decoder(lame_t gfp, FILE * outf, char *inPath, char *outPath)
     ret = lame_decoder_loop(gfp, outf, inPath, outPath);
     fclose(outf);       /* close the output file */
     close_infile();     /* close the input file */
+    if (ret >= 0)
+        preserve_file_times(inPath, outPath);
     return ret;
 }
 
@@ -557,6 +608,8 @@ lame_encoder(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char 
     ret = lame_encoder_loop(gf, outf, nogap, inPath, outPath);
     fclose(outf);       /* close the output file */
     close_infile();     /* close the input file */
+    if (ret >= 0)
+        preserve_file_times(inPath, outPath);
     return ret;
 }
 

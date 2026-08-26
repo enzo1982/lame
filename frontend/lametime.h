@@ -23,6 +23,7 @@
 #define LAME_LAMETIME_H
 
 #include <sys/types.h>
+#include <time.h>
 #include "lame.h"
 
 #if defined(__cplusplus)
@@ -33,6 +34,19 @@ extern double GetCPUTime(void);
 extern double GetRealTime(void);
 
 extern int lame_set_stream_binary_mode(FILE * const fp);
+
+/**
+ * @internal
+ * @brief The times a file carries, captured before anything opens it.
+ */
+typedef struct {
+    int     valid;
+    time_t  actime;
+    time_t  modtime;
+} lame_file_times;
+
+extern int lame_read_file_times(char const *path, lame_file_times * times);
+extern int lame_write_file_times(char const *path, lame_file_times const *times);
 
 #if defined(__cplusplus)
 }

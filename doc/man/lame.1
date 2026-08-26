@@ -478,6 +478,11 @@ select nothing, there being no code of either kind to disable. If both options
 are given,
 .B \-\-vector
 wins.
+.TP
+.B \-\-preserve\-modtime
+Give the output file the date and time of the input file, rather than the time
+the run finished. Has no effect when the input or the output is a pipe, there
+being no file to read the times from or to give them to.
 
 .PP
 Verbosity:

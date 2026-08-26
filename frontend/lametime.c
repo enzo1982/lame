@@ -146,4 +146,86 @@ lame_set_stream_binary_mode(FILE * const fp)
 }
 
 
+#include <sys/stat.h>
+
+#if defined(HAVE_UTIME_H)
+# include <utime.h>
+#elif defined(HAVE_SYS_UTIME_H)
+# include <sys/utime.h>
+#endif
+
+#if defined(HAVE_UTIME) && (defined(HAVE_UTIME_H) || defined(HAVE_SYS_UTIME_H))
+# define LAME_HAVE_FILE_TIMES 1
+#endif
+
+/**
+ * @internal
+ * @brief Remembers the access and modification times a file carries.
+ *
+ * Called before anything opens the file: reading a file updates its access
+ * time, so times taken afterwards describe the reader rather than the file.
+ *
+ * @param path   the file to read the times from.
+ * @param times  receives them, and is marked invalid where they could not be
+ *               read or where this build cannot write them again anyway.
+ * @return 0 on success, -1 otherwise.
+ */
+int
+lame_read_file_times(char const *path, lame_file_times * times)
+{
+    if (times == 0) {
+        return -1;
+    }
+    times->valid = 0;
+    times->actime = 0;
+    times->modtime = 0;
+#ifdef LAME_HAVE_FILE_TIMES
+    {
+        struct stat source;
+
+        if (path == 0 || stat(path, &source) != 0) {
+            return -1;
+        }
+        times->actime = source.st_atime;
+        times->modtime = source.st_mtime;
+        times->valid = 1;
+        return 0;
+    }
+#else
+    (void) path;        /* the system has no way to set them later, so there */
+    return -1;          /* is nothing to be gained by reading them now.      */
+#endif
+}
+
+
+/**
+ * @internal
+ * @brief Gives a file the times remembered by lame_read_file_times().
+ *
+ * @param path   the file to stamp.
+ * @param times  times previously read; an invalid set is refused rather than
+ *               applied, so a failed read cannot become a wrong stamp.
+ * @return 0 on success, -1 otherwise, including where the platform offers no
+ *         way to set file times.
+ */
+int
+lame_write_file_times(char const *path, lame_file_times const *times)
+{
+#ifdef LAME_HAVE_FILE_TIMES
+    struct utimbuf when;
+
+    if (path == 0 || times == 0 || times->valid == 0) {
+        return -1;
+    }
+    when.actime = times->actime;
+    when.modtime = times->modtime;
+    return utime(path, &when) == 0 ? 0 : -1;
+#else
+    (void) path;        /* the system has no way to set them; say so rather */
+    (void) times;       /* than report a success nothing performed.         */
+    return -1;
+#endif
+}
+
+
 /* End of lametime.c */

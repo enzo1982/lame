@@ -882,6 +882,8 @@ long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramNam
         );
     fprintf(fp,
             "    --flush         flush output stream as soon as possible\n"
+            "    --preserve-modtime  give the output file the date and time of the\n"
+            "                    input file\n"
             "    --freeformat    produce a free format bitstream\n"
             "    --decode        input=mp3 file, output=wav\n"
             "    -t              disable writing wav header when using --decode\n");
@@ -1842,6 +1844,9 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 
                 T_ELIF("flush")
                     global_writer.flush_write = 1;
+
+                T_ELIF("preserve-modtime")
+                    global_writer.preserve_modtime = 1;
 
                 T_ELIF("decode-mp3delay")
                     argUsed = getIntValue(token, nextArg, &int_value);

@@ -574,6 +574,14 @@ dnl Checks for library functions.
 AC_FUNC_ALLOCA
 AC_CHECK_FUNCS(gettimeofday strnlen strtol)
 
+dnl For --preserve-modtime in the frontend.  The header spelling differs -
+dnl POSIX puts utime() in <utime.h>, the Windows compilers in <sys/utime.h> -
+dnl so both are asked and lametime.c includes whichever the answer names.
+dnl utime() itself is asked separately, because a system may ship the header
+dnl and not the function.
+AC_CHECK_HEADERS(utime.h sys/utime.h)
+AC_CHECK_FUNCS(utime)
+
 dnl For the ARM capability probe in libmp3lame/util.c.  The header and the
 dnl function are separate questions - a system can have <sys/auxv.h> and only
 dnl one of the two ways of reading it - so both are asked, and util.c includes
