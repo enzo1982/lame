@@ -70,7 +70,32 @@ static struct EncoderProgress {
     double  last_time;
     int     last_frame_num;
     int     time_status_init;
+    int     frame_width;     /* digits reserved for the frame counter */
 } global_encoder_progress;
+
+
+/**
+ * @internal
+ * @brief How many digits the frame counter needs for this file.
+ *
+ * The heading is built to the same width, so the columns of the rows below it
+ * stay under the headings they belong to.
+ *
+ * @param totalframes  how many frames the file will produce.
+ * @return digits to reserve, never fewer than the six the display has
+ *         always reserved.
+ */
+static int
+ts_frame_width(int totalframes)
+{
+    int     width = 1;
+
+    while (totalframes >= 10) {
+        totalframes /= 10;
+        ++width;
+    }
+    return width < 6 ? 6 : width;
+}
 
 
 /*
@@ -158,11 +183,18 @@ timestatus(const lame_global_flags * const gfp)
     proc_time->last_time = tmx;
 
     if (global_encoder_progress.time_status_init == 0) {
+        /* Fixed once, and used for the heading and for every row after it: a
+           width that changed part way through would misalign against a heading
+           already printed. */
+        global_encoder_progress.frame_width = ts_frame_width(totalframes);
         console_printf("\r"
-                       "    Frame          |  CPU time/estim | REAL time/estim | play/CPU |    ETA \n"
-                       "     0/       ( 0%%)|    0:00/     :  |    0:00/     :  |         "
+                       "    Frame%*s|  CPU time/estim | REAL time/estim | play/CPU |    ETA \n"
+                       "%*i/%-*s ( 0%%)|    0:00/     :  |    0:00/     :  |         "
                        SPEED_CHAR "|     :  \r"
-                       /* , Console_IO.str_clreoln, Console_IO.str_clreoln */ );
+                       /* , Console_IO.str_clreoln, Console_IO.str_clreoln */ ,
+                       2 * global_encoder_progress.frame_width - 2, "",
+                       global_encoder_progress.frame_width, 0,
+                       global_encoder_progress.frame_width, "");
         global_encoder_progress.time_status_init = 1;
         return;
     }
@@ -177,7 +209,9 @@ timestatus(const lame_global_flags * const gfp)
         percent = 100;
     }
 
-    console_printf("\r%6i/%-6i", frameNum, totalframes);
+    console_printf("\r%*i/%-*i",
+                   global_encoder_progress.frame_width, frameNum,
+                   global_encoder_progress.frame_width, totalframes);
     console_printf(percent < 100 ? " (%2d%%)|" : "(%3.3d%%)|", percent);
     ts_time_decompose(proc_time->elapsed_time, '/');
     ts_time_decompose(proc_time->estimated_time, '|');
