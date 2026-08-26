@@ -272,29 +272,84 @@ char* fromUtf16( char* src )
 }
 #endif
 
+/**
+ * @internal
+ * @brief Converts text between character sets, reporting what it could not.
+ *
+ * iconv() stops at the first character it cannot produce and leaves the rest
+ * unread. What could be converted is still returned - a transliterating
+ * conversion is what is asked for - and the caller is told the rest was
+ * dropped, so a value written short is at least a visible one.
+ *
+ * @param to        the character set to produce, as iconv_open() names it.
+ * @param from      the character set the text is in.
+ * @param src       the text.
+ * @param srcbytes  how much of it to convert.
+ * @param room      in the units the callers use; the buffer is four times that
+ *                  plus a margin, and @a room is what iconv may fill.
+ * @param lead      bytes at the front of the result that belong to the caller
+ *                  rather than to the conversion, for a byte-order mark.
+ * @return the converted text, or NULL.
+ */
+static char *
+convert_text(char const *to, char const *from, char const *src,
+             size_t srcbytes, size_t room, size_t lead)
+{
+    char   *dst = calloc(room + 4, 4);
+    iconv_t xiconv;
+    char   *i_ptr, *o_ptr;
+    size_t  srcln, avail, rc;
+    /*  The names carry a "//TRANSLIT" flag for iconv_open(), which is an
+        instruction rather than part of the encoding's name; the messages below
+        stop at it. <string.h> and strcspn() are not visible here on
+        pre-standard compilers, so the length is counted by hand. */
+    int     to_len = 0;
+
+    while (to[to_len] != '
+        ++to_len;
+    }
+
+    if (dst == 0) {
+        return 0;
+    }
+    xiconv = iconv_open(to, from);
+    if (xiconv == (iconv_t) -1) {
+        if (global_ui_config.silent < 9) {
+            error_printf("Cannot convert text from %s to %.*s on this system;"
+                         " the value is left out of the tag.\n",
+                         from, to_len, to);
+        }
+        return dst;
+    }
+    i_ptr = (char *) src;
+    o_ptr = &dst[lead];
+    srcln = srcbytes;
+    avail = room;
+    rc = iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
+    iconv_close(xiconv);
+    if (rc == (size_t) -1 && global_ui_config.silent < 9) {
+        /*  The value is echoed back because a run may set several tag fields,
+            and otherwise there is no way to tell which of them was cut. */
+        error_printf("Only part of '%s' could be written as %.*s;"
+                     " %lu byte(s) of it were dropped.\n",
+                     src, to_len, to, (unsigned long) srcln);
+    }
+    return dst;
+}
+
+
 static
 char* toLatin1( char* src )
 {
     size_t w = currCharCodeSize();
-    char* dst = 0;
-    if (src != 0) {
-        size_t const l = strlenMultiByte(src, w);
-        size_t const n = l*4;
-        dst = calloc(n+4, 4);
-        if (dst != 0) {
-            char* cur_code = currentCharacterEncoding();
-            iconv_t xiconv = iconv_open("ISO_8859-1//TRANSLIT", cur_code);
-            if (xiconv != (iconv_t)-1) {
-                char* i_ptr = (char*)src;
-                char* o_ptr = dst;
-                size_t srcln = l*w;
-                size_t avail = n;
-                iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
-                iconv_close(xiconv);
-            }
-        }
+    if (src == 0) {
+        return 0;
     }
-    return dst;
+    {
+        size_t const l = strlenMultiByte(src, w);
+        return convert_text("ISO_8859-1//TRANSLIT", currentCharacterEncoding(),
+                            src, l*w, l*4, 0);
+    }
 }
 
 
@@ -302,27 +357,15 @@ static
 char* toUtf8( char* src )
 {
     size_t w = currCharCodeSize();
-    char* dst = 0;
-    if (src != 0) {
+    if (src == 0) {
+        return 0;
+    }
+    {
         /* XXX: size calculation for UTF-16, a bit too much for UTF-8, but not too small */
         size_t const l = strlenMultiByte(src, w);
-        size_t const n = (l+1)*4;
-        dst = calloc(n+4, 4);
-        if (dst != 0) {
-            char* cur_code = currentCharacterEncoding();
-            iconv_t xiconv = iconv_open("UTF-8//TRANSLIT", cur_code);
-            if (xiconv != (iconv_t)-1) {
-                char* i_ptr = (char*)src;
-                char* o_ptr = &dst[0];
-                size_t srcln = l*w;
-                size_t avail = n;
-                iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
-                iconv_close(xiconv);
-            }
-        }
+        return convert_text("UTF-8//TRANSLIT", currentCharacterEncoding(),
+                            src, l*w, (l+1)*4, 0);
     }
-    return dst;
-
 }
 
 
@@ -330,27 +373,22 @@ static
 char* toUtf16( char* src )
 {
     size_t w = currCharCodeSize();
-    char* dst = 0;
-    if (src != 0) {
+    if (src == 0) {
+        return 0;
+    }
+    {
         size_t const l = strlenMultiByte(src, w);
-        size_t const n = (l+1)*4;
-        dst = calloc(n+4, 4);
+        /* Two bytes are reserved at the front for the byte-order mark, which
+           is written afterwards so that it survives a conversion that could
+           not start at all. */
+        char *dst = convert_text("UTF-16LE//TRANSLIT", currentCharacterEncoding(),
+                                 src, l*w, (l+1)*4, 2);
         if (dst != 0) {
-            char* cur_code = currentCharacterEncoding();
-            iconv_t xiconv = iconv_open("UTF-16LE//TRANSLIT", cur_code);
             dst[0] = 0xff;
             dst[1] = 0xfe;
-            if (xiconv != (iconv_t)-1) {
-                char* i_ptr = (char*)src;
-                char* o_ptr = &dst[2];
-                size_t srcln = l*w;
-                size_t avail = n;
-                iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
-                iconv_close(xiconv);
-            }
         }
+        return dst;
     }
-    return dst;
 }
 #endif
 

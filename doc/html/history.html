@@ -544,6 +544,11 @@
 			        built on, so seeking works again when the filter
 			        is part of a graph. Reported by Julio Jose, bug
 			        ticket <i class="ticket">[ #511 ]</i>.</li>
+			    <li>A tag value that cannot be written in the
+			        character set the tag uses is reported instead of
+			        being cut short in silence. As much of it as could
+			        be converted is still written, and the value that
+			        lost part of itself is named.</li>
 			    <li>While encoding, the heading above the progress
 			        display is as wide as the frame counter beneath
 			        it, so a file long enough to need more than six
