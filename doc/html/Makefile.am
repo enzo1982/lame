@@ -2,12 +2,14 @@
 
 AUTOMAKE_OPTIONS = foreign
 
-docdir = $(datadir)/doc
-pkgdocdir = $(docdir)/$(PACKAGE)
-htmldir = $(docdir)/html
-pkghtmldir = $(pkgdocdir)/html
+# docdir comes from configure - it is one of the standard directory variables,
+# and --docdir sets it. Assigning to it here overrode whatever the user asked
+# for. The pages keep their own subdirectory below it, under a name of our own
+# rather than htmldir, which is another variable configure owns and which
+# already means "where the HTML documentation goes".
+lamehtmldir = $(docdir)/html
 
-pkghtml_DATA = \
+lamehtml_DATA = \
     about.html \
 	abr.html \
 	cbr.html \
@@ -23,16 +25,16 @@ pkghtml_DATA = \
 	usage.html \
 	vbr.html
 
-pkghtmlimagesdir = $(pkghtmldir)/images
-pkghtmlimages_DATA = \
+lamehtmlimagesdir = $(lamehtmldir)/images
+lamehtmlimages_DATA = \
 	images/logo.gif \
 	images/sflogo.gif \
 	images/valid-css.png \
 	images/valid-html401.png \
 	images/valid-xhtml10.png
 
-pkghtmlstylesdir = $(pkghtmldir)/styles
-pkghtmlstyles_DATA = \
+lamehtmlstylesdir = $(lamehtmldir)/styles
+lamehtmlstyles_DATA = \
 	styles/lame.css
 
-EXTRA_DIST = $(pkghtml_DATA) $(pkghtmlimages_DATA) $(pkghtmlstyles_DATA)
+EXTRA_DIST = $(lamehtml_DATA) $(lamehtmlimages_DATA) $(lamehtmlstyles_DATA)

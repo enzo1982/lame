@@ -151,10 +151,10 @@ am__uninstall_files_from_dir = { \
   || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
        $(am__cd) "$$dir" && echo $$files | $(am__xargs_n) 40 $(am__rm_f); }; \
   }
-am__installdirs = "$(DESTDIR)$(pkghtmldir)" \
-	"$(DESTDIR)$(pkghtmlimagesdir)" \
-	"$(DESTDIR)$(pkghtmlstylesdir)"
-DATA = $(pkghtml_DATA) $(pkghtmlimages_DATA) $(pkghtmlstyles_DATA)
+am__installdirs = "$(DESTDIR)$(lamehtmldir)" \
+	"$(DESTDIR)$(lamehtmlimagesdir)" \
+	"$(DESTDIR)$(lamehtmlstylesdir)"
+DATA = $(lamehtml_DATA) $(lamehtmlimages_DATA) $(lamehtmlstyles_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 am__DIST_COMMON = $(srcdir)/Makefile.in
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -289,7 +289,7 @@ build_vendor = @build_vendor@
 builddir = @builddir@
 datadir = @datadir@
 datarootdir = @datarootdir@
-docdir = $(datadir)/doc
+docdir = @docdir@
 dvidir = @dvidir@
 exec_prefix = @exec_prefix@
 host = @host@
@@ -297,7 +297,7 @@ host_alias = @host_alias@
 host_cpu = @host_cpu@
 host_os = @host_os@
 host_vendor = @host_vendor@
-htmldir = $(docdir)/html
+htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
@@ -324,9 +324,14 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
-pkgdocdir = $(docdir)/$(PACKAGE)
-pkghtmldir = $(pkgdocdir)/html
-pkghtml_DATA = \
+
+# docdir comes from configure - it is one of the standard directory variables,
+# and --docdir sets it. Assigning to it here overrode whatever the user asked
+# for. The pages keep their own subdirectory below it, under a name of our own
+# rather than htmldir, which is another variable configure owns and which
+# already means "where the HTML documentation goes".
+lamehtmldir = $(docdir)/html
+lamehtml_DATA = \
     about.html \
 	abr.html \
 	cbr.html \
@@ -342,19 +347,19 @@ pkghtml_DATA = \
 	usage.html \
 	vbr.html
 
-pkghtmlimagesdir = $(pkghtmldir)/images
-pkghtmlimages_DATA = \
+lamehtmlimagesdir = $(lamehtmldir)/images
+lamehtmlimages_DATA = \
 	images/logo.gif \
 	images/sflogo.gif \
 	images/valid-css.png \
 	images/valid-html401.png \
 	images/valid-xhtml10.png
 
-pkghtmlstylesdir = $(pkghtmldir)/styles
-pkghtmlstyles_DATA = \
+lamehtmlstylesdir = $(lamehtmldir)/styles
+lamehtmlstyles_DATA = \
 	styles/lame.css
 
-EXTRA_DIST = $(pkghtml_DATA) $(pkghtmlimages_DATA) $(pkghtmlstyles_DATA)
+EXTRA_DIST = $(lamehtml_DATA) $(lamehtmlimages_DATA) $(lamehtmlstyles_DATA)
 all: all-am
 
 .SUFFIXES:
@@ -393,69 +398,69 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
-install-pkghtmlDATA: $(pkghtml_DATA)
+install-lamehtmlDATA: $(lamehtml_DATA)
 	@$(NORMAL_INSTALL)
-	@list='$(pkghtml_DATA)'; test -n "$(pkghtmldir)" || list=; \
+	@list='$(lamehtml_DATA)'; test -n "$(lamehtmldir)" || list=; \
 	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(pkghtmldir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(pkghtmldir)" || exit 1; \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(lamehtmldir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(lamehtmldir)" || exit 1; \
 	fi; \
 	for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  echo "$$d$$p"; \
 	done | $(am__base_list) | \
 	while read files; do \
-	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(pkghtmldir)'"; \
-	  $(INSTALL_DATA) $$files "$(DESTDIR)$(pkghtmldir)" || exit $$?; \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(lamehtmldir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(lamehtmldir)" || exit $$?; \
 	done
 
-uninstall-pkghtmlDATA:
+uninstall-lamehtmlDATA:
 	@$(NORMAL_UNINSTALL)
-	@list='$(pkghtml_DATA)'; test -n "$(pkghtmldir)" || list=; \
+	@list='$(lamehtml_DATA)'; test -n "$(lamehtmldir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	dir='$(DESTDIR)$(pkghtmldir)'; $(am__uninstall_files_from_dir)
-install-pkghtmlimagesDATA: $(pkghtmlimages_DATA)
+	dir='$(DESTDIR)$(lamehtmldir)'; $(am__uninstall_files_from_dir)
+install-lamehtmlimagesDATA: $(lamehtmlimages_DATA)
 	@$(NORMAL_INSTALL)
-	@list='$(pkghtmlimages_DATA)'; test -n "$(pkghtmlimagesdir)" || list=; \
+	@list='$(lamehtmlimages_DATA)'; test -n "$(lamehtmlimagesdir)" || list=; \
 	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(pkghtmlimagesdir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(pkghtmlimagesdir)" || exit 1; \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(lamehtmlimagesdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(lamehtmlimagesdir)" || exit 1; \
 	fi; \
 	for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  echo "$$d$$p"; \
 	done | $(am__base_list) | \
 	while read files; do \
-	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(pkghtmlimagesdir)'"; \
-	  $(INSTALL_DATA) $$files "$(DESTDIR)$(pkghtmlimagesdir)" || exit $$?; \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(lamehtmlimagesdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(lamehtmlimagesdir)" || exit $$?; \
 	done
 
-uninstall-pkghtmlimagesDATA:
+uninstall-lamehtmlimagesDATA:
 	@$(NORMAL_UNINSTALL)
-	@list='$(pkghtmlimages_DATA)'; test -n "$(pkghtmlimagesdir)" || list=; \
+	@list='$(lamehtmlimages_DATA)'; test -n "$(lamehtmlimagesdir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	dir='$(DESTDIR)$(pkghtmlimagesdir)'; $(am__uninstall_files_from_dir)
-install-pkghtmlstylesDATA: $(pkghtmlstyles_DATA)
+	dir='$(DESTDIR)$(lamehtmlimagesdir)'; $(am__uninstall_files_from_dir)
+install-lamehtmlstylesDATA: $(lamehtmlstyles_DATA)
 	@$(NORMAL_INSTALL)
-	@list='$(pkghtmlstyles_DATA)'; test -n "$(pkghtmlstylesdir)" || list=; \
+	@list='$(lamehtmlstyles_DATA)'; test -n "$(lamehtmlstylesdir)" || list=; \
 	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(pkghtmlstylesdir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(pkghtmlstylesdir)" || exit 1; \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(lamehtmlstylesdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(lamehtmlstylesdir)" || exit 1; \
 	fi; \
 	for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  echo "$$d$$p"; \
 	done | $(am__base_list) | \
 	while read files; do \
-	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(pkghtmlstylesdir)'"; \
-	  $(INSTALL_DATA) $$files "$(DESTDIR)$(pkghtmlstylesdir)" || exit $$?; \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(lamehtmlstylesdir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(lamehtmlstylesdir)" || exit $$?; \
 	done
 
-uninstall-pkghtmlstylesDATA:
+uninstall-lamehtmlstylesDATA:
 	@$(NORMAL_UNINSTALL)
-	@list='$(pkghtmlstyles_DATA)'; test -n "$(pkghtmlstylesdir)" || list=; \
+	@list='$(lamehtmlstyles_DATA)'; test -n "$(lamehtmlstylesdir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	dir='$(DESTDIR)$(pkghtmlstylesdir)'; $(am__uninstall_files_from_dir)
+	dir='$(DESTDIR)$(lamehtmlstylesdir)'; $(am__uninstall_files_from_dir)
 tags TAGS:
 
 ctags CTAGS:
@@ -500,7 +505,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(DATA)
 installdirs:
-	for dir in "$(DESTDIR)$(pkghtmldir)" "$(DESTDIR)$(pkghtmlimagesdir)" "$(DESTDIR)$(pkghtmlstylesdir)"; do \
+	for dir in "$(DESTDIR)$(lamehtmldir)" "$(DESTDIR)$(lamehtmlimagesdir)" "$(DESTDIR)$(lamehtmlstylesdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -553,8 +558,8 @@ info: info-am
 
 info-am:
 
-install-data-am: install-pkghtmlDATA install-pkghtmlimagesDATA \
-	install-pkghtmlstylesDATA
+install-data-am: install-lamehtmlDATA install-lamehtmlimagesDATA \
+	install-lamehtmlstylesDATA
 
 install-dvi: install-dvi-am
 
@@ -598,8 +603,8 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-pkghtmlDATA uninstall-pkghtmlimagesDATA \
-	uninstall-pkghtmlstylesDATA
+uninstall-am: uninstall-lamehtmlDATA uninstall-lamehtmlimagesDATA \
+	uninstall-lamehtmlstylesDATA
 
 .MAKE: install-am install-strip
 
@@ -608,14 +613,15 @@ uninstall-am: uninstall-pkghtmlDATA uninstall-pkghtmlimagesDATA \
 	distclean-libtool distdir dvi dvi-am html html-am info info-am \
 	install install-am install-data install-data-am install-dvi \
 	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-pkghtmlDATA \
-	install-pkghtmlimagesDATA install-pkghtmlstylesDATA install-ps \
-	install-ps-am install-strip installcheck installcheck-am \
-	installdirs maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
-	ps ps-am tags-am uninstall uninstall-am uninstall-pkghtmlDATA \
-	uninstall-pkghtmlimagesDATA uninstall-pkghtmlstylesDATA
+	install-html-am install-info install-info-am \
+	install-lamehtmlDATA install-lamehtmlimagesDATA \
+	install-lamehtmlstylesDATA install-man install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-generic \
+	mostlyclean-libtool pdf pdf-am ps ps-am tags-am uninstall \
+	uninstall-am uninstall-lamehtmlDATA \
+	uninstall-lamehtmlimagesDATA uninstall-lamehtmlstylesDATA
 
 .PRECIOUS: Makefile
 
