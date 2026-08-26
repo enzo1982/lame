@@ -82,6 +82,16 @@ Instructs LAME that the samples from the input are in big-endian form.
 
 Required only for raw PCM input files.
 .TP
+.B \-\-ignorelength
+Ignore the length given in the WAVE header and read the input until it ends.
+
+A WAVE header states how much audio follows it. A file still being written, or
+one arriving over a pipe, may carry a length that is wrong or zero, and encoding
+then stops early.
+.TP
+.B \-\-swap-channel
+Swap the left and right channels.
+.TP
 .B \-\-mp1input
 Assume the input file is a MPEG Layer I (ie MP1) file.
 .br
@@ -111,6 +121,9 @@ gapless encoding for a set of contiguous files
 .TP
 .BI \-\-nogapout " dir"
 output dir for gapless encoding (must precede \-\-nogap)
+.TP
+.B \-\-nogaptags
+Allow the use of VBR tags in gapless encoding.
 .TP
 .BI \-\-out-dir " dir"
 If no explicit output file is specified, a file will be written at given path.
@@ -253,6 +266,12 @@ This option is not usable if the MP3 decoder was
 .B explicitly
 disabled in the build of LAME.
 .TP
+.BI \-\-decode\-mp3delay " n"
+When decoding, assume the encoder delay was
+.I n
+samples rather than the value the file's own tag gives. For files whose tag is
+missing or wrong.
+.TP
 .BI \-t
 Disable writing of the INFO Tag on encoding.
 .br
@@ -301,6 +320,13 @@ Use with care,
 since most MP3 decoders will truncate data which decodes to values
 greater than 32768.
 .PD
+.TP
+.BI \-\-gain " n"
+Apply a gain adjustment of
+.I n
+decibels, in the range \-20.0 to +12.0. Another way of spelling
+.B \-\-scale ,
+in the units a listener thinks in.
 .TP
 .B \-\-replaygain\-fast
 Compute ReplayGain fast but slightly inaccurately.
@@ -500,6 +526,16 @@ are given,
 .B \-\-vector
 wins.
 .TP
+.B \-\-flush
+Flush the output stream as soon as each piece of it has been written, rather
+than leaving it to the operating system. Useful for a stream; with a file it
+costs performance, since the writing is then done in smaller pieces.
+.TP
+.BI \-\-priority " n"
+Set the priority of the encoding process:
+.I n
+= 0 or 1 for low, 2 for normal, 3 or 4 for high. Available on Windows and OS/2.
+.TP
 .B \-\-preserve\-modtime
 Give the output file the date and time of the input file, rather than the time
 the run finished. Has no effect when the input or the output is a pipe, there
@@ -527,11 +563,24 @@ Histogram display might not be available on your release.
 Do not print anything on the screen.
 .PD
 .TP
+.B \-\-brief
+Print less on the screen than the default does, and more than
+.B \-\-silent .
+.TP
 .B \-\-verbose
 Print a lot of information on the screen.
 .TP
 .B \-\-help
 Display a list of available options.
+.TP
+.B \-\-longhelp
+Display the whole list, including the options
+.B \-\-help
+leaves out, a page at a time.
+.TP
+.B \-\-version, \-\-license
+Print the version and the licence, and exit. The two spellings are the same
+option.
 
 .PP
 Noise shaping & psycho acoustic algorithms:
@@ -678,6 +727,14 @@ and it is now considered to be on par with the original
 It has the added advantage of being very fast (over twice as fast as
 .B \-\-vbr-old
 ). This is the default since 3.98.
+.TP
+.B \-\-vbr-mtrh
+The VBR algorithm that was the default in LAME 3.98, kept under its own name.
+.TP
+.B \-\-r3mix
+Another spelling of
+.B \-V 3 .
+Kept for the scripts that use it.
 .TP
 .BI -V " n"
 0 <=
@@ -879,6 +936,19 @@ LAME will enforce the 7680 bit limitation on total frame size.
 This results in many wasted bits for high bitrate encodings but will
 ensure strict ISO compatibility.
 This compatibility might be important for hardware players.
+.TP
+.BI \-\-buffer-constraint " constraint"
+How much of the bit reservoir a frame may draw on:
+.B default ,
+.B strict
+or
+.B maximum .
+.B strict
+is what
+.B \-\-strictly-enforce-ISO
+applies;
+.B maximum
+allows the largest frame the format can express.
 
 .PP
 Filter options:
@@ -936,6 +1006,10 @@ audio/song genre (name or number in list)
 .TP
 .BI \-\-tv " id=value"
 Text or URL frame specified by id and value (v2.3 tag). User defined frame. Syntax: \-\-tv "TXXX=description=content"
+.TP
+.BI \-\-ti " file"
+Attach a picture as the album art (a JPEG, PNG or GIF file, at most 128 KB,
+version 2.3 tag).
 .TP
 .B \-\-add-id3v2
 force addition of version 2 tag
