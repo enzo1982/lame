@@ -87,16 +87,56 @@ const char ACM_VERSION[] = "0.9.2";
 
 //static const char channel_mode[][13] = {"mono","stereo","joint stereo","dual channel"};
 static const char channel_mode[][13] = {"mono","stereo"};
-static const unsigned int mpeg1_freq[] = {48000,44100,32000};
-static const unsigned int mpeg2_freq[] = {24000,22050,16000,12000,11025,8000};
-static const unsigned int mpeg1_bitrate[] = {320, 256, 224, 192, 160, 128, 112, 96, 80, 64, 56, 48, 40, 32};
-static const unsigned int mpeg2_bitrate[] = {160, 144, 128, 112,  96,  80,  64, 56, 48, 40, 32, 24, 16,  8};
+// The rates the standard defines: lame_get_bitrate() and
+// lame_get_samplerate() answer for the frame header's two index fields.
+// FillRateTables() fills these before anything reads them.
+//
+// The order is part of the driver's interface.  A host asks for format
+// number N and FormatDetails() turns it into a subscript here, so these
+// stay highest first rather than in the header's index order.
+static unsigned int mpeg1_freq[3];
+static unsigned int mpeg2_freq[6];
+static unsigned int mpeg1_bitrate[14];
+static unsigned int mpeg2_bitrate[14];
+
+// MPEG version, as the two library calls number them.
+static const int LAME_MPEG2  = 0;
+static const int LAME_MPEG1  = 1;
+static const int LAME_MPEG25 = 2;
 
 #define SIZE_CHANNEL_MODE (sizeof(channel_mode)  / (sizeof(char) * 13))
 #define SIZE_FREQ_MPEG1 (sizeof(mpeg1_freq)    / sizeof(unsigned int))
 #define SIZE_FREQ_MPEG2 (sizeof(mpeg2_freq)    / sizeof(unsigned int))
 #define SIZE_BITRATE_MPEG1 (sizeof(mpeg1_bitrate) / sizeof(unsigned int))
 #define SIZE_BITRATE_MPEG2 (sizeof(mpeg2_bitrate) / sizeof(unsigned int))
+
+/**
+	\brief Fills the four rate tables above from the library
+
+	Idempotent: it writes the same values every time, so a second driver
+	instance costs nothing.
+*/
+static void FillRateTables()
+{
+	unsigned int i;
+	static const int freq_order[3] = {1, 0, 2};
+
+	// Header bitrate indices run 1 to 14, lowest first; these tables run
+	// highest first, so index 14 is element 0.
+	for (i = 0;i < SIZE_BITRATE_MPEG1;i++)
+		mpeg1_bitrate[i] = (unsigned int) lame_get_bitrate(LAME_MPEG1, (int)(SIZE_BITRATE_MPEG1 - i));
+	for (i = 0;i < SIZE_BITRATE_MPEG2;i++)
+		mpeg2_bitrate[i] = (unsigned int) lame_get_bitrate(LAME_MPEG2, (int)(SIZE_BITRATE_MPEG2 - i));
+
+	// Sampling-frequency indices are 0 to 2 and are not in rate order: index 1
+	// is the highest of the three, then index 0, then index 2.
+	for (i = 0;i < 3;i++)
+	{
+		mpeg1_freq[i]     = (unsigned int) lame_get_samplerate(LAME_MPEG1,  freq_order[i]);
+		mpeg2_freq[i]     = (unsigned int) lame_get_samplerate(LAME_MPEG2,  freq_order[i]);
+		mpeg2_freq[i + 3] = (unsigned int) lame_get_samplerate(LAME_MPEG25, freq_order[i]);
+	}
+}
 
 static const int FORMAT_TAG_MAX_NB = 2; // PCM and PERSONAL (mandatory to have at least PCM and your format)
 static const int FILTER_TAG_MAX_NB = 0; // this is a codec, not a filter
@@ -321,6 +361,7 @@ ACM::ACM( HMODULE hModule )
 		}
 	}
         wsprintf(VersionString,"%s - %s", ACM_VERSION, get_lame_version() );
+	FillRateTables();
 	BuildBitrateTable();
 	
 	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "New ACM Creation (0x%08X)",this);

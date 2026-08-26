@@ -353,28 +353,31 @@ my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "ACMStream::ConvertBuffer result = %d (
 /* map frequency to a valid MP3 sample frequency
  *
  * Robert Hegemann 2000-07-01
+ *
+ * The nine rates are the three sampling-frequency indices of each MPEG
+ * version, which lame_get_samplerate() answers for.  The answer is the
+ * lowest rate that still holds the requested one, or the highest there is
+ * when none does.
  */
 static int
 map2MP3Frequency(int freq)
 {
-    if (freq <= 8000)
-        return 8000;
-    if (freq <= 11025)
-        return 11025;
-    if (freq <= 12000)
-        return 12000;
-    if (freq <= 16000)
-        return 16000;
-    if (freq <= 22050)
-        return 22050;
-    if (freq <= 24000)
-        return 24000;
-    if (freq <= 32000)
-        return 32000;
-    if (freq <= 44100)
-        return 44100;
+    int     version, index;
+    int     smallest_fit = 0;
+    int     highest = 0;
 
-    return 48000;
+    for (version = 0; version <= 2; version++) {
+        for (index = 0; index < 3; index++) {
+            int const rate = lame_get_samplerate(version, index);
+            if (rate <= 0)
+                continue;
+            if (rate > highest)
+                highest = rate;
+            if (rate >= freq && (smallest_fit == 0 || rate < smallest_fit))
+                smallest_fit = rate;
+        }
+    }
+    return smallest_fit != 0 ? smallest_fit : highest;
 }
 
 

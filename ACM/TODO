@@ -4,6 +4,5 @@
 - allow channel resampling (mono to stereo / stereo to mono)
 - allow internal resampling (difference in the format suggestion)
 - use global pointers for string
-- use the bitrate/freq tables from LAME
 
 / add the decoding engine
