@@ -967,6 +967,24 @@ l3dec           310 kbps
     and continue encoding without those. Without this setting, errors
     are reported and encoding does not start.
 
+--id3v2-latin1 Write following tag options in ISO-8859-1
+
+    Put it before the tag settings it applies to.
+    Text given for the tag options that follow is written to the ID3v2
+    tag in ISO-8859-1, which every version of the tag standard allows
+    and which no reader will refuse. Characters the encoding cannot
+    represent are dropped, with a message. See also: --id3v2-utf16,
+    --id3v2-utf8
+
+--id3v2-utf16 Write following tag options in Unicode
+
+    Put it before the tag settings it applies to.
+    Text given for the tag options that follow is written to the ID3v2
+    tag as UTF-16 with a byte order mark, which the version 2.3 tag
+    standard allows and which most readers understand. This is what LAME
+    does by default where it can convert the text at all. See also:
+    --id3v2-latin1, --id3v2-utf8
+
 --id3v2-utf8 Write following tag options in UTF-8
 
     Put it before the tag settings it applies to.
@@ -1370,7 +1388,7 @@ finding the peak sample
 
     Write the ReplayGain figures to the ID3v2 tag as well as to LAME's
     own tag, as the user-defined text frames REPLAYGAIN_TRACK_GAIN and
-    REPLAYGAIN_TRACK_PEAK that most players read.
+    REPLAYGAIN_TRACK_PEAK.
 
     The peak is written only where it was measured, which means together
     with --replaygain-accurate or --clipdetect. The gain is written to
@@ -1461,6 +1479,64 @@ file
 
     By default, LAME already adds a LAME tag when encoding. This setting
     overrides the -t setting, and implies --nogaptags.
+
+--tt title Song title
+
+    The title of the piece. At most 30 characters reach a version 1 tag;
+    a version 2 tag has no such limit.
+
+--ta artist Artist
+
+    Who performed it. Same length rule as --tt.
+
+--tl album Album
+
+    The release the piece belongs to. Same length rule as --tt.
+
+--ty year Year of issue
+
+    A year from 1 to 9999.
+
+--tc comment Comment
+
+    Free text. A version 1 tag holds 30 characters of it, and 28 if a
+    track number is also being written, since the track number is stored
+    in what would otherwise be the last two.
+
+--tn track[/total] Track number
+
+    The track's position on the original recording, and optionally how
+    many tracks there were, each from 1 to 255.
+
+    A track number on its own produces a version 1.1 tag. Giving a total
+    as well requires a version 2 tag, because a version 1 tag has
+    nowhere to put it.
+
+--tg genre Genre
+
+    Either a genre name or its number in the list --genre-list prints. A
+    version 1 tag can hold only a number from that list; a version 2 tag
+    takes any text.
+
+--ti file Album art
+
+    Attach a picture, from a JPEG, PNG or GIF file of at most 128 KB. It
+    is written as a version 2.3 frame, so there is nothing of it in a
+    version 1 tag.
+
+--tv id=value Any other frame
+
+    Write an ID3v2 frame this program has no option of its own for,
+    naming it by its four-character identifier: --tv TPE2=Various
+    Artists sets the album artist.
+
+    The user-defined text and URL frames take a description as well as a
+    value, and are written with two separators: --tv
+    "TXXX=description=content". Setting the same identifier and
+    description twice replaces the frame rather than adding a second
+    one.
+
+    See also: --id3v2-latin1, --id3v2-utf8, --id3v2-utf16
 
 --unsigned Input RAW uses unsigned values
 

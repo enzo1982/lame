@@ -263,7 +263,7 @@
             </td>
         </tr>
         <tr>
-            <td><a href="#t_deco">-t</a></td>
+            <td><a href="#t">-t</a></td>
             <td>Disable writing wav header when using --decode</td>
         </tr>
         <tr>
@@ -1139,6 +1139,28 @@
         does not start.
     </p>
     <p class="settingtitle">
+        <a name="id3v2-latin1"><span class="hilight">--id3v2-latin1</span></a> Write following tag options in ISO-8859-1
+    </p>
+    <p>
+        Put it before the tag settings it applies to.<br/>
+        Text given for the tag options that follow is written to the ID3v2 tag
+        in ISO-8859-1, which every version of the tag standard allows and which
+        no reader will refuse. Characters the encoding cannot represent are
+        dropped, with a message.
+        See also: --id3v2-utf16, --id3v2-utf8
+    </p>
+    <p class="settingtitle">
+        <a name="id3v2-utf16"><span class="hilight">--id3v2-utf16</span></a> Write following tag options in Unicode
+    </p>
+    <p>
+        Put it before the tag settings it applies to.<br/>
+        Text given for the tag options that follow is written to the ID3v2 tag
+        as UTF-16 with a byte order mark, which the version 2.3 tag standard
+        allows and which most readers understand. This is what LAME does by
+        default where it can convert the text at all.
+        See also: --id3v2-latin1, --id3v2-utf8
+    </p>
+    <p class="settingtitle">
         <a name="id3v2-utf8"><span class="hilight">--id3v2-utf8</span></a> Write following tag options in UTF-8
     </p>
     <p>
@@ -1818,6 +1840,84 @@
     <p>
         By default, LAME already adds a LAME tag when encoding.
         This setting overrides the -t setting, and implies --nogaptags.
+    </p>
+    <p class="settingtitle">
+        <a name="tt"><span class="hilight">--tt title</span></a> Song title
+    </p>
+    <p>
+        The title of the piece. At most 30 characters reach a version 1 tag; a
+        version 2 tag has no such limit.
+    </p>
+    <p class="settingtitle">
+        <a name="ta"><span class="hilight">--ta artist</span></a> Artist
+    </p>
+    <p>
+        Who performed it. Same length rule as --tt.
+    </p>
+    <p class="settingtitle">
+        <a name="tl"><span class="hilight">--tl album</span></a> Album
+    </p>
+    <p>
+        The release the piece belongs to. Same length rule as --tt.
+    </p>
+    <p class="settingtitle">
+        <a name="ty"><span class="hilight">--ty year</span></a> Year of issue
+    </p>
+    <p>
+        A year from 1 to 9999.
+    </p>
+    <p class="settingtitle">
+        <a name="tc"><span class="hilight">--tc comment</span></a> Comment
+    </p>
+    <p>
+        Free text. A version 1 tag holds 30 characters of it, and 28 if a track
+        number is also being written, since the track number is stored in what
+        would otherwise be the last two.
+    </p>
+    <p class="settingtitle">
+        <a name="tn"><span class="hilight">--tn track[/total]</span></a> Track number
+    </p>
+    <p>
+        The track's position on the original recording, and optionally how many
+        tracks there were, each from 1 to 255.
+    </p>
+    <p>
+        A track number on its own produces a version 1.1 tag. Giving a total as
+        well requires a version 2 tag, because a version 1 tag has nowhere to
+        put it.
+    </p>
+    <p class="settingtitle">
+        <a name="tg"><span class="hilight">--tg genre</span></a> Genre
+    </p>
+    <p>
+        Either a genre name or its number in the list --genre-list prints. A
+        version 1 tag can hold only a number from that list; a version 2 tag
+        takes any text.
+    </p>
+    <p class="settingtitle">
+        <a name="ti"><span class="hilight">--ti file</span></a> Album art
+    </p>
+    <p>
+        Attach a picture, from a JPEG, PNG or GIF file of at most 128&nbsp;KB.
+        It is written as a version 2.3 frame, so there is nothing of it in a
+        version 1 tag.
+    </p>
+    <p class="settingtitle">
+        <a name="tv"><span class="hilight">--tv id=value</span></a> Any other frame
+    </p>
+    <p>
+        Write an ID3v2 frame this program has no option of its own for, naming
+        it by its four-character identifier: <i>--tv TPE2=Various Artists</i>
+        sets the album artist.
+    </p>
+    <p>
+        The user-defined text and URL frames take a description as well as a
+        value, and are written with two separators:
+        <i>--tv "TXXX=description=content"</i>. Setting the same identifier and
+        description twice replaces the frame rather than adding a second one.
+    </p>
+    <p>
+        See also: --id3v2-latin1, --id3v2-utf8, --id3v2-utf16
     </p>
     <p class="settingtitle">
         <a name="unsigned"><span class="hilight">--unsigned</span></a> Input RAW uses unsigned values   
