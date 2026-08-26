@@ -50,7 +50,8 @@ INPUT                  = @LAME_SRCDIR@/include \
                          @LAME_SRCDIR@/doc/maintainer-coverage.md \
                          @LAME_SRCDIR@/doc/maintainer-abi.md \
                          @LAME_SRCDIR@/doc/maintainer-check-dist.md \
-                         @LAME_SRCDIR@/doc/maintainer-gen-api-docs.md
+                         @LAME_SRCDIR@/doc/maintainer-gen-api-docs.md \
+                         @LAME_SRCDIR@/doc/maintainer-gen-usage.md
 
 # The stock navigation offers no place for the maintainer harnesses, so they
 # end up scattered through "Related Pages" beside everything else. This layout

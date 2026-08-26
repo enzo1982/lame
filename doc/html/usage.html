@@ -37,6 +37,16 @@
     <pre>
 % lame <span class="hilight">[options]</span> inputfile [outputfile]
     </pre>
+    <p>
+        Either name may be given as <span class="hilight">-</span>, meaning
+        standard input or standard output, so that LAME can sit in the middle
+        of a pipeline.
+    </p>
+    <p>
+        <span class="hilight">lame --help</span> lists the options in common
+        use and <span class="hilight">lame --longhelp</span> lists all of them;
+        <a href="detailed.html">Detailed Settings</a> describes each one.
+    </p>
         <ul>
             <li>
                 <strong>Constant Bitrate</strong>: <span class="hilight">-b number</span> or
@@ -60,7 +70,8 @@
         </ul>
         <h3>Hydrogenaudio recommended settings</h3>
         <ul>
-            <strong>Very high quality</strong>, HiFi, home, or quiet listening, with best file size<a href="#note2"></a> : 
+            <li>
+            <strong>Very high quality</strong>, HiFi, home, or quiet listening, with best file size<a href="#note2"><sup>2</sup></a> :
             <span class="hilight">-V0</span> (avg. 245 kbps) or <span class="hilight">-V1</span>
             (avg. 225 kbps) or <span class="hilight">-V2</span> (avg. 190 kbps) or <span class="hilight">-V3</span> (avg. 175 kbps).
             <p>VBR settings will normally produce transparent results.
@@ -97,6 +108,136 @@
                 </p>
             </li>
         </ul>
+        <h3>Examples</h3>
+        <h4>Constant bitrate</h4>
+        <ul>
+            <li>
+                Fixed bitrate, joint stereo, 128&nbsp;kbps:
+                <pre>lame -b 128 sample.wav sample.mp3</pre>
+            </li>
+            <li>
+                The same, at the highest quality setting, which is also the
+                slowest:
+                <pre>lame -q 0 -b 128 sample.wav sample.mp3</pre>
+            </li>
+            <li>
+                The same, encoding fast and at lower quality - no noise
+                shaping:
+                <pre>lame -f -b 128 sample.wav sample.mp3</pre>
+            </li>
+        </ul>
+        <h4>Variable bitrate</h4>
+        <p>
+            LAME has two kinds of variable bitrate, <a href="abr.html">ABR</a>
+            and <a href="vbr.html">VBR</a>.
+        </p>
+        <p>
+            ABR is the kind usually found in other MP3 encoders, and in Vorbis
+            and AAC. The number of bits is decided by some measure of the
+            audio - the perceptual entropy, say, or simply how many bits a
+            given set of coding tables needs - rather than by the encoding
+            error actually made. It should always give results at least as good
+            as constant bitrate at the same average.
+        </p>
+        <ul>
+            <li>
+                ABR at an average of about 128&nbsp;kbps:
+                <pre>lame --abr 128 sample.wav sample.mp3</pre>
+            </li>
+            <li>
+                Another way of asking for the same thing:
+                <pre>lame --preset 128 sample.wav sample.mp3</pre>
+            </li>
+        </ul>
+        <p>
+            VBR decides the number of bits for each frame from the
+            quantisation error it actually measures against the masking it
+            estimates. 0 is the highest quality and makes the largest files,
+            9.999 the lowest and the smallest; decimals are allowed, such as
+            4.51. The sizes that result depend on the music: typically
+            <span class="hilight">-V5</span> averages around 132&nbsp;kbps and
+            <span class="hilight">-V2</span> around 200&nbsp;kbps.
+        </p>
+        <ul>
+            <li>
+                VBR at quality 2:
+                <pre>lame -V2 sample.wav sample.mp3</pre>
+            </li>
+        </ul>
+        <h4>Low bitrates</h4>
+        <p>
+            At around 24&nbsp;kbps per channel and below, a 16&nbsp;kHz
+            sampling rate together with lowpass filtering gives better results
+            than keeping the full bandwidth. LAME does this by itself, as
+            commercial encoders do. Where the result is filtered more or less
+            than suits the material,
+            <a href="detailed.html#resample">--resample</a>,
+            <a href="detailed.html#lowpass">--lowpass</a> and
+            <a href="detailed.html#lowpass-width">--lowpass-width</a> set it by
+            hand.
+        </p>
+        <ul>
+            <li>
+                Mono voice at a low bitrate, resampled and filtered
+                explicitly:
+                <pre>lame --abr 56 -m m --resample 16 --lowpass 7 sample.wav sample.mp3</pre>
+            </li>
+        </ul>
+        <h4>Streaming</h4>
+        <p>
+            With <span class="hilight">-</span> on both sides LAME reads from
+            standard input and writes to standard output, so it can be put in a
+            pipeline:
+        </p>
+        <pre>cat inputfile | lame -b 128 - - &gt; output.mp3</pre>
+        <p>
+            Raw PCM has no header to describe it, so its format has to be given
+            on the command line - here mono at 22.05&nbsp;kHz, encoded at
+            24&nbsp;kbps:
+        </p>
+        <pre>cat inputfile | lame -r -s 22.05 -m m -b 24 - - &gt; output.mp3</pre>
+        <h3>Scripts</h3>
+        <p>
+            The <i>misc</i> directory of the source distribution holds scripts
+            for running LAME over many files at once.
+        </p>
+        <table cellpadding="4">
+            <tr>
+                <th>Script</th>
+                <th>What it is</th>
+            </tr>
+            <tr>
+                <td>mlame</td>
+                <td>bash; encodes a directory tree. <i>mlame -?</i> explains
+                    its options.</td>
+            </tr>
+            <tr>
+                <td>auenc</td>
+                <td>sh; run it with no arguments for instructions.</td>
+            </tr>
+            <tr>
+                <td>mugeco.sh</td>
+                <td>sh; encodes with the tags taken from the file names.</td>
+            </tr>
+            <tr>
+                <td>mk_mp3.sh</td>
+                <td>sh; encodes the WAV files in a directory.</td>
+            </tr>
+            <tr>
+                <td>lameid3.pl</td>
+                <td>perl; re-encodes MP3 files and carries their ID3 tags
+                    across.</td>
+            </tr>
+            <tr>
+                <td>lame4dos.bat</td>
+                <td>Windows batch file.</td>
+            </tr>
+            <tr>
+                <td style="border-bottom:0px;">Lame.vbs</td>
+                <td style="border-bottom:0px;">Windows Script Host; lameGUI.html
+                    is a front end for it.</td>
+            </tr>
+        </table>
         <div id="notes">
             <ol>
                 <li>

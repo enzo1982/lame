@@ -20,7 +20,9 @@ perceived quality with PEAQ against a reference corpus. @ref maintainer_coverage
 reports which code the test suite actually reaches.
 
 **Publishing.** @ref maintainer_gen_api_docs builds and installs the two
-documentation sets, this one among them.
+documentation sets, this one among them. @ref maintainer_gen_usage rewrites
+the plain-text `USAGE` from the HTML option reference, so that the two cannot
+drift apart.
 
 - @subpage maintainer_build_matrix
 - @subpage maintainer_perf
@@ -29,3 +31,4 @@ documentation sets, this one among them.
 - @subpage maintainer_abi
 - @subpage maintainer_check_dist
 - @subpage maintainer_gen_api_docs
+- @subpage maintainer_gen_usage

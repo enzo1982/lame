@@ -142,6 +142,12 @@
             <td> Force byte-swapping of input stream</td>
         </tr>
         <tr>
+            <td><a href="#ignorelength">--ignorelength</a></td>
+            <td> Ignore the length given in the WAVE header and read to the
+                end of the input
+            </td>
+        </tr>
+        <tr>
             <td><a href="#little-endian">--little-endian</a> / <a href="#big-endian">--big-endian</a></td>
             <td> Input is little-endian (default)
                 or big-endian
@@ -383,11 +389,15 @@
             <td>Add following options in unicode text encoding</td>
         </tr>
         <tr>
+            <td><a href="#id3v2-utf8">--id3v2-utf8</a></td>
+            <td>Add following options in UTF-8 text encoding</td>
+        </tr>
+        <tr>
             <td><a href="#space-id3v1">--space-id3v1</a></td>
             <td>Pad version 1 tag with spaces instead of nulls</td>
         </tr>
         <tr>
-            <td><a href="#pad-id3v2-size">--pad-id3v2-size</a> n</td>
+            <td><a href="#pad-id3v2">--pad-id3v2-size</a> n</td>
             <td>Adds ID3v2 tag with n padding bytes</td>
         </tr>
         <tr>
@@ -625,7 +635,7 @@
         </tr>
         <tr>
             <td>--pad-id3v2</td>
-            <td>Alias of <a href="#pad-id3v2-size">--pad-id3v2-size 128</a></td>
+            <td>Alias of <a href="#pad-id3v2">--pad-id3v2-size 128</a></td>
         </tr>
         <tr>
             <td>-d</td>
@@ -767,11 +777,11 @@
         <a name="cbr"><span class="hilight">--cbr</span></a> Enforce constant bitrate encoding
     </p>
     <p>This switch disables the VBR encoding. Examples:</p>
-    <pre>lame -V 0 --cbr input.wav</pre>
+    <pre>lame -V 0 --cbr sample.wav sample.mp3</pre>
     Will encode at -b 128 (ignore completely -V and encode at default bitrate)
-    <pre>lame --preset 160 --cbr</pre>
+    <pre>lame --preset 160 --cbr sample.wav sample.mp3</pre>
     Will encode at -b 160 (ignore ABR and use the specified bitrate)
-    <pre>lame --abr 200 --cbr</pre>
+    <pre>lame --abr 200 --cbr sample.wav sample.mp3</pre>
     Will encode at -b 192 (ignore ABR and use the nearest bitrate to the one specified)
     <p class="settingtitle">
         <a name="clipdetect"><span class="hilight">--clipdetect</span></a> Clipping detection
@@ -1127,6 +1137,25 @@
         This tells lame to ignore the tag information that sees as erroneous and continue
         encoding without those. Without this setting, errors are reported and encoding
         does not start.
+    </p>
+    <p class="settingtitle">
+        <a name="id3v2-utf8"><span class="hilight">--id3v2-utf8</span></a> Write following tag options in UTF-8
+    </p>
+    <p>
+        Put it before the tag settings it applies to.<br/>
+        Text given for the tag options that follow is written to the ID3v2 tag
+        in UTF-8, which the version 2.4 tag standard allows. Readers that
+        understand only earlier versions of the standard will not read it.
+        See also: --id3v2-latin1, --id3v2-utf16
+    </p>
+    <p class="settingtitle">
+        <a name="ignorelength"><span class="hilight">--ignorelength</span></a> Ignore the length in the WAVE header
+    </p>
+    <p>
+        A WAVE header states how much audio follows it. A file still being
+        written, or one arriving over a pipe, may carry a length that is wrong
+        or zero, and encoding then stops early. With this setting the header's
+        figure is disregarded and the input is read until it ends.
     </p>
     <p class="settingtitle">
         <a name="license"><span class="hilight">--license</span></a> Print the license page
