@@ -62,26 +62,38 @@ static void DebugPrintf(const char* pzFormat, ...)
 {
     char	szBuffer[1024]={'\0',};
     char	szFileName[MAX_PATH+1]={'\0',};
+    DWORD	dwNameLen;
     va_list ap;
 
-    // Get the full module (DLL) file name
-    GetModuleFileNameA(	gs_hModule, 
+    // Get the full module (DLL) file name.  Zero means the call failed and
+    // the buffer size means the name did not fit; a name that did not fit is
+    // not null terminated on every Windows version, so the returned length
+    // is the only one there is.
+    dwNameLen = GetModuleFileNameA(	gs_hModule, 
         szFileName,
         sizeof( szFileName ) );
+    if ( dwNameLen >= (DWORD) sizeof( szFileName ) )
+        dwNameLen = 0;
+    szFileName[ dwNameLen ] = '\0';
 
     // change file name extention
-    szFileName[ strlen(szFileName) - 3 ] = 't';
-    szFileName[ strlen(szFileName) - 2 ] = 'x';
-    szFileName[ strlen(szFileName) - 1 ] = 't';
+    if ( dwNameLen >= 3 )
+    {
+        szFileName[ dwNameLen - 3 ] = 't';
+        szFileName[ dwNameLen - 2 ] = 'x';
+        szFileName[ dwNameLen - 1 ] = 't';
+    }
 
     // start at beginning of the list
     va_start(ap, pzFormat);
 
-    // copy it to the string buffer
-    _vsnprintf(szBuffer, sizeof(szBuffer), pzFormat, ap);
+    // copy it to the string buffer.  _vsnprintf writes no terminator when
+    // the text does not fit, so the last byte is kept for one.
+    _vsnprintf(szBuffer, sizeof(szBuffer) - 1, pzFormat, ap);
+    szBuffer[ sizeof(szBuffer) - 1 ] = '\0';
 
     // log it to the file?
-    if ( gs_bLogFile ) 
+    if ( gs_bLogFile && szFileName[0] != '\0' ) 
     {	
         FILE* fp = NULL;
 
@@ -781,7 +793,7 @@ skipId3v2(FILE * fpStream, size_t lametag_frame_size)
         return -3;  /* not readable, maybe opened Write-Only */
     }
     /* does the stream begin with the ID3 version 2 file identifier? */
-    if (!strncmp((char *) id3v2Header, "ID3", 3)) {
+    if (!memcmp(id3v2Header, "ID3", 3)) {
         /* the tag size (minus the 10-byte header) is encoded into four
         * bytes where the most significant bit is clear in each byte
         */
