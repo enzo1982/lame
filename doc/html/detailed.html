@@ -446,6 +446,10 @@
             <td>Disable ReplayGain analysis</td>
         </tr>
         <tr>
+            <td><a href="#replaygain-id3v2">--replaygain-id3v2</a></td>
+            <td>Write ReplayGain to the ID3v2 tag as well as to LAME's own</td>
+        </tr>
+        <tr>
             <td><a href="#clipdetect">--clipdetect</a><a href="#note1"><sup>1</sup></a></td>
             <td>Enable
                 --replaygain-accurate and print a message whether
@@ -1661,6 +1665,28 @@
     </p>
     <p>
         See also: --replaygain-accurate, --noreplaygain
+    </p>
+    <p class="settingtitle">
+        <a name="replaygain-id3v2"><span class="hilight">--replaygain-id3v2</span></a> ReplayGain in the ID3v2 tag too
+    </p>
+    <p>
+        Write the ReplayGain figures to the ID3v2 tag as well as to LAME's own
+        tag, as the user-defined text frames REPLAYGAIN_TRACK_GAIN and
+        REPLAYGAIN_TRACK_PEAK.
+    </p>
+    <p>
+        The peak is written only where it was measured, which means together
+        with --replaygain-accurate or --clipdetect. The gain is written to two
+        decimals and is accurate to one, that being what LAME's own tag holds,
+        so a file also analysed by another tool can differ by up to 0.05 dB.
+    </p>
+    <p>
+        The frames are left out, with a message saying so, when the output is a
+        pipe, when the input is an MP3 whose tag is passed through unchanged,
+        and when ReplayGain analysis has been switched off.
+    </p>
+    <p>
+        See also: --replaygain-fast, --replaygain-accurate, --noreplaygain
     </p>
     <p class="settingtitle">
         <a name="resample"><span class="hilight">--resample  n</span></a> Output sampling frequency in kHz

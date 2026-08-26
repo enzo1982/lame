@@ -875,6 +875,8 @@ long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramNam
             "    --replaygain-accurate   compute RG more accurately and find the peak sample\n"
 #endif
             "    --noreplaygain  disable ReplayGain analysis\n"
+            "    --replaygain-id3v2  also write ReplayGain to the ID3v2 tag, as the\n"
+            "                    REPLAYGAIN_TRACK_GAIN and REPLAYGAIN_TRACK_PEAK frames\n"
 #ifdef HAVE_MPG123
             "    --clipdetect    enable --replaygain-accurate and print a message whether\n"
             "                    clipping occurs and how far the waveform is from full scale\n"
@@ -1848,6 +1850,9 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                 T_ELIF("preserve-modtime")
                     global_writer.preserve_modtime = 1;
 
+                T_ELIF("replaygain-id3v2")
+                    global_writer.replaygain_id3v2 = 1;
+
                 T_ELIF("decode-mp3delay")
                     argUsed = getIntValue(token, nextArg, &int_value);
                     if (argUsed) {
@@ -2088,6 +2093,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 
                 T_ELIF("pad-id3v2")
                     id3tag_pad_v2(gfp);
+                    global_writer.id3v2_padding = 128;
 
                 T_ELIF("pad-id3v2-size")
                     argUsed = getIntValue(token, nextArg, &int_value);
@@ -2095,6 +2101,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         int_value = int_value <= 128000 ? int_value : 128000;
                         int_value = int_value >= 0      ? int_value : 0;
                         id3tag_set_pad(gfp, int_value);
+                        global_writer.id3v2_padding = int_value;
                     }
 
                 T_ELIF("genre-list")

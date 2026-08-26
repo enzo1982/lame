@@ -404,6 +404,27 @@ By default ReplayGain analysis is enabled. This switch disables it.
 See also:
 .B \-\-replaygain-fast, \-\-replaygain-accurate
 .TP
+.B \-\-replaygain\-id3v2
+Write the ReplayGain figures to the ID3v2 tag as well as to LAME's own tag,
+as the user-defined text frames
+.B REPLAYGAIN_TRACK_GAIN
+and
+.B REPLAYGAIN_TRACK_PEAK .
+The peak is written only where it was measured, which
+means together with
+.B \-\-replaygain\-accurate
+or
+.B \-\-clipdetect .
+The gain is written to two decimals and is accurate to one, that being what
+LAME's own tag holds.
+
+The frames are left out, with a message saying so, when the output is a pipe,
+when the input is an MP3 whose tag is passed through unchanged, and when
+ReplayGain analysis has been switched off.
+
+See also:
+.B \-\-replaygain\-fast, \-\-replaygain\-accurate, \-\-noreplaygain
+.TP
 .B \-\-clipdetect
 Clipping detection.
 

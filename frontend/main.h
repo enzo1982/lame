@@ -55,6 +55,8 @@ typedef struct WriterConfig
 {
     int   flush_write;
     int   preserve_modtime;        /* give the output file the input file's times */
+    int   replaygain_id3v2;        /* also write ReplayGain to ID3v2 TXXX frames */
+    int   id3v2_padding;           /* bytes of ID3v2 padding the user asked for */
 } WriterConfig;
 
 typedef struct UiConfig

@@ -459,6 +459,185 @@ write_id3v1_tag(lame_t gf, FILE * outf)
 }
 
 
+/** @internal @brief Room for a full TXXX descriptor=value string. */
+#define RG_TXXX_MAX  64
+
+/**
+ * @internal
+ * @brief How much longer the two frames can get once the measured figures
+ *        replace the placeholders.
+ *
+ * PINK_REF and MAX_dB bound the analysis at -55 dB to +65 dB, so a gain
+ * costs at most a sign and two integer digits, and a peak normalised to
+ * full scale one digit before the point.
+ */
+#define RG_TXXX_SLACK 3
+
+/** @internal @brief The track-gain frame, in id3tag_set_fieldvalue() form. */
+#define RG_GAIN_TXXX "TXXX=REPLAYGAIN_TRACK_GAIN="
+/** @internal @brief The track-peak frame, in id3tag_set_fieldvalue() form. */
+#define RG_PEAK_TXXX "TXXX=REPLAYGAIN_TRACK_PEAK="
+
+/** @internal @brief The full scale lame_get_PeakSample() reports against. */
+#define SAMPLE_T_FULL_SCALE 32768.0
+
+
+/**
+ * @internal
+ * @brief Writes the two ReplayGain values into the ID3v2 tag being built.
+ *
+ * Both are written in the form the ReplayGain specification gives, so a
+ * positive gain carries no sign and neither value is padded with zeros.
+ * Setting a user-defined text frame whose description is already present
+ * replaces that frame, so the same call serves for reserving the placeholders
+ * and for filling them in.
+ *
+ * @param gf         the encoder whose tag is being built.
+ * @param gain_db    the track gain, in decibels.
+ * @param peak       the track peak, as a fraction of full scale.
+ * @param with_peak  write the peak frame as well; the peak is only known where
+ *                   the stream is decoded as it is encoded.
+ * @return 0 on success.
+ */
+static int
+set_replaygain_frames(lame_global_flags * gf, double gain_db, double peak, int with_peak)
+{
+    char    frame[RG_TXXX_MAX];
+    int     rc;
+
+    snprintf(frame, sizeof(frame), RG_GAIN_TXXX "%.2f dB", gain_db);
+    rc = id3tag_set_fieldvalue(gf, frame);
+    if (rc == 0 && with_peak) {
+        snprintf(frame, sizeof(frame), RG_PEAK_TXXX "%.6f", peak);
+        rc = id3tag_set_fieldvalue(gf, frame);
+    }
+    return rc;
+}
+
+
+/**
+ * @internal
+ * @brief Switches the option off for this run, saying why.
+ *
+ * Declining is better than reserving frames that cannot be filled in: a
+ * placeholder left in the file would be read as a real gain of 0 dB, and
+ * silence would leave the user believing the file carries one.
+ *
+ * @param why  what made the frames impossible; goes into the warning.
+ */
+static void
+decline_replaygain_frames(char const *why)
+{
+    global_writer.replaygain_id3v2 = 0;
+    if (global_ui_config.silent < 10)
+        error_printf("WARNING: not writing ReplayGain to the ID3v2 tag: %s\n", why);
+}
+
+
+/**
+ * @internal
+ * @brief Reserves the ReplayGain frames before the tag is written.
+ *
+ * The figures are not known until the audio has been encoded, and the tag goes
+ * out in front of it, so room is made for them first and filled in afterwards.
+ * Called once the output file is open and before lame_init_params(), the
+ * last moment the tag's contents can still be decided.
+ *
+ * @param gf    the encoder whose tag is being built.
+ * @param outf  the output file, which must be seekable for the later rewrite.
+ */
+static void
+reserve_replaygain_frames(lame_global_flags * gf, FILE * outf)
+{
+    if (global_writer.replaygain_id3v2 == 0)
+        return;
+    if (lame_get_decode_only(gf)) {
+        decline_replaygain_frames("decoding produces no ID3v2 tag");
+        return;
+    }
+    if (lame_get_findReplayGain(gf) == 0) {
+        decline_replaygain_frames("ReplayGain analysis is switched off");
+        return;
+    }
+    /*  Transcoding an MP3 whose tag is passed through byte for byte: nothing
+        can be patched into a tag this program did not render.  */
+    if (sizeOfOldTag(gf) > 0 && lame_get_id3v2_tag(gf, 0, 0) == 0) {
+        decline_replaygain_frames("the source file's ID3v2 tag is copied through unchanged");
+        return;
+    }
+    /*  A pipe cannot be seeked back to, so the placeholder would be what
+        shipped - and a wrong gain is worse than an absent one.  */
+    if (fseek(outf, 0, SEEK_CUR) != 0) {
+        decline_replaygain_frames("the output cannot be written to twice");
+        return;
+    }
+    id3tag_add_v2(gf);
+    /*  Room for the finished values to be longer than the placeholders,
+        on top of whatever padding the user asked for.  */
+    id3tag_set_pad(gf, (size_t) (global_writer.id3v2_padding + RG_TXXX_SLACK));
+    /*  The peak sample is a by-product of decoding while encoding, so it is
+        reserved only where it will actually be measured.  */
+    if (set_replaygain_frames(gf, 0.0, 0.0, lame_get_decode_on_the_fly(gf)) != 0)
+        decline_replaygain_frames("the tag frames could not be prepared");
+}
+
+
+/**
+ * @internal
+ * @brief Fills in the reserved frames once the figures are known.
+ *
+ * The rewritten tag has to be exactly the length of the one already in the
+ * file - checked before anything is written; a mismatch leaves the file
+ * alone rather than overwriting the audio behind the tag.
+ *
+ * @param gf          the encoder holding the measured figures.
+ * @param outf        the output file, rewound to its start to rewrite the tag.
+ * @param id3v2_size  the length of the tag as it was written the first time.
+ */
+static void
+update_replaygain_frames(lame_global_flags * gf, FILE * outf, size_t id3v2_size)
+{
+    unsigned char *tag;
+    size_t  size;
+
+    if (global_writer.replaygain_id3v2 == 0)
+        return;
+    if (set_replaygain_frames(gf, lame_get_RadioGain(gf) / 10.0,
+                              lame_get_PeakSample(gf) / SAMPLE_T_FULL_SCALE,
+                              lame_get_decode_on_the_fly(gf)) != 0) {
+        error_printf("Error setting the ReplayGain tag frames\n");
+        return;
+    }
+    /*  The finished values are as long as the placeholders or longer; the
+        padding reserved above gives back exactly what they took, so the tag
+        keeps the length it was written with.  */
+    size = lame_get_id3v2_tag(gf, 0, 0);
+    if (size >= id3v2_size && size - id3v2_size <= RG_TXXX_SLACK) {
+        size_t  grew = size - id3v2_size;
+        id3tag_set_pad(gf, (size_t) (global_writer.id3v2_padding
+                                     + RG_TXXX_SLACK) - grew);
+        size = lame_get_id3v2_tag(gf, 0, 0);
+    }
+    if (size != id3v2_size) {
+        error_printf("Error updating the ReplayGain tag frames: the tag is now %lu bytes"
+                     " and was %lu;\nleaving the file as it is rather than overwriting"
+                     " the audio\n", (unsigned long) size, (unsigned long) id3v2_size);
+        return;
+    }
+    tag = malloc(size);
+    if (tag == 0) {
+        error_printf("Error updating the ReplayGain tag frames: out of memory\n");
+        return;
+    }
+    if (lame_get_id3v2_tag(gf, tag, size) != size
+        || fseek(outf, 0, SEEK_SET) != 0
+        || fwrite(tag, 1, size, outf) != size) {
+        error_printf("Error writing the ReplayGain tag frames\n");
+    }
+    free(tag);
+}
+
+
 static int
 lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char *outPath)
 {
@@ -590,6 +769,7 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
         return 1;
     }
     write_xing_frame(gf, outf, id3v2_size);
+    update_replaygain_frames(gf, outf, id3v2_size);
     if (global_writer.flush_write == 1) {
         fflush(outf);
     }
@@ -696,6 +876,8 @@ lame_main(lame_t gf, int argc, char **argv)
      * function would spit out ID3v2 tag data.
      */
     lame_set_write_id3tag_automatic(gf, 0);
+
+    reserve_replaygain_frames(gf, outf);
 
     /* Now that all the options are set, lame needs to analyze them and
      * set some more internal options and check for problems
