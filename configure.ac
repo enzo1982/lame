@@ -587,6 +587,26 @@ dnl function are separate questions - a system can have <sys/auxv.h> and only
 dnl one of the two ways of reading it - so both are asked, and util.c includes
 dnl what the answers say exists rather than guessing from platform macros.
 AC_CHECK_HEADERS(sys/auxv.h machine/elf.h asm/hwcap.h)
+
+dnl For the floating point exception trapping that --enable-debug turns on.
+dnl <fpu_control.h> is a glibc header: Android and musl define __linux__ and do
+dnl not have it, so asking the platform is the wrong question and asking for the
+dnl header is the right one. What the header CONTAINS is a second question,
+dnl asked in util.c where the answer is visible.
+AC_CHECK_HEADERS(fpu_control.h)
+
+dnl The portable half of the same question. C99 <fenv.h> defines the exception
+dnl flags but no way to turn one into a signal; feenableexcept() is the
+dnl extension that does, and it covers the systems the x87 path cannot - the
+dnl BSDs, and Linux on anything that is not an x86. It lives in the math
+dnl library, which this project keeps in CONFIG_MATH_LIB rather than in LIBS,
+dnl so the check borrows it for the duration.
+AC_CHECK_HEADERS(fenv.h)
+lame_save_LIBS="${LIBS}"
+LIBS="${LIBS} -lm"
+AC_CHECK_FUNCS(feenableexcept)
+LIBS="${lame_save_LIBS}"
+
 AC_CHECK_FUNCS(elf_aux_info getauxval sysctlbyname)
 
 if test "X${ac_cv_func_strtol}" != "Xyes"; then

@@ -78,6 +78,11 @@
 #define HAVE_SYS_UTIME_H 1
 #define HAVE_UTIME 1
 
+/* <fpu_control.h> is a glibc header; the Windows compilers have their own way
+   of reaching the floating point control word, which util.c uses instead, so
+   this answer is no rather than absent.  */
+/* #undef HAVE_FPU_CONTROL_H */
+
 #if defined(_MSC_VER) || defined(__BORLANDC__)
 #pragma warning( disable : 4305 )
 #endif

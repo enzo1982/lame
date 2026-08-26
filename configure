@@ -18637,6 +18637,33 @@ then :
 
 fi
 
+
+ac_fn_c_check_header_compile "$LINENO" "fpu_control.h" "ac_cv_header_fpu_control_h" "$ac_includes_default"
+if test "x$ac_cv_header_fpu_control_h" = xyes
+then :
+  printf '%s\n' "#define HAVE_FPU_CONTROL_H 1" >>confdefs.h
+
+fi
+
+
+ac_fn_c_check_header_compile "$LINENO" "fenv.h" "ac_cv_header_fenv_h" "$ac_includes_default"
+if test "x$ac_cv_header_fenv_h" = xyes
+then :
+  printf '%s\n' "#define HAVE_FENV_H 1" >>confdefs.h
+
+fi
+
+lame_save_LIBS="${LIBS}"
+LIBS="${LIBS} -lm"
+ac_fn_c_check_func "$LINENO" "feenableexcept" "ac_cv_func_feenableexcept"
+if test "x$ac_cv_func_feenableexcept" = xyes
+then :
+  printf '%s\n' "#define HAVE_FEENABLEEXCEPT 1" >>confdefs.h
+
+fi
+
+LIBS="${lame_save_LIBS}"
+
 ac_fn_c_check_func "$LINENO" "elf_aux_info" "ac_cv_func_elf_aux_info"
 if test "x$ac_cv_func_elf_aux_info" = xyes
 then :

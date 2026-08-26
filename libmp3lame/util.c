@@ -38,6 +38,11 @@
 # include <machine/floatingpoint.h>
 #endif
 
+/* For the debug build's floating point exception trapping below. */
+#if defined( HAVE_FENV_H ) && defined( HAVE_FEENABLEEXCEPT )
+# include <fenv.h>
+#endif
+
 /* Headers for the ARM capability probe in has_NEON() below.  configure says
  * which of these exist; this says where they are needed.  HWCAP_NEON lives in
  * a different header on each system that has it, and on the ones that do not
@@ -1455,19 +1460,37 @@ disable_FPE(void)
         mask &= ~(_EM_OVERFLOW | _EM_ZERODIVIDE | _EM_INVALID);
         _FPU_SETCW(mask);
     }
-# elif defined(__linux__)
+# elif defined(HAVE_FENV_H) && defined(HAVE_FEENABLEEXCEPT)
+    {
+        /*
+         * feenableexcept() reaches the systems the x87 path below cannot -
+         * the BSDs, and Linux on anything without an x87. Whether anything
+         * then traps is the hardware's business: an AArch64 implementation
+         * need not offer trapping exceptions, and there the call succeeds
+         * and execution continues past the division.
+         */
+        (void) feenableexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW);
+    }
+# elif defined(HAVE_FPU_CONTROL_H)
     {
 
 #  include <fpu_control.h>
-#  ifndef _FPU_GETCW
-#  define _FPU_GETCW(cw) __asm__ ("fnstcw %0" : "=m" (*&cw))
-#  endif
-#  ifndef _FPU_SETCW
-#  define _FPU_SETCW(cw) __asm__ ("fldcw %0" : : "m" (*&cw))
-#  endif
+/*
+ * <fpu_control.h> exists wherever the C library is glibc - Android and musl
+ * say __linux__ and do not have it. The mask names below are the x87 ones,
+ * and glibc ships the header without them on architectures that have no x87,
+ * so the body is compiled only where they turn up.
+ */
+#  if defined(_FPU_MASK_IM) && defined(_FPU_MASK_ZM) && defined(_FPU_MASK_OM)
+#   ifndef _FPU_GETCW
+#   define _FPU_GETCW(cw) __asm__ ("fnstcw %0" : "=m" (*&cw))
+#   endif
+#   ifndef _FPU_SETCW
+#   define _FPU_SETCW(cw) __asm__ ("fldcw %0" : : "m" (*&cw))
+#   endif
 
-        /* 
-         * Set the Linux mask to abort on most FPE's
+        /*
+         * Set the mask to abort on most FPE's
          * if bit is set, we _mask_ SIGFPE on that error!
          *  mask &= ~( _FPU_MASK_IM | _FPU_MASK_ZM | _FPU_MASK_OM | _FPU_MASK_UM );
          */
@@ -1476,6 +1499,7 @@ disable_FPE(void)
         _FPU_GETCW(mask);
         mask &= ~(_FPU_MASK_IM | _FPU_MASK_ZM | _FPU_MASK_OM);
         _FPU_SETCW(mask);
+#  endif
     }
 #endif
 #endif /* ABORTFP */

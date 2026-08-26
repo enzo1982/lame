@@ -531,6 +531,14 @@
 			        worth tagging again. <i>--replaygain-fast</i>, which
 			        is the default, is unaffected, and the encoded audio
 			        is unchanged either way.</li>
+			    <li>LAME builds for systems with <i>--enable-debug</i>
+			        enable floating point exceptions. The floating point
+			        exception trapping that option adds is compiled
+			        wherever the platform offers a way to arm the
+			        exceptions, which now includes the BSDs; where it
+			        offers none, a debug build simply does not trap
+			        them. Reported by Sylvain Carette, bug ticket
+			        <i class="ticket">[ #514 ]</i>.</li>
 		</ul>
             </li>
 	</ul>
