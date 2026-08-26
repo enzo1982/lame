@@ -488,6 +488,8 @@ switch (msg) {
 	The index represent the specified format
 
 	\param a_FormatDetails will be filled with all the corresponding data
+	\param a_Query which kind of detail is wanted, in the bits
+	       ACM_FORMATDETAILSF_QUERYMASK selects
 */
 inline DWORD ACM::OnFormatDetails(LPACMFORMATDETAILS a_FormatDetails, const LPARAM a_Query)
 {
@@ -563,6 +565,8 @@ inline DWORD ACM::OnFormatDetails(LPACMFORMATDETAILS a_FormatDetails, const LPAR
 	The index represent the specified format (0 = MP3 / 1 = PCM)
 
 	\param a_FormatTagDetails will be filled with all the corresponding data
+	\param a_Query which kind of detail is wanted, in the bits
+	       ACM_FORMATTAGDETAILSF_QUERYMASK selects
 */
 inline DWORD ACM::OnFormatTagDetails(LPACMFORMATTAGDETAILS a_FormatTagDetails, const LPARAM a_Query)
 {
@@ -661,6 +665,7 @@ inline DWORD ACM::OnFormatTagDetails(LPACMFORMATTAGDETAILS a_FormatTagDetails, c
 /*!
 	Retreive the global details of this ACM driver
 
+	\param hdrvr the driver whose module the icon is loaded from
 	\param a_DriverDetail will be filled with all the corresponding data
 */
 inline DWORD ACM::OnDriverDetails(const HDRVR hdrvr, LPACMDRIVERDETAILS a_DriverDetail)

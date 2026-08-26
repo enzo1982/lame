@@ -54,7 +54,7 @@ public:
 	/**
 		\brief default constructor
 
-		\param the windows module with which you can retrieve many informations
+		\param hModule the windows module with which you can retrieve many informations
 	*/
 	AEncodeProperties(HMODULE hModule);
 
@@ -254,6 +254,7 @@ public:
 	*/
 	inline unsigned int GetAbrBitrateStep() const { return AverageBitrate_Step;}
 
+#if 0
 	/**
 		\brief Get the VBR attributes for a specified MPEG version
 
@@ -283,6 +284,7 @@ public:
 		\brief Set the output directory for encoding
 	*/
 //	void SetOutputDirectory( const char * the_string ) { OutputDir = the_string; }
+#endif
 
 	/**
 		\brief Get the current channel mode to use

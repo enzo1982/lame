@@ -56,10 +56,10 @@ something fails, the detail is in the files automake leaves in the build tree:
 
 - @c test/unit/test-suite.log &mdash; the failing tests' output, collected.
   It sits next to the tests, not at the top of the build tree.
-- @c test/unit/<name>.log &mdash; one per test, including the ones that
+- @c test/unit/&lt;name&gt;.log &mdash; one per test, including the ones that
   passed. CMocka's own message for the failing assertion, with its file and
   line, is here.
-- @c test/unit/<name>.trs &mdash; the machine-readable result automake
+- @c test/unit/&lt;name&gt;.trs &mdash; the machine-readable result automake
   itself reads.
 
 A single test can also be run directly: the binaries are built in

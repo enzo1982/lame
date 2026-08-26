@@ -131,7 +131,7 @@ bool DecodeStream::close(LPBYTE pOutputBuffer, DWORD *pOutputSize)
 {
 
 	bool bResult = false;
-/*
+#if 0
 	int nOutputSamples = 0;
 
     nOutputSamples = lame_encode_flush( gfp, pOutputBuffer, 0 );
@@ -147,14 +147,13 @@ bool DecodeStream::close(LPBYTE pOutputBuffer, DWORD *pOutputSize)
 
 		bResult = true;
 	}
-/*
 	// lame will be close in VbrWriteTag function
 	if ( !lame_get_bWriteVbrTag( gfp ) )
 	{
 		// clean up of allocated memory
 		lame_close( gfp );
 	}
-*/
+#endif
     
 	ExitMP3(&my_DecodeData);
 

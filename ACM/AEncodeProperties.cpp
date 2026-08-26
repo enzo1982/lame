@@ -118,7 +118,7 @@ static void SetAttributeDouble(TiXmlElement * the_elt, const std::string & the_s
 	the_elt->SetAttribute(the_string, std::string(the_text));
 }
 
-/*
+#if 0
 #pragma argsused
 static UINT CALLBACK DLLFindCallback(
   HWND hdlg,      // handle to child dialog box
@@ -196,11 +196,11 @@ static int CALLBACK BrowseFolderCallbackroc(
 			::SendMessage(hwnd, BFFM_ENABLEOK, 0, (LPARAM)0); // disable
 //ADbg tst;
 //tst.OutPut("change folder to %s ",FolderName);
-	}* /
+	}*/
 
 	return 0;
 }
-*/
+#endif
 #pragma argsused
 static BOOL CALLBACK ConfigProc(
   HWND hwndDlg,  // handle to dialog box
@@ -372,7 +372,7 @@ inline const int AEncodeProperties::GetBitrateValueMPEG1(DWORD & bitrate) const
 	bitrate = 32;
 	return 1;
 }
-/*
+#if 0
 const int AEncodeProperties::GetBitrateValue(DWORD & bitrate, const DWORD MPEG_Version) const
 {
 	assert((MPEG_Version == MPEG1) || (MPEG_Version == MPEG2));
@@ -383,7 +383,6 @@ const int AEncodeProperties::GetBitrateValue(DWORD & bitrate, const DWORD MPEG_V
 	else
 		return GetBitrateValueMPEG1(bitrate);
 }
-/*
 const char * AEncodeProperties::GetPresetModeString(const int a_presetID) const
 {
 	assert(a_presetID < sizeof(the_Presets));
@@ -432,7 +431,7 @@ const LAME_QUALTIY_PRESET AEncodeProperties::GetPresetModeValue() const
 
 	return the_Presets[nPresetIndex];
 }
-*/
+#endif
 bool AEncodeProperties::Config(const HINSTANCE Hinstance, const HWND HwndParent)
 {
 	//WM_INITDIALOG ?
@@ -1589,7 +1588,7 @@ bool AEncodeProperties::HandleDialogCommand(const HWND parentWnd, const WPARAM w
 		wsprintf(string,"Current"); // only the Current config is supported at the moment
 		
 		my_debug.OutPut("my_hModule = 0x%08X",my_hModule);
-/*
+#if 0
 		AEncodeProperties tmpDlgProps(my_hModule);
 		AEncodeProperties tmpSavedProps(my_hModule);
 //#ifdef OLD
@@ -1598,7 +1597,6 @@ bool AEncodeProperties::HandleDialogCommand(const HWND parentWnd, const WPARAM w
 		tmpSavedProps.ParamsRestore();
 		// check if the values from the DLG are the same as the one saved in the config file
 		// if yes, just do nothing
-/*
 		if (tmpDlgProps != tmpSavedProps)
 		{
 			int save;
@@ -1638,7 +1636,7 @@ bool AEncodeProperties::HandleDialogCommand(const HWND parentWnd, const WPARAM w
 				SaveValuesToStringKey(string);
 			}
 		}
-*/
+#endif
 //#endif // OLD
 my_debug.OutPut("before : nChannelIndex %d, bCRC %d, bCopyright %d, bOriginal %d, bPrivate %d",nChannelIndex, bCRC, bCopyright, bOriginal, bPrivate);
 
