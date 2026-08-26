@@ -1631,7 +1631,7 @@ STDMETHODIMP CMpegAudEncOutPin::NonDelegatingQueryInterface(REFIID riid, void **
         CheckPointer(ppv, E_POINTER);
         return GetInterface((IAMStreamConfig*)(this), ppv);
     }
-    return CBaseOutputPin::NonDelegatingQueryInterface(riid, ppv);
+    return CTransformOutputPin::NonDelegatingQueryInterface(riid, ppv);
 }
 
 

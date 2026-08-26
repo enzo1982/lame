@@ -539,6 +539,11 @@
 			        offers none, a debug build simply does not trap
 			        them. Reported by Sylvain Carette, bug ticket
 			        <i class="ticket">[ #514 ]</i>.</li>
+			    <li>The DirectShow filter's output pin answers
+			        interface requests through the pin class it is
+			        built on, so seeking works again when the filter
+			        is part of a graph. Reported by Julio Jose, bug
+			        ticket <i class="ticket">[ #511 ]</i>.</li>
 			    <li>While encoding, the heading above the progress
 			        display is as wide as the frame counter beneath
 			        it, so a file long enough to need more than six

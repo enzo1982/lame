@@ -288,6 +288,52 @@ test_encoder_properties(IBaseFilter *lame)
     props->Release();
 }
 
+/**
+ * @brief Seeking reaches through the encoder to whatever is upstream of it.
+ *
+ * A transform filter is expected to pass @c IMediaSeeking and
+ * @c IMediaPosition from its output pin back to the pin feeding its input, so
+ * that an application asking the graph how long the stream is, or where it is,
+ * gets an answer from the source rather than nothing. The base class the output
+ * pin derives from does that; the one below it does not, and answers
+ * E_NOINTERFACE.
+ *
+ * So this is a question about which parent the pin's interface query goes to,
+ * and it can only be asked once the input pin is connected - there is nothing
+ * to pass through to before that. Asking for the duration as well as for the
+ * interface is deliberate: an object that answers the query and then knows
+ * nothing would satisfy the first half on its own.
+ *
+ * @param lame_out  the filter's output pin, its input already connected.
+ */
+static void
+test_seeking_passes_through(IPin *lame_out)
+{
+    IMediaSeeking *seek = NULL;
+    IMediaPosition *pos = NULL;
+    HRESULT hr;
+
+    hr = lame_out->QueryInterface(IID_IMediaSeeking, (void **) &seek);
+    CHECK(SUCCEEDED(hr) && seek != NULL,
+          "the encoder's output pin offers IMediaSeeking");
+    if (SUCCEEDED(hr) && seek != NULL) {
+        LONGLONG duration = 0;
+
+        hr = seek->GetDuration(&duration);
+        CHECK(SUCCEEDED(hr), "and answers how long the stream is");
+        CHECK(duration > 0,
+              "with a duration that came from upstream, not from nowhere");
+        seek->Release();
+    }
+
+    hr = lame_out->QueryInterface(IID_IMediaPosition, (void **) &pos);
+    CHECK(SUCCEEDED(hr) && pos != NULL,
+          "the encoder's output pin offers IMediaPosition");
+    if (SUCCEEDED(hr) && pos != NULL) {
+        pos->Release();
+    }
+}
+
 int
 main(int argc, char **argv)
 {
@@ -458,6 +504,12 @@ main(int argc, char **argv)
     if (lame_out == NULL || wr_in == NULL) {
         goto out;
     }
+
+    /* Before the output pin is connected to anything, so that what is being
+       asked about is the pass-through to the input side and not something the
+       downstream connection supplied. */
+    test_seeking_passes_through(lame_out);
+
     REQUIRE_HR(graph->Connect(lame_out, wr_in),
                "encoder to file writer connects");
 
