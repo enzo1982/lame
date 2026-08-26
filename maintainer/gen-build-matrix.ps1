@@ -285,12 +285,14 @@ $smokeCmd = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$smoke`""
 $binDir = "%~dp0bin\Win32\Release"
 $acmTest = "`"$binDir\lame_acm_test.exe`""
 # Not required here: this cell does not build the filter, so the test finding no
-# lame.ax is the expected outcome and it says so rather than failing.
+# lame.ax is the expected outcome and it says so rather than failing. The same
+# holds for the Blade DLL, which the main solution builds.
 $dshowTest = "`"$binDir\lame_dshow_test.exe`""
+$bladeTest = "`"$binDir\lame_blade_test.exe`""
 
 if ($clientsSln) {
 	$cells += @{ Name = "msbuild-Release-Win32-clients"
-		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$clientsSln`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 $msbDirs`r`nif errorlevel 1 exit /b 1`r`n$smokeCmd -Path `"%~dp0bin`" -Require acm`r`nif errorlevel 1 exit /b 1`r`n$acmTest`r`nif errorlevel 1 exit /b 1`r`n$dshowTest" }
+		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$clientsSln`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 $msbDirs`r`nif errorlevel 1 exit /b 1`r`n$smokeCmd -Path `"%~dp0bin`" -Require acm`r`nif errorlevel 1 exit /b 1`r`n$acmTest`r`nif errorlevel 1 exit /b 1`r`n$dshowTest`r`nif errorlevel 1 exit /b 1`r`n$bladeTest" }
 } else {
 	$msbSkipped += "the client components - no clients solution under vc_solution\"
 }
@@ -301,6 +303,20 @@ if ($baseCls -and $clientsSln) {
 		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$dshow`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 /p:HaveDShowBaseClasses=true /p:DShowBaseClassesPath=`"$baseCls`" $msbDirs`r`nif errorlevel 1 exit /b 1`r`n`"$msbuild`" `"$dshowTestProj`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 $msbDirs`r`nif errorlevel 1 exit /b 1`r`n$smokeCmd -Path `"%~dp0bin`" -Require dshow`r`nif errorlevel 1 exit /b 1`r`n$dshowTest --require" }
 } elseif ($clientsSln) {
 	$msbSkipped += "the DirectShow filter - no base class sources (streams.h) under vc_solution\baseclasses"
+}
+
+# The Blade encoder DLL is built by the main solution, so its component test
+# gets a cell of its own per architecture that builds both halves - the DLL
+# builds for x64 as well, and a binary nothing runs is a binary nothing
+# measures. The smoke -Path is the per-architecture directory: pointed at a
+# mixed tree, the smoke script would re-run itself 32-bit for the ACM and
+# then fail to load the 64-bit DLL.
+$bladeDll = Join-Path $SrcDir "vc_solution\vs_lame_enc_dll.vcxproj"
+$bladeTestProj = Join-Path $SrcDir "vc_solution\vs_lame_blade_test.vcxproj"
+foreach ($bladeArch in @("Win32", "x64")) {
+	$bt = "`"%~dp0bin\$bladeArch\Release\lame_blade_test.exe`""
+	$cells += @{ Name = "msbuild-Release-$bladeArch-blade"
+		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$bladeDll`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=$bladeArch $msbDirs`r`nif errorlevel 1 exit /b 1`r`n`"$msbuild`" `"$bladeTestProj`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=$bladeArch $msbDirs`r`nif errorlevel 1 exit /b 1`r`n$smokeCmd -Path `"%~dp0bin\$bladeArch\Release`" -Require lame_enc`r`nif errorlevel 1 exit /b 1`r`n$bt --require" }
 }
 
 # --- emit cell build.cmd files ----------------------------------------------

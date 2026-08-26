@@ -24,9 +24,9 @@ The solution "vs_lame_clients.slnx" contains several more projects:
 - ACM, ADbg, tinyxml: Ancient Windows "Audio Codec Manager"
 - lame_DirectShow: DirectShow filter
 - lame_test: Test program
-- lame_acm_test, lame_dshow_test: tests for the two components above
+- lame_acm_test, lame_dshow_test, lame_blade_test: component tests
 
-The two component tests are console programs that report one line per check
+The component tests are console programs that report one line per check
 and exit non-zero if any of them failed, so a build step can read their
 status. Run them from the output directory with no arguments; each finds the
 component it tests beside itself.
@@ -34,8 +34,12 @@ component it tests beside itself.
 lame_acm_test checks the codec's sample rate selection and its stored
 configuration, then hands the built lameACM.acm to the Audio Compression
 Manager and has it convert a second of audio. lame_dshow_test builds a filter
-graph around the built lame.ax and streams a WAV file through it. Neither one
-registers anything: the ACM accepts a driver for one process given its entry
+graph around the built lame.ax and streams a WAV file through it.
+lame_blade_test drives the built lame_enc.dll through the Blade calls a
+host makes - encode, drain, tag rewrite - and walks the frames that come
+out; lame_enc.dll is built by the vs_lame.slnx solution, so this test
+skips when there is none beside it, or fails under --require. None of
+them registers anything: the ACM accepts a driver for one process given its entry
 point, and the filter comes from its own class factory rather than by CLSID,
 so no registry entry and no administrator are involved. What that leaves
 uncovered is the machine-wide registration itself.

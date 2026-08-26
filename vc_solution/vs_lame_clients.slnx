@@ -19,6 +19,8 @@
   </Project>
   <Project Path="vs_lame_dshow_test.vcxproj">
   </Project>
+  <Project Path="vs_lame_blade_test.vcxproj">
+  </Project>
   <Project Path="vs_lame_test.vcxproj">
   </Project>
   <Project Path="vs_libmp3lame.vcxproj" />
