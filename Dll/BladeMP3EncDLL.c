@@ -27,6 +27,7 @@
 #include <Windef.h>
 #include "BladeMP3EncDLL.h"
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 
 #include <lame.h>
@@ -780,7 +781,10 @@ static int
 skipId3v2(FILE * fpStream, size_t lametag_frame_size)
 {
     size_t  nbytes;
-    size_t  id3v2TagSize = 0;
+    /* fseek() takes a long, which is 32 bits on Windows whatever the word
+       size is, so the offset is held in one. The tag size field is 28 bits,
+       so it fits. */
+    long    id3v2TagSize = 0;
     unsigned char id3v2Header[10];
 
     /* seek to the beginning of the stream */
@@ -810,7 +814,13 @@ skipId3v2(FILE * fpStream, size_t lametag_frame_size)
     if ( maybeSyncWord(fpStream) != 0) {
         return -1;
     }
-    if ( fseek(fpStream, id3v2TagSize+lametag_frame_size, SEEK_SET) != 0 ) {
+    /* The frame size comes from the caller, so the sum is bounded rather
+       than assumed to fit. A LAME tag frame is one MPEG frame and cannot
+       come close, which is why this returns the not-seekable answer. */
+    if ( lametag_frame_size > (size_t)(LONG_MAX - id3v2TagSize) ) {
+        return -2;
+    }
+    if ( fseek(fpStream, id3v2TagSize + (long) lametag_frame_size, SEEK_SET) != 0 ) {
         return -2;
     }
     if ( maybeSyncWord(fpStream) != 0) {

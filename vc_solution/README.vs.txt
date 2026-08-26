@@ -13,7 +13,7 @@ There are two solution files in the "lame/vc_solution" folder that can be
 opened. The solution "vs_lame.slnx" contains the following projects:
 
 - lame: The lame.exe command line executable
-- lame_enc: The Blade-compatible encoder DLL lame_enc.dll (32-bit only)
+- lame_enc: The Blade-compatible encoder DLL lame_enc.dll
 - libmp3lame: The dynamic library libmp3lame.dll
 - libmp3lame-static: The static library variant of the above
 - mp3rtp: command line tool to stream mp3 via RTP protocol

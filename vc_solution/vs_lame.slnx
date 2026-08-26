@@ -9,8 +9,6 @@
     <File Path="README.vs.txt" />
   </Folder>
   <Project Path="vs_lame_enc_dll.vcxproj">
-    <Platform Project="Win32" />
-    <Build Solution="*|x64" Project="false" />
   </Project>
   <Project Path="vs_lame_lame.vcxproj">
   </Project>
