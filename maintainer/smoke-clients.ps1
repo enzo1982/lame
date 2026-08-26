@@ -23,12 +23,12 @@
   property of the checker.
 
 .PARAMETER Path
-  A folder to search for lameACM.acm and lame.ax, or one such file.
+  A folder to search for lameACM.acm, lame.ax and lame_enc.dll, or one such file.
 
 .PARAMETER Require
-  Comma-separated component names that MUST be present: acm, dshow. A component
-  that is absent is otherwise reported and skipped, since the DirectShow filter
-  is only built where its base class sources are laid out.
+  Comma-separated component names that MUST be present: acm, dshow, lame_enc. A
+  component that is absent is otherwise reported and skipped, since the
+  DirectShow filter is only built where its base class sources are laid out.
 
   One string and not a string array, because this script hands its arguments to
   a second PowerShell (see above) and an array does not survive that crossing:
@@ -47,6 +47,11 @@ $required = @($Require.Split(",") | ForEach-Object { $_.Trim() } | Where-Object 
 
 $components = @(
 	@{ Key = "acm";   File = "lameACM.acm"; Exports = @("DriverProc") }
+	@{ Key = "lame_enc"; File = "lame_enc.dll"; Exports = @("beInitStream", "beEncodeChunk",
+	                                                        "beEncodeChunkFloatS16NI",
+	                                                        "beDeinitStream", "beCloseStream",
+	                                                        "beVersion", "beWriteVBRHeader",
+	                                                        "beWriteInfoTag", "beFlushNoGap") }
 	@{ Key = "dshow"; File = "lame.ax";     Exports = @("DllGetClassObject", "DllCanUnloadNow",
 	                                                    "DllRegisterServer", "DllUnregisterServer") }
 )
