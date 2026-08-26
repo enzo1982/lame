@@ -824,12 +824,13 @@ void CMpegAudEnc::LoadOutputCapabilities(DWORD sample_rate)
     for (int i = 0;  i < NUMELMS(OutputCapabilities); i++) {
         if (0 == sample_rate % OutputCapabilities[i].nSampleRate) {
 
+            // Don't overrun the hard-coded capabilities array limit: the last
+            // writable slot is MAX_IAMSTREAMCONFIG_CAPS - 1.
+            if (m_CapsNum >= (int)MAX_IAMSTREAMCONFIG_CAPS) break;
+
             // Add this output capability to the OutputCaps list
             OutputCaps[m_CapsNum] = OutputCapabilities[i];
             m_CapsNum++;
-
-            // Don't overrun the hard-coded capabilities array limit
-            if (m_CapsNum > (int)MAX_IAMSTREAMCONFIG_CAPS) break;
         }
     }
 }
@@ -1976,22 +1977,31 @@ HRESULT STDMETHODCALLTYPE CMpegAudEncOutPin::GetStreamCaps(int iIndex, AM_MEDIA_
     if (mec.vmVariable != vbr_off) return E_NOTIMPL;
 
     if (iIndex < 0) return E_INVALIDARG;
-    if (iIndex > m_pFilter->m_CapsNum) return S_FALSE;
+    // The table holds m_CapsNum entries, so m_CapsNum itself is one past the
+    // end: reading it gives a zeroed entry whose sample rate is 0, which the
+    // frame length below divides by.
+    if (iIndex >= m_pFilter->m_CapsNum) return S_FALSE;
 
-    // Load the MPEG Layer3 WaveFormatEx structure with the appropriate entries 
+    // Load the MPEG Layer3 WaveFormatEx structure with the appropriate entries
     // for this IAMStreamConfig index element.
-    *pmt = CreateMediaType(&m_mt);
-    if (*pmt == NULL) return E_OUTOFMEMORY;
+    //
+    // The entry describes what the encoder can produce, so it is built here
+    // rather than from this pin's own media type: that type carries no format
+    // block before the pin connects, and none afterwards either where the pin
+    // has connected as a stream - which is what a file writer downstream
+    // asks for.
+    CMediaType mt;
 
-    DECLARE_PTR(MPEGLAYER3WAVEFORMAT, p_mp3wvfmt, (*pmt)->pbFormat);
+    DECLARE_PTR(MPEGLAYER3WAVEFORMAT, p_mp3wvfmt,
+                mt.AllocFormatBuffer(sizeof(MPEGLAYER3WAVEFORMAT)));
+    if (p_mp3wvfmt == NULL) return E_OUTOFMEMORY;
+    ZeroMemory(p_mp3wvfmt, sizeof(MPEGLAYER3WAVEFORMAT));
 
-    (*pmt)->majortype = MEDIATYPE_Audio;
-    (*pmt)->subtype = MEDIASUBTYPE_MP3;
-    (*pmt)->bFixedSizeSamples = TRUE;
-    (*pmt)->bTemporalCompression = FALSE;
-    (*pmt)->lSampleSize = OUT_BUFFER_SIZE;
-    (*pmt)->formattype = FORMAT_WaveFormatEx;
-    (*pmt)->cbFormat = sizeof(MPEGLAYER3WAVEFORMAT);
+    mt.SetType(&MEDIATYPE_Audio);
+    mt.SetSubtype(&MEDIASUBTYPE_MP3);
+    mt.SetTemporalCompression(FALSE);
+    mt.SetSampleSize(OUT_BUFFER_SIZE);
+    mt.SetFormatType(&FORMAT_WaveFormatEx);
 
     p_mp3wvfmt->wfx.wFormatTag = WAVE_FORMAT_MPEGLAYER3;
     p_mp3wvfmt->wfx.nChannels = 2;
@@ -2006,6 +2016,9 @@ HRESULT STDMETHODCALLTYPE CMpegAudEncOutPin::GetStreamCaps(int iIndex, AM_MEDIA_
     p_mp3wvfmt->nBlockSize = GET_FRAMELENGTH(m_pFilter->OutputCaps[iIndex].nBitRate, m_pFilter->OutputCaps[iIndex].nSampleRate);
     p_mp3wvfmt->nFramesPerBlock = 1;
     p_mp3wvfmt->nCodecDelay = 0;
+
+    *pmt = CreateMediaType(&mt);
+    if (*pmt == NULL) return E_OUTOFMEMORY;
 
     // Set up the companion AUDIO_STREAM_CONFIG_CAPS structure
     // We are only using the CHANNELS element of the structure

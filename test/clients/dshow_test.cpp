@@ -22,6 +22,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <mmreg.h>
 #include <dshow.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,6 +63,30 @@ struct IAudioEncoderPropertiesSubset : public IUnknown
     STDMETHOD(get_Bitrate)(DWORD *bitrate) PURE;
     STDMETHOD(set_Bitrate)(DWORD bitrate) PURE;
 };
+
+/**
+ * @brief Releases a media type the filter allocated for the caller.
+ *
+ * The base classes' DeleteMediaType() does this, but it lives in the filter's
+ * own library rather than in anything a client links, so a client frees the
+ * two allocations itself.
+ *
+ * @param pmt  the media type to release; a null is passed over.
+ */
+static void
+free_media_type(AM_MEDIA_TYPE *pmt)
+{
+    if (pmt == NULL) {
+        return;
+    }
+    if (pmt->cbFormat != 0 && pmt->pbFormat != NULL) {
+        CoTaskMemFree(pmt->pbFormat);
+    }
+    if (pmt->pUnk != NULL) {
+        pmt->pUnk->Release();
+    }
+    CoTaskMemFree(pmt);
+}
 
 /** @brief The first pin of the given direction, or NULL. */
 static IPin *
@@ -334,6 +359,81 @@ test_seeking_passes_through(IPin *lame_out)
     }
 }
 
+/**
+ * @brief The encoder's capability list, which a caller reads before connecting.
+ *
+ * @c IAMStreamConfig::GetStreamCaps() describes what the encoder can produce,
+ * so it has to answer whatever the pin is currently connected as - including
+ * not at all, which is the state an application enumerating formats is in, and
+ * as a stream, which is what a file writer downstream negotiates. Neither
+ * state carries an audio format block, and building the answer out of one used
+ * to write through a null pointer (SF bug #424).
+ *
+ * The index range is asked about here too: the entry one past the end is the
+ * other half of the same report, and its zeroed sample rate reaches a division.
+ *
+ * @param lame_out  the filter's output pin.
+ * @param when      names the pin state, spliced into each check's description.
+ */
+static void
+test_stream_caps(IPin *lame_out, const char *when)
+{
+    IAMStreamConfig *cfg = NULL;
+    AUDIO_STREAM_CONFIG_CAPS scc;
+    AM_MEDIA_TYPE *pmt = NULL;
+    char what[CTEST_DETAIL_CHARS];
+    int count = 0, size = 0;
+    HRESULT hr;
+
+    hr = lame_out->QueryInterface(IID_IAMStreamConfig, (void **) &cfg);
+    sprintf(what, "the output pin offers IAMStreamConfig %s", when);
+    CHECK(SUCCEEDED(hr) && cfg != NULL, what);
+    if (FAILED(hr) || cfg == NULL) {
+        return;
+    }
+
+    hr = cfg->GetNumberOfCapabilities(&count, &size);
+    CHECK(SUCCEEDED(hr) && count > 0, "it reports how many entries it has");
+    CHECK_EQ_U(size, sizeof(AUDIO_STREAM_CONFIG_CAPS),
+               "and the size of the companion structure");
+
+    hr = cfg->GetStreamCaps(0, &pmt, (BYTE *) &scc);
+    sprintf(what, "the first entry can be read %s", when);
+    CHECK(hr == S_OK && pmt != NULL, what);
+    if (hr == S_OK && pmt != NULL) {
+        MPEGLAYER3WAVEFORMAT *wf = (MPEGLAYER3WAVEFORMAT *) pmt->pbFormat;
+
+        CHECK(pmt->cbFormat >= sizeof(MPEGLAYER3WAVEFORMAT) && wf != NULL,
+              "and it carries an MP3 format block");
+        if (wf != NULL && pmt->cbFormat >= sizeof(MPEGLAYER3WAVEFORMAT)) {
+            CHECK(wf->wfx.nSamplesPerSec > 0 && wf->wfx.nAvgBytesPerSec > 0,
+                  "describing a real sample rate and data rate");
+            CHECK(wf->nBlockSize > 0, "and a frame length");
+        }
+        free_media_type(pmt);
+        pmt = NULL;
+    }
+
+    hr = cfg->GetStreamCaps(count - 1, &pmt, (BYTE *) &scc);
+    CHECK(hr == S_OK, "so can the last one");
+    free_media_type(pmt);
+    pmt = NULL;
+
+    /* One past the end. The array holds `count` entries, so this index is not
+       one of them; it used to be accepted and read the zeroed slot after the
+       table, whose 0 Hz sample rate reaches a division. */
+    hr = cfg->GetStreamCaps(count, &pmt, (BYTE *) &scc);
+    CHECK(hr != S_OK, "one past the last entry is refused");
+    free_media_type(pmt);
+    pmt = NULL;
+
+    hr = cfg->GetStreamCaps(-1, &pmt, (BYTE *) &scc);
+    CHECK(hr == E_INVALIDARG, "a negative index is refused");
+    free_media_type(pmt);
+
+    cfg->Release();
+}
+
 int
 main(int argc, char **argv)
 {
@@ -509,9 +609,15 @@ main(int argc, char **argv)
        asked about is the pass-through to the input side and not something the
        downstream connection supplied. */
     test_seeking_passes_through(lame_out);
+    test_stream_caps(lame_out, "with the output pin unconnected");
 
     REQUIRE_HR(graph->Connect(lame_out, wr_in),
                "encoder to file writer connects");
+
+    /* And again with the graph complete: the pin is now connected as a stream,
+       which carries no format block either, so this asks the same question
+       about the other state a caller can find the pin in. */
+    test_stream_caps(lame_out, "with the whole graph connected");
 
     hr = graph->QueryInterface(IID_IMediaControl, (void **) &mc);
     REQUIRE_HR(hr, "the graph offers IMediaControl");
