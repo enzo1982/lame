@@ -114,6 +114,7 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_encode_api$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_resample_decision$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_file_times$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_decode_scale$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_1) $(am__EXEEXT_2) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_3)
 
@@ -190,6 +191,16 @@ test_choose_table_vector_OBJECTS =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_5)
+am__test_decode_scale_SOURCES_DIST = test_decode_scale.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_decode_scale_OBJECTS = test_decode_scale-test_decode_scale.$(OBJEXT)
+test_decode_scale_OBJECTS = $(am_test_decode_scale_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_decode_scale_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+test_decode_scale_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(AM_CFLAGS) $(CFLAGS) $(test_decode_scale_LDFLAGS) $(LDFLAGS) \
+	-o $@
 am__test_decoder_api_SOURCES_DIST = test_decoder_api.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_decoder_api_OBJECTS = test_decoder_api-test_decoder_api.$(OBJEXT)
 test_decoder_api_OBJECTS = $(am_test_decoder_api_OBJECTS)
@@ -399,6 +410,7 @@ am__depfiles_remade =  \
 	./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po \
 	./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po \
 	./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po \
+	./$(DEPDIR)/test_decode_scale-test_decode_scale.Po \
 	./$(DEPDIR)/test_decoder_api-test_decoder_api.Po \
 	./$(DEPDIR)/test_encode_api-test_encode_api.Po \
 	./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po \
@@ -454,8 +466,8 @@ SOURCES = $(test_bitstream_headers_SOURCES) \
 	$(test_calc_sfb_noise_vector_SOURCES) \
 	$(test_choose_table_neon_SOURCES) \
 	$(test_choose_table_vector_SOURCES) \
-	$(test_decoder_api_SOURCES) $(test_encode_api_SOURCES) \
-	$(test_encode_clipgain_SOURCES) \
+	$(test_decode_scale_SOURCES) $(test_decoder_api_SOURCES) \
+	$(test_encode_api_SOURCES) $(test_encode_clipgain_SOURCES) \
 	$(test_encode_mono_interleaved_SOURCES) \
 	$(test_encode_nonfinite_SOURCES) $(test_file_times_SOURCES) \
 	$(test_free_format_SOURCES) $(test_get_audio_aiff_SOURCES) \
@@ -472,6 +484,7 @@ DIST_SOURCES = $(am__test_bitstream_headers_SOURCES_DIST) \
 	$(am__test_calc_sfb_noise_vector_SOURCES_DIST) \
 	$(am__test_choose_table_neon_SOURCES_DIST) \
 	$(am__test_choose_table_vector_SOURCES_DIST) \
+	$(am__test_decode_scale_SOURCES_DIST) \
 	$(am__test_decoder_api_SOURCES_DIST) \
 	$(am__test_encode_api_SOURCES_DIST) \
 	$(am__test_encode_clipgain_SOURCES_DIST) \
@@ -1306,6 +1319,24 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @ENABLE_UNIT_TESTS_TRUE@@WITH_NEON_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorneon.la
 
 
+# hip_decode1_unclipped() is internal and withheld from the shared library by
+# include/libmp3lame.sym, so this links the STATIC archive (-static) to reach
+# it, the same way test_vector_ladder does. Built everywhere and not gated on
+# the decoder: a build without libmpg123 hands back no decoder handle and the
+# tests skip, which keeps "no decoder" distinguishable from "a decoder whose
+# output is in the wrong scale" - that distinction being the whole subject.
+@ENABLE_UNIT_TESTS_TRUE@test_decode_scale_SOURCES = test_decode_scale.c
+@ENABLE_UNIT_TESTS_TRUE@test_decode_scale_CPPFLAGS = $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_decode_scale_LDFLAGS = -static
+@ENABLE_UNIT_TESTS_TRUE@test_decode_scale_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
+
 # The file-time helpers are external but lametime.c is a frontend translation
 # unit, not part of the library, so the test compiles it in directly - the same
 # arrangement the get_audio and rtp tests use. It touches no encoder state, so
@@ -1401,6 +1432,10 @@ test_choose_table_neon$(EXEEXT): $(test_choose_table_neon_OBJECTS) $(test_choose
 test_choose_table_vector$(EXEEXT): $(test_choose_table_vector_OBJECTS) $(test_choose_table_vector_DEPENDENCIES) $(EXTRA_test_choose_table_vector_DEPENDENCIES) 
 	@rm -f test_choose_table_vector$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_choose_table_vector_OBJECTS) $(test_choose_table_vector_LDADD) $(LIBS)
+
+test_decode_scale$(EXEEXT): $(test_decode_scale_OBJECTS) $(test_decode_scale_DEPENDENCIES) $(EXTRA_test_decode_scale_DEPENDENCIES) 
+	@rm -f test_decode_scale$(EXEEXT)
+	$(AM_V_CCLD)$(test_decode_scale_LINK) $(test_decode_scale_OBJECTS) $(test_decode_scale_LDADD) $(LIBS)
 
 test_decoder_api$(EXEEXT): $(test_decoder_api_OBJECTS) $(test_decoder_api_DEPENDENCIES) $(EXTRA_test_decoder_api_DEPENDENCIES) 
 	@rm -f test_decoder_api$(EXEEXT)
@@ -1508,6 +1543,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_decode_scale-test_decode_scale.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_decoder_api-test_decoder_api.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_api-test_encode_api.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po@am__quote@ # am--include-marker
@@ -1623,6 +1659,20 @@ test_choose_table_vector-test_choose_table_vector.obj: test_choose_table_vector.
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_choose_table_vector.c' object='test_choose_table_vector-test_choose_table_vector.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_choose_table_vector_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_choose_table_vector-test_choose_table_vector.obj `if test -f 'test_choose_table_vector.c'; then $(CYGPATH_W) 'test_choose_table_vector.c'; else $(CYGPATH_W) '$(srcdir)/test_choose_table_vector.c'; fi`
+
+test_decode_scale-test_decode_scale.o: test_decode_scale.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_decode_scale_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_decode_scale-test_decode_scale.o -MD -MP -MF $(DEPDIR)/test_decode_scale-test_decode_scale.Tpo -c -o test_decode_scale-test_decode_scale.o `test -f 'test_decode_scale.c' || echo '$(srcdir)/'`test_decode_scale.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_decode_scale-test_decode_scale.Tpo $(DEPDIR)/test_decode_scale-test_decode_scale.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_decode_scale.c' object='test_decode_scale-test_decode_scale.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_decode_scale_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_decode_scale-test_decode_scale.o `test -f 'test_decode_scale.c' || echo '$(srcdir)/'`test_decode_scale.c
+
+test_decode_scale-test_decode_scale.obj: test_decode_scale.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_decode_scale_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_decode_scale-test_decode_scale.obj -MD -MP -MF $(DEPDIR)/test_decode_scale-test_decode_scale.Tpo -c -o test_decode_scale-test_decode_scale.obj `if test -f 'test_decode_scale.c'; then $(CYGPATH_W) 'test_decode_scale.c'; else $(CYGPATH_W) '$(srcdir)/test_decode_scale.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_decode_scale-test_decode_scale.Tpo $(DEPDIR)/test_decode_scale-test_decode_scale.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_decode_scale.c' object='test_decode_scale-test_decode_scale.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_decode_scale_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_decode_scale-test_decode_scale.obj `if test -f 'test_decode_scale.c'; then $(CYGPATH_W) 'test_decode_scale.c'; else $(CYGPATH_W) '$(srcdir)/test_decode_scale.c'; fi`
 
 test_decoder_api-test_decoder_api.o: test_decoder_api.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_decoder_api_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_decoder_api-test_decoder_api.o -MD -MP -MF $(DEPDIR)/test_decoder_api-test_decoder_api.Tpo -c -o test_decoder_api-test_decoder_api.o `test -f 'test_decoder_api.c' || echo '$(srcdir)/'`test_decoder_api.c
@@ -2457,6 +2507,13 @@ test_file_times.log: test_file_times$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_decode_scale.log: test_decode_scale$(EXEEXT)
+	@p='test_decode_scale$(EXEEXT)'; \
+	b='test_decode_scale'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 test_choose_table_vector.log: test_choose_table_vector$(EXEEXT)
 	@p='test_choose_table_vector$(EXEEXT)'; \
 	b='test_choose_table_vector'; \
@@ -2589,6 +2646,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po
+	-rm -f ./$(DEPDIR)/test_decode_scale-test_decode_scale.Po
 	-rm -f ./$(DEPDIR)/test_decoder_api-test_decoder_api.Po
 	-rm -f ./$(DEPDIR)/test_encode_api-test_encode_api.Po
 	-rm -f ./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po
@@ -2670,6 +2728,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po
+	-rm -f ./$(DEPDIR)/test_decode_scale-test_decode_scale.Po
 	-rm -f ./$(DEPDIR)/test_decoder_api-test_decoder_api.Po
 	-rm -f ./$(DEPDIR)/test_encode_api-test_encode_api.Po
 	-rm -f ./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po

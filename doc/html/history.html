@@ -523,6 +523,14 @@
 			        <i>REPLAYGAIN_TRACK_PEAK</i> text frames. Requested
 			        by Jim McAtee, feature
 			        ticket <i class="ticket">[ #78 ]</i>.</li>
+			    <li><i>--clipdetect</i> reports clipping again, and
+			        <i>--replaygain-accurate</i> gives a figure that
+			        depends on the audio again. A file written by
+			        LAME&nbsp;4.0 with either of them carries ReplayGain
+			        information that is wrong by about 90&nbsp;dB and is
+			        worth tagging again. <i>--replaygain-fast</i>, which
+			        is the default, is unaffected, and the encoded audio
+			        is unchanged either way.</li>
 		</ul>
             </li>
 	</ul>

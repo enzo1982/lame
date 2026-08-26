@@ -369,6 +369,13 @@ int hip_decode_exit(hip_t hip)
    If not, the decoder delay also needs to be communicated.
    Or do we just assume 529 samples? */
 
+/**
+ * @internal
+ * @brief The factor between libmpg123's normalised full scale of 1 and
+ *        LAME's own sample_t scale, whose full scale is 32768.
+ */
+#define SAMPLE_T_FULL_SCALE 32768.0
+
 int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
     unsigned char *pcm_l, unsigned char *pcm_r,
     int *enc_delay, int *enc_padding,
@@ -452,15 +459,17 @@ int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
             float    *srcbuf = (float*)mpg123buf;
             int i;
 
+            /* Into LAME's scale on the way in. Samples beyond full scale stay
+               beyond it - that is what makes clipping detectable. */
             if(channels == 2) {
                 for(i=0; i<samples; ++i) {
-                    spcm_l[i] = *srcbuf++;
-                    spcm_r[i] = *srcbuf++;
+                    spcm_l[i] = *srcbuf++ * SAMPLE_T_FULL_SCALE;
+                    spcm_r[i] = *srcbuf++ * SAMPLE_T_FULL_SCALE;
                 }
             }
             else
                 for(i=0; i<samples; ++i)
-                    spcm_l[i] = *srcbuf++;
+                    spcm_l[i] = *srcbuf++ * SAMPLE_T_FULL_SCALE;
         }
         else
         {

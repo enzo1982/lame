@@ -14,7 +14,7 @@ check_PROGRAMS = test_sanity test_get_audio_aiff test_get_audio_wav \
 	test_vector_ladder test_decoder_api test_encode_clipgain \
 	test_huffman_tables test_help_exit test_bitstream_headers \
 	test_free_format test_encode_api test_resample_decision \
-	test_file_times
+	test_file_times test_decode_scale
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -413,6 +413,22 @@ test_choose_table_neon_CPPFLAGS = $(CMOCKA_CFLAGS) \
 test_choose_table_neon_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/vector/liblamevectorneon.la
 endif
+
+# hip_decode1_unclipped() is internal and withheld from the shared library by
+# include/libmp3lame.sym, so this links the STATIC archive (-static) to reach
+# it, the same way test_vector_ladder does. Built everywhere and not gated on
+# the decoder: a build without libmpg123 hands back no decoder handle and the
+# tests skip, which keeps "no decoder" distinguishable from "a decoder whose
+# output is in the wrong scale" - that distinction being the whole subject.
+test_decode_scale_SOURCES = test_decode_scale.c
+test_decode_scale_CPPFLAGS = $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_builddir)
+test_decode_scale_LDFLAGS = -static
+test_decode_scale_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
 
 # The file-time helpers are external but lametime.c is a frontend translation
 # unit, not part of the library, so the test compiles it in directly - the same

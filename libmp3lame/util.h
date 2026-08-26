@@ -631,7 +631,11 @@ extern  "C" {
    unclipped raw floating-point samples. It is declared
    here, not in lame.h, because it returns LAME's
    internal type sample_t. No more than 1152 samples
-   per channel are allowed. */
+   per channel are allowed.
+   The samples are in LAME's own scale, where full scale
+   is 32768, and are not limited to it: a stream that
+   decodes past full scale says so here, which is what
+   the clipping figures are measured from. */
     int     hip_decode1_unclipped(hip_t hip, unsigned char *mp3buf,
                                    size_t len, sample_t pcm_l[], sample_t pcm_r[]);
 
