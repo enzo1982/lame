@@ -26,7 +26,7 @@ dnl check system
 AC_CANONICAL_HOST
 
 dnl automake
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_HEADERS([config.h])
 AH_TOP([
 #ifndef LAME_CONFIG_H

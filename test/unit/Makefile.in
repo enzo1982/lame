@@ -235,8 +235,9 @@ test_encode_nonfinite_OBJECTS = $(am_test_encode_nonfinite_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 am__test_file_times_SOURCES_DIST = test_file_times.c \
 	$(top_srcdir)/frontend/lametime.c
+am__dirstamp = $(am__leading_dot)dirstamp
 @ENABLE_UNIT_TESTS_TRUE@am_test_file_times_OBJECTS = test_file_times-test_file_times.$(OBJEXT) \
-@ENABLE_UNIT_TESTS_TRUE@	test_file_times-lametime.$(OBJEXT)
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/frontend/test_file_times-lametime.$(OBJEXT)
 test_file_times_OBJECTS = $(am_test_file_times_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@test_file_times_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1)
@@ -349,7 +350,7 @@ test_resample_decision_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 am__test_rtp_socket_SOURCES_DIST = test_rtp_socket.c \
 	$(top_srcdir)/frontend/rtp.c
 @ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@am_test_rtp_socket_OBJECTS = test_rtp_socket-test_rtp_socket.$(OBJEXT) \
-@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@	test_rtp_socket-rtp.$(OBJEXT)
+@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@	$(top_builddir)/frontend/test_rtp_socket-rtp.$(OBJEXT)
 test_rtp_socket_OBJECTS = $(am_test_rtp_socket_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@test_rtp_socket_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am__test_sanity_SOURCES_DIST = test_sanity.c
@@ -405,7 +406,8 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade =  \
+am__depfiles_remade = $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Po \
+	$(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Po \
 	./$(DEPDIR)/test_bitstream_headers-test_bitstream_headers.Po \
 	./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po \
 	./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po \
@@ -416,7 +418,6 @@ am__depfiles_remade =  \
 	./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po \
 	./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po \
 	./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po \
-	./$(DEPDIR)/test_file_times-lametime.Po \
 	./$(DEPDIR)/test_file_times-test_file_times.Po \
 	./$(DEPDIR)/test_free_format-test_free_format.Po \
 	./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po \
@@ -436,7 +437,6 @@ am__depfiles_remade =  \
 	./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po \
 	./$(DEPDIR)/test_quantize_lines_vector-test_quantize_lines_vector.Po \
 	./$(DEPDIR)/test_resample_decision-test_resample_decision.Po \
-	./$(DEPDIR)/test_rtp_socket-rtp.Po \
 	./$(DEPDIR)/test_rtp_socket-test_rtp_socket.Po \
 	./$(DEPDIR)/test_sanity-test_sanity.Po \
 	./$(DEPDIR)/test_set_get-test_set_get.Po \
@@ -1456,6 +1456,15 @@ test_encode_mono_interleaved$(EXEEXT): $(test_encode_mono_interleaved_OBJECTS) $
 test_encode_nonfinite$(EXEEXT): $(test_encode_nonfinite_OBJECTS) $(test_encode_nonfinite_DEPENDENCIES) $(EXTRA_test_encode_nonfinite_DEPENDENCIES) 
 	@rm -f test_encode_nonfinite$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_encode_nonfinite_OBJECTS) $(test_encode_nonfinite_LDADD) $(LIBS)
+$(top_builddir)/frontend/$(am__dirstamp):
+	@$(MKDIR_P) $(top_builddir)/frontend
+	@: >>$(top_builddir)/frontend/$(am__dirstamp)
+$(top_builddir)/frontend/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) $(top_builddir)/frontend/$(DEPDIR)
+	@: >>$(top_builddir)/frontend/$(DEPDIR)/$(am__dirstamp)
+$(top_builddir)/frontend/test_file_times-lametime.$(OBJEXT):  \
+	$(top_builddir)/frontend/$(am__dirstamp) \
+	$(top_builddir)/frontend/$(DEPDIR)/$(am__dirstamp)
 
 test_file_times$(EXEEXT): $(test_file_times_OBJECTS) $(test_file_times_DEPENDENCIES) $(EXTRA_test_file_times_DEPENDENCIES) 
 	@rm -f test_file_times$(EXEEXT)
@@ -1508,6 +1517,9 @@ test_quantize_lines_vector$(EXEEXT): $(test_quantize_lines_vector_OBJECTS) $(tes
 test_resample_decision$(EXEEXT): $(test_resample_decision_OBJECTS) $(test_resample_decision_DEPENDENCIES) $(EXTRA_test_resample_decision_DEPENDENCIES) 
 	@rm -f test_resample_decision$(EXEEXT)
 	$(AM_V_CCLD)$(test_resample_decision_LINK) $(test_resample_decision_OBJECTS) $(test_resample_decision_LDADD) $(LIBS)
+$(top_builddir)/frontend/test_rtp_socket-rtp.$(OBJEXT):  \
+	$(top_builddir)/frontend/$(am__dirstamp) \
+	$(top_builddir)/frontend/$(DEPDIR)/$(am__dirstamp)
 
 test_rtp_socket$(EXEEXT): $(test_rtp_socket_OBJECTS) $(test_rtp_socket_DEPENDENCIES) $(EXTRA_test_rtp_socket_DEPENDENCIES) 
 	@rm -f test_rtp_socket$(EXEEXT)
@@ -1535,10 +1547,13 @@ test_vector_routines$(EXEEXT): $(test_vector_routines_OBJECTS) $(test_vector_rou
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
+	-rm -f $(top_builddir)/frontend/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@$(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@$(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_bitstream_headers-test_bitstream_headers.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po@am__quote@ # am--include-marker
@@ -1549,7 +1564,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_file_times-lametime.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_file_times-test_file_times.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_free_format-test_free_format.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po@am__quote@ # am--include-marker
@@ -1569,7 +1583,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_quantize_lines_vector-test_quantize_lines_vector.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_resample_decision-test_resample_decision.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_rtp_socket-rtp.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_rtp_socket-test_rtp_socket.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_sanity-test_sanity.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_set_get-test_set_get.Po@am__quote@ # am--include-marker
@@ -1584,22 +1597,25 @@ $(am__depfiles_remade):
 am--depfiles: $(am__depfiles_remade)
 
 .c.o:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ $<
 
 .c.obj:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.obj$$||'`;\
+@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ `$(CYGPATH_W) '$<'` &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Po
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
 .c.lo:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LTCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Plo
+@am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.lo$$||'`;\
+@am__fastdepCC_TRUE@	$(LTCOMPILE) -MT $@ -MD -MP -MF $$depbase.Tpo -c -o $@ $< &&\
+@am__fastdepCC_TRUE@	$(am__mv) $$depbase.Tpo $$depbase.Plo
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
@@ -1758,19 +1774,19 @@ test_file_times-test_file_times.obj: test_file_times.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_file_times_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_file_times-test_file_times.obj `if test -f 'test_file_times.c'; then $(CYGPATH_W) 'test_file_times.c'; else $(CYGPATH_W) '$(srcdir)/test_file_times.c'; fi`
 
-test_file_times-lametime.o: $(top_srcdir)/frontend/lametime.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_file_times_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_file_times-lametime.o -MD -MP -MF $(DEPDIR)/test_file_times-lametime.Tpo -c -o test_file_times-lametime.o `test -f '$(top_srcdir)/frontend/lametime.c' || echo '$(srcdir)/'`$(top_srcdir)/frontend/lametime.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_file_times-lametime.Tpo $(DEPDIR)/test_file_times-lametime.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/frontend/lametime.c' object='test_file_times-lametime.o' libtool=no @AMDEPBACKSLASH@
+$(top_builddir)/frontend/test_file_times-lametime.o: $(top_builddir)/frontend/lametime.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_file_times_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT $(top_builddir)/frontend/test_file_times-lametime.o -MD -MP -MF $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Tpo -c -o $(top_builddir)/frontend/test_file_times-lametime.o `test -f '$(top_builddir)/frontend/lametime.c' || echo '$(srcdir)/'`$(top_builddir)/frontend/lametime.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Tpo $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/frontend/lametime.c' object='$(top_builddir)/frontend/test_file_times-lametime.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_file_times_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_file_times-lametime.o `test -f '$(top_srcdir)/frontend/lametime.c' || echo '$(srcdir)/'`$(top_srcdir)/frontend/lametime.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_file_times_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/frontend/test_file_times-lametime.o `test -f '$(top_builddir)/frontend/lametime.c' || echo '$(srcdir)/'`$(top_builddir)/frontend/lametime.c
 
-test_file_times-lametime.obj: $(top_srcdir)/frontend/lametime.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_file_times_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_file_times-lametime.obj -MD -MP -MF $(DEPDIR)/test_file_times-lametime.Tpo -c -o test_file_times-lametime.obj `if test -f '$(top_srcdir)/frontend/lametime.c'; then $(CYGPATH_W) '$(top_srcdir)/frontend/lametime.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/frontend/lametime.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_file_times-lametime.Tpo $(DEPDIR)/test_file_times-lametime.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/frontend/lametime.c' object='test_file_times-lametime.obj' libtool=no @AMDEPBACKSLASH@
+$(top_builddir)/frontend/test_file_times-lametime.obj: $(top_builddir)/frontend/lametime.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_file_times_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT $(top_builddir)/frontend/test_file_times-lametime.obj -MD -MP -MF $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Tpo -c -o $(top_builddir)/frontend/test_file_times-lametime.obj `if test -f '$(top_builddir)/frontend/lametime.c'; then $(CYGPATH_W) '$(top_builddir)/frontend/lametime.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/frontend/lametime.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Tpo $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/frontend/lametime.c' object='$(top_builddir)/frontend/test_file_times-lametime.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_file_times_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_file_times-lametime.obj `if test -f '$(top_srcdir)/frontend/lametime.c'; then $(CYGPATH_W) '$(top_srcdir)/frontend/lametime.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/frontend/lametime.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_file_times_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/frontend/test_file_times-lametime.obj `if test -f '$(top_builddir)/frontend/lametime.c'; then $(CYGPATH_W) '$(top_builddir)/frontend/lametime.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/frontend/lametime.c'; fi`
 
 test_free_format-test_free_format.o: test_free_format.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_free_format_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_free_format-test_free_format.o -MD -MP -MF $(DEPDIR)/test_free_format-test_free_format.Tpo -c -o test_free_format-test_free_format.o `test -f 'test_free_format.c' || echo '$(srcdir)/'`test_free_format.c
@@ -2038,19 +2054,19 @@ test_rtp_socket-test_rtp_socket.obj: test_rtp_socket.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_rtp_socket-test_rtp_socket.obj `if test -f 'test_rtp_socket.c'; then $(CYGPATH_W) 'test_rtp_socket.c'; else $(CYGPATH_W) '$(srcdir)/test_rtp_socket.c'; fi`
 
-test_rtp_socket-rtp.o: $(top_srcdir)/frontend/rtp.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_rtp_socket-rtp.o -MD -MP -MF $(DEPDIR)/test_rtp_socket-rtp.Tpo -c -o test_rtp_socket-rtp.o `test -f '$(top_srcdir)/frontend/rtp.c' || echo '$(srcdir)/'`$(top_srcdir)/frontend/rtp.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_rtp_socket-rtp.Tpo $(DEPDIR)/test_rtp_socket-rtp.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/frontend/rtp.c' object='test_rtp_socket-rtp.o' libtool=no @AMDEPBACKSLASH@
+$(top_builddir)/frontend/test_rtp_socket-rtp.o: $(top_builddir)/frontend/rtp.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT $(top_builddir)/frontend/test_rtp_socket-rtp.o -MD -MP -MF $(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Tpo -c -o $(top_builddir)/frontend/test_rtp_socket-rtp.o `test -f '$(top_builddir)/frontend/rtp.c' || echo '$(srcdir)/'`$(top_builddir)/frontend/rtp.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Tpo $(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/frontend/rtp.c' object='$(top_builddir)/frontend/test_rtp_socket-rtp.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_rtp_socket-rtp.o `test -f '$(top_srcdir)/frontend/rtp.c' || echo '$(srcdir)/'`$(top_srcdir)/frontend/rtp.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/frontend/test_rtp_socket-rtp.o `test -f '$(top_builddir)/frontend/rtp.c' || echo '$(srcdir)/'`$(top_builddir)/frontend/rtp.c
 
-test_rtp_socket-rtp.obj: $(top_srcdir)/frontend/rtp.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_rtp_socket-rtp.obj -MD -MP -MF $(DEPDIR)/test_rtp_socket-rtp.Tpo -c -o test_rtp_socket-rtp.obj `if test -f '$(top_srcdir)/frontend/rtp.c'; then $(CYGPATH_W) '$(top_srcdir)/frontend/rtp.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/frontend/rtp.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_rtp_socket-rtp.Tpo $(DEPDIR)/test_rtp_socket-rtp.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_srcdir)/frontend/rtp.c' object='test_rtp_socket-rtp.obj' libtool=no @AMDEPBACKSLASH@
+$(top_builddir)/frontend/test_rtp_socket-rtp.obj: $(top_builddir)/frontend/rtp.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT $(top_builddir)/frontend/test_rtp_socket-rtp.obj -MD -MP -MF $(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Tpo -c -o $(top_builddir)/frontend/test_rtp_socket-rtp.obj `if test -f '$(top_builddir)/frontend/rtp.c'; then $(CYGPATH_W) '$(top_builddir)/frontend/rtp.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/frontend/rtp.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Tpo $(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$(top_builddir)/frontend/rtp.c' object='$(top_builddir)/frontend/test_rtp_socket-rtp.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_rtp_socket-rtp.obj `if test -f '$(top_srcdir)/frontend/rtp.c'; then $(CYGPATH_W) '$(top_srcdir)/frontend/rtp.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/frontend/rtp.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_rtp_socket_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o $(top_builddir)/frontend/test_rtp_socket-rtp.obj `if test -f '$(top_builddir)/frontend/rtp.c'; then $(CYGPATH_W) '$(top_builddir)/frontend/rtp.c'; else $(CYGPATH_W) '$(srcdir)/$(top_builddir)/frontend/rtp.c'; fi`
 
 test_sanity-test_sanity.o: test_sanity.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_sanity_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_sanity-test_sanity.o -MD -MP -MF $(DEPDIR)/test_sanity-test_sanity.Tpo -c -o test_sanity-test_sanity.o `test -f 'test_sanity.c' || echo '$(srcdir)/'`test_sanity.c
@@ -2632,6 +2648,8 @@ clean-generic:
 distclean-generic:
 	-$(am__rm_f) $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || $(am__rm_f) $(CONFIG_CLEAN_VPATH_FILES)
+	-$(am__rm_f) $(top_builddir)/frontend/$(DEPDIR)/$(am__dirstamp)
+	-$(am__rm_f) $(top_builddir)/frontend/$(am__dirstamp)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
@@ -2642,6 +2660,8 @@ clean-am: clean-checkPROGRAMS clean-generic clean-libtool \
 	mostlyclean-am
 
 distclean: distclean-am
+	-rm -f $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Po
+	-rm -f $(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Po
 	-rm -f ./$(DEPDIR)/test_bitstream_headers-test_bitstream_headers.Po
 	-rm -f ./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po
@@ -2652,7 +2672,6 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po
 	-rm -f ./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po
 	-rm -f ./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po
-	-rm -f ./$(DEPDIR)/test_file_times-lametime.Po
 	-rm -f ./$(DEPDIR)/test_file_times-test_file_times.Po
 	-rm -f ./$(DEPDIR)/test_free_format-test_free_format.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
@@ -2672,7 +2691,6 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po
 	-rm -f ./$(DEPDIR)/test_quantize_lines_vector-test_quantize_lines_vector.Po
 	-rm -f ./$(DEPDIR)/test_resample_decision-test_resample_decision.Po
-	-rm -f ./$(DEPDIR)/test_rtp_socket-rtp.Po
 	-rm -f ./$(DEPDIR)/test_rtp_socket-test_rtp_socket.Po
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
 	-rm -f ./$(DEPDIR)/test_set_get-test_set_get.Po
@@ -2724,6 +2742,8 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
+	-rm -f $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Po
+	-rm -f $(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Po
 	-rm -f ./$(DEPDIR)/test_bitstream_headers-test_bitstream_headers.Po
 	-rm -f ./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po
@@ -2734,7 +2754,6 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po
 	-rm -f ./$(DEPDIR)/test_encode_mono_interleaved-test_encode_mono_interleaved.Po
 	-rm -f ./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po
-	-rm -f ./$(DEPDIR)/test_file_times-lametime.Po
 	-rm -f ./$(DEPDIR)/test_file_times-test_file_times.Po
 	-rm -f ./$(DEPDIR)/test_free_format-test_free_format.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
@@ -2754,7 +2773,6 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_parse_pathlen-test_parse_pathlen.Po
 	-rm -f ./$(DEPDIR)/test_quantize_lines_vector-test_quantize_lines_vector.Po
 	-rm -f ./$(DEPDIR)/test_resample_decision-test_resample_decision.Po
-	-rm -f ./$(DEPDIR)/test_rtp_socket-rtp.Po
 	-rm -f ./$(DEPDIR)/test_rtp_socket-test_rtp_socket.Po
 	-rm -f ./$(DEPDIR)/test_sanity-test_sanity.Po
 	-rm -f ./$(DEPDIR)/test_set_get-test_set_get.Po
