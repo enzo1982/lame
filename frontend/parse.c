@@ -305,7 +305,7 @@ convert_text(char const *to, char const *from, char const *src,
         pre-standard compilers, so the length is counted by hand. */
     int     to_len = 0;
 
-    while (to[to_len] != '
+    while (to[to_len] != '\0' && to[to_len] != '/') {
         ++to_len;
     }
 
