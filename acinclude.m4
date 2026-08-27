@@ -53,34 +53,3 @@ AC_DEFUN([LA_SEARCH_LIB],[
 
  
 
-# alex_IEEE854_FLOAT80
-# ------------
-AC_DEFUN([alex_IEEE854_FLOAT80],
-[AC_CACHE_CHECK(for IEEE854 compliant 80 bit floats, alex_cv_ieee854_float80,
-[AC_TRY_RUN([
-int   float2long_IEEE_compliance ( void )
-{
-    struct {
-        long padding; /* to prevent unaligned access */
-        float  f;
-    } s;
-    s.f = 12582912.; if ( *(long*)(&s.f) != 1262485504l ) return 0;
-    s.f = 12615679.; if ( *(long*)(&s.f) != 1262518271l ) return 0;
-    s.f = 13582912.; if ( *(long*)(&s.f) != 1263485504l ) return 0;
-    s.f = 12550145.; if ( *(long*)(&s.f) != 1262452737l ) return 0;
-    s.f = 11582912.; if ( *(long*)(&s.f) != 1261485504l ) return 0;
-    return 1;
-}
-
-int main(void)
-{
-    int retval;
-
-    retval = float2long_IEEE_compliance();
-
-    /* no error return -> success */
-    return !retval;
-}
-], alex_cv_ieee854_float80=yes, alex_cv_ieee854_float80=no,
-[AC_MSG_WARN(can't check for IEEE854 compliant 80 bit floats)]
-)])]) # alex_IEEE854_FLOAT80
