@@ -910,13 +910,17 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = 1.15 foreign
 
+# TEST_EXTENSIONS is read while automake builds its list of test drivers, so
+# it may not sit inside the conditional below; SH_LOG_COMPILER belongs beside
+# the extension it serves.
+TEST_EXTENSIONS = .sh
+SH_LOG_COMPILER = $(SHELL)
+
 # The frontend's exit status on a failed read. This one drives the built lame
 # binary rather than the library, so it needs the source root for the test
 # input as well as the build root for the binary; both are exported below.
 @ENABLE_UNIT_TESTS_TRUE@TESTS = $(check_PROGRAMS) test_pkgconfig.sh \
 @ENABLE_UNIT_TESTS_TRUE@	test_exit_status.sh
-@ENABLE_UNIT_TESTS_TRUE@TEST_EXTENSIONS = .sh
-@ENABLE_UNIT_TESTS_TRUE@SH_LOG_COMPILER = $(SHELL)
 
 # Every test here links libmp3lame, and every one of them has to load the copy
 # this build just produced - not one the host happens to have installed. That

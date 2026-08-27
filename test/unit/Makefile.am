@@ -2,6 +2,12 @@
 
 include $(top_srcdir)/Makefile.am.global
 
+# TEST_EXTENSIONS is read while automake builds its list of test drivers, so
+# it may not sit inside the conditional below; SH_LOG_COMPILER belongs beside
+# the extension it serves.
+TEST_EXTENSIONS = .sh
+SH_LOG_COMPILER = $(SHELL)
+
 # The whole unit-test tree is gated on --enable-unit-tests. When it is off
 # (the default) this file contributes no build rules at all, so a plain
 # "make" / "make check" behaves exactly as it did before the harness existed.
@@ -34,8 +40,6 @@ endif
 
 TESTS = $(check_PROGRAMS)
 
-TEST_EXTENSIONS = .sh
-SH_LOG_COMPILER = $(SHELL)
 TESTS += test_pkgconfig.sh
 
 # The frontend's exit status on a failed read. This one drives the built lame
