@@ -2,6 +2,12 @@
 
 include $(top_srcdir)/Makefile.am.global
 
+# What configure found: the include path, and the flags for the
+# optional libraries. A per-target CPPFLAGS setting replaces this one
+# rather than adding to it, so the targets below that have their own
+# name it explicitly.
+AM_CPPFLAGS = @LAME_CPPFLAGS@
+
 # TEST_EXTENSIONS is read while automake builds its list of test drivers, so
 # it may not sit inside the conditional below; SH_LOG_COMPILER belongs beside
 # the extension it serves.
@@ -73,14 +79,14 @@ AM_TESTS_ENVIRONMENT += \
 	PKG_CONFIG='$(PKG_CONFIG)'; export PKG_CONFIG;
 
 test_sanity_SOURCES = test_sanity.c
-test_sanity_CPPFLAGS = $(CMOCKA_CFLAGS)
+test_sanity_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS)
 test_sanity_LDADD = $(CMOCKA_LIBS)
 
 # The AIFF header parser lives in frontend/get_audio.c and is static, so the
 # test compiles it in directly (hence the frontend/libmp3lame/include search
 # paths). fread is wrapped to trap the underflow spin the guard prevents.
 test_get_audio_aiff_SOURCES = test_get_audio_aiff.c test_stubs.c
-test_get_audio_aiff_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_get_audio_aiff_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/frontend \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include \
@@ -99,7 +105,7 @@ test_get_audio_aiff_LDADD = $(CMOCKA_LIBS) \
 # applies - minus the fread wrapper, which exists for an AIFF chunk loop this
 # parser does not have.
 test_get_audio_wav_SOURCES = test_get_audio_wav.c test_stubs.c
-test_get_audio_wav_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_get_audio_wav_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/frontend \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include \
@@ -113,7 +119,7 @@ test_get_audio_wav_LDADD = $(CMOCKA_LIBS) \
 # parse_test_stubs.c supplies the console/file helpers it references and
 # libmp3lame provides the lame_* API.
 test_parse_pathlen_SOURCES = test_parse_pathlen.c parse_test_stubs.c
-test_parse_pathlen_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_parse_pathlen_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/frontend \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include \
@@ -124,7 +130,7 @@ test_parse_pathlen_LDADD = $(CMOCKA_LIBS) \
 
 # merge_argv() is likewise static in frontend/parse.c; same include/link setup.
 test_merge_argv_SOURCES = test_merge_argv.c parse_test_stubs.c
-test_merge_argv_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_merge_argv_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/frontend \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include \
@@ -136,7 +142,7 @@ test_merge_argv_LDADD = $(CMOCKA_LIBS) \
 # The help paths run the whole option parser rather than one static helper,
 # but they reach it the same way, so the include/link setup is identical.
 test_help_exit_SOURCES = test_help_exit.c parse_test_stubs.c
-test_help_exit_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_help_exit_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/frontend \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include \
@@ -148,7 +154,7 @@ test_help_exit_LDADD = $(CMOCKA_LIBS) \
 # The id3tag_* API is public, so this test links libmp3lame and calls it
 # directly - no frontend translation unit compiled in.
 test_id3tag_SOURCES = test_id3tag.c
-test_id3tag_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_id3tag_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_id3tag_LDADD = $(CMOCKA_LIBS) \
@@ -159,7 +165,7 @@ test_id3tag_LDADD = $(CMOCKA_LIBS) \
 # this test compiles parse.c in directly; same include/link setup as the other
 # parse.c tests.
 test_parse_id3_SOURCES = test_parse_id3.c parse_test_stubs.c
-test_parse_id3_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_parse_id3_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/frontend \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include \
@@ -171,7 +177,7 @@ test_parse_id3_LDADD = $(CMOCKA_LIBS) \
 # The encoding entry points are public, so this test links libmp3lame and calls
 # them directly - no frontend translation unit compiled in.
 test_encode_nonfinite_SOURCES = test_encode_nonfinite.c
-test_encode_nonfinite_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_encode_nonfinite_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_encode_nonfinite_LDADD = $(CMOCKA_LIBS) \
@@ -181,7 +187,7 @@ test_encode_nonfinite_LDADD = $(CMOCKA_LIBS) \
 # The interleaved entry points are public, so this test links libmp3lame and
 # calls them directly - no frontend translation unit compiled in.
 test_encode_mono_interleaved_SOURCES = test_encode_mono_interleaved.c
-test_encode_mono_interleaved_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_encode_mono_interleaved_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_encode_mono_interleaved_LDADD = $(CMOCKA_LIBS) \
@@ -193,7 +199,7 @@ test_encode_mono_interleaved_LDADD = $(CMOCKA_LIBS) \
 # measurement is requested from the caller's setting whether or not the build
 # can decode, so the silent case has to hold in both.
 test_encode_clipgain_SOURCES = test_encode_clipgain.c
-test_encode_clipgain_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_encode_clipgain_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_encode_clipgain_LDADD = $(CMOCKA_LIBS) \
@@ -205,7 +211,7 @@ test_encode_clipgain_LDADD = $(CMOCKA_LIBS) \
 # built everywhere: the settings it needs are the format's own low end, not a
 # property of any build.
 test_bitstream_headers_SOURCES = test_bitstream_headers.c
-test_bitstream_headers_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_bitstream_headers_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_bitstream_headers_LDADD = $(CMOCKA_LIBS) \
@@ -216,7 +222,7 @@ test_bitstream_headers_LDADD = $(CMOCKA_LIBS) \
 # lame_init_params(), so this test links libmp3lame and asks it directly. It
 # encodes nothing, which is why it costs microseconds.
 test_free_format_SOURCES = test_free_format.c
-test_free_format_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_free_format_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_free_format_LDADD = $(CMOCKA_LIBS) \
@@ -229,7 +235,7 @@ test_free_format_LDADD = $(CMOCKA_LIBS) \
 # some way: proving the four integer entry points agree means encoding the same
 # audio five times over, and there is no shortcut that still compares streams.
 test_encode_api_SOURCES = test_encode_api.c
-test_encode_api_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_encode_api_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_encode_api_LDADD = $(CMOCKA_LIBS) \
@@ -241,7 +247,7 @@ test_encode_api_LDADD = $(CMOCKA_LIBS) \
 # it, the same way test_vector_ladder does. The encode arms in the same file go
 # through the public API and need no such help.
 test_resample_decision_SOURCES = test_resample_decision.c
-test_resample_decision_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_resample_decision_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_builddir)
@@ -253,7 +259,7 @@ test_resample_decision_LDADD = $(CMOCKA_LIBS) \
 # lame_get_totalframes() is public, so this test links libmp3lame and calls it
 # directly - no frontend translation unit compiled in.
 test_totalframes_SOURCES = test_totalframes.c
-test_totalframes_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_totalframes_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_totalframes_LDADD = $(CMOCKA_LIBS) \
@@ -264,7 +270,7 @@ test_totalframes_LDADD = $(CMOCKA_LIBS) \
 # public and take no encoder instance, so this test links libmp3lame and calls
 # them directly - no frontend translation unit compiled in.
 test_lib_info_SOURCES = test_lib_info.c
-test_lib_info_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_lib_info_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_lib_info_LDADD = $(CMOCKA_LIBS) \
@@ -276,7 +282,7 @@ test_lib_info_LDADD = $(CMOCKA_LIBS) \
 # built everywhere, with no WITH_XMM/WITH_NEON gate. A build with no vector
 # routines at all is one of the configurations it has to hold for.
 test_vector_routines_SOURCES = test_vector_routines.c
-test_vector_routines_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_vector_routines_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_vector_routines_LDADD = $(CMOCKA_LIBS) \
@@ -291,7 +297,7 @@ test_vector_routines_LDADD = $(CMOCKA_LIBS) \
 # no vector routines at all, and that configuration is exactly the one an
 # architecture gate would stop testing.
 test_vector_ladder_SOURCES = test_vector_ladder.c
-test_vector_ladder_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_vector_ladder_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_builddir)
@@ -305,7 +311,7 @@ test_vector_ladder_LDADD = $(CMOCKA_LIBS) \
 # decoder: a library without libmpg123 hands back no handle at all, and that is
 # one of the configurations the calls have to survive.
 test_decoder_api_SOURCES = test_decoder_api.c
-test_decoder_api_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_decoder_api_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_decoder_api_LDADD = $(CMOCKA_LIBS) \
@@ -317,7 +323,7 @@ test_decoder_api_LDADD = $(CMOCKA_LIBS) \
 # include/libmp3lame.sym, so this links the STATIC archive (-static) to reach
 # them, the same way test_vector_ladder does.
 test_huffman_tables_SOURCES = test_huffman_tables.c
-test_huffman_tables_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_huffman_tables_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_builddir)
@@ -335,7 +341,7 @@ test_huffman_tables_LDADD = $(CMOCKA_LIBS) \
 # --enable-internal this test links the STATIC archive (-static) to reach them;
 # a normal build tests only the exported interface and links the shared library.
 test_set_get_SOURCES = test_set_get.c
-test_set_get_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_set_get_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_builddir)
@@ -353,7 +359,7 @@ test_set_get_LDADD = $(CMOCKA_LIBS) \
 # routine is a function of its arguments, tables included.
 if WITH_XMM
 test_choose_table_vector_SOURCES = test_choose_table_vector.c
-test_choose_table_vector_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_choose_table_vector_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
@@ -365,7 +371,7 @@ endif
 
 # Same arrangement for the quantization loop, and for the same reason.
 test_quantize_lines_vector_SOURCES = test_quantize_lines_vector.c
-test_quantize_lines_vector_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_quantize_lines_vector_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
@@ -383,7 +389,7 @@ endif
 # library: that routine was measured on hardware that has AVX-512, found to cost
 # time, and removed. See @ref vector_dispatch.
 test_calc_sfb_noise_vector_SOURCES = test_calc_sfb_noise_vector.c
-test_calc_sfb_noise_vector_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_calc_sfb_noise_vector_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
@@ -410,7 +416,7 @@ endif
 # neither the program nor the conditional.
 if WITH_NEON
 test_choose_table_neon_SOURCES = test_choose_table_neon.c
-test_choose_table_neon_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_choose_table_neon_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
@@ -425,7 +431,7 @@ endif
 # tests skip, which keeps "no decoder" distinguishable from "a decoder whose
 # output is in the wrong scale" - that distinction being the whole subject.
 test_decode_scale_SOURCES = test_decode_scale.c
-test_decode_scale_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_decode_scale_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_builddir)
@@ -439,7 +445,7 @@ test_decode_scale_LDADD = $(CMOCKA_LIBS) \
 # arrangement the get_audio and rtp tests use. It touches no encoder state, so
 # it links nothing beyond cmocka.
 test_file_times_SOURCES = test_file_times.c $(top_srcdir)/frontend/lametime.c
-test_file_times_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_file_times_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/frontend \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
@@ -453,7 +459,7 @@ test_file_times_LDADD = $(CMOCKA_LIBS)
 # stubbed inside the test rather than dragging in console.c.
 if HAVE_SOCKETS
 test_rtp_socket_SOURCES = test_rtp_socket.c $(top_srcdir)/frontend/rtp.c
-test_rtp_socket_CPPFLAGS = $(CMOCKA_CFLAGS) \
+test_rtp_socket_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/frontend \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)

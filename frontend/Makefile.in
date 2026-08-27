@@ -93,6 +93,13 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+
+# --enable-internal exposes the developer tuning options in parse.c. The macro
+# is defined here (frontend only), not globally, so other consumers of parse.c
+# are unaffected. configure has already forced -static into FRONTEND_LDFLAGS,
+# so the frontend can reach the internal setters, which the shared library does
+# not export.
+@INTERNAL_OPTS_TRUE@am__append_1 = -D_ALLOW_INTERNAL_OPTIONS
 subdir = frontend
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/host-cpu-c-abi.m4 \
@@ -243,14 +250,12 @@ FRONTEND_UNICODE_LDFLAGS = @FRONTEND_UNICODE_LDFLAGS@
 GREP = @GREP@
 GTK_CFLAGS = @GTK_CFLAGS@
 GTK_LIBS = @GTK_LIBS@
-INCLUDES = @INCLUDES@ -I$(top_srcdir)/libmp3lame -I$(top_srcdir)/include \
-	-I$(top_srcdir) -I$(top_builddir)
-
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LAME_CPPFLAGS = @LAME_CPPFLAGS@
 LD = @LD@
 LDADD = @LDADD@ \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
@@ -403,13 +408,9 @@ mp3rtp_SOURCES = mp3rtp.c rtp.c $(common_sources)
 # frontend-global baseline management) lives in mp3x_session.c.
 mp3x_SOURCES = mp3x_ui.c mp3x_plot.c mp3x_core.c mp3x_session.c $(common_sources)
 EXTRA_DIST = README.mp3x-gtk4
-
-# --enable-internal exposes the developer tuning options in parse.c. The macro
-# is defined here (frontend only), not globally, so other consumers of parse.c
-# are unaffected. configure has already forced -static into FRONTEND_LDFLAGS,
-# so the frontend can reach the internal setters, which the shared library does
-# not export.
-@INTERNAL_OPTS_TRUE@AM_CPPFLAGS = -D_ALLOW_INTERNAL_OPTIONS
+AM_CPPFLAGS = @LAME_CPPFLAGS@ -I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include -I$(top_srcdir) -I$(top_builddir) \
+	$(am__append_1)
 mp3x_LDADD = $(LDADD) @GTK_LIBS@
 # The RTP sender is the only frontend that resolves names and opens a socket,
 # and on some systems those live outside libc. Kept off the common LDADD so
@@ -815,7 +816,7 @@ uninstall-am: uninstall-binPROGRAMS
 # end global section
 
 lclint.txt: ${lame_SOURCES} ${noinst_HEADERS}
-	@lclint ${LCLINTFLAGS} ${INCLUDES} ${DEFS} ${lame_SOURCES} 2>&1 >lclint.txt || true
+	@lclint ${LCLINTFLAGS} ${AM_CPPFLAGS} ${DEFS} ${lame_SOURCES} 2>&1 >lclint.txt || true
 
 lclint: lclint.txt
 	more lclint.txt

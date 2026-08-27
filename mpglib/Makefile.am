@@ -2,7 +2,7 @@
 
 include $(top_srcdir)/Makefile.am.global
 
-INCLUDES = @INCLUDES@ -I$(top_srcdir)/libmp3lame -I$(top_builddir)
+AM_CPPFLAGS = @LAME_CPPFLAGS@ -I$(top_srcdir)/libmp3lame -I$(top_builddir)
 # Avoid -I. which obscures libmpg123's mpg123.h
 DEFAULT_INCLUDES =
 

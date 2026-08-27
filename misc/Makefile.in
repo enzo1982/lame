@@ -230,12 +230,12 @@ FRONTEND_UNICODE_LDFLAGS = @FRONTEND_UNICODE_LDFLAGS@
 GREP = @GREP@
 GTK_CFLAGS = @GTK_CFLAGS@
 GTK_LIBS = @GTK_LIBS@
-INCLUDES = @INCLUDES@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LAME_CPPFLAGS = @LAME_CPPFLAGS@
 LD = @LD@
 LDADD = @LDADD@
 LDFLAGS = @LDFLAGS@
@@ -353,6 +353,12 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = 1.15 foreign
+
+# What configure found: the include path, and the flags for the
+# optional libraries. A per-target CPPFLAGS setting replaces this one
+# rather than adding to it, so the targets below that have their own
+# name it explicitly.
+AM_CPPFLAGS = @LAME_CPPFLAGS@
 CLEANFILES = $(EXTRA_PROGRAMS)
 EXTRA_SCRIPTS = \
 	auenc \

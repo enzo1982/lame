@@ -653,7 +653,7 @@ AC_SUBST(SOCKET_LIBS)
 dnl Initialize configuration variables for the Makefile
 CFLAGS=${CFLAGS}
 CONFIG_DEFS=${CONFIG_DEFS}
-INCLUDES="-I\$(top_srcdir)/include -I\$(srcdir)"
+LAME_CPPFLAGS="-I\$(top_srcdir)/include -I\$(srcdir)"
 FRONTEND_LDFLAGS=
 FRONTEND_CFLAGS=
 LIB_SOURCES=
@@ -807,7 +807,7 @@ if test "${CONFIG_FILEIO}" = "sndfile" ; then
     FRONTEND_LDADD="-lsndfile ${FRONTEND_LDADD}"
 
     if test -n "${SNDFILE_CFLAGS}" ; then
-      INCLUDES="${SNDFILE_CFLAGS} ${INCLUDES}"
+      LAME_CPPFLAGS="${SNDFILE_CFLAGS} ${LAME_CPPFLAGS}"
     fi
 
     AC_DEFINE(LIBSNDFILE, 1, set to 1 if you have libsndfile)
@@ -872,7 +872,7 @@ if test "${HAVE_MPG123}" = "yes" && test "${CONFIG_DECODER}" != "no"; then
 	AC_DEFINE(HAVE_MPG123, 1, set to 1 if you have libmpg123)
 	FRONTEND_LDADD="$mpg123_LIBS $FRONTEND_LDADD"
 	LIBMP3LAME_LDADD="$mpg123_LIBS $LIBMP3LAME_LDADD"
-	INCLUDES="$mpg123_CFLAGS $INCLUDES"
+	LAME_CPPFLAGS="$mpg123_CFLAGS $LAME_CPPFLAGS"
 	dnl Keep this version in step with the PKG_CHECK_MODULES above: a
 	dnl consumer linking libmp3lame statically needs the same libmpg123
 	dnl this build was checked against.
@@ -1747,7 +1747,7 @@ FRONTEND_CFLAGS="${INCICONV} ${FRONTEND_CFLAGS}"
 FRONTEND_LDADD="${FRONTEND_LDADD} ${LTLIBICONV} ${CONFIG_MATH_LIB}"
 
 
-AC_SUBST(INCLUDES)
+AC_SUBST(LAME_CPPFLAGS)
 
 AC_SUBST(FRONTEND_LDFLAGS)
 AC_SUBST(FRONTEND_UNICODE_LDFLAGS)

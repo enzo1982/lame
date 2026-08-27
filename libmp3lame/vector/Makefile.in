@@ -294,16 +294,12 @@ FRONTEND_UNICODE_LDFLAGS = @FRONTEND_UNICODE_LDFLAGS@
 GREP = @GREP@
 GTK_CFLAGS = @GTK_CFLAGS@
 GTK_LIBS = @GTK_LIBS@
-INCLUDES = @INCLUDES@ \
-	-I$(top_srcdir)/libmp3lame \
-	-I$(top_srcdir)/mpglib \
-	-I$(top_builddir)
-
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LAME_CPPFLAGS = @LAME_CPPFLAGS@
 LD = @LD@
 LDADD = @LDADD@
 LDFLAGS = @LDFLAGS@
@@ -424,6 +420,11 @@ AUTOMAKE_OPTIONS = 1.15 foreign
 @WITH_NEON_TRUE@noinst_LTLIBRARIES = liblamevectorneon.la
 @WITH_XMM_TRUE@noinst_LTLIBRARIES = liblamevectorroutines.la \
 @WITH_XMM_TRUE@	$(am__append_1) $(am__append_2)
+AM_CPPFLAGS = @LAME_CPPFLAGS@ \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/mpglib \
+	-I$(top_builddir)
+
 
 # Where the compiler cannot express "this instruction set for this function
 # only", configure hands the translation unit a baseline instead. Each holds
@@ -854,7 +855,7 @@ uninstall-am:
 # end global section
 
 lclint.txt: ${liblamecpuroutines_la_SOURCES} ${noinst_HEADERS}
-	@lclint ${LCLINTFLAGS} ${INCLUDES} ${DEFS} ${liblamecpuroutines_la_SOURCES} 2>&1 >lclint.txt || true
+	@lclint ${LCLINTFLAGS} ${AM_CPPFLAGS} ${DEFS} ${liblamecpuroutines_la_SOURCES} 2>&1 >lclint.txt || true
 
 lclint: lclint.txt
 	more lclint.txt

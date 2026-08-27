@@ -2,6 +2,12 @@
 
 include $(top_srcdir)/Makefile.am.global
 
+# What configure found: the include path, and the flags for the
+# optional libraries. A per-target CPPFLAGS setting replaces this one
+# rather than adding to it, so the targets below that have their own
+# name it explicitly.
+AM_CPPFLAGS = @LAME_CPPFLAGS@
+
 EXTRA_PROGRAMS = abx ath scalartest
 
 CLEANFILES = $(EXTRA_PROGRAMS)

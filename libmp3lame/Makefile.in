@@ -316,12 +316,12 @@ FRONTEND_UNICODE_LDFLAGS = @FRONTEND_UNICODE_LDFLAGS@
 GREP = @GREP@
 GTK_CFLAGS = @GTK_CFLAGS@
 GTK_LIBS = @GTK_LIBS@
-INCLUDES = @INCLUDES@ -I$(top_srcdir) -I$(top_builddir)
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+LAME_CPPFLAGS = @LAME_CPPFLAGS@
 LD = @LD@
 LDADD = @LDADD@
 LDFLAGS = @LDFLAGS@
@@ -456,6 +456,7 @@ libmp3lame_la_LDFLAGS = -version-info @LIB_MAJOR_VERSION@:@LIB_MINOR_VERSION@ \
 			$(export_list_flags) \
 			-no-undefined
 
+AM_CPPFLAGS = @LAME_CPPFLAGS@ -I$(top_srcdir) -I$(top_builddir)
 EXTRA_DIST = \
 	lame.pc.in \
 	lame.rc \
@@ -1012,7 +1013,7 @@ uninstall-am: uninstall-libLTLIBRARIES uninstall-pkgconfigDATA
 # end global section
 
 lclint.txt: ${libmp3lame_la_SOURCES} ${noinst_HEADERS}
-	@lclint ${LCLINTFLAGS} ${INCLUDES} ${DEFS} ${libmp3lame_la_SOURCES} 2>&1 >lclint.txt || true
+	@lclint ${LCLINTFLAGS} ${AM_CPPFLAGS} ${DEFS} ${libmp3lame_la_SOURCES} 2>&1 >lclint.txt || true
 
 lclint: lclint.txt
 	more lclint.txt

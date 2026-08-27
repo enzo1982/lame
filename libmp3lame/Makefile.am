@@ -39,7 +39,7 @@ libmp3lame_la_LDFLAGS = -version-info @LIB_MAJOR_VERSION@:@LIB_MINOR_VERSION@ \
 			$(export_list_flags) \
 			-no-undefined
 
-INCLUDES = @INCLUDES@ -I$(top_srcdir) -I$(top_builddir)
+AM_CPPFLAGS = @LAME_CPPFLAGS@ -I$(top_srcdir) -I$(top_builddir)
 
 DEFS = @DEFS@ @CONFIG_DEFS@
 
@@ -107,7 +107,7 @@ LCLINTFLAGS= \
 	-Dlint
 
 lclint.txt: ${libmp3lame_la_SOURCES} ${noinst_HEADERS}
-	@lclint ${LCLINTFLAGS} ${INCLUDES} ${DEFS} ${libmp3lame_la_SOURCES} 2>&1 >lclint.txt || true
+	@lclint ${LCLINTFLAGS} ${AM_CPPFLAGS} ${DEFS} ${libmp3lame_la_SOURCES} 2>&1 >lclint.txt || true
 
 lclint: lclint.txt
 	more lclint.txt

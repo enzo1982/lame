@@ -42,17 +42,17 @@ EXTRA_DIST = README.mp3x-gtk4
 CFLAGS = @CFLAGS@ @GTK_CFLAGS@ @FRONTEND_CFLAGS@ @SNDFILE_CFLAGS@
 LDFLAGS = @LDFLAGS@ @FRONTEND_LDFLAGS@ @FRONTEND_UNICODE_LDFLAGS@ @SNDFILE_LIBS@
 
+AM_CPPFLAGS = @LAME_CPPFLAGS@ -I$(top_srcdir)/libmp3lame -I$(top_srcdir)/include \
+	-I$(top_srcdir) -I$(top_builddir)
+
 # --enable-internal exposes the developer tuning options in parse.c. The macro
 # is defined here (frontend only), not globally, so other consumers of parse.c
 # are unaffected. configure has already forced -static into FRONTEND_LDFLAGS,
 # so the frontend can reach the internal setters, which the shared library does
 # not export.
 if INTERNAL_OPTS
-AM_CPPFLAGS = -D_ALLOW_INTERNAL_OPTIONS
+AM_CPPFLAGS += -D_ALLOW_INTERNAL_OPTIONS
 endif
-
-INCLUDES = @INCLUDES@ -I$(top_srcdir)/libmp3lame -I$(top_srcdir)/include \
-	-I$(top_srcdir) -I$(top_builddir)
 
 LDADD = @LDADD@ \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
@@ -77,7 +77,7 @@ LCLINTFLAGS= \
 	-Dlint
 
 lclint.txt: ${lame_SOURCES} ${noinst_HEADERS}
-	@lclint ${LCLINTFLAGS} ${INCLUDES} ${DEFS} ${lame_SOURCES} 2>&1 >lclint.txt || true
+	@lclint ${LCLINTFLAGS} ${AM_CPPFLAGS} ${DEFS} ${lame_SOURCES} 2>&1 >lclint.txt || true
 
 lclint: lclint.txt
 	more lclint.txt
