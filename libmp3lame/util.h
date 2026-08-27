@@ -480,6 +480,33 @@ extern  "C" {
 #define LAME_TARGET_ARM 1
 #endif
 
+/* Whether the compiler offers __builtin_cpu_supports() at all.  It is the
+   question the unit tests ask as well, so it is answered here rather than
+   beside any one of its callers.
+
+   The architecture test is part of the question and not a shortcut for it:
+   compilers offer the builtin on AArch64 too, where it answers about a
+   different set of names and an x86 one is rejected. */
+#if defined( LAME_TARGET_X86 )
+# if defined( __has_builtin )
+#  if __has_builtin( __builtin_cpu_supports )
+#   define LAME_CPU_SUPPORTS 1
+#  endif
+# elif defined( __GNUC__ ) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8))
+#  define LAME_CPU_SUPPORTS 1
+# endif
+#endif
+
+/* And whether it may be asked about the AVX-512 subsets, which is a separate
+   question: a feature name the compiler does not know is rejected when the
+   call is compiled, not answered no at run time.  GCC did not know these
+   names before 6, and reports __GNUC__ 4 when it is clang, which has known
+   them for as long as it has had the builtin. */
+#if defined( LAME_CPU_SUPPORTS ) \
+ && (defined( __clang__ ) || !defined( __GNUC__ ) || __GNUC__ >= 6)
+#define LAME_CPU_SUPPORTS_AVX512 1
+#endif
+
     /* Which set of vector routines the encoder will run.  A wider
        implementation adds a value here and a name in the table in util.c,
        rather than another flag to test at each call site.  Ordered by

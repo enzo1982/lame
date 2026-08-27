@@ -73,7 +73,7 @@ have_avx2(void)
 #if defined( HAVE_AVX2_INTRINSICS )
 # if defined( __AVX2__ )
     return 1;
-# elif defined( __GNUC__ ) || defined( __clang__ )
+# elif defined( LAME_CPU_SUPPORTS )
     return __builtin_cpu_supports("avx2") != 0;
 # else
     return 0;               /* no way to ask; skip rather than crash */
@@ -112,7 +112,7 @@ have_avx512(void)
 # if defined( __AVX512F__ ) && defined( __AVX512VL__ ) \
   && defined( __AVX512BW__ ) && defined( __AVX512DQ__ )
     return 1;
-# elif defined( __GNUC__ ) || defined( __clang__ )
+# elif defined( LAME_CPU_SUPPORTS_AVX512 )
     return __builtin_cpu_supports("avx512f") != 0
         && __builtin_cpu_supports("avx512vl") != 0
         && __builtin_cpu_supports("avx512bw") != 0

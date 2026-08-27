@@ -890,19 +890,12 @@ lame_errorf(const lame_internal_flags* gfc, const char *format, ...)
 #define LAME_BASELINE_NEON 1
 #endif
 
-/* LAME_TARGET_X86 comes from util.h, where the vector ladder needs it too. */
-#if defined( LAME_TARGET_X86 )
-# if defined( __has_builtin )
-#  if __has_builtin( __builtin_cpu_supports )
-#   define LAME_CPU_SUPPORTS 1
-#  endif
-# elif defined( __GNUC__ ) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8))
-#  define LAME_CPU_SUPPORTS 1
-# endif
-# if defined( _MSC_VER )
-#  include <intrin.h>
-#  define LAME_CPUID_MSVC 1
-# endif
+/* LAME_TARGET_X86 and the two LAME_CPU_SUPPORTS macros come from util.h,
+   where the vector ladder and the unit tests need them too.  MSVC has neither
+   builtin and answers from CPUID instead. */
+#if defined( LAME_TARGET_X86 ) && defined( _MSC_VER )
+# include <intrin.h>
+# define LAME_CPUID_MSVC 1
 #endif
 
 #if defined( LAME_CPUID_MSVC )
@@ -1015,9 +1008,15 @@ has_AVX2(void)
 int
 has_AVX512(void)
 {
-#if defined( LAME_BASELINE_AVX512 )
+#if !defined( HAVE_AVX512_INTRINSICS )
+    /* The dispatch table is the only reader of this answer and is compiled
+       under the same condition, so where the routines do not exist there is
+       nothing to decide - and a build with no use for the query should not
+       be making it. */
+    return 0;
+#elif defined( LAME_BASELINE_AVX512 )
     return 1;
-#elif defined( LAME_CPU_SUPPORTS )
+#elif defined( LAME_CPU_SUPPORTS_AVX512 )
     /* Asked as four questions for the same reason the baseline test is four:
        the kernels use all four subsets, and a CPU carrying only the
        foundation would fault on the rest. */
