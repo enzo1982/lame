@@ -20,7 +20,7 @@ SH_LOG_COMPILER = $(SHELL)
 if ENABLE_UNIT_TESTS
 
 check_PROGRAMS = test_sanity test_get_audio_aiff test_get_audio_wav \
-	test_parse_pathlen test_merge_argv \
+	test_get_audio_float test_parse_pathlen test_merge_argv \
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
 	test_totalframes test_set_get test_lib_info test_vector_routines \
 	test_vector_ladder test_decoder_api test_encode_clipgain \
@@ -111,6 +111,19 @@ test_get_audio_wav_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_get_audio_wav_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	$(SNDFILE_LIBS)
+
+# The conversion from a floating point sample to an integer one is static in
+# the same file, so the same arrangement again. Both readers convert through
+# that function, so its assertions hold in either --with-fileio build.
+test_get_audio_float_SOURCES = test_get_audio_float.c test_stubs.c
+test_get_audio_float_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/frontend \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_get_audio_float_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	$(SNDFILE_LIBS)
 

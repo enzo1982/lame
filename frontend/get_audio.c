@@ -732,6 +732,43 @@ close_infile(void)
 static int
         get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152]);
 
+
+/**
+ * @internal
+ * @brief Converts a floating point sample to an integer sample.
+ *
+ * Both readers in this file convert through here, so a binary answers the same
+ * whichever one @c --with-fileio selected.
+ *
+ * The parameter is a 32 bit float even for a file holding doubles: libmp3lame
+ * converts its input to @c FLOAT, so the extra precision does not reach the
+ * bitstream.
+ *
+ * @param u a sample, where 1.0 is full scale.
+ * @return the sample as an integer, clamped to @c INT_MAX or @c INT_MIN at and
+ *         beyond full scale.
+ */
+static int
+float_sample_to_int(ieee754_float32_t u)
+{
+    /* Magnitude that a sample of 1.0 would map to. The two full-scale
+       magnitudes differ by one, but neither is representable in a float:
+       both round to 2^31, so a single factor scales both signs. Samples
+       of magnitude 1 or above are clamped before scaling, so the product
+       always stays below 2^31 and the conversion cannot overflow. */
+    ieee754_float32_t const full_scale = -(ieee754_float32_t) INT_MIN;
+    if (u >= 1) {
+        return INT_MAX;
+    }
+    if (u <= -1) {
+        return INT_MIN;
+    }
+    if (u >= 0) {
+        return (int) (u * full_scale + 0.5f);
+    }
+    return (int) (u * full_scale - 0.5f);
+}
+
 /************************************************************************
 *
 * get_audio()
@@ -862,7 +899,23 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152])
         int    *p;
         if (global.snd_file) {
 #ifdef LIBSNDFILE
-            samples_read = sf_read_int(global.snd_file, insamp, num_channels * samples_to_read);
+            int const items = num_channels * samples_to_read;
+            if (global.pcm_is_ieee_float) {
+                /* sf_read_int() on a floating point file scales either by the
+                   file's own peak or not at all, so read the samples as
+                   doubles and convert them here. dsamp[] is bounded exactly as
+                   insamp[] is: the sanity check above holds the frame to 1152
+                   samples of at most two channels. */
+                double  dsamp[2 * 1152];
+                int     j;
+                samples_read = sf_read_double(global.snd_file, dsamp, items);
+                for (j = 0; j < samples_read; ++j) {
+                    insamp[j] = float_sample_to_int((ieee754_float32_t) dsamp[j]);
+                }
+            }
+            else {
+                samples_read = sf_read_int(global.snd_file, insamp, items);
+            }
 #else
             samples_read = 0;
 #endif
@@ -1118,7 +1171,14 @@ open_snd_file(lame_t gfp, char const *inPath)
             }
             return 0;
         }
-        sf_command(gs_pSndFileIn, SFC_SET_SCALE_FLOAT_INT_READ, NULL, SF_TRUE);
+        switch (gs_wfInfo.format & SF_FORMAT_SUBMASK) {
+        case SF_FORMAT_FLOAT:
+        case SF_FORMAT_DOUBLE:
+            global. pcm_is_ieee_float = 1;
+            break;
+        default:
+            break;
+        }
 
         if ((gs_wfInfo.format & SF_FORMAT_RAW) == SF_FORMAT_RAW) {
             global_reader.input_format = sf_raw;
@@ -1327,30 +1387,11 @@ unpack_read_samples(const int samples_to_read, const int bytes_per_sample,
     }
 #undef GA_URS_IFLOOP
     if (global.pcm_is_ieee_float) {
-        /* Magnitude that a sample of 1.0 would map to. The two full-scale
-           magnitudes differ by one, but neither is representable in a float:
-           both round to 2^31, so a single factor scales both signs. Samples
-           of magnitude 1 or above are clamped before scaling, so the product
-           always stays below 2^31 and the conversion cannot overflow. */
-        ieee754_float32_t const full_scale = -(ieee754_float32_t) INT_MIN;
         ieee754_float32_t *x = (ieee754_float32_t *) sample_buffer;
         assert(sizeof(ieee754_float32_t) == sizeof(int));
         for (i = 0; i < samples_to_read; ++i) {
             ieee754_float32_t const u = x[i];
-            int     v;
-            if (u >= 1) {
-                v = INT_MAX;
-            }
-            else if (u <= -1) {
-                v = INT_MIN;
-            }
-            else if (u >= 0) {
-                v = (int) (u * full_scale + 0.5f);
-            }
-            else {
-                v = (int) (u * full_scale - 0.5f);
-            }
-            sample_buffer[i] = v;
+            sample_buffer[i] = float_sample_to_int(u);
         }
     }
     return (samples_read);
