@@ -29,101 +29,108 @@
 	    <li>
 	        Alexander Leidinger
 		<ul>
-		    <li>A WAVE file that declares a sample width LAME
-		        cannot read is refused, naming the field.
-		        Integer samples are read at 8, 16, 24 and
-		        32&nbsp;bit, floating point samples at
-		        32&nbsp;bit.</li>
-		    <li>Add a cmocka based unit test infrastructur.</li>
-			    <li>The <i>mp3x</i> frame analyzer has been migrated from
-			        GTK&nbsp;1.2 to GTK&nbsp;4 (4.10 or later). It keeps
-			        all existing features and gains opening and replacing a
-			        file from within the program, a list of recent files,
-			        and PNG export of the graphs. On Windows it is only
-			        buildable with Visual Studio, for 64&nbsp;bit. It now
-			        also has a manual page, <i>mp3x(1)</i>, describing the
-			        graphs, the display controls and the keyboard.
-			        Patch by Maya R. Odinezenko, patch ticket
-			        <i class="ticket">[ #104 ]</i>.</li>
-			    <li><i>mp3rtp</i> takes a host name as its
-			        destination as well as an IPv4 or an IPv6
-			        address, and does so identically on every
-			        platform. Building it for IPv4 destinations
-			        only is still possible, and that switch now
-			        exists on Windows too.</li>
-			    <li><span class="quality">Encoding to MPEG-2 at
-			        8&nbsp;kbit/s with two channels and CRC now
-			        produces a correctly framed file when the audio
-			        starts with more than six seconds of silence.
-			        Such a file used to lose the frame headers of a
-			        long stretch of the audio that followed the
-			        silence, and the encoder reported it once and
-			        carried on.</span></li>
-			    <li><span class="quality">A free format bitrate too
-			        low to leave room for audio beside a frame's own
-			        side information is now refused when encoding is
-			        prepared, naming the lowest bitrate that will
-			        work for the chosen sample rate and number of
-			        channels. Such a setting used to end the
-			        encoding process outright, or, in a build
-			        without assertions, produce a large file that
-			        was not an MP3 while reporting success. The
-			        lowest usable bitrate is 8&nbsp;kbit/s for most
-			        settings, and up to 14 for MPEG-1 in stereo with
-			        CRC.</span></li>
-			    <li>On Windows, the command line tools built with MinGW
-			        lost characters outside the active code page, both in
-			        the command line itself and in filenames, so a file the
-			        user can see could not be opened by name. Patch by
-			        Maya R. Odinezenko, patch ticket
-			        <i class="ticket">[ #104 ]</i>.</li>
-			    <li><span class="quality">On Windows, decoding an MP3
-			        piped into the command line tools produced wrong
-			        audio without reporting an error: the pipe was
-			        treated as a seekable file, so the encoder delay and
-			        padding recorded in the Xing/Info frame were lost
-			        and extra samples appeared at the start and end. A
-			        pipe is now recognised as non-seekable before any
-			        data is read. Ordinary filenames and input
-			        redirected from a file were not affected. Patch by
-			        Maya R. Odinezenko, patch ticket
-			        <i class="ticket">[ #107 ]</i>.</span></li>
-			    <li>Add Doxygen based documentation, in two flavours.
-			        The public one describes the official libmp3lame
-			        API. The internal one additionally surfaces the
-			        static internals, the Windows modules (<i>Dll</i>,
-			        <i>dshow</i>, <i>ACM</i>), the unit tests and the
-			        maintainer guides, and is the place to look when
-			        working on LAME rather than with it. Both can be
-			        generated from a release tarball. Only a small part
-			        of the source carries documentation comments so far,
-			        so both documents are still far from complete.</li>
-			    <li>Fixed linking the frontends against the shared
-			        library (<i>--enable-dynamic-frontends</i>). Bug
-			        ticket <i class="ticket">[ #515 ]</i>.</li>
-			    <li><span class="speed">The <i>--enable-ieeehack</i>
-			        switch is now honored. The Takehiro IEEE-754
-			        rounding shortcut is off by default as documented;
-			        it was previously compiled in unconditionally
-			        regardless of the switch. The shortcut only speeds
-			        up float-to-int conversion on much older CPUs that
-			        lack a fast native conversion instruction; on
-			        current hardware leaving it disabled is faster -
-			        measured about 8-10% on a Xeon&nbsp;X5675 for both
-			        CBR and VBR encoding.</span> Bug ticket
-			        <i class="ticket">[ #521 ]</i>.</li>
-			    <li>Modernized the Visual Studio build.</li>
-			    <li>The Windows ACM codec and the DirectShow filter
-			        build again with a current Visual Studio, and both
-			        link the static runtime, so neither needs a
-			        redistributable installed in order to load.</li>
-			    <li>The Windows ACM codec derives the output sample
-			        rate for smart output mode from the compression
-			        ratio as computed rather than rounded down, so
-			        48 kHz stereo at 112 kbps, 48 kHz mono at 56 kbps
-			        and 24 kHz stereo at 56 kbps resample the way that
-			        mode intends. A smart output ratio configured with
-			        a fractional part is kept as configured.</li>
+		    <li><b>Security</b>
+			<ul>
+			    <li><span class="security">Security hardening is now
+			        enabled by default: fortified library calls, stack
+			        and control-flow protection, read-only relocations
+			        and a non-executable stack, plus the corresponding
+			        options on the Visual Studio / MSVC build. The
+			        command-line tools are also built as
+			        position-independent executables by default. This
+			        costs roughly one to two percent of encoding speed;
+			        <i>--disable-hardening</i> and
+			        <i>--disable-dynamic-frontends</i> turn off the two
+			        pieces.</span></li>
+			    <li><span class="security">An interleaved encode on a
+			        mono session is now rejected. The interleaved entry
+			        points read two channels from one buffer; on a mono
+			        session that read ran one channel's worth of samples
+			        past the end of the buffer. This only happens when a
+			        caller drives the library against its documented
+			        contract - LAME's own frontend uses the
+			        non-interleaved entry points, and the Windows modules
+			        (<i>Dll</i>, <i>ACM</i>, <i>dshow</i>) take the
+			        interleaved path only for stereo - so no shipped LAME
+			        program reaches it; the library now returns an error
+			        rather than read past the buffer, for the sake of any
+			        other caller that makes this mistake. Bug ticket
+			        <i class="ticket">[ #522 ]</i>.</span></li>
+			</ul>
+		    </li>
+		    <li><b>Speed</b>
+			<ul>
+			    <li><span class="speed">The vectorized routines are now
+			        used on every x86 build. They have been part of LAME
+			        since 3.98, but the two checks that could switch them
+			        on only ever succeeded on 64-bit Windows, and even
+			        there only one of the two routines was reached, so
+			        Linux, FreeBSD, macOS and every 32-bit build ran the
+			        plain C code. Both are now selected from the
+			        processor's own feature bits at run time, so one
+			        binary serves machines with and without SSE2 and no
+			        build option or assembler is involved.
+			        <i>lame --verbose</i> reports what the machine it runs
+			        on actually got. How much this gains depends on the
+			        processor rather than on the setting: measured about
+			        5 to 9 percent on a Xeon&nbsp;X5675, and 0 to 3 percent
+			        on a Core&nbsp;i7-10700, where the compiler already
+			        generates comparable code by itself. The encoded file
+			        can differ in the last bits from one produced by the C
+			        path; measured audio quality is unchanged.</span></li>
+			    <li><span class="speed">32-bit x86 builds get the
+			        vectorized routines back. They were switched off in
+			        3.100 to repair a build failure, because at that time
+			        the code needed the whole compilation to target SSE2.
+			        3.101 removed that requirement, but the check was not
+			        revisited, so two further releases went without them.
+			        The check now asks what the code actually needs, and
+			        arranges the rest itself where a compiler needs
+			        help.</span></li>
+			    <li><span class="speed">Three more of the encoder's
+			        busiest inner loops are vectorized: quantization, the
+			        Huffman table search that packs the quantized values
+			        into the fewest bits, and - in the VBR modes - the
+			        repeated estimate of the quantization noise each
+			        choice would leave. Until now two routines carried all
+			        the vector code. They use SSE2, which every x86-64 CPU
+			        has, and a new AVX2 tier where the processor provides
+			        it, chosen at run time without being asked for.
+			        Measured over the whole encode of a music
+			        sample on a Core&nbsp;i7-10700 (Comet Lake): CBR
+			        encoding is about 16% faster with GCC and 22% with
+			        MSVC, and VBR encoding about 6% faster with MSVC and
+			        roughly unchanged with GCC, whose compiler already
+			        vectorized those loops. AVX2 adds a further 6 to 8%
+			        over SSE2 for CBR and nothing measurable for VBR.
+			        <i>--vector&nbsp;sse2</i> leaves the AVX2 tier unused
+			        and <i>--vector&nbsp;none</i> runs the plain C
+			        code. On that machine the 64-bit
+			        MinGW/GCC&nbsp;16.1.0 build is about 13% faster than
+			        the 64-bit MSVC&nbsp;19.51 build of the same source,
+			        for both CBR and VBR.</span></li>
+			    <li><span class="speed">A third set of vector routines,
+			        <i>avx512</i>, is built and used by itself on
+			        processors that have AVX-512; nothing needs to be
+			        asked for. It covers the constant-bitrate
+			        quantization loop, where it is worth about 6.5% of a
+			        <i>-b&nbsp;320</i> encode on an Intel Ice Lake part; on
+			        the two AMD processors it was measured on it makes no
+			        difference or costs about 1%, and it is used on all of
+			        them rather than by processor vendor. The Huffman table
+			        search and the variable-bitrate noise estimate keep the
+			        narrower routines, so a <i>-V</i> encode runs the widest
+			        set that does cover its routines even where AVX-512 is
+			        available. Measured and reported by Tobias
+			        Damisch, Elio Blanca and Todd Zullinger.</span></li>
+			    <li><span class="speed">ARM processors now get vector
+			        routines too, named <i>neon</i>, worth about 3.5% of a
+			        <i>-b&nbsp;320</i> encode and about 1% of a <i>-V</i>
+			        one. It is one routine rather than the seven the x86
+			        sets carry, the compiler already producing equally good
+			        or better code for the rest on this architecture. Built
+			        wherever the compiler supports it, on 64- and 32-bit ARM
+			        alike, and used where the processor reports it.</span></li>
 			    <li><span class="speed">Optimization flags are now
 			        detected from the compiler at configure time
 			        instead of chosen from hard-coded, per-compiler
@@ -141,110 +148,251 @@
 			        switches were dropped and the release build omits
 			        its debug consistency assertions, making 32-bit
 			        encoding roughly 3% faster.</span></li>
-			    <li><span class="speed">Several of the encoder's busiest inner loops
-			        are now vectorized: the step that turns the analyzed audio into the
-			        whole-number values stored in the MP3, the search that picks the
-			        Huffman code tables packing them into the fewest bits, and - in the
-			        VBR modes - the repeated estimate of how much distortion each
-			        quantization choice would introduce. They use SSE2, which every
-			        x86-64 CPU has (nothing between SSE2 and SSE4.2 helps this code), and
-			        AVX2 where the CPU provides it, chosen at run time. Measured over the
-			        whole encode of a music sample on a Core&nbsp;i7-10700 (Comet Lake):
-			        CBR encoding is about 16% faster with GCC and 22% with MSVC, and VBR
-			        encoding about 6% faster with MSVC and roughly unchanged with GCC,
-			        whose compiler already vectorized those loops. AVX2 adds a further 6
-			        to 8% over SSE2 for CBR and nothing measurable for VBR. The table
-			        search itself runs about three times faster as a function; the
-			        whole-encode figures are smaller because it is only one part of the
-			        work. The new <i>--noasm&nbsp;avx2</i> option disables just the AVX2
-			        tier and keeps SSE2, while the existing <i>--noasm&nbsp;sse</i> turns
-			        the vector code off entirely - useful for benchmarking and for working
-			        around a suspected CPU or toolchain problem.</span> On that machine the
-			        64-bit MinGW/GCC&nbsp;16.1.0 build is about 13% faster than the 64-bit
-			        MSVC&nbsp;19.51 build of the same source, for both CBR and VBR.</li>
+			    <li><span class="speed">The <i>--enable-ieeehack</i>
+			        switch is now honored. The Takehiro IEEE-754
+			        rounding shortcut is off by default as documented;
+			        it was previously compiled in unconditionally
+			        regardless of the switch. The shortcut only speeds
+			        up float-to-int conversion on much older CPUs that
+			        lack a fast native conversion instruction; on
+			        current hardware leaving it disabled is faster -
+			        measured about 8-10% on a Xeon&nbsp;X5675 for both
+			        CBR and VBR encoding. Bug ticket
+			        <i class="ticket">[ #521 ]</i>.</span></li>
+			</ul>
+		    </li>
+		    <li><b>Quality</b>
+			<ul>
+			    <li><span class="quality">Noise-shaping amplification is
+			        disabled for CBR and ABR, where it degraded the result
+			        instead of improving it - which is why the faster
+			        quality settings sounded better than the slower ones.
+			        This affects the default quality setting. The
+			        amplification was the only difference between quality
+			        settings 3 and 4, and between 1 and 2, so for CBR and
+			        ABR each of those pairs now selects the same
+			        encoding. VBR is unaffected. Reported and analyzed by
+			        Maik Merten, bug ticket
+			        <i class="ticket">[ #516 ]</i>.</span></li>
+			    <li><span class="quality">The two options that use the
+			        absolute threshold of hearing (ATH) as the only
+			        masking threshold - for all blocks, or for short
+			        blocks only - work again. They had stopped reaching
+			        the quantizer, so setting either left the encoded
+			        audio unchanged. Both are diagnostic and lower
+			        quality at any given bitrate; encodes that do not use
+			        them are unaffected.</span></li>
+			    <li><span class="quality">On Windows, decoding an MP3
+			        piped into the command-line tools produced audio that
+			        was not gapless, without reporting an error: the pipe
+			        was treated as a seekable file, so the encoder delay
+			        and padding recorded in the Xing/Info frame were lost
+			        and extra samples appeared at the start and end. A
+			        pipe is now recognized as non-seekable before any
+			        data is read. Ordinary filenames and input
+			        redirected from a file were not affected. Patch by
+			        Maya R. Odinezenko, patch ticket
+			        <i class="ticket">[ #107 ]</i>.</span></li>
+			    <li><span class="quality">Encoding to MPEG-2 at
+			        8&nbsp;kbps with two channels and CRC now produces a
+			        correctly framed file when the audio starts with more
+			        than six seconds of silence. Such a file used to lose
+			        the frame headers of a long stretch of the audio that
+			        followed the silence, and the encoder reported the
+			        condition once and carried on.</span></li>
+			    <li><span class="quality">A free-format bitrate too low
+			        to leave room for audio beside a frame's own side
+			        information is now refused when encoding is prepared,
+			        naming the lowest bitrate that will work for the
+			        chosen sample rate and number of channels. Such a
+			        setting used to end the encoding process outright,
+			        or, in a build without assertions, produce a large
+			        file that was not an MP3 while reporting success. The
+			        lowest usable bitrate is 8&nbsp;kbps for most
+			        settings, and up to 14 for MPEG-1 with two channels
+			        and CRC.</span></li>
+			    <li><span class="quality">A floating-point WAV or AIFF
+			        file is encoded as loud as it really is. A build using
+			        libsndfile turned the volume of such a file up until
+			        its loudest sample reached full scale, so a quiet
+			        recording came out loud, and the same file encoded
+			        differently depending on how LAME had been built. Both
+			        readers now take the samples as they are. Bug ticket
+			        <i class="ticket">[ #510 ]</i>.</span></li>
+			    <li><span class="quality">The noise-shaping search
+			        records the accepted quantization's own bit count as
+			        the best one; it was taken from the previously best
+			        one, which made one of the search bounds tighter than
+			        intended. The difference was measured as not
+			        perceptible.</span></li>
+			</ul>
+		    </li>
+		    <li><b>Input and file formats</b>
+			<ul>
+			    <li>An input file whose audio cannot be read to the
+			        end is now reported: encoding and decoding both
+			        stop where the failure happened and exit with a
+			        non-zero status. Such an input used to leave a
+			        truncated output file behind while reporting
+			        success. Reported, with a patch for the encoding
+			        case, by Van de Bugger, bug ticket
+			        <i class="ticket">[ #513 ]</i>.</li>
+			    <li>Input whose sample rate differs from the output
+			        sample rate by a fraction of a percent is now
+			        resampled, like any other mismatch. Such input used
+			        to be passed through unresampled, so it played back
+			        at the wrong speed, shifting pitch and duration by
+			        the difference. Reported, with a patch, by Riley
+			        Gabriel, patch ticket
+			        <i class="ticket">[ #101 ]</i>.</li>
+			    <li>A WAVE file that declares a bit depth LAME cannot
+			        read is refused. Integer samples are read at 8, 16,
+			        24 and 32&nbsp;bit, floating-point samples at
+			        32&nbsp;bit.</li>
+			    <li>An extensible WAV header that describes too small an
+			        extension, or claims more valid bits than its samples
+			        hold, is rejected, and a 64-bit floating-point AIFF
+			        file is named as an unsupported format instead of
+			        failing as though it were corrupt. A block alignment
+			        or byte rate that disagrees with the rest of the
+			        header is still accepted and is only reported under
+			        <i>--verbose</i>.</li>
+			    <li>A truncated WAV or AIFF header is detected instead
+			        of read past. A file that ended partway through its
+			        header was parsed together with whatever bytes
+			        happened to follow in memory; such a file is now
+			        rejected as corrupt.</li>
+			    <li>Builds that use libsndfile for file input now refuse
+			        a file whose format libsndfile does not recognize,
+			        the same as builds using LAME's own reader. Headerless
+			        PCM is still read as such when <i>-r</i> asks for
+			        it.</li>
+			    <li>The declared length of an input whose sample count
+			        does not fit in 32&nbsp;bits is read in full. Where
+			        <i>long</i> is wider than <i>int</i> such a length was
+			        truncated before use, so reading stopped at the wrong
+			        point.</li>
+			    <li>A write error while decoding to a file is reported.
+			        If the decoded output could not be fully written - a
+			        full disk, for example - <i>--decode</i> now fails
+			        instead of finishing silently with a truncated
+			        file.</li>
+			</ul>
+		    </li>
+		    <li><b>Tags and metadata</b>
+			<ul>
+			    <li>The new <i>--replaygain-id3v2</i> writes the
+			        ReplayGain figures to the ID3v2 tag as well as to
+			        LAME's own, as the <i>REPLAYGAIN_TRACK_GAIN</i> and
+			        <i>REPLAYGAIN_TRACK_PEAK</i> text frames. Requested
+			        by Jim McAtee, feature
+			        ticket <i class="ticket">[ #78 ]</i>.</li>
+			    <li>ID3v2 frames identified by a description, such as
+			        <i>TXXX</i>, <i>WXXX</i> and <i>COMM</i>, are now
+			        kept apart whenever those descriptions differ,
+			        including where one description begins another:
+			        <i>--tv "TXXX=foo=..."</i> and
+			        <i>--tv "TXXX=foobar=..."</i> give two frames. A
+			        comment carrying no description keeps its own frame
+			        as well. Repeating a description still replaces the
+			        frame it names.</li>
+			    <li>A tag value that cannot be written in the
+			        character set the tag uses is reported instead of
+			        being cut short in silence. As much of it as could
+			        be converted is still written, and the value that
+			        lost part of itself is named.</li>
+			    <li>An ID3v2 tag whose length does not fit the 28-bit
+			        tag-size field is no longer written. A very large
+			        tag, for instance from oversized embedded album art,
+			        would otherwise record a wrapped length and be
+			        unparseable; no tag is produced in that case.</li>
+			    <li>The ID3v2 tag carries the full audio play-length,
+			        instead of clamping it to about 49.7 days.</li>
+			</ul>
+		    </li>
+		    <li><b>Command-line behavior</b>
+			<ul>
 			    <li>The vector routines can now be selected. The new
-			        <i>--vector&nbsp;name</i> option says which set an encode
-			        runs, and <i>--noasm</i> is deprecated in favour of it,
-			        still accepted and printing the replacement to use. See
-			        <i>lame --longhelp</i> and the manual page for the names
-			        and what each one does. Programs linking the library get
-			        the same choice through
-			        <i>lame_set_vector_routines()</i> and the three calls
-			        beside it. <i>lame --verbose</i> reports to match: the
-			        <i>CPU features</i> line lists only the instruction sets
-			        this build has routines for and the processor can run,
-			        and a <i>vector routines</i> line always follows it,
-			        naming the set the encode used. No encode changes: LAME
-			        has had no MMX or 3DNow! code for many years, so the two
-			        families that named it select nothing and
-			        <i>lame_get_asm_optimizations()</i> reports them as not
-			        enabled.</li>
-			    <li><span class="speed">A third set of vector routines,
-			        <i>avx512</i>, is now built and used on processors that
-			        have AVX-512. It covers the constant-bitrate quantization
-			        loop, where it is worth about 6.5% of a
-			        <i>-b&nbsp;320</i> encode on an Intel Ice Lake part; on
-			        the two AMD processors it was measured on it makes no
-			        difference or costs about 1%, and it is enabled on all of
-			        them rather than by processor vendor. The Huffman table
-			        search and the variable-bitrate noise estimate keep the
-			        narrower routines, so a <i>-V</i> encode asking for
-			        <i>--vector&nbsp;avx512</i> runs the widest set that does
-			        cover its routines. Measured and reported by Tobias
-			        Damisch, Elio Blanca and Todd Zullinger.</span></li>
-			    <li><span class="speed">ARM processors now get vector
-			        routines too, named <i>neon</i>, worth about 3.5% of a
-			        <i>-b&nbsp;320</i> encode and about 1% of a <i>-V</i>
-			        one. It is one routine rather than the seven the x86
-			        sets carry, the compiler already producing equally good
-			        or better code for the rest on this architecture. Built
-			        wherever the compiler supports it, on 64- and 32-bit ARM
-			        alike, and used where the processor reports it.</span></li>
-			    <li><span class="security">Security hardening is now
-			        enabled by default: fortified library calls, stack
-			        and control-flow protection, read-only relocations
-			        and a non-executable stack, plus the corresponding
-			        options on the Visual Studio / MSVC build. The
-			        command line tools are also built as
-			        position-independent executables by default. This
-			        costs roughly one to two percent of encoding speed;
-			        <i>--disable-hardening</i> and
-			        <i>--disable-dynamic-frontends</i> turn off the two
-			        pieces.</span></li>
-			    <li>Add a <i>maintainer</i> directory with the helper
-			        scripts used to develop and test LAME: build matrix
-			        generators, Windows dependency setup and the two
-			        comparison harnesses below. They are not needed to
-			        build or use LAME and are described in the internal
-			        documentation.</li>
-			    <li>Add two harnesses to compare a change against a
-			        baseline build: one measures encoding speed, the
-			        other scores the perceived quality of the encoded
-			        audio with PEAQ (ITU-R BS.1387) against a reference
-			        corpus. Most changes must not alter the bitstream at
-			        all and comparing the two files is the whole test;
-			        for a change which is meant to alter it, a byte
-			        comparison only says that something moved, and these
-			        answer whether the result is slower and whether the
-			        difference can be heard.</li>
-			    <li>Handle some possible out of memory
-			        situations.</li>
-			    <li>Fixed the frame analyzer's per-band spectrum
-			        buffer. Patch by Maya R. Odinezenko.</li>
-			    <li>Guard <i>setlocale()</i> the same way as its
-			        header include. Patch by Maya R. Odinezenko.</li>
-			    <li>Keep VBR scalefactors above their minimum when
-			        reducing bits. A granule which ran out of bits could
-			        be given a scalefactor below the minimum of its
-			        band, which aborted builds with assertions enabled.
-			        Only such a bit starved granule is affected. Bug
-			        ticket <i class="ticket">[ #490 ]</i>.</li>
-			    <li>Reading the temporal masking setting back before
-			        the encoder was initialized aborted the program on a
-			        build with assertions enabled, which is the default.
-			        The value at that point is the "not chosen yet"
-			        marker, and the check did not allow for it. It is
-			        now returned like any other unset setting.</li>
+			        <i>--vector&nbsp;name</i> option says which set an
+			        encode runs, and <i>--noasm</i> is deprecated in
+			        favor of it, still accepted and printing the
+			        replacement to use. See <i>lame --longhelp</i> and
+			        the manual page for the names and what each one does.
+			        Programs linking the library get the same choice
+			        through <i>lame_set_vector_routines()</i> and the
+			        three calls beside it. <i>lame --verbose</i> reports
+			        to match: the <i>CPU features</i> line lists only the
+			        instruction sets this build has routines for and the
+			        processor can run, and a <i>vector routines</i> line
+			        always follows it, naming the set the encode used. No
+			        encode changes: LAME has had no MMX or 3DNow! code
+			        for many years, so the two families that named it
+			        select nothing and
+			        <i>lame_get_asm_optimizations()</i> reports them as
+			        not enabled.</li>
+			    <li>The new <i>--preserve-modtime</i> gives the output
+			        file the date and time of the input file, when
+			        encoding and when decoding alike. Requested by Jim
+			        McAtee and Stefan Schnitter, feature tickets
+			        <i class="ticket">[ #79 ]</i> and
+			        <i class="ticket">[ #81 ]</i>.</li>
+			    <li><i>--clipdetect</i> reports clipping again, and
+			        <i>--replaygain-accurate</i> gives a figure that
+			        depends on the audio again. A file written by
+			        LAME&nbsp;4.0 with either of them carries ReplayGain
+			        information that is wrong by about 90&nbsp;dB and is
+			        worth tagging again. <i>--replaygain-fast</i>, which
+			        is the default, is unaffected, and the encoded audio
+			        is unchanged either way.</li>
+			    <li>Input samples past full scale are now counted and
+			        reported as clipped. They are clipped as the file is
+			        read and such files need to be scaled outside of LAME
+			        before encoding. Bug ticket
+			        <i class="ticket">[ #512 ]</i>.</li>
+			    <li>Input whose samples are all zero is now reported as
+			        having no headroom figure by <i>--clipdetect</i> and
+			        <i>--replaygain-accurate</i>, and the library's
+			        clipping figures read as no clipping and no scaling.
+			        Such input has no peak to measure against.</li>
+			    <li>The bitrate shown while encoding is the one the
+			        encoded audio has: the bytes produced over their
+			        playing time, rather than the average of the rates
+			        the individual frames were coded at. Reported by
+			        Elio Blanca, patch ticket
+			        <i class="ticket">[ #65 ]</i>.</li>
+			    <li>While encoding, the heading above the progress
+			        display is as wide as the frame counter beneath
+			        it, so a file long enough to need more than six
+			        digits no longer prints its numbers out from
+			        under their column headings. Reported by Gary
+			        Gregory, bug ticket
+			        <i class="ticket">[ #371 ]</i>.</li>
+			    <li>The documented unknown-length sentinel is recognized
+			        when reporting the total frame count, so an
+			        unknown-length stream no longer shows a bogus total
+			        and estimate where <i>long</i> is wider than
+			        32&nbsp;bits. Patch by Maya R. Odinezenko.</li>
+			    <li>The frame-count estimates are bounded to the
+			        <i>int</i> they are returned in, so a declared length
+			        large enough to exceed it no longer overflows the
+			        estimate.</li>
+			    <li><i>--preset help</i> and <i>-?</i> now exit
+			        successfully. Scripts that check the exit status can
+			        treat a request for help as one.</li>
+			    <li>The terminal library now holds the console progress
+			        display's capability strings, instead of them being
+			        copied into a fixed-size buffer that a longer
+			        capability string could overflow. This needs the
+			        terminal description itself to be hostile, which
+			        requires control of the terminal database or the
+			        <i>TERM</i> environment; anyone with that already
+			        runs with at least the privileges of the lame
+			        process, so this is hygiene rather than a crossed
+			        privilege boundary.</li>
+			</ul>
+		    </li>
+		    <li><b>libmp3lame</b>
+			<ul>
 			    <li>New library function
 			        <i>lame_get_asm_optimizations()</i>, which reports
 			        whether an encoder instance still allows a given
@@ -253,61 +401,21 @@
 			        and no way at all to find out whether a family a program
 			        asked for was one this version of the library knows -
 			        the setter accepts an unknown family and silently does
-			        nothing. The new function answers both.</li>
-			    <li>The adaptive ATH setting can now be read back after
-			        the encoder has been initialized. It starts out as
-			        "not chosen yet" and the encoder then picks a scheme,
-			        but the choice was not recorded, so a program which
-			        had not set the value itself could never find out
-			        which scheme its encode was using. Which scheme gets
-			        picked is unchanged, and so is the encoded audio.</li>
-			    <li><span class="quality">The two options which ask the
-			        encoder to mask against the absolute threshold of
-			        hearing alone, for all blocks or for short blocks
-			        only, work again. They had stopped reaching the
-			        quantizer, so setting either changed nothing about
-			        the encoded audio. They are diagnostic options and
-			        make files worse at any given bitrate; encodes which
-			        do not use them are unaffected.</span></li>
-			    <li><span class="quality">Record the accepted
-			        quantization's own bit count as the best one in the
-			        noise shaping search; it was taken from the
-			        previously best one, which made one of the search
-			        bounds tighter than intended. The difference was
-			        measured as not perceptible.</span></li>
-			    <li><span class="quality">Disabled amplified noise
-			        shaping for CBR and ABR, where it degraded the result
-			        instead of improving it - which is why the faster
-			        quality settings sounded better than the slower ones.
-			        This affects the default quality setting. The
-			        amplification was the only difference between quality
-			        settings 3 and 4, and between 1 and 2, so for CBR and
-			        ABR each of those pairs now selects the same
-			        encoding. VBR is unaffected. Reported and analysed by
-			        Maik Merten, bug ticket
-			        <i class="ticket">[ #516 ]</i>.</span></li>
-			    <li>Fixed detecting the terminal library the console
-			        progress display uses. The configure check asked for a
-			        symbol that display does not call, and tried the
-			        candidate libraries in the opposite of the intended
-			        order, so it could select a library whose header and
-			        binary disagree - which broke the build on MSYS2. Bug
-			        ticket <i class="ticket">[ #436 ]</i>.</li>
-			    <li><span class="security">Reject an interleaved
-			        encode on a session with a single input channel.
-			        The interleaved entry points read two channels
-			        from one buffer; on a mono session that read ran
-			        one channel's worth of samples past the end of the
-			        buffer. This only happens when a caller drives the
-			        library against its documented contract - LAME's
-			        own front end uses the non-interleaved entry
-			        points, and the Windows modules (<i>Dll</i>,
-			        <i>ACM</i>, <i>dshow</i>) take the interleaved path
-			        only for stereo - so no shipped LAME program
-			        reaches it; the library now returns an error rather
-			        than read past the buffer, for the sake of any
-			        other caller that makes this mistake. Bug ticket
-			        <i class="ticket">[ #522 ]</i>.</span></li>
+			        nothing.</li>
+			    <li>The adaptive absolute threshold of hearing (ATH)
+			        setting can now be read back after the encoder has
+			        been initialized. It starts out as "not chosen yet"
+			        and the encoder then picks a scheme, but the choice
+			        was not recorded, so a program which had not set the
+			        value itself could never find out which scheme its
+			        encode was using. Which scheme gets picked is
+			        unchanged, and so is the encoded audio.</li>
+			    <li>Reading the temporal masking setting back before
+			        the encoder was initialized aborted the program on a
+			        build with assertions enabled, which is the default.
+			        The value at that point is the "not chosen yet"
+			        marker, and the check did not allow for it. It is
+			        now returned like any other unset setting.</li>
 			    <li>A library built without libmpg123 now refuses to
 			        create a decoder instead of handing back one that
 			        fails on every use. Such a build cannot decode at
@@ -320,225 +428,38 @@
 			        need no change; one that does not will fail at the
 			        same place it did before. A small memory leak on
 			        that path is gone with it.</li>
-			    <li>Removed the unused bundled mpglib and Amiga MPEGA
-			        decoder paths. Decoding has gone through libmpg123
-			        since 3.101, so no build still selected them.
-			        Dropping the dead code also removes an unbounded
-			        recursion in the old header search that a crafted
-			        stream could have driven; the public decode
-			        interface is unchanged.</li>
-			    <li>Removed the long-deprecated <i>--ogginput</i>
-			        option; Ogg Vorbis input support was dropped long
-			        ago and the option only printed a notice.</li>
-			    <li>Let the terminal library hold the console
-			        progress display's capability strings instead of
-			        copying them into a fixed-size buffer, which a
-			        capability string longer than the buffer could
-			        overflow. This needs the terminal description
-			        itself to be hostile, which requires control of the
-			        terminal database or the <i>TERM</i> environment;
-			        anyone with that already runs with at least the
-			        privileges of the lame process, so this is hygiene
-			        rather than a crossed privilege boundary.</li>
-			    <li>Do not write an ID3v2 tag whose length does not fit
-			        the 28-bit tag-size field. A very large tag, for
-			        instance from oversized embedded album art, would
-			        otherwise record a wrapped length and be
-			        unparseable; no tag is produced in that case.</li>
-			    <li>Removed closing the output file on two mp3rtp
-			        startup error paths that run before it is
-			        opened.</li>
-			    <li>Recognize the documented unknown-length sentinel
-			        when reporting the total frame count, so an
-			        unknown-length stream no longer shows a bogus total
-			        and estimate where <i>long</i> is wider than 32 bits.
-			        Patch by Maya R. Odinezenko.</li>
-			    <li>Bound the frame-count estimates to the <i>int</i>
-			        they are returned in, so a declared length large
-			        enough to exceed it no longer overflows the
-			        estimate.</li>
-			    <li>Write the full audio play-length in the ID3v2 tag
-			        instead of clamping it to about 49.7 days.</li>
-			    <li>Detect a truncated WAV or AIFF header instead of
-			        reading past it. A file that ended partway through
-			        its header was parsed together with whatever bytes
-			        happened to follow in memory; such a file is now
-			        rejected as corrupt.</li>
-			    <li>Report a write error when decoding to a file. If
-			        the decoded output could not be fully written - a
-			        full disk, for example - <i>--decode</i> now fails
-			        instead of finishing silently with a truncated
-			        file.</li>
-			    <li>Fixed converting a short 8.3 path back to its long
-			        form on Windows, which could leave the resulting
-			        name unterminated or copy the wrong number of
-			        characters.</li>
-			    <li>Reject an extensible WAV header that describes too
-			        small an extension or claims more valid bits than
-			        its samples hold, and name a 64 bit floating point
-			        AIFF file as an unsupported format instead of
-			        failing as though it were corrupt. A block
-			        alignment or byte rate that disagrees with the rest
-			        of the header - which many writers get wrong - is
-			        still accepted and is only reported under
-			        <i>--verbose</i>.</li>
-			    <li>Build without compiler warnings on GCC, Clang and
-			        MSVC, including the 64 bit narrowing conversions
-			        and the obsolete empty parameter lists the
-			        frontend still carried. Most were harmless, but
-			        the cleanup also corrected some undefined
-			        behaviour. The encoder output is unchanged. The
-			        narrowing conversions and part of the parameter
-			        list cleanup are based on patches by Maya R.
-			        Odinezenko.</li>
-			    <li>Read the declared length of an input whose sample
-			        count does not fit in 32 bits. Where long is
-			        wider than int such a length was truncated before
-			        use, so reading stopped at the wrong point.</li>
-			    <li>In maintainer mode the GCC/Clang build compiles
-			        with additional warnings enabled and treated as
-			        errors, so a newly introduced warning fails the
-			        build. This applies only to
-			        <i>--enable-maintainer-mode</i>; ordinary and
-			        release builds are unaffected.</li>
-			    <li><span class="speed">The vectorized routines are now
-			        used on every x86 build. They have been part of LAME
-			        since 3.98, but the two checks that could switch them
-			        on only ever succeeded on 64 bit Windows, and even
-			        there only one of the two routines was reached, so
-			        Linux, FreeBSD, macOS and every 32 bit build ran the
-			        plain C code. Both are now selected from the
-			        processor's own feature bits at run time, so one
-			        binary serves machines with and without SSE2 and no
-			        build option or assembler is involved.
-			        <i>lame --verbose</i> reports what the machine it runs
-			        on actually got. How much this gains depends on the
-			        processor rather than on the setting: measured about
-			        5 to 9 percent on a Xeon X5675, and 0 to 3 percent on
-			        a Core i7-10700, where the compiler already generates
-			        comparable code by itself. The output can differ in
-			        the last bits from a build that used the C path;
-			        measured audio quality is unchanged.</span></li>
-			    <li><span class="speed">32 bit x86 builds get the
-			        vectorized routines back. They were switched off in
-			        3.100 to repair a build failure, because at that time
-			        the code needed the whole compilation to target SSE2.
-			        3.101 removed that requirement, but the check was not
-			        revisited, so two further releases went without them.
-			        The check now asks what the code actually needs, and
-			        arranges the rest itself where a compiler needs
-			        help.</span></li>
-			    <li>Removed the hand written assembler routines, which
-			        the vectorized C routines above replace, together with
-			        everything that selected them: the
-			        <i>--enable-nasm</i> option and the NASM and SSE2
-			        Visual Studio configurations. They needed an
-			        <b>external assembler</b> to build, could not be used
-			        on any 64 bit host, targeted an instruction set
-			        removed from processors in 2010, and half of the
-			        files had not been assembled by any build system in
-			        this century. Building LAME needs no external
-			        assembler on any platform now. <i>--noasm</i> keeps
-			        its three values, and <i>sse</i> still switches the
-			        vectorized routines off, which is how they are
-			        compared against the plain C code.</li>
-			    <li>Added a manual page for <i>mp3rtp</i>, which had none.
-			        It is installed where the program itself is, and is
-			        part of every distribution regardless of how the tree
-			        it was made from was configured. Manual page
-			        contributed by Fabian Greffrath.</li>
-			    <li>Fixed <i>mp3rtp</i> cutting its destination address
-			        short in builds without IPv6. Addresses longer than
-			        eleven characters were truncated and the stream went to
-			        a different host than the one given, without a
-			        message.</li>
-			    <li>Input whose samples are all zero is now reported as
-			        having no headroom figure by <i>--clipdetect</i> and
-			        <i>--replaygain-accurate</i>, and the library's
-			        clipping figures read as no clipping and no scaling.
-			        Such input has no peak to measure against.</li>
-			    <li><i>--preset help</i> and <i>-?</i> now exit
-			        successfully, as <i>--help</i> and <i>--longhelp</i>
-			        already did. Scripts that check the exit status can
-			        treat a request for help as one.</li>
-			    <li>Builds that use libsndfile for file input now refuse
-			        a file whose format libsndfile does not recognise,
-			        the same as builds using LAME's own reader. Headerless
-			        PCM is still read as such when <i>-r</i> asks for
-			        it.</li>
-			    <li>ID3v2 frames identified by a description, such as
-			        <i>TXXX</i>, <i>WXXX</i> and <i>COMM</i>, are now
-			        kept apart whenever those descriptions differ,
-			        including where one description begins another:
-			        <i>--tv "TXXX=foo=..."</i> and
-			        <i>--tv "TXXX=foobar=..."</i> give two frames. A
-			        comment carrying no description keeps its own frame
-			        as well. Repeating a description still replaces the
-			        frame it names.</li>
-			    <li>The installed pkg-config file <i>lame.pc</i> now
-			        names the libraries libmp3lame itself links
-			        against, so a program built against a static
-			        libmp3lame through <i>pkg-config --static</i>
-			        resolves them. Reported with a patch by Maarten,
-			        bug ticket <i class="ticket">[ #526 ]</i>.</li>
-			    <li>An input file whose audio cannot be read to the
-			        end is now reported: encoding and decoding both
-			        stop where the failure happened and exit with a
-			        non-zero status. Such an input used to leave a
-			        truncated output file behind while reporting
-			        success. Reported, with a patch for the encoding
-			        case, by Van de Bugger, bug ticket
-			        <i class="ticket">[ #513 ]</i>.</li>
-			    <li>Input whose sample rate differs from the output
-			        sample rate by a fraction of a percent is now
-			        resampled, like any other mismatch. Such input
-			        used to be passed through unresampled, which
-			        shifted its pitch and duration by the difference.
-			        Reported, with a patch, by Riley Gabriel, patch
-			        ticket <i class="ticket">[ #101 ]</i>.</li>
-			    <li>The command line tools build on systems whose C
-			        library has no <i>strnlen</i>, such as Mac OS&nbsp;X
-			        10.5. Reported by Robert Kausch.</li>
-			    <li>LAME builds with a toolchain that cannot restrict
-			        which symbols a shared library exports, such as
-			        <i>tcc</i>. <i>libmp3lame</i> then exports every
-			        symbol it defines rather than only its documented
-			        interface, and configure says so. Reported by Elio
-			        Blanca.</li>
-			    <li>The bitrate shown while encoding is the one the
-			        encoded audio has: the bytes produced over their
-			        playing time, rather than the average of the rates
-			        the individual frames were coded at. Reported by
-			        Elio Blanca, patch ticket
-			        <i class="ticket">[ #65 ]</i>.</li>
-			    <li>The new <i>--preserve-modtime</i> gives the output
-			        file the date and time of the input file, when
-			        encoding and when decoding alike. Requested by Jim
-			        McAtee and Stefan Schnitter, feature tickets
-			        <i class="ticket">[ #79 ]</i> and
-			        <i class="ticket">[ #81 ]</i>.</li>
-			    <li>The new <i>--replaygain-id3v2</i> writes the
-			        ReplayGain figures to the ID3v2 tag as well as to
-			        LAME's own, as the <i>REPLAYGAIN_TRACK_GAIN</i> and
-			        <i>REPLAYGAIN_TRACK_PEAK</i> text frames. Requested
-			        by Jim McAtee, feature
-			        ticket <i class="ticket">[ #78 ]</i>.</li>
-			    <li><i>--clipdetect</i> reports clipping again, and
-			        <i>--replaygain-accurate</i> gives a figure that
-			        depends on the audio again. A file written by
-			        LAME&nbsp;4.0 with either of them carries ReplayGain
-			        information that is wrong by about 90&nbsp;dB and is
-			        worth tagging again. <i>--replaygain-fast</i>, which
-			        is the default, is unaffected, and the encoded audio
-			        is unchanged either way.</li>
-			    <li>LAME builds for systems with <i>--enable-debug</i>
-			        enable floating point exceptions. The floating point
-			        exception trapping that option adds is compiled
-			        wherever the platform offers a way to arm the
-			        exceptions, which now includes the BSDs; where it
-			        offers none, a debug build simply does not trap
-			        them. Reported by Sylvain Carette, bug ticket
-			        <i class="ticket">[ #514 ]</i>.</li>
+			    <li>VBR scalefactors stay above their minimum when bits
+			        are reduced. A granule that ran out of bits could be
+			        given a scalefactor below the minimum of its band,
+			        which aborted builds with assertions enabled. Only
+			        such a bit-starved granule is affected. Bug ticket
+			        <i class="ticket">[ #490 ]</i>.</li>
+			    <li>The resampler reports a failed allocation instead of
+			        crashing on it. It allocated its FIR input and filter
+			        buffers without checking the result, then dereferenced
+			        them while precomputing the filter coefficients.</li>
+			</ul>
+		    </li>
+		    <li><b>Windows components</b>
+			<ul>
+			    <li>On Windows, the command-line tools built with MinGW
+			        lost characters outside the active code page, both in
+			        the command line itself and in filenames, so a file the
+			        user can see could not be opened by name. Patch by
+			        Maya R. Odinezenko, patch ticket
+			        <i class="ticket">[ #104 ]</i>.</li>
+			    <li>The Windows ACM codec and the DirectShow filter
+			        build again with a current Visual Studio, and both
+			        link the static runtime, so neither needs a
+			        redistributable installed in order to load.</li>
+			    <li>The Windows ACM codec derives the output sample
+			        rate for smart output mode from the compression
+			        ratio as computed rather than rounded down, so
+			        48&nbsp;kHz stereo at 112&nbsp;kbps, 48&nbsp;kHz mono
+			        at 56&nbsp;kbps and 24&nbsp;kHz stereo at
+			        56&nbsp;kbps resample the way that mode intends. A
+			        smart output ratio configured with a fractional part
+			        is kept as configured.</li>
 			    <li>The DirectShow filter's output pin answers
 			        interface requests through the pin class it is
 			        built on, so seeking works again when the filter
@@ -549,19 +470,112 @@
 			        whether or not the filter's output is connected at
 			        the time. Reported by an anonymous user, bug ticket
 			        <i class="ticket">[ #424 ]</i>.</li>
-			    <li>A tag value that cannot be written in the
-			        character set the tag uses is reported instead of
-			        being cut short in silence. As much of it as could
-			        be converted is still written, and the value that
-			        lost part of itself is named.</li>
-			    <li>The settings reference describes the options that
-			        set ID3 tag fields - artist, title, album, year,
-			        comment, track, genre, artwork and the user-defined
-			        ones - and the two that choose the character set an
-			        ID3v2 tag is written in. It also records what the
-			        other accounts of these options do not: setting the
-			        same user-defined field twice replaces it rather
-			        than adding a second copy.</li>
+			    <li>The Visual Studio build has been brought up to
+			        date: the solutions and project files agree with
+			        each other and with the autotools build; the nmake
+			        build runs out of tree and no longer writes its
+			        generated <i>config.h</i> into the source tree; the
+			        build file names no longer name one Visual Studio
+			        release, since a range of toolsets works; the
+			        solutions are in the <i>.slnx</i> format; and every
+			        target in them is built and reported by the Windows
+			        build matrix.</li>
+			    <li>On Windows, a short 8.3 path converts back to its
+			        long form correctly; it could previously leave the
+			        resulting name unterminated or copy the wrong number
+			        of characters.</li>
+			</ul>
+		    </li>
+		    <li><b>Build and portability</b>
+			<ul>
+			    <li>LAME builds without compiler warnings on GCC, Clang
+			        and MSVC, including the 64-bit narrowing conversions
+			        and the obsolete empty parameter lists the frontend
+			        still carried. Most were harmless, but the cleanup
+			        also corrected some undefined behavior. The encoder
+			        output is unchanged. The narrowing conversions and
+			        part of the parameter list cleanup are based on
+			        patches by Maya R. Odinezenko.</li>
+			    <li>The frontends link against the shared library again.
+			        Two documented decoder hooks the bundled frontends
+			        use were missing from its export list, so
+			        <i>--enable-dynamic-frontends</i> failed with
+			        undefined symbols. Bug ticket
+			        <i class="ticket">[ #515 ]</i>.</li>
+			    <li>The terminal library the console progress display
+			        uses is detected correctly. The configure check asked
+			        for a symbol that display does not call, and tried
+			        the candidate libraries in the opposite of the
+			        intended order, so it could select a library whose
+			        header and binary disagree - which broke the build on
+			        MSYS2. Bug ticket
+			        <i class="ticket">[ #436 ]</i>.</li>
+			    <li>The installed pkg-config file <i>lame.pc</i> now
+			        names the libraries libmp3lame itself links
+			        against, so a program built against a static
+			        libmp3lame through <i>pkg-config --static</i>
+			        resolves them. Reported with a patch by Maarten,
+			        bug ticket <i class="ticket">[ #526 ]</i>.</li>
+			    <li>The command-line tools build in a configuration that
+			        has langinfo but not iconv. The <i>setlocale()</i>
+			        call that prepares the character-set conversion was
+			        guarded on langinfo alone while its header include
+			        required both. Patch by Maya R. Odinezenko.</li>
+			    <li>The command-line tools build on systems whose C
+			        library has no <i>strnlen</i>, such as Mac OS&nbsp;X
+			        10.5. Reported by Robert Kausch.</li>
+			    <li>LAME builds with a toolchain that cannot restrict
+			        which symbols a shared library exports, such as
+			        <i>tcc</i>. <i>libmp3lame</i> then exports every
+			        symbol it defines rather than only its documented
+			        interface, and configure says so. Reported by Elio
+			        Blanca.</li>
+			    <li>A build configured with <i>--enable-debug</i> traps
+			        floating point exceptions on more systems. The
+			        trapping that option adds is compiled wherever the
+			        platform offers a way to arm the exceptions, which
+			        now includes the BSDs; where it offers none, a debug
+			        build simply does not trap them. Reported by Sylvain
+			        Carette, bug ticket
+			        <i class="ticket">[ #514 ]</i>.</li>
+			</ul>
+		    </li>
+		    <li><b>mp3x and mp3rtp</b>
+			<ul>
+			    <li>The <i>mp3x</i> frame analyzer has been migrated from
+			        GTK&nbsp;1.2 to GTK&nbsp;4 (4.10 or later). It keeps
+			        all existing features and gains opening and replacing a
+			        file from within the program, a list of recent files,
+			        and PNG export of the graphs. On Windows it is only
+			        buildable with Visual Studio, for 64&nbsp;bit. It now
+			        also has a manual page, <i>mp3x(1)</i>, describing the
+			        graphs, the display controls and the keyboard.
+			        Patch by Maya R. Odinezenko, patch ticket
+			        <i class="ticket">[ #104 ]</i>.</li>
+			    <li>The frame analyzer's spectral display shows real
+			        values again. Its per-band buffer holds doubles but
+			        was filled from the encoder's FLOAT array by a raw
+			        byte copy, so in the usual build the MDCT display was
+			        garbage. Patch by Maya R. Odinezenko.</li>
+			    <li><i>mp3rtp</i> takes a host name as its
+			        destination as well as an IPv4 or an IPv6
+			        address, and does so identically on every
+			        platform. Building it for IPv4 destinations
+			        only is still possible, and that switch now
+			        exists on Windows too.</li>
+			    <li><i>mp3rtp</i> no longer cuts its destination address
+			        short in builds without IPv6. Addresses longer than
+			        eleven characters were truncated and the stream went
+			        to a different host than the one given, without a
+			        message.</li>
+			    <li><i>mp3rtp</i> no longer closes its output file on
+			        two startup error paths that run before the file is
+			        opened - the socket setup failing, and the argument
+			        vector failing to allocate.</li>
+			</ul>
+		    </li>
+		    <li><b>Documentation</b>
+			<ul>
 			    <li>The manual page now describes every command-line
 			        option, having been missing fourteen of them,
 			        <i>--nogaptags</i> and <i>--flush</i> among them.
@@ -577,30 +591,97 @@
 			        two more: encoding raw PCM through a pipe, and
 			        filtering explicitly at a low bitrate. Every
 			        example in the documentation has been run.</li>
-			    <li>While encoding, the heading above the progress
-			        display is as wide as the frame counter beneath
-			        it, so a file long enough to need more than six
-			        digits no longer prints its numbers out from
-			        under their column headings. Reported by Gary
-			        Gregory, bug ticket
-			        <i class="ticket">[ #371 ]</i>.</li>
+			    <li>The settings reference describes the options that
+			        set ID3 tag fields - artist, title, album, year,
+			        comment, track, genre, artwork and the user-defined
+			        ones - and the two that choose the character set an
+			        ID3v2 tag is written in. It also records what the
+			        other accounts of these options do not: setting the
+			        same user-defined field twice replaces it rather
+			        than adding a second copy.</li>
+			    <li><i>mp3rtp</i> now has a manual page. It is installed
+			        where the program itself is, and is part of every
+			        distribution regardless of how the tree it was made
+			        from was configured. Manual page contributed by
+			        Fabian Greffrath.</li>
+			    <li>Doxygen documentation is now generated, in two
+			        flavors. The public one describes the official
+			        libmp3lame API. The internal one additionally
+			        surfaces the static internals, the Windows modules
+			        (<i>Dll</i>, <i>dshow</i>, <i>ACM</i>), the unit
+			        tests and the maintainer guides, and is the place to
+			        look when working on LAME rather than with it. Both
+			        can be generated from a release tarball. Only a small
+			        part of the source carries documentation comments so
+			        far, so both documents are still far from
+			        complete.</li>
 			    <li>The HTML documentation is installed under the
 			        directory <i>configure</i> was given, so
 			        <i>--docdir</i> now decides where it goes. Its
 			        default location is unchanged. Reported by an
 			        anonymous user, bug ticket
 			        <i class="ticket">[ #347 ]</i>.</li>
-			    <li><span class="quality">Floating point input is encoded at
-			        the level the file stores it at. libsndfile and the LAME
-			        internal reader handle floating point input the same way
-			        now. Bug ticket
-			        <i class="ticket">[ #510 ]</i>.</span></li>
-			    <li>Input samples beyond full scale are reported, with
-			        how many of them there were. An encoder takes an
-			        integer sample, so such a sample is flattened onto
-			        full scale and the shape of the loudest passages is
-			        lost; the file has to be lowered in level before
-			        encoding to keep it. Bug ticket <i class="ticket">[ #512 ]</i>.</li>
+			</ul>
+		    </li>
+		    <li><b>Maintainer infrastructure</b>
+			<ul>
+			    <li>LAME has a unit-test suite, built with CMocka and
+			        run by <i>make check</i>. It is opt-in:
+			        <i>--enable-unit-tests</i> requires CMocka through
+			        pkg-config and fails if it is absent, and an
+			        ordinary build is unaffected.</li>
+			    <li>A new <i>maintainer</i> directory holds the helper
+			        scripts used to develop and test LAME: build matrix
+			        generators, Windows dependency setup and the two
+			        comparison harnesses below. They are not needed to
+			        build or use LAME and are described in the internal
+			        documentation.</li>
+			    <li>Two harnesses compare a change against a baseline
+			        build: one measures encoding speed, the other scores
+			        the perceived quality of the encoded audio with PEAQ
+			        (ITU-R BS.1387) against a reference corpus. Most
+			        changes must not alter the bitstream at all and
+			        comparing the two files is the whole test; for a
+			        change which is meant to alter it, a byte comparison
+			        only says that something moved, and these answer
+			        whether the result is slower and whether the
+			        difference can be heard.</li>
+			    <li>In maintainer mode the GCC/Clang build compiles
+			        with additional warnings enabled and treated as
+			        errors, so a newly introduced warning fails the
+			        build. This applies only to
+			        <i>--enable-maintainer-mode</i>; ordinary and
+			        release builds are unaffected.</li>
+			</ul>
+		    </li>
+		    <li><b>Removals and deprecations</b>
+			<ul>
+			    <li>The hand-written assembler routines are gone,
+			        replaced by the vectorized C routines above, together
+			        with everything that selected them: the
+			        <i>--enable-nasm</i> option and the NASM and SSE2
+			        Visual Studio configurations. They needed an
+			        <b>external assembler</b> to build, could not be used
+			        on any 64-bit host, targeted an instruction set
+			        removed from processors in 2010, and half of the
+			        files had not been assembled by any build system in
+			        this century. Building LAME needs no external
+			        assembler on any platform now. <i>--noasm</i> keeps
+			        its three values, and <i>--vector&nbsp;none</i> runs
+			        the plain C code, which is how the vector routines are
+			        compared against it.</li>
+			    <li>The unused bundled mpglib and Amiga MPEGA decoder
+			        paths are gone. Decoding has gone through libmpg123
+			        since 3.101, so no build still selected them.
+			        Dropping the dead code also removes an unbounded
+			        recursion in the old header search that a crafted
+			        stream could have driven; the public decode
+			        interface is unchanged.</li>
+			    <li>The long-deprecated <i>--ogginput</i> option is
+			        gone; Ogg Vorbis input support was dropped long ago
+			        and the option only printed a notice.</li>
+			</ul>
+		    </li>
 		</ul>
             </li>
 	</ul>
