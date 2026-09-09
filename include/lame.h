@@ -60,82 +60,109 @@ typedef void (*lame_report_function)(const char *format, va_list ap);
 
 #define DEPRECATED_OR_OBSOLETE_CODE_REMOVED 1
 
+/**
+ * \ingroup api_settings
+ * How the encoder chooses a bitrate. Set with lame_set_VBR().
+ */
 typedef enum vbr_mode_e {
-  vbr_off=0,
-  vbr_mt,               /* obsolete, same as vbr_mtrh */
-  vbr_rh,
-  vbr_abr,
-  vbr_mtrh,
+  vbr_off=0,            /**< constant bitrate */
+  vbr_mt,               /**< obsolete, same as \c vbr_mtrh */
+  vbr_rh,               /**< variable bitrate, the older implementation -
+                             \c --vbr-old on the command line */
+  vbr_abr,              /**< average bitrate */
+  vbr_mtrh,             /**< variable bitrate, the faster implementation -
+                             \c --vbr-new on the command line */
   vbr_max_indicator,    /* Don't use this! It's used for sanity checks.       */
-  vbr_default=vbr_mtrh    /* change this to change the default VBR mode of LAME */
+  vbr_default=vbr_mtrh  /**< what a fresh encoder instance is set to */
 } vbr_mode;
 
 
-/* MPEG modes */
+/**
+ * \ingroup api_settings
+ * How the two channels of a stereo signal are carried. Set with
+ * lame_set_mode().
+ */
 typedef enum MPEG_mode_e {
-  STEREO = 0,
-  JOINT_STEREO,
-  DUAL_CHANNEL,   /* LAME doesn't supports this! */
-  MONO,
-  NOT_SET,
+  STEREO = 0,     /**< two channels, coded independently of each other */
+  JOINT_STEREO,   /**< two channels, coded together where that is cheaper */
+  DUAL_CHANNEL,   /**< present because the format has it; LAME does not
+                       implement it and it is accepted without complaint */
+  MONO,           /**< one channel; two-channel input is downmixed */
+  NOT_SET,        /**< the default: LAME decides at lame_init_params() */
   MAX_INDICATOR   /* Don't use this! It's used for sanity checks. */
 } MPEG_mode;
 
-/* Padding types */
+/**
+ * \ingroup api_settings
+ * \deprecated The encoder decides padding per frame; no setter or getter takes
+ * this type.
+ */
 typedef enum Padding_type_e {
-  PAD_NO = 0,
-  PAD_ALL,
-  PAD_ADJUST,
+  PAD_NO = 0,         /**< never pad */
+  PAD_ALL,            /**< always pad */
+  PAD_ADJUST,         /**< pad as needed - what the encoder always does */
   PAD_MAX_INDICATOR   /* Don't use this! It's used for sanity checks. */
 } Padding_type;
 
 
 
-/*presets*/
+/**
+ * \ingroup api_settings
+ * The values lame_set_preset() understands, in three families: a target
+ * bitrate in kbps for average bitrate encoding, a VBR quality level, or one of
+ * the older named presets. 8 to 320 is reserved for the bitrates, so a caller
+ * asking for average bitrate may simply pass the rate.
+ *
+ * Each quality level has two spellings of the same value: \c Vx as the command
+ * line writes it, and \c VBR_xx counting the other way. The named presets
+ * resolve to a quality level and also select \c vbr_mtrh, except \c INSANE,
+ * which is a constant bitrate.
+ */
 typedef enum preset_mode_e {
-    /*values from 8 to 320 should be reserved for abr bitrates*/
-    /*for abr I'd suggest to directly use the targeted bitrate as a value*/
-    ABR_8 = 8,
-    ABR_320 = 320,
+    ABR_8 = 8,      /**< average bitrate, 8 kbps - the bottom of the reserved
+                         range */
+    ABR_320 = 320,  /**< average bitrate, 320 kbps - the top of it */
 
-    V9 = 410, /*Vx to match Lame and VBR_xx to match FhG*/
-    VBR_10 = 410,
-    V8 = 420,
-    VBR_20 = 420,
-    V7 = 430,
-    VBR_30 = 430,
-    V6 = 440,
-    VBR_40 = 440,
-    V5 = 450,
-    VBR_50 = 450,
-    V4 = 460,
-    VBR_60 = 460,
-    V3 = 470,
-    VBR_70 = 470,
-    V2 = 480,
-    VBR_80 = 480,
-    V1 = 490,
-    VBR_90 = 490,
-    V0 = 500,
-    VBR_100 = 500,
+    V9 = 410,       /**< VBR quality 9, the smallest files */
+    VBR_10 = 410,   /**< another spelling of \c V9 */
+    V8 = 420,       /**< VBR quality 8 */
+    VBR_20 = 420,   /**< another spelling of \c V8 */
+    V7 = 430,       /**< VBR quality 7 */
+    VBR_30 = 430,   /**< another spelling of \c V7 */
+    V6 = 440,       /**< VBR quality 6 */
+    VBR_40 = 440,   /**< another spelling of \c V6 */
+    V5 = 450,       /**< VBR quality 5 */
+    VBR_50 = 450,   /**< another spelling of \c V5 */
+    V4 = 460,       /**< VBR quality 4 */
+    VBR_60 = 460,   /**< another spelling of \c V4 */
+    V3 = 470,       /**< VBR quality 3 */
+    VBR_70 = 470,   /**< another spelling of \c V3 */
+    V2 = 480,       /**< VBR quality 2 */
+    VBR_80 = 480,   /**< another spelling of \c V2 */
+    V1 = 490,       /**< VBR quality 1 */
+    VBR_90 = 490,   /**< another spelling of \c V1 */
+    V0 = 500,       /**< VBR quality 0, the largest files */
+    VBR_100 = 500,  /**< another spelling of \c V0 */
 
 
 
     /*still there for compatibility*/
-    R3MIX = 1000,
-    STANDARD = 1001,
-    EXTREME = 1002,
-    INSANE = 1003,
-    STANDARD_FAST = 1004,
-    EXTREME_FAST = 1005,
-    MEDIUM = 1006,
-    MEDIUM_FAST = 1007
+    R3MIX = 1000,        /**< \c V3 */
+    STANDARD = 1001,     /**< \c V2 */
+    EXTREME = 1002,      /**< \c V0 */
+    INSANE = 1003,       /**< 320 kbps, constant bitrate */
+    STANDARD_FAST = 1004,/**< \c V2, as \c STANDARD */
+    EXTREME_FAST = 1005, /**< \c V0, as \c EXTREME */
+    MEDIUM = 1006,       /**< \c V4 */
+    MEDIUM_FAST = 1007   /**< \c V4, as \c MEDIUM */
 } preset_mode;
 
 
-/* asm optimizations
+/**
+ * \ingroup api_settings
+ * asm optimizations
  *
- * DEPRECATED.  Use lame_set_vector_routines() and the calls beside it.
+ * \deprecated Use lame_set_vector_routines() and the calls beside it.
  *
  * These name x86 instruction-set families, and a family is not what the
  * library actually selects: the routines are compiled for SSE2, and SSE here
@@ -154,10 +181,10 @@ typedef enum preset_mode_e {
  * that source naming them still compiles.
  */
 typedef enum asm_optimizations_e {
-    MMX = 1,
-    AMD_3DNOW = 2,
-    SSE = 3,
-    AVX2 = 4
+    MMX = 1,        /**< no MMX code in this library; the setter answers -2 */
+    AMD_3DNOW = 2,  /**< no 3DNow! code in this library; the setter answers -2 */
+    SSE = 3,        /**< the group switch for the vector routines */
+    AVX2 = 4        /**< AVX2 */
 } asm_optimizations;
 
 
@@ -168,11 +195,16 @@ typedef enum Psy_model_e {
 } Psy_model;
 
 
-/* buffer considerations */
+/**
+ * \ingroup api_settings
+ * How much room the bit reservoir may use. Passed to lame_set_strict_ISO().
+ */
 typedef enum buffer_constraint_e {
-    MDB_DEFAULT=0,
-    MDB_STRICT_ISO=1,
-    MDB_MAXIMUM=2
+    MDB_DEFAULT=0,     /**< a ceiling every decoder in circulation copes with */
+    MDB_STRICT_ISO=1,  /**< the ceiling the ISO document allows */
+    MDB_MAXIMUM=2      /**< the largest the format can express, and the value
+                            in force unless another is set - the name
+                            \c MDB_DEFAULT does not mark the default */
 } buffer_constraint;
 
 
@@ -1468,20 +1500,23 @@ int CDECL lame_get_samplerate(int mpeg_version, int table_index);
  *  tools rather than by the library.
  */
 typedef enum {
-    LAME_OKAY             =   0,
-    LAME_NOERROR          =   0,
-    LAME_GENERICERROR     =  -1,
-    LAME_NOMEM            = -10,
-    LAME_BADBITRATE       = -11,
-    LAME_BADSAMPFREQ      = -12,
-    LAME_INTERNALERROR    = -13,
+    LAME_OKAY             =   0,  /**< the call succeeded */
+    LAME_NOERROR          =   0,  /**< another spelling of \c LAME_OKAY */
+    LAME_GENERICERROR     =  -1,  /**< the call failed, with no more specific
+                                       code to report */
+    LAME_NOMEM            = -10,  /**< an allocation failed */
+    LAME_BADBITRATE       = -11,  /**< the bitrate asked for is not usable */
+    LAME_BADSAMPFREQ      = -12,  /**< the sample rate asked for is not
+                                       usable */
+    LAME_INTERNALERROR    = -13,  /**< the library reached a state it does not
+                                       expect */
     /** The data handed to the encoder cannot be encoded, e.g. a PCM sample
         which is not a finite number. */
     LAME_BADINPUTDATA     = -14,
 
-    FRONTEND_READERROR    = -80,
-    FRONTEND_WRITEERROR   = -81,
-    FRONTEND_FILETOOLARGE = -82
+    FRONTEND_READERROR    = -80,  /**< the input could not be read */
+    FRONTEND_WRITEERROR   = -81,  /**< the output could not be written */
+    FRONTEND_FILETOOLARGE = -82   /**< the input is too large to handle */
 
 } lame_errorcodes_t;
 
