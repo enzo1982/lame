@@ -47,6 +47,7 @@ int     is_mpeg_file_format( int input_file_format );
 int     init_infile(lame_t gfp, char const * inPath);
 int     samples_to_skip_at_start(void);
 int     samples_to_skip_at_end(void);
+unsigned long samples_clipped_on_input(void);
 void    close_infile(void);
 int     get_audio(lame_t gfp, int buffer[2][1152]);
 int     get_audio16(lame_t gfp, short buffer[2][1152]);

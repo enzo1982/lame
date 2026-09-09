@@ -387,6 +387,7 @@ typedef struct get_audio_global_data_struct {
     int     pcm_is_unsigned_8bit;
     int     pcm_is_ieee_float;
     unsigned long num_samples_read;
+    unsigned long num_samples_clipped;
     FILE   *music_in;
     SNDFILE *snd_file;
 #ifdef HAVE_MPG123
@@ -653,6 +654,7 @@ init_infile(lame_t gfp, char const *inPath)
     /* open the input file */
     global. count_samples_carefully = 0;
     global. num_samples_read = 0;
+    global. num_samples_clipped = 0;
     global. pcmbitwidth = global_raw_pcm.in_bitwidth;
     global. pcmswapbytes = global_reader.swapbytes;
     global. pcm_is_unsigned_8bit = global_raw_pcm.in_signed == 1 ? 0 : 1;
@@ -698,6 +700,23 @@ int
 samples_to_skip_at_end(void)
 {
     return global.pcm32.skip_end;
+}
+
+/**
+ * @internal
+ * @brief How many input samples the reader clipped.
+ *
+ * Strictly beyond full scale only - the branch that decides it carries the
+ * reason. Counted while reading, so it answers for the file read so far, and
+ * reset for each input file.
+ *
+ * @return the number of samples, 0 when the input stayed within full scale or
+ *         held no floating point samples.
+ */
+unsigned long
+samples_clipped_on_input(void)
+{
+    return global.num_samples_clipped;
 }
 
 void
@@ -746,7 +765,8 @@ static int
  *
  * @param u a sample, where 1.0 is full scale.
  * @return the sample as an integer, clamped to @c INT_MAX or @c INT_MIN at and
- *         beyond full scale.
+ *         beyond full scale. Samples strictly beyond it lose something to the
+ *         clamp and are counted; @c samples_clipped_on_input() reports them.
  */
 static int
 float_sample_to_int(ieee754_float32_t u)
@@ -758,9 +778,18 @@ float_sample_to_int(ieee754_float32_t u)
        always stays below 2^31 and the conversion cannot overflow. */
     ieee754_float32_t const full_scale = -(ieee754_float32_t) INT_MIN;
     if (u >= 1) {
+        /* Counted only where the clamp loses something. Exactly full scale
+           does not: -1.0 reaches INT_MIN either way, and 1.0 gives up one part
+           in 2^31. Not a corner case - -32768/32768 is exactly -1.0, so a
+           16 bit recording at full scale becomes a floating point file made
+           entirely of such samples. */
+        if (u > 1)
+            global.num_samples_clipped++;
         return INT_MAX;
     }
     if (u <= -1) {
+        if (u < -1)
+            global.num_samples_clipped++;
         return INT_MIN;
     }
     if (u >= 0) {

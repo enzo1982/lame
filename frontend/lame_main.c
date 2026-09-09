@@ -395,6 +395,14 @@ print_trailing_info(lame_global_flags * gf)
         }
     }
 
+    /* Not the report above: that one measures the decoded output at the
+       current gain and needs decoding on the fly. These samples were past full
+       scale in the input file itself, so the count is independent of both
+       switches and no later stage can recover them. */
+    if (samples_clipped_on_input() > 0) {
+        error_printf("WARNING: %lu input sample(s) clipped, lower the input level\n"
+                     "         before encoding.\n", samples_clipped_on_input());
+    }
 }
 
 

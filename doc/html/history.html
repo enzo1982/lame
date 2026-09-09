@@ -595,6 +595,12 @@
 			        internal reader handle floating point input the same way
 			        now. Bug ticket
 			        <i class="ticket">[ #510 ]</i>.</span></li>
+			    <li>Input samples beyond full scale are reported, with
+			        how many of them there were. An encoder takes an
+			        integer sample, so such a sample is flattened onto
+			        full scale and the shape of the loudest passages is
+			        lost; the file has to be lowered in level before
+			        encoding to keep it. Bug ticket <i class="ticket">[ #512 ]</i>.</li>
 		</ul>
             </li>
 	</ul>

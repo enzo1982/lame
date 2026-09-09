@@ -200,6 +200,40 @@ test_small_samples(void **state)
     assert_int_equal(float_sample_to_int(-1.0f / (float) FULL_SCALE), -1);
 }
 
+/**
+ * @brief The count rises for clipped samples and for nothing else.
+ *
+ * Both directions are asserted from a known starting point: a count that rose
+ * on every sample would pass a test that only checked it rises.
+ *
+ * At the boundary, a sample of exactly full scale is clamped but loses nothing
+ * - -1.0 reaches @c INT_MIN either way. @c -32768/32768 is exactly -1.0, so
+ * every 16 bit recording that touches full scale becomes a floating point file
+ * full of them, and counting those would report an intact file as clipped.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_clipped_samples_are_counted(void **state)
+{
+    (void) state;
+    global.num_samples_clipped = 0;
+    float_sample_to_int(0.0f);
+    float_sample_to_int(0.5f);
+    float_sample_to_int(-JUST_BELOW_ONE);
+    assert_int_equal(samples_clipped_on_input(), 0);
+
+    /* Exactly full scale, both signs: clamped, not counted. */
+    assert_int_equal(float_sample_to_int(1.0f), INT_MAX);
+    assert_int_equal(float_sample_to_int(-1.0f), INT_MIN);
+    assert_int_equal(samples_clipped_on_input(), 0);
+
+    /* Strictly beyond, both signs: clamped and counted. */
+    float_sample_to_int(1.5f);
+    float_sample_to_int(-1.5f);
+    assert_int_equal(samples_clipped_on_input(), 2);
+}
+
 /** @brief Registers and runs the float-conversion test group. */
 int
 main(void)
@@ -213,6 +247,7 @@ main(void)
         cmocka_unit_test(test_over_range_clamps),
         cmocka_unit_test(test_just_below_full_scale_is_not_clamped),
         cmocka_unit_test(test_small_samples),
+        cmocka_unit_test(test_clipped_samples_are_counted),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
