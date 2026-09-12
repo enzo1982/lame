@@ -604,6 +604,106 @@ test_flush_nogap_allows_continuing(LAME_UNUSED void **state)
 }
 
 /**
+ * @brief Reads the encoder delay and padding out of a LAME tag frame.
+ * @param frame   the frame lame_get_lametag_frame() filled.
+ * @param n       its length.
+ * @param delay   receives the delay field.
+ * @param padding receives the padding field.
+ *
+ * The two 12-bit fields sit 21 bytes past the Xing fields, whose length the
+ * flag word selects; this walks the frame the way the library's own tag
+ * reader does. The marker has to be found or the test asserting on the
+ * fields would read two zero bytes as a delay of 0.
+ */
+static void
+lametag_delay_padding(const unsigned char *frame, size_t n, int *delay, int *padding)
+{
+    size_t  at = 0, i;
+    unsigned long flags;
+
+    for (i = 0; i + 4 <= n; i++) {
+        if (memcmp(frame + i, "Xing", 4) == 0 || memcmp(frame + i, "Info", 4) == 0) {
+            at = i;
+            break;
+        }
+    }
+    assert_true(at > 0);
+    assert_true(at + 8 <= n);
+    flags = ((unsigned long) frame[at + 4] << 24) | ((unsigned long) frame[at + 5] << 16)
+        | ((unsigned long) frame[at + 6] << 8) | frame[at + 7];
+    at += 8;
+    if (flags & 1)
+        at += 4;        /* frames */
+    if (flags & 2)
+        at += 4;        /* bytes */
+    if (flags & 4)
+        at += 100;      /* toc */
+    if (flags & 8)
+        at += 4;        /* vbr scale */
+    at += 21;
+    assert_true(at + 3 <= n);
+    *delay = (frame[at] << 4) | (frame[at + 1] >> 4);
+    *padding = ((frame[at + 1] & 0x0f) << 8) | frame[at + 2];
+}
+
+/**
+ * @brief The tag of a file continuing a nogap set reports no encoder delay.
+ * @param state cmocka fixture state (unused).
+ *
+ * The lead-in the encoder inserts is written once, at the front of a set's
+ * first file; the next file begins with audio. Its tag has to say so, or a
+ * reader trimming by the delay field drops real samples from every file after
+ * the first. The first file's tag is the control: it still reports the delay,
+ * and the last file's tag reports the padding the final flush computed.
+ */
+static void
+test_lametag_delay_zero_after_nogap_flush(LAME_UNUSED void **state)
+{
+    static unsigned char mp3[MP3CAP];
+    unsigned char frame[2048];
+    lame_t  gfp = encoder_new(0, 1);
+    int     used = 0, call, n;
+    int     delay, padding;
+    size_t  got;
+
+    assert_int_equal(lame_set_nogap_total(gfp, 2), 0);
+    assert_int_equal(lame_set_nogap_currentindex(gfp, 0), 0);
+    for (call = 0; call < NCALLS; call++) {
+        n = lame_encode_buffer(gfp, pcm_l + call * NSAMPLES, pcm_r + call * NSAMPLES,
+                               NSAMPLES, mp3 + used, MP3CAP - used);
+        assert_true(n >= 0);
+        used += n;
+    }
+    n = lame_encode_flush_nogap(gfp, mp3 + used, MP3CAP - used);
+    assert_true(n > 0);
+    got = lame_get_lametag_frame(gfp, frame, sizeof frame);
+    assert_true(got > 0);
+    lametag_delay_padding(frame, got, &delay, &padding);
+    assert_int_equal(delay, lame_get_encoder_delay(gfp));
+    assert_true(delay > 0);
+    assert_int_equal(padding, 0);
+
+    assert_int_equal(lame_init_bitstream(gfp), 0);
+    assert_int_equal(lame_set_nogap_currentindex(gfp, 1), 0);
+    used = 0;
+    for (call = 0; call < NCALLS; call++) {
+        n = lame_encode_buffer(gfp, pcm_l + call * NSAMPLES, pcm_r + call * NSAMPLES,
+                               NSAMPLES, mp3 + used, MP3CAP - used);
+        assert_true(n >= 0);
+        used += n;
+    }
+    n = lame_encode_flush(gfp, mp3 + used, MP3CAP - used);
+    assert_true(n >= 0);
+    got = lame_get_lametag_frame(gfp, frame, sizeof frame);
+    assert_true(got > 0);
+    lametag_delay_padding(frame, got, &delay, &padding);
+    assert_int_equal(delay, 0);
+    assert_int_equal(padding, lame_get_encoder_padding(gfp));
+    assert_true(padding > 0);
+    lame_close(gfp);
+}
+
+/**
  * @brief lame_encode_finish() is lame_encode_flush() plus lame_close().
  * @param state cmocka fixture state (unused).
  *
@@ -875,6 +975,7 @@ main(void)
         cmocka_unit_test(test_two_dimensional_hists_agree),
         cmocka_unit_test(test_init_bitstream_clears_statistics),
         cmocka_unit_test(test_flush_nogap_allows_continuing),
+        cmocka_unit_test(test_lametag_delay_zero_after_nogap_flush),
         cmocka_unit_test(test_encode_finish_matches_flush_then_close),
         cmocka_unit_test(test_lametag_frame_reports_required_size),
         cmocka_unit_test(test_lametag_frame_absent_without_tag),

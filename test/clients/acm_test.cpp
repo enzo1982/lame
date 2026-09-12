@@ -28,6 +28,12 @@
 
 #include "ACMStream.h"
 #include "AEncodeProperties.h"
+#include "../../libmp3lame/version.h"
+
+/** @brief How the codec's long name begins: its own name, then LAME's version. */
+#define LONG_NAME_PREFIX "LAME MP3 Codec v" STR(LAME_MAJOR_VERSION) "." STR(LAME_MINOR_VERSION)
+/** @brief LAME's version in the ACM's driver-version layout (major, minor, build). */
+#define DRIVER_VERSION (((DWORD) LAME_MAJOR_VERSION << 24) | ((DWORD) LAME_MINOR_VERSION << 16)                         | (DWORD) LAME_PATCH_VERSION)
 
 /** @brief The configuration file an AEncodeProperties built with no module uses. */
 static const char CONFIG_NAME[] = "lame_acm.xml";
@@ -757,6 +763,10 @@ test_under_the_acm(const char *driver)
     if (mr == MMSYSERR_NOERROR) {
         printf("        \"%s\", %u format tag(s)\n",
                details.szLongName, (unsigned) details.cFormatTags);
+        CHECK_EQ_U(details.vdwDriver, DRIVER_VERSION,
+                   "the driver version is LAME's major, minor and patch level");
+        CHECK(strncmp(details.szLongName, LONG_NAME_PREFIX, strlen(LONG_NAME_PREFIX)) == 0,
+              "the long name carries the LAME version and no other");
     }
 
     memset(&fd, 0, sizeof(fd));

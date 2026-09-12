@@ -707,6 +707,10 @@ PutLameVBR(lame_global_flags const *gfp, size_t nMusicLength, uint8_t * pbtStrea
         if (nNoGapCurr < nNoGapCount - 1)
             bNoGapMore = 1;
     }
+    /* A file continuing a nogap set carries no encoder lead-in; that was
+       written at the front of the set's first file. */
+    if (bNoGapPrevious)
+        enc_delay = 0;
 
     /*flags */
 

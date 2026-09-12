@@ -1,6 +1,7 @@
 //Microsoft Developer Studio generated resource script.
 //
 #include "resource.h"
+#include "../libmp3lame/version.h"
 
 #define APSTUDIO_READONLY_SYMBOLS
 /////////////////////////////////////////////////////////////////////////////
@@ -54,8 +55,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,9,1,0
- PRODUCTVERSION 0,9,1,0
+ FILEVERSION LAME_MAJOR_VERSION,LAME_MINOR_VERSION,LAME_TYPE_VERSION,LAME_PATCH_VERSION
+ PRODUCTVERSION LAME_MAJOR_VERSION,LAME_MINOR_VERSION,LAME_TYPE_VERSION,LAME_PATCH_VERSION
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -73,14 +74,14 @@ BEGIN
             VALUE "Comments", "This is an ACM driver for Win32 using Lame to encode\0"
             VALUE "CompanyName", "https://lame.sourceforge.io/\0"
             VALUE "FileDescription", "Lame MP3 codec engine\0"
-            VALUE "FileVersion", "0.9.2\0"
+            VALUE "FileVersion", LAME_VERSION_STRING "\0"
             VALUE "InternalName", "lameACM\0"
             VALUE "LegalCopyright", "Copyright © 2002 Steve Lhomme, Copyright © 2002-2007 The LAME Project\0"
             VALUE "LegalTrademarks", "LGPL (see gnu.org)\0"
             VALUE "OriginalFilename", "lameACM.acm\0"
             VALUE "PrivateBuild", "\0"
             VALUE "ProductName", "Lame MP3 codec\0"
-            VALUE "ProductVersion", "0.9.2\0"
+            VALUE "ProductVersion", LAME_VERSION_STRING "\0"
             VALUE "SpecialBuild", "\0"
         END
     END

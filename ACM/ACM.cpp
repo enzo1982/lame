@@ -42,6 +42,7 @@
 #include <assert.h>
 
 #include <lame.h>
+#include "../libmp3lame/version.h"
 
 #include "adebug.h"
 #include "resource.h"
@@ -59,24 +60,19 @@
 
 char ACM::VersionString[120];
 
-const char ACM_VERSION[] = "0.9.2";
+/// The driver version the codec reports is the LAME version it is built from.
+#define LAME_ACM_DRIVER_VERSION MAKE_ACM_VERSION(LAME_MAJOR_VERSION, LAME_MINOR_VERSION, LAME_PATCH_VERSION)
 
 #ifdef WIN32
 //
 //  32-bit versions
 //
-#if (WINVER >= 0x0400)
- #define VERSION_ACM_DRIVER  MAKE_ACM_VERSION(4,  0, 0)
-#else
-#define VERSION_ACM_DRIVER  MAKE_ACM_VERSION(3, 51, 0)
-#endif
 #define VERSION_MSACM MAKE_ACM_VERSION(3, 50, 0)
 
 #else
 //
 //  16-bit versions
 //
-#define VERSION_ACM_DRIVER MAKE_ACM_VERSION(1, 0, 0)
 #define VERSION_MSACM MAKE_ACM_VERSION(2, 1, 0)
 
 #endif
@@ -364,7 +360,7 @@ ACM::ACM( HMODULE hModule )
 			}
 		}
 	}
-        wsprintf(VersionString,"%s - %s", ACM_VERSION, get_lame_version() );
+        lstrcpynA(VersionString, get_lame_version(), sizeof VersionString);
 	FillRateTables();
 	BuildBitrateTable();
 	
@@ -743,7 +739,7 @@ inline DWORD ACM::OnDriverDetails(const HDRVR hdrvr, LPACMDRIVERDETAILS a_Driver
 	a_DriverDetail->wPid        = MM_FHGIIS_MPEGLAYER3;
 
 	a_DriverDetail->vdwACM      = VERSION_MSACM;
-	a_DriverDetail->vdwDriver   = VERSION_ACM_DRIVER;
+	a_DriverDetail->vdwDriver   = LAME_ACM_DRIVER_VERSION;
 	a_DriverDetail->fdwSupport  = ACMDRIVERDETAILS_SUPPORTF_CODEC;
 	a_DriverDetail->cFormatTags = FORMAT_TAG_MAX_NB; // 2 : MP3 and PCM
 //	a_DriverDetail->cFormatTags = 1; // 2 : MP3 and PCM

@@ -308,6 +308,10 @@
 			        unparseable; no tag is produced in that case.</li>
 			    <li>The ID3v2 tag carries the full audio play-length,
 			        instead of clamping it to about 49.7 days.</li>
+			    <li>With <i>--nogap --nogaptags</i>, the LAME tag of
+			        every file after the first reports an encoder delay
+			        of zero; only the first file carries the lead-in.
+			        Bug ticket <i class="ticket">[ #397 ]</i>.</li>
 			</ul>
 		    </li>
 		    <li><b>Command-line behavior</b>
@@ -467,6 +471,11 @@
 			        application listing the codec no longer shows a
 			        nameless 16-bit entry for it. Bug ticket
 			        <i class="ticket">[ #362 ]</i>.</li>
+			    <li>The Windows ACM codec and the DirectShow filter
+			        carry the LAME version as their file version, and
+			        the codec reports it as its driver version, so the
+			        installed version can be read off either file. Bug
+			        ticket <i class="ticket">[ #416 ]</i>.</li>
 			    <li>The DirectShow filter's output pin answers
 			        interface requests through the pin class it is
 			        built on, so seeking works again when the filter
