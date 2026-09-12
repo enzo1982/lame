@@ -400,6 +400,233 @@ format_cb(HACMDRIVERID hadid, LPACMFORMATDETAILSA pafd, DWORD_PTR user, DWORD fd
     return TRUE;
 }
 
+/** @brief A format the enumeration is asked to look for, and what it was called. */
+typedef struct {
+    int match_any;                          /**< take the first format offered */
+    DWORD rate;                             /**< sample rate to match */
+    DWORD bytes_per_sec;                    /**< byte rate to match */
+    WORD channels;                          /**< channel count to match */
+    DWORD flags;                            /**< Layer-3 tail flags to match */
+    int found;                              /**< set once a format matched */
+    MPEGLAYER3WAVEFORMAT format;            /**< the structure it was given */
+    char name[ACMFORMATDETAILS_FORMAT_CHARS]; /**< the name the codec gave it */
+} format_search;
+
+/**
+ * @brief Keeps the first enumerated format matching the search, and its name.
+ *
+ * The tail flags are part of the key: the codec offers a constant-rate and an
+ * average-rate format at each rate, bitrate and channel count, and the two are
+ * named differently. A search that left them out would match whichever came
+ * first and compare two different formats' names - which is what it did, until
+ * a run showed the list naming the same numbers ABR and the suggestion CBR.
+ *
+ * @param hadid the driver being enumerated, unused
+ * @param pafd one format the driver offers, and the name it gives it
+ * @param user the @c format_search this pass is filling in
+ * @param fdw the enumeration flags, unused
+ * @return TRUE, so the enumeration runs to the end
+ */
+static BOOL CALLBACK
+find_format_cb(HACMDRIVERID hadid, LPACMFORMATDETAILSA pafd, DWORD_PTR user, DWORD fdw)
+{
+    format_search *want = (format_search *) user;
+    const MPEGLAYER3WAVEFORMAT *mp3 = (const MPEGLAYER3WAVEFORMAT *) pafd->pwfx;
+
+    (void) hadid;
+    (void) fdw;
+    if (want->found || pafd->pwfx->cbSize < MPEGLAYER3_WFX_EXTRA_BYTES) {
+        return TRUE;
+    }
+    if (want->match_any
+        || (pafd->pwfx->nSamplesPerSec == want->rate
+            && pafd->pwfx->nAvgBytesPerSec == want->bytes_per_sec
+            && pafd->pwfx->nChannels == want->channels
+            && mp3->fdwFlags == want->flags)) {
+        want->format = *mp3;
+        strncpy(want->name, pafd->szFormat, sizeof(want->name) - 1);
+        want->name[sizeof(want->name) - 1] = '\0';
+        want->found = 1;
+    }
+    return TRUE;
+}
+
+/**
+ * @brief Walks the codec's MPEG Layer-3 format list, filling in a search.
+ * @param had the opened driver
+ * @param want what to look for, and where the match is left
+ * @return what the enumeration call returned
+ */
+static MMRESULT
+enumerate_formats(HACMDRIVER had, format_search *want)
+{
+    MPEGLAYER3WAVEFORMAT probe;
+    ACMFORMATDETAILSA fd;
+
+    memset(&fd, 0, sizeof(fd));
+    fd.cbStruct = sizeof(fd);
+    fd.pwfx = (WAVEFORMATEX *) &probe;
+    fd.cbwfx = sizeof(probe);
+    fd.dwFormatTag = WAVE_FORMAT_MPEGLAYER3;
+    fill_mp3_format(&probe, 44100, 2, 128000);
+    return acmFormatEnumA(had, &fd, find_format_cb, (DWORD_PTR) want, 0);
+}
+
+/**
+ * @brief The format the codec suggests for a PCM source, and how it names it.
+ *
+ * These are the calls an application's compression chooser makes before it can
+ * list this codec: ask what the PCM stream should be encoded to, then ask for a
+ * description of the answer to show in the list. A suggestion filled in as
+ * though the destination were PCM gets listed under whatever wording the ACM
+ * generates from those fields, and encodes to a file whose header the player
+ * then has to correct.
+ *
+ * The description is compared against the codec's own format list rather than
+ * against a literal, so rewording the format string cannot fail this.
+ *
+ * @param had the opened driver
+ */
+static void
+test_format_negotiation(HACMDRIVER had)
+{
+    const DWORD rate = 44100;
+    const WORD channels = 2;
+    /* What the suggestion carries: 64 kbit/s for each channel. */
+    const DWORD suggested_bytes_per_sec = channels * 64000 / 8;
+
+    WAVEFORMATEX pcm;
+    MPEGLAYER3WAVEFORMAT sug;
+    ACMFORMATDETAILSA fd;
+    ACMFORMATTAGDETAILSA ftd;
+    format_search first;
+    format_search want;
+    MMRESULT mr;
+
+    printf("the format the codec suggests for a PCM source\n");
+
+    fill_pcm_format(&pcm, rate, channels);
+    memset(&sug, 0, sizeof(sug));
+    sug.wfx.wFormatTag = WAVE_FORMAT_MPEGLAYER3;
+    sug.wfx.nChannels = channels;
+    sug.wfx.nSamplesPerSec = rate;
+    mr = acmFormatSuggest(had, &pcm, (WAVEFORMATEX *) &sug, sizeof(sug),
+                          ACM_FORMATSUGGESTF_NCHANNELS
+                          | ACM_FORMATSUGGESTF_NSAMPLESPERSEC
+                          | ACM_FORMATSUGGESTF_WFORMATTAG);
+    CHECK_MM(mr, "the codec suggests a destination for 44100/16/stereo PCM");
+    if (mr != MMSYSERR_NOERROR) {
+        return;
+    }
+
+    CHECK_EQ_U(sug.wfx.wFormatTag, WAVE_FORMAT_MPEGLAYER3,
+               "the suggestion is an MPEG Layer-3 format");
+    /* A compressed format has no sample width and no fixed alignment, and the
+       Layer-3 tail is where the frame layout is stated. Each of these three is
+       a field a player reads and, finding a PCM value, has to work around. */
+    CHECK_EQ_U(sug.wfx.wBitsPerSample, 0, "it has no bits per sample");
+    CHECK_EQ_U(sug.wfx.nBlockAlign, 1, "its block alignment is one byte");
+    CHECK_EQ_U(sug.wfx.cbSize, MPEGLAYER3_WFX_EXTRA_BYTES,
+               "it declares the Layer-3 tail");
+    CHECK_EQ_U(sug.wID, MPEGLAYER3_ID_MPEG, "the tail names MPEG Layer-3");
+    CHECK_EQ_U(sug.wfx.nAvgBytesPerSec, suggested_bytes_per_sec,
+               "the byte rate is 64 kbit/s per channel");
+
+    /* The enumeration is not touched by this work, so the name it gives an
+       entry is the control for the description call: handed that same
+       structure back, the codec has to produce the same words. This runs
+       whatever the suggestion looked like, which the check below does not. */
+    printf("a format out of the codec's own list, described by the codec\n");
+    memset(&first, 0, sizeof(first));
+    first.match_any = 1;
+    CHECK_MM(enumerate_formats(had, &first), "the format list is walked");
+    CHECK(first.found, "the list yields a format to describe");
+    if (first.found) {
+        memset(&fd, 0, sizeof(fd));
+        fd.cbStruct = sizeof(fd);
+        fd.pwfx = (WAVEFORMATEX *) &first.format;
+        fd.cbwfx = sizeof(first.format);
+        fd.dwFormatTag = first.format.wfx.wFormatTag;
+        mr = acmFormatDetailsA(had, &fd, ACM_FORMATDETAILSF_FORMAT);
+        CHECK_MM(mr, "the codec describes a format from its own list");
+        printf("        listed as \"%s\", described as \"%s\"\n",
+               first.name, fd.szFormat);
+        CHECK(strcmp(fd.szFormat, first.name) == 0,
+              "a listed format is described in the wording the list uses");
+    }
+
+    printf("the name the codec gives its own suggestion\n");
+    memset(&want, 0, sizeof(want));
+    want.rate = rate;
+    want.bytes_per_sec = suggested_bytes_per_sec;
+    want.channels = channels;
+    want.flags = sug.fdwFlags;
+    CHECK_MM(enumerate_formats(had, &want),
+             "the format list is walked for the suggestion's own parameters");
+    CHECK(want.found, "the codec's own list holds the format it suggested");
+    if (want.found) {
+        memset(&fd, 0, sizeof(fd));
+        fd.cbStruct = sizeof(fd);
+        fd.pwfx = (WAVEFORMATEX *) &sug;
+        fd.cbwfx = sizeof(sug);
+        fd.dwFormatTag = sug.wfx.wFormatTag;
+        mr = acmFormatDetailsA(had, &fd, ACM_FORMATDETAILSF_FORMAT);
+        CHECK_MM(mr, "the codec describes the format it suggested");
+        printf("        listed as \"%s\", described as \"%s\"\n",
+               want.name, fd.szFormat);
+        CHECK(strcmp(fd.szFormat, want.name) == 0,
+              "the suggestion is described in the wording the list uses");
+    }
+
+    /* Not a check on the codec: the ACM range-checks the format index before
+       the driver is asked, so the driver's own bound cannot be reached from
+       here and this passes whether the driver has one or not. It is left in
+       to say what the framework does, and printed rather than asserted. */
+    printf("a format index past the end of the list\n");
+    memset(&ftd, 0, sizeof(ftd));
+    ftd.cbStruct = sizeof(ftd);
+    ftd.dwFormatTag = WAVE_FORMAT_MPEGLAYER3;
+    mr = acmFormatTagDetailsA(had, &ftd, ACM_FORMATTAGDETAILSF_FORMATTAG);
+    CHECK_MM(mr, "the codec reports how many formats it offers");
+    if (mr == MMSYSERR_NOERROR) {
+        MPEGLAYER3WAVEFORMAT past;
+        ACMFORMATDETAILSA pfd;
+
+        memset(&past, 0, sizeof(past));
+        memset(&pfd, 0, sizeof(pfd));
+        pfd.cbStruct = sizeof(pfd);
+        pfd.pwfx = (WAVEFORMATEX *) &past;
+        pfd.cbwfx = sizeof(past);
+        pfd.dwFormatTag = WAVE_FORMAT_MPEGLAYER3;
+        pfd.dwFormatIndex = ftd.cStandardFormats;
+        printf("        %u format(s); index %u answers mmresult %u\n",
+               (unsigned) ftd.cStandardFormats, (unsigned) pfd.dwFormatIndex,
+               (unsigned) acmFormatDetailsA(had, &pfd, ACM_FORMATDETAILSF_INDEX));
+    }
+
+    printf("a PCM format handed to the same description call\n");
+    {
+        WAVEFORMATEX src;
+        ACMFORMATDETAILSA pcmfd;
+
+        fill_pcm_format(&src, rate, channels);
+        memset(&pcmfd, 0, sizeof(pcmfd));
+        pcmfd.cbStruct = sizeof(pcmfd);
+        pcmfd.pwfx = &src;
+        pcmfd.cbwfx = sizeof(src);
+        pcmfd.dwFormatTag = WAVE_FORMAT_PCM;
+        mr = acmFormatDetailsA(had, &pcmfd, ACM_FORMATDETAILSF_FORMAT);
+        CHECK_MM(mr, "a PCM format is still described rather than refused");
+        if (mr == MMSYSERR_NOERROR) {
+            printf("        described as \"%s\"\n", pcmfd.szFormat);
+            /* The codec writes nothing for a PCM format, which is the cue for
+               the ACM to generate a localised description from the fields. */
+            CHECK(pcmfd.szFormat[0] != '\0',
+                  "the description the ACM generates comes back for it");
+        }
+    }
+}
+
 /**
  * @brief Counts MPEG frames in an encoded buffer and the distinct bitrates.
  *
@@ -541,6 +768,8 @@ test_under_the_acm(const char *driver)
     mr = acmFormatEnumA(had, &fd, format_cb, (DWORD_PTR) &formats, 0);
     CHECK_MM(mr, "the driver enumerates its formats");
     CHECK(formats > 0, "it offers at least one MPEG Layer-3 format");
+
+    test_format_negotiation(had);
 
     fill_pcm_format(&pcm, rate, channels);
     fill_mp3_format(&mp3, rate, channels, 128000);

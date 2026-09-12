@@ -99,6 +99,10 @@ static unsigned int mpeg2_freq[6];
 static unsigned int mpeg1_bitrate[14];
 static unsigned int mpeg2_bitrate[14];
 
+// The bitrate, in kbit/s per channel, of the format the driver suggests when
+// an application asks what it should encode a PCM stream to.
+static const unsigned int SUGGESTED_BITRATE_PER_CHANNEL = 64;
+
 // MPEG version, as the two library calls number them.
 static const int LAME_MPEG2  = 0;
 static const int LAME_MPEG1  = 1;
@@ -580,17 +584,32 @@ inline DWORD ACM::OnFormatDetails(LPACMFORMATDETAILS a_FormatDetails, const LPAR
 			{
 				my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Unknown a_FormatDetails->dwFormatTag = 0x%08X",a_FormatDetails->dwFormatTag);
 			}
+			break;
 
 		case ACM_FORMATDETAILSF_FORMAT :
-			/// \todo we may output the corresponding strong (only for personal format)
+		{
 			LPWAVEFORMATEX WaveExt;
 			WaveExt = a_FormatDetails->pwfx;
 
 			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "enter ACM_FORMATDETAILSF_FORMAT : 0x%04X:%03d, format in : channels %d, sample rate %d",a_FormatDetails->dwFormatTag,a_FormatDetails->dwFormatIndex, WaveExt->nChannels, WaveExt->nSamplesPerSec);
 
-			Result = MMSYSERR_NOERROR;
+			if (WaveExt->wFormatTag == PERSONAL_FORMAT) {
+				DescribeMP3Format(*WaveExt, a_FormatDetails->szFormat);
+				Result = MMSYSERR_NOERROR;
+			}
+			else if (WaveExt->wFormatTag == WAVE_FORMAT_PCM) {
+				// An empty description is the ACM's cue to generate its own,
+				// which is localised; that is what the format list gives a
+				// PCM format too.
+				Result = MMSYSERR_NOERROR;
+			}
+			else
+			{
+				my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "ACM_FORMATDETAILSF_FORMAT unknown format 0x%04X",WaveExt->wFormatTag);
+			}
 			break;
-		
+		}
+
 		default:
 			Result = ACMERR_NOTPOSSIBLE;
 			break;
@@ -842,22 +861,27 @@ my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed C");
 			//  if the destination bits per sample is restricted, verify
 			//  that it is within our capabilities...
 			//
-			//  We prefer decoding to 16-bit PCM.
+			//  a compressed format has no bits per sample, so a restriction
+			//  to any other value asks for a format that does not exist
 			//
 			if (ACM_FORMATSUGGESTF_WBITSPERSAMPLE & fdwSuggest)
             {
-                if ( (16 != a_FormatSuggest->pwfxDst->wBitsPerSample) && (8 != a_FormatSuggest->pwfxDst->wBitsPerSample) )
+                if (0 != a_FormatSuggest->pwfxDst->wBitsPerSample)
                     return (ACMERR_NOTPOSSIBLE);
             }
-            else
-			{
-                a_FormatSuggest->pwfxDst->wBitsPerSample = 16;
-            }
 
-			//			a_FormatSuggest->pwfxDst->nBlockAlign = FORMAT_BLOCK_ALIGN;
-			a_FormatSuggest->pwfxDst->nBlockAlign = a_FormatSuggest->pwfxDst->nChannels * a_FormatSuggest->pwfxDst->wBitsPerSample / 8;
-			
-			a_FormatSuggest->pwfxDst->nAvgBytesPerSec = a_FormatSuggest->pwfxDst->nChannels * 64000 / 8;
+			//
+			//  the answer is a whole MPEGLAYER3WAVEFORMAT, so the caller's
+			//  buffer has to hold one
+			//
+			if (a_FormatSuggest->cbwfxDst < sizeof(MPEGLAYER3WAVEFORMAT))
+				return (ACMERR_NOTPOSSIBLE);
+
+			FillMP3Format(*a_FormatSuggest->pwfxDst,
+			              a_FormatSuggest->pwfxDst->nSamplesPerSec,
+			              a_FormatSuggest->pwfxDst->nChannels * SUGGESTED_BITRATE_PER_CHANNEL,
+			              a_FormatSuggest->pwfxDst->nChannels,
+			              vbr_off);
 
 			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed");
 			Result = MMSYSERR_NOERROR;
@@ -1249,53 +1273,105 @@ inline DWORD ACM::OnStreamConvert(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACM
 }
 
 
-void ACM::GetMP3FormatForIndex(const DWORD the_Index, WAVEFORMATEX & the_Format, unsigned short the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const
+/*!
+	Tell whether the flags of an MPEG Layer-3 format say the stream carries an
+	average bitrate rather than a constant one.
+
+	\param the_Flags the fdwFlags member of a MPEGLAYER3WAVEFORMAT this codec
+	       filled in
+	\return true when the flags describe an average-bitrate stream
+*/
+bool ACM::IsABRFormatFlags(const DWORD the_Flags)
+{
+	// this is the only way I found to know if we do CBR or ABR
+	return (the_Flags - 2) == 0;
+}
+
+/*!
+	Fill a format structure with the MPEG Layer-3 format this codec produces for
+	one set of encoding parameters, tail included.
+
+	\param the_Format receives the format, and has room for a whole
+	       MPEGLAYER3WAVEFORMAT
+	\param the_Frequency the sample rate in Hz
+	\param the_Bitrate the bitrate in kbit/s
+	\param the_Channels the channel count, 1 or 2
+	\param the_Mode the bitrate mode the stream is encoded in
+*/
+void ACM::FillMP3Format(WAVEFORMATEX & the_Format, const unsigned int the_Frequency, const unsigned int the_Bitrate, const unsigned int the_Channels, const vbr_mode the_Mode) const
 {
 	int Block_size;
-    char temp[ACMFORMATDETAILS_FORMAT_CHARS];
 
+	the_Format.wBitsPerSample = 0;
 
+	/// \todo handle more channel modes (mono, stereo, joint-stereo, dual-channel)
+
+	the_Format.nBlockAlign = 1;
+
+	the_Format.nSamplesPerSec = the_Frequency;
+	the_Format.nAvgBytesPerSec = the_Bitrate * 1000 / 8;
+	if (the_Frequency >= mpeg1_freq[SIZE_FREQ_MPEG1-1])
+		Block_size = 1152;
+	else
+		Block_size = 576;
+
+	// Both narrowings are into WAVEFORMATEX's 16-bit fields and both are
+	// bounded well inside it: the channel count is 1 or 2, and the block
+	// size is the byte length of one frame - at most 1152 samples at 320
+	// kbit/s and 32 kHz, under 1500 bytes.
+	the_Format.nChannels = (WORD) the_Channels;
+
+	the_Format.cbSize = MPEGLAYER3_WFX_EXTRA_BYTES;
+	MPEGLAYER3WAVEFORMAT * tmpFormat = (MPEGLAYER3WAVEFORMAT *) &the_Format;
+	tmpFormat->wID             = MPEGLAYER3_ID_MPEG;
+	tmpFormat->fdwFlags        = 2 + ((the_Mode == vbr_abr)?0:2);
+	tmpFormat->nBlockSize      = (WORD) (Block_size * the_Format.nAvgBytesPerSec / the_Format.nSamplesPerSec);
+	tmpFormat->nFramesPerBlock = 1;
+	tmpFormat->nCodecDelay     = 0; // 0x0571 on FHG
+}
+
+/*!
+	Write the name this codec gives an MPEG Layer-3 format into a description
+	buffer, in the wording the format list uses.
+
+	\param the_Format the format to describe
+	\param the_String receives the description, at most
+	       ACMFORMATDETAILS_FORMAT_CHARS characters including the terminator
+*/
+void ACM::DescribeMP3Format(const WAVEFORMATEX & the_Format, unsigned short the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const
+{
+	char temp[ACMFORMATDETAILS_FORMAT_CHARS];
+
+	// The bitrate mode is in the tail, which a structure that declares no
+	// extra bytes does not carry; such a format is described as constant.
+	bool is_abr = false;
+	if (the_Format.cbSize >= MPEGLAYER3_WFX_EXTRA_BYTES)
+	{
+		const MPEGLAYER3WAVEFORMAT * tmpFormat = (const MPEGLAYER3WAVEFORMAT *) &the_Format;
+		is_abr = IsABRFormatFlags(tmpFormat->fdwFlags);
+	}
+
+	/// \todo : generate the string with the appropriate stereo mode
+	if (is_abr)
+		wsprintfA( temp, "%d Hz, %d kbps ABR, %s", the_Format.nSamplesPerSec, the_Format.nAvgBytesPerSec * 8 / 1000, (the_Format.nChannels == 1)?"Mono":"Stereo");
+	else
+		wsprintfA( temp, "%d Hz, %d kbps CBR, %s", the_Format.nSamplesPerSec, the_Format.nAvgBytesPerSec * 8 / 1000, (the_Format.nChannels == 1)?"Mono":"Stereo");
+
+	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, temp, -1, the_String, ACMFORMATDETAILS_FORMAT_CHARS);
+}
+
+void ACM::GetMP3FormatForIndex(const DWORD the_Index, WAVEFORMATEX & the_Format, unsigned short the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const
+{
 	if (the_Index < bitrate_table.size())
 	{
-	//	the_Format.wBitsPerSample = 16;
-		the_Format.wBitsPerSample = 0;
-	
-		/// \todo handle more channel modes (mono, stereo, joint-stereo, dual-channel)
-	//	the_Format.nChannels = SIZE_CHANNEL_MODE - int(the_Index % SIZE_CHANNEL_MODE);
-	
-		the_Format.nBlockAlign = 1;
-
-		the_Format.nSamplesPerSec = bitrate_table[the_Index].frequency;
-		the_Format.nAvgBytesPerSec = bitrate_table[the_Index].bitrate * 1000 / 8;
-		if (bitrate_table[the_Index].frequency >= mpeg1_freq[SIZE_FREQ_MPEG1-1])
-			Block_size = 1152;
-		else
-			Block_size = 576;
-	
-		// Both narrowings are into WAVEFORMATEX's 16-bit fields and both are
-		// bounded well inside it: the channel count is 1 or 2, and the block
-		// size is the byte length of one frame - at most 1152 samples at 320
-		// kbit/s and 32 kHz, under 1500 bytes.
-		the_Format.nChannels = (WORD) bitrate_table[the_Index].channels;
-
-		the_Format.cbSize = sizeof(MPEGLAYER3WAVEFORMAT) - sizeof(WAVEFORMATEX);
-		MPEGLAYER3WAVEFORMAT * tmpFormat = (MPEGLAYER3WAVEFORMAT *) &the_Format;
-		tmpFormat->wID             = 1;
-		// this is the only way I found to know if we do CBR or ABR
-		tmpFormat->fdwFlags        = 2 + ((bitrate_table[the_Index].mode == vbr_abr)?0:2);
-		tmpFormat->nBlockSize      = (WORD) (Block_size * the_Format.nAvgBytesPerSec / the_Format.nSamplesPerSec);
-		tmpFormat->nFramesPerBlock = 1;
-		tmpFormat->nCodecDelay     = 0; // 0x0571 on FHG
-	
-         /// \todo : generate the string with the appropriate stereo mode
-         if (bitrate_table[the_Index].mode == vbr_abr)
-             wsprintfA( temp, "%d Hz, %d kbps ABR, %s", the_Format.nSamplesPerSec, the_Format.nAvgBytesPerSec * 8 / 1000, (the_Format.nChannels == 1)?"Mono":"Stereo");
-         else
-             wsprintfA( temp, "%d Hz, %d kbps CBR, %s", the_Format.nSamplesPerSec, the_Format.nAvgBytesPerSec * 8 / 1000, (the_Format.nChannels == 1)?"Mono":"Stereo");
-
-         MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, temp, -1, the_String, ACMFORMATDETAILS_FORMAT_CHARS);
-     }
- }
+		FillMP3Format(the_Format,
+		              bitrate_table[the_Index].frequency,
+		              bitrate_table[the_Index].bitrate,
+		              bitrate_table[the_Index].channels,
+		              bitrate_table[the_Index].mode);
+		DescribeMP3Format(the_Format, the_String);
+	}
+}
 
 void ACM::GetPCMFormatForIndex(const DWORD the_Index, WAVEFORMATEX & the_Format, unsigned short the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const
 {

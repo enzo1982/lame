@@ -460,6 +460,13 @@
 			        56&nbsp;kbps resample the way that mode intends. A
 			        smart output ratio configured with a fractional part
 			        is kept as configured.</li>
+			    <li>The Windows ACM codec suggests a well-formed MP3
+			        format when an application asks it what to encode
+			        a PCM stream to, and describes a format handed to
+			        it in the wording its own format list uses, so an
+			        application listing the codec no longer shows a
+			        nameless 16-bit entry for it. Bug ticket
+			        <i class="ticket">[ #362 ]</i>.</li>
 			    <li>The DirectShow filter's output pin answers
 			        interface requests through the pin class it is
 			        built on, so seeking works again when the filter
