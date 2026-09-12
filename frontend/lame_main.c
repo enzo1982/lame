@@ -421,8 +421,8 @@ write_xing_frame(lame_global_flags * gf, FILE * outf, size_t offset)
     }
     if (imp3 > sizeof(mp3buffer)) {
         error_printf
-            ("Error writing LAME-tag frame: buffer too small: buffer size=%d  frame size=%d\n",
-             sizeof(mp3buffer), imp3);
+            ("Error writing LAME-tag frame: buffer too small: buffer size=%lu  frame size=%lu\n",
+             (unsigned long) sizeof(mp3buffer), (unsigned long) imp3);
         return -1;
     }
     assert( offset <= LONG_MAX );
@@ -454,8 +454,8 @@ write_id3v1_tag(lame_t gf, FILE * outf)
         return 0;
     }
     if (imp3 > sizeof(mp3buffer)) {
-        error_printf("Error writing ID3v1 tag: buffer too small: buffer size=%d  ID3v1 size=%d\n",
-                     sizeof(mp3buffer), imp3);
+        error_printf("Error writing ID3v1 tag: buffer too small: buffer size=%lu  ID3v1 size=%lu\n",
+                     (unsigned long) sizeof(mp3buffer), (unsigned long) imp3);
         return 0;       /* not critical */
     }
     owrite = fwrite(mp3buffer, 1, imp3, outf);

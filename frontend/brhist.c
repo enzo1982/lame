@@ -244,7 +244,7 @@ static int
 stats_head(double x, const char *txt)
 {
     if (x > 0.0) {
-        console_printf(txt);
+        console_printf("%s", txt);
         return 6;
     }
     return 0;

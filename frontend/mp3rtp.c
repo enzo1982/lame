@@ -113,7 +113,7 @@ levelmessage(unsigned int maxv, int* maxx, int* tmpx)
         max = tmp;
     buff[max] = 'x';
     buff[tmp] = '#';
-    console_printf(buff);
+    console_printf("%s", buff);
     console_flush();
     *maxx = max;
     *tmpx = tmp;
