@@ -159,6 +159,14 @@ find_pin(IBaseFilter *f, PIN_DIRECTION want)
 /** @brief One turn of the circle, for the sine's argument. */
 #define TWO_PI                  6.283185307179586
 
+/** @brief The first bitrate the property test sets, read back and replaced. */
+#define FIRST_BITRATE_KBPS      128
+/**
+ * @brief The bitrate the property test leaves set, so the one the graph runs
+ *        with - the stream that comes out has to carry it.
+ */
+#define SECOND_BITRATE_KBPS     192
+
 /**
  * @brief Writes a WAV file holding a sine, which is what the graph reads.
  *
@@ -208,10 +216,18 @@ write_wav(const char *path, DWORD rate, WORD channels, DWORD frames)
  * @brief Reads the produced file back as MPEG frames.
  *
  * Same reasoning as the ACM test: a byte count cannot tell a truncated stream
- * from a variable-rate one, and the frame headers can.
+ * from a variable-rate one, and the frame headers can. And as there, a stream
+ * that came out at one rate has to have come out at the rate that was set:
+ * without that check a filter that stores a bitrate, reads it back and then
+ * encodes at whatever it likes passes everything here.
+ *
+ * @param path         the file the graph wrote.
+ * @param seconds      how much audio went in.
+ * @param rate         its sample rate.
+ * @param nominal_kbps the bitrate the property interface was left holding.
  */
 static void
-inspect_mp3(const char *path, double seconds, DWORD rate)
+inspect_mp3(const char *path, double seconds, DWORD rate, int nominal_kbps)
 {
     FILE *f = fopen(path, "rb");
     unsigned char *buf;
@@ -219,6 +235,7 @@ inspect_mp3(const char *path, double seconds, DWORD rate)
     long off = 0;
     int seen = 0;
     int distinct = 0;
+    int sole_kbps = 0;
     int rates[MP3_BITRATE_INDEX_COUNT];
     int want;
 
@@ -264,6 +281,7 @@ inspect_mp3(const char *path, double seconds, DWORD rate)
         if (!rates[index]) {
             rates[index] = 1;
             ++distinct;
+            sole_kbps = mp3_bitrate_kbps[index];
         }
         ++seen;
         off += len;
@@ -276,6 +294,13 @@ inspect_mp3(const char *path, double seconds, DWORD rate)
        the tail is only as long as what is left of the input. */
     want = (int) (seconds * mp3_frames_per_second(rate)) - 2;
     CHECK(seen >= want, "the whole input is present as MPEG frames");
+    if (distinct == 1) {
+        CHECK_EQ_U(sole_kbps, nominal_kbps,
+                   "a constant rate is the one the properties were left set to");
+    }
+    else {
+        CHECK(distinct > 1, "a variable rate, so no single rate to check");
+    }
     free(buf);
 }
 
@@ -301,13 +326,13 @@ test_encoder_properties(IBaseFilter *lame)
         return;
     }
 
-    REQUIRE_HR(props->set_Bitrate(128), "a bitrate of 128 kbps is accepted");
+    REQUIRE_HR(props->set_Bitrate(FIRST_BITRATE_KBPS), "a bitrate of 128 kbps is accepted");
     REQUIRE_HR(props->get_Bitrate(&first), "the bitrate reads back");
-    CHECK_EQ_U(first, 128, "it reads back as the value that was set");
+    CHECK_EQ_U(first, FIRST_BITRATE_KBPS, "it reads back as the value that was set");
 
-    REQUIRE_HR(props->set_Bitrate(192), "a bitrate of 192 kbps is accepted");
+    REQUIRE_HR(props->set_Bitrate(SECOND_BITRATE_KBPS), "a bitrate of 192 kbps is accepted");
     REQUIRE_HR(props->get_Bitrate(&second), "the second bitrate reads back");
-    CHECK_EQ_U(second, 192, "it reads back as the second value");
+    CHECK_EQ_U(second, SECOND_BITRATE_KBPS, "it reads back as the second value");
     CHECK_NE_U(first, second, "the interface is not returning a fixed number");
 
     props->Release();
@@ -641,7 +666,7 @@ main(int argc, char **argv)
     CHECK_EQ_U(ev, EC_COMPLETE, "it finished because the stream ended");
     mc->Stop();
 
-    inspect_mp3(mp3, seconds, rate);
+    inspect_mp3(mp3, seconds, rate, SECOND_BITRATE_KBPS);
 
 out:
     if (wr_in) wr_in->Release();
