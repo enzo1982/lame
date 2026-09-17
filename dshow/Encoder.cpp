@@ -191,9 +191,8 @@ HRESULT CEncoder::Init()
 
             if (m_mabsi.dwKeepAllFreq != 0)
             {
-                ///pgf->lowpassfreq = -1;
-                ///pgf->highpassfreq = -1;
-                /// not available anymore
+                lame_set_lowpassfreq(pgf, -1);
+                lame_set_highpassfreq(pgf, -1);
             }
 
             lame_set_quality(pgf, m_mabsi.dwQuality);

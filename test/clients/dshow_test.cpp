@@ -47,22 +47,12 @@ static const GUID IID_IAudioEncoderProperties_local =
 
 typedef HRESULT (STDAPICALLTYPE *PFN_DllGetClassObject)(REFCLSID, REFIID, void **);
 
-/**
- * @brief The part of the filter's property interface this test uses.
- *
- * Declared here for the same reason the GUIDs are: so the test does not depend
- * on the filter's private headers. The vtable order is the interface's, and a
- * mismatch would show up as the wrong method being called rather than as a
- * compile error - which is why only the first few entries are declared, and
- * why the bitrate accessors are the pair that gets exercised.
+/*
+ * The property interface itself comes from the filter's public header, the one
+ * an application configuring the encoder includes; its IID above is still
+ * spelled locally, since the header's DEFINE_GUID declares without defining.
  */
-struct IAudioEncoderPropertiesSubset : public IUnknown
-{
-    STDMETHOD(get_PESOutputEnabled)(DWORD *enabled) PURE;
-    STDMETHOD(set_PESOutputEnabled)(DWORD enabled) PURE;
-    STDMETHOD(get_Bitrate)(DWORD *bitrate) PURE;
-    STDMETHOD(set_Bitrate)(DWORD bitrate) PURE;
-};
+#include "iaudioprops.h"
 
 /**
  * @brief Releases a media type the filter allocated for the caller.
@@ -166,6 +156,10 @@ find_pin(IBaseFilter *f, PIN_DIRECTION want)
  *        with - the stream that comes out has to carry it.
  */
 #define SECOND_BITRATE_KBPS     192
+/** @brief The interface's flag properties take a DWORD; this is the set value. */
+#define SWITCH_ON               1
+/** @brief What the LAME tag reports for the lowpass when there is no filter. */
+#define NO_LOWPASS_HZ           0
 
 /**
  * @brief Writes a WAV file holding a sine, which is what the graph reads.
@@ -238,6 +232,9 @@ inspect_mp3(const char *path, double seconds, DWORD rate, int nominal_kbps)
     int sole_kbps = 0;
     int rates[MP3_BITRATE_INDEX_COUNT];
     int want;
+    long first_off = 0;
+    long first_frame = 0;
+    int lowpass;
 
     if (f == NULL) {
         CHECK(0, "the graph produced an output file");
@@ -283,6 +280,10 @@ inspect_mp3(const char *path, double seconds, DWORD rate, int nominal_kbps)
             ++distinct;
             sole_kbps = mp3_bitrate_kbps[index];
         }
+        if (seen == 0) {
+            first_off = off;
+            first_frame = len;
+        }
         ++seen;
         off += len;
     }
@@ -301,6 +302,17 @@ inspect_mp3(const char *path, double seconds, DWORD rate, int nominal_kbps)
     else {
         CHECK(distinct > 1, "a variable rate, so no single rate to check");
     }
+    /* The two switches the property test left set: the tag has to be there,
+       and with keep-all-frequencies it has to say the encoder applied no
+       lowpass. The tag is the encoder's own record of the filter it ran with,
+       so this reads what reached the encoder, not what the filter stored. */
+    lowpass = mp3_lame_tag_lowpass_hz(buf + first_off, first_frame);
+    printf("        LAME tag lowpass: %d Hz\n", lowpass);
+    CHECK(lowpass != MP3_TAG_ABSENT, "the first frame carries a LAME tag");
+    if (lowpass != MP3_TAG_ABSENT) {
+        CHECK_EQ_U(lowpass, NO_LOWPASS_HZ,
+                   "with keep-all-frequencies set, the tag reports no lowpass filter");
+    }
     free(buf);
 }
 
@@ -311,14 +323,22 @@ inspect_mp3(const char *path, double seconds, DWORD rate, int nominal_kbps)
  * connected, since before that the parameters are overridden by the defaults
  * for the input media type. This is therefore called between the two
  * connections rather than before either.
+ *
+ * Two of the switches it leaves set are read back off the stream afterwards:
+ * the LAME tag, so that the first frame carries one, and keep-all-frequencies,
+ * which that tag then has to report as no lowpass filter. A switch that is
+ * stored and read back but never reaches the encoder passes the round trip
+ * here and fails there.
  */
 static void
 test_encoder_properties(IBaseFilter *lame)
 {
-    IAudioEncoderPropertiesSubset *props = NULL;
+    IAudioEncoderProperties *props = NULL;
     HRESULT hr;
     DWORD first = 0;
     DWORD second = 0;
+    DWORD keep = 0;
+    DWORD tag = 0;
 
     hr = lame->QueryInterface(IID_IAudioEncoderProperties_local, (void **) &props);
     REQUIRE_HR(hr, "the filter offers its audio encoder properties");
@@ -334,6 +354,14 @@ test_encoder_properties(IBaseFilter *lame)
     REQUIRE_HR(props->get_Bitrate(&second), "the second bitrate reads back");
     CHECK_EQ_U(second, SECOND_BITRATE_KBPS, "it reads back as the second value");
     CHECK_NE_U(first, second, "the interface is not returning a fixed number");
+
+    REQUIRE_HR(props->set_KeepAllFreq(SWITCH_ON), "keep-all-frequencies is accepted");
+    REQUIRE_HR(props->get_KeepAllFreq(&keep), "keep-all-frequencies reads back");
+    CHECK_EQ_U(keep, SWITCH_ON, "keep-all-frequencies reads back as set");
+
+    REQUIRE_HR(props->set_XingTag(SWITCH_ON), "writing the LAME tag is accepted");
+    REQUIRE_HR(props->get_XingTag(&tag), "the tag switch reads back");
+    CHECK_EQ_U(tag, SWITCH_ON, "the tag switch reads back as set");
 
     props->Release();
 }

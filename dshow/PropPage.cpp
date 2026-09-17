@@ -203,7 +203,7 @@ HRESULT CMpegAudEncPropertyPage::OnDeactivate(void)
 ////////////////////////////////////////////////////////////////
 // OnReceiveMessage - message handler function
 ////////////////////////////////////////////////////////////////
-BOOL CMpegAudEncPropertyPage::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
+INT_PTR CMpegAudEncPropertyPage::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
     switch (uMsg)
     {
@@ -404,7 +404,7 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
     m_pAEProps->get_Quality(&dwQuality);
     SendDlgItemMessage(hwndParent, IDC_SLIDER_QUALITY, TBM_SETRANGE, 1, MAKELONG (2,9));
     SendDlgItemMessage(hwndParent, IDC_SLIDER_QUALITY, TBM_SETPOS, 1, dwQuality);
-    if (dwQuality>=0 && dwQuality<10)
+    if (dwQuality<10)
         SetDlgItemText(hwndParent,IDC_TEXT_QUALITY,szQualityDesc[dwQuality]);
 
     //
@@ -466,8 +466,6 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
         SendDlgItemMessage(hwndParent, IDC_COMBO_VBRq, CB_ADDSTRING, 0, (LPARAM)(LPCTSTR)szVBRqDesc[k]);
     DWORD dwVBRq;
     m_pAEProps->get_VariableQ(&dwVBRq);
-    if (dwVBRq<0)
-        dwVBRq = 0;
     if (dwVBRq>9)
         dwVBRq = 9;
     m_pAEProps->set_VariableQ(dwVBRq);

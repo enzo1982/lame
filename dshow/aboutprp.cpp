@@ -160,7 +160,7 @@ HRESULT CMAEAbout::OnApplyChanges(void)
 //
 // Handles the messages for our property window
 
-BOOL CMAEAbout::OnReceiveMessage( HWND hwnd
+INT_PTR CMAEAbout::OnReceiveMessage( HWND hwnd
                                 , UINT uMsg
                                 , WPARAM wParam
                                 , LPARAM lParam)

@@ -156,7 +156,7 @@ HRESULT CMpegAudEncPropertyPageAdv::OnDeactivate(void)
 ////////////////////////////////////////////////////////////////
 // OnReceiveMessage - message handler function
 ////////////////////////////////////////////////////////////////
-BOOL CMpegAudEncPropertyPageAdv::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
+INT_PTR CMpegAudEncPropertyPageAdv::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
     switch (uMsg)
     {

@@ -16,6 +16,8 @@
 #ifndef LAME_TEST_CLIENTS_MP3FRAME_H
 #define LAME_TEST_CLIENTS_MP3FRAME_H
 
+#include <string.h>
+
 /** @brief Bytes of header the fields below are read from. */
 #define MP3_HEADER_BYTES            4
 
@@ -104,6 +106,55 @@ static double
 mp3_frames_per_second(unsigned long rate)
 {
     return (double) rate / (double) MP3_SAMPLES_PER_FRAME;
+}
+
+/** @brief The Xing or Info marker that opens a LAME tag frame is four bytes. */
+#define MP3_TAG_MARKER_BYTES        4
+/**
+ * @brief Offset of the LAME extension from the marker: the marker, the flags,
+ * the frame and byte counts, the 100-entry TOC and the quality word.
+ */
+#define MP3_TAG_LAME_OFFSET         (MP3_TAG_MARKER_BYTES + 4 + 4 + 4 + 100 + 4)
+/** @brief The extension opens with a nine-byte encoder string. */
+#define MP3_TAG_ENCODER_BYTES       9
+/** @brief One byte of tag revision and VBR method follows the encoder string. */
+#define MP3_TAG_REVISION_BYTES      1
+/** @brief Offset of the lowpass byte from the marker. */
+#define MP3_TAG_LOWPASS_OFFSET \
+    (MP3_TAG_LAME_OFFSET + MP3_TAG_ENCODER_BYTES + MP3_TAG_REVISION_BYTES)
+/** @brief The lowpass byte is in units of 100 Hz; zero means no filter. */
+#define MP3_TAG_LOWPASS_UNIT_HZ     100
+/** @brief What mp3_lame_tag_lowpass_hz() answers when there is no tag. */
+#define MP3_TAG_ABSENT              (-1)
+
+/**
+ * @brief The lowpass frequency the LAME tag of a stream records, in Hz.
+ *
+ * The tag sits in the stream's first frame, opened by an Xing or Info marker
+ * after the header and side information; the LAME extension follows the TOC
+ * and the encoder writes the lowpass it applied into it, in units of 100 Hz,
+ * with zero for none. The marker is searched for within the first frame rather
+ * than computed, so the side information size need not be known here.
+ *
+ * @param buf    the stream.
+ * @param frame  the length of its first frame, in bytes.
+ * @return the lowpass in Hz, 0 for no filter, or @c MP3_TAG_ABSENT when the
+ *         first frame carries no LAME tag.
+ */
+static int
+mp3_lame_tag_lowpass_hz(const unsigned char *buf, long frame)
+{
+    long off;
+
+    for (off = MP3_HEADER_BYTES; off + MP3_TAG_LOWPASS_OFFSET < frame; off++) {
+        if ((memcmp(buf + off, "Xing", MP3_TAG_MARKER_BYTES) == 0
+             || memcmp(buf + off, "Info", MP3_TAG_MARKER_BYTES) == 0)
+            && memcmp(buf + off + MP3_TAG_LAME_OFFSET, "LAME",
+                      MP3_TAG_MARKER_BYTES) == 0) {
+            return buf[off + MP3_TAG_LOWPASS_OFFSET] * MP3_TAG_LOWPASS_UNIT_HZ;
+        }
+    }
+    return MP3_TAG_ABSENT;
 }
 
 #endif /* LAME_TEST_CLIENTS_MP3FRAME_H */
