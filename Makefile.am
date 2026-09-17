@@ -25,8 +25,6 @@ EXTRA_DIST = \
 	configMS.h \
 	debian \
 	lame.bat \
-	lame.spec.in \
-	lame.spec \
 	testcase.mp3 \
 	testcase.wav \
 	maintainer/abicheck.sh \

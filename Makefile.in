@@ -108,7 +108,7 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno config.status.lineno
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
-CONFIG_CLEAN_FILES = lame.spec
+CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -165,10 +165,9 @@ am__define_uniq_tagged_files = \
   done | $(am__uniquify_input)`
 DIST_SUBDIRS = $(SUBDIRS)
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in \
-	$(srcdir)/lame.spec.in $(top_srcdir)/Makefile.am.global \
-	ABOUT-NLS COPYING ChangeLog INSTALL README TODO compile \
-	config.guess config.rpath config.sub depcomp install-sh \
-	ltmain.sh missing
+	$(top_srcdir)/Makefile.am.global ABOUT-NLS COPYING ChangeLog \
+	INSTALL README TODO compile config.guess config.rpath \
+	config.sub depcomp install-sh ltmain.sh missing
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -400,8 +399,6 @@ EXTRA_DIST = \
 	configMS.h \
 	debian \
 	lame.bat \
-	lame.spec.in \
-	lame.spec \
 	testcase.mp3 \
 	testcase.wav \
 	maintainer/abicheck.sh \
@@ -498,8 +495,6 @@ $(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
-lame.spec: $(top_builddir)/config.status $(srcdir)/lame.spec.in
-	cd $(top_builddir) && $(SHELL) ./config.status $@
 
 mostlyclean-libtool:
 	-rm -f *.lo

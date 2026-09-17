@@ -1817,7 +1817,6 @@ AC_CONFIG_FILES([Makefile \
 		 ACM/ADbg/Makefile \
 		 ACM/ddk/Makefile \
 		 ACM/tinyxml/Makefile \
-		 lame.spec \
 		 mac/Makefile \
 		 vc_solution/Makefile])
 

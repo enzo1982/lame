@@ -23056,7 +23056,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makefile test/Makefile test/unit/Makefile libmp3lame/Makefile libmp3lame/lame.pc libmp3lame/vector/Makefile frontend/Makefile mpglib/Makefile doc/Makefile doc/html/Makefile doc/man/Makefile include/Makefile Dll/Makefile misc/Makefile dshow/Makefile ACM/Makefile ACM/ADbg/Makefile ACM/ddk/Makefile ACM/tinyxml/Makefile lame.spec mac/Makefile vc_solution/Makefile"
+ac_config_files="$ac_config_files Makefile test/Makefile test/unit/Makefile libmp3lame/Makefile libmp3lame/lame.pc libmp3lame/vector/Makefile frontend/Makefile mpglib/Makefile doc/Makefile doc/html/Makefile doc/man/Makefile include/Makefile Dll/Makefile misc/Makefile dshow/Makefile ACM/Makefile ACM/ADbg/Makefile ACM/ddk/Makefile ACM/tinyxml/Makefile mac/Makefile vc_solution/Makefile"
 
 
 cat >confcache <<\_ACEOF
@@ -24105,7 +24105,6 @@ do
     "ACM/ADbg/Makefile") CONFIG_FILES="$CONFIG_FILES ACM/ADbg/Makefile" ;;
     "ACM/ddk/Makefile") CONFIG_FILES="$CONFIG_FILES ACM/ddk/Makefile" ;;
     "ACM/tinyxml/Makefile") CONFIG_FILES="$CONFIG_FILES ACM/tinyxml/Makefile" ;;
-    "lame.spec") CONFIG_FILES="$CONFIG_FILES lame.spec" ;;
     "mac/Makefile") CONFIG_FILES="$CONFIG_FILES mac/Makefile" ;;
     "vc_solution/Makefile") CONFIG_FILES="$CONFIG_FILES vc_solution/Makefile" ;;
 
