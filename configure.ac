@@ -45,6 +45,14 @@ AC_ARG_WITH([dot],
   [AC_PATH_PROG([DOT], [dot])])
 AC_SUBST([DOT])
 
+dnl for libmp3lame/Makefile.am's vcsrevision.h - the revision of the working
+dnl copy an alpha or beta build comes from, asked of whichever of the two is
+dnl present at build time; a tree that is not a working copy carries none
+AC_PATH_PROG([SVNVERSION], [svnversion])
+AC_PATH_PROG([GIT], [git])
+AC_DEFINE([HAVE_VCSREVISION_H], [1],
+  [Define to 1 if the build generates libmp3lame/vcsrevision.h.])
+
 dnl check environment
 AC_SEARCH_LIBS([strerror],[cposix])
 AC_USE_SYSTEM_EXTENSIONS

@@ -230,6 +230,9 @@
 /* Define to 1 if you have the <utime.h> header file. */
 #undef HAVE_UTIME_H
 
+/* Define to 1 if the build generates libmp3lame/vcsrevision.h. */
+#undef HAVE_VCSREVISION_H
+
 /* Define to 1 if you have the <wchar.h> header file. */
 #undef HAVE_WCHAR_H
 
