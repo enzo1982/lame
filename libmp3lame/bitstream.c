@@ -253,11 +253,10 @@ drain_into_ancillary(lame_internal_flags * gfc, int remainingBits)
 
     if (remainingBits >= 32) {
         const char *const version = get_lame_short_version();
-        if (remainingBits >= 32)
-            for (i = 0; i < (int) strlen(version) && remainingBits >= 8; ++i) {
-                remainingBits -= 8;
-                putbits2(gfc, version[i], 8);
-            }
+        for (i = 0; i < (int) strlen(version) && remainingBits >= 8; ++i) {
+            remainingBits -= 8;
+            putbits2(gfc, version[i], 8);
+        }
     }
 
     for (; remainingBits >= 1; remainingBits -= 1) {
