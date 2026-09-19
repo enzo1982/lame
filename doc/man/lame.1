@@ -329,106 +329,54 @@ decibels, in the range \-20.0 to +12.0. Another way of spelling
 in the units a listener thinks in.
 .TP
 .B \-\-replaygain\-fast
-Compute ReplayGain fast but slightly inaccurately.
+Measure ReplayGain on the input samples, after the volume scaling and
+resampling asked for on the command line.
+This is the default; see
+.B REPLAYGAIN
+below for what is measured and where it is stored.
 
-This computes "Radio" ReplayGain on the input data stream after
-user\(hyspecified volume\(hyscaling and/or resampling.
-
-The ReplayGain analysis does
-.I not
-affect the content of a compressed data stream itself,
-it is a value stored in the header of a sound file.
-Information on the purpose of ReplayGain and the algorithms used is
-available from
-.B http://www.replaygain.org/.
-
-Only the "RadioGain" Replaygain value is computed,
-it is stored in the LAME tag.
-The analysis is performed with the reference
-volume equal to 89dB.
-Note: the reference volume has been changed from 83dB on transition from
-version 3.95 to 3.95.1.
-
-This switch is enabled by default.
+Tests have shown that the difference between the ReplayGain values computed
+on the input data and on the decoded data is usually not greater than 0.5dB,
+although the minimum volume difference the human ear can perceive is
+about 1.0dB.
 
 See also:
 .B \-\-replaygain\-accurate, \-\-noreplaygain
 .TP
 .B \-\-replaygain\-accurate
-Compute ReplayGain more accurately and find the peak sample.
+Measure ReplayGain on the decoded data instead, decoding the encoded
+stream on the fly, and find the peak sample, which is stored beside the
+gain.
+See
+.B REPLAYGAIN
+below.
 
-This computes "Radio" ReplayGain on the decoded data stream,
-finds the peak sample by decoding on the fly the encoded data stream and stores it in the file. 
- 
-The ReplayGain analysis does
-.I not
-affect the content of a compressed data stream itself,
-it is a value stored in the header of a sound file.
-Information on the purpose of ReplayGain and the algorithms used is
-available from
-.B http://www.replaygain.org/.
-
- 
-By default, LAME performs ReplayGain analysis on the input data
-(after the user\(hyspecified volume scaling).
-This behavior might give slightly inaccurate results
-because the data on the output of a lossy compression/decompression sequence
-differs from the initial input data.
-When
-.B \-\-replaygain-accurate
-is specified the mp3 stream gets decoded on the fly and the analysis is
-performed on the decoded data stream.
-Although theoretically this method gives more accurate results,
-it has several disadvantages:
-.RS 8
-.IP "*" 4
-tests have shown that the difference between the ReplayGain values computed
-on the input data and decoded data is usually not greater than 0.5dB,
-although the minimum volume difference the human ear can perceive is
-about 1.0dB
-.IP "*" 4
-decoding on the fly significantly slows down the encoding process
-.RE
-.RS 7
-
-The apparent advantage is that:
-.RE
-.RS 8
-.IP "*" 4
-with
-.B \-\-replaygain-accurate
-the real peak sample is determined and stored in the file.
 The knowledge of the peak sample can be useful to decoders (players)
 to prevent a negative effect called 'clipping' that introduces distortion
 into the sound.
-.RE
-.RS 7
- 
-Only the "RadioGain" ReplayGain value is computed,
-it is stored in the LAME tag.
-The analysis is performed with the reference
-volume equal to 89dB.
-Note: the reference volume has been changed from 83dB on transition from
-version 3.95 to 3.95.1.
- 
+Decoding on the fly significantly slows down the encoding process,
+for a gain value that is usually within 0.5dB of the default one.
+
 This option is not usable if the MP3 decoder was
 .B explicitly
 disabled in the build of LAME.
 (Note: if LAME is compiled without the MP3 decoder,
 ReplayGain analysis is performed on the input data after user-specified
 volume scaling).
- 
+
 See also:
-.B \-\-replaygain-fast, \-\-noreplaygain \-\-clipdetect
-.RE
+.B \-\-replaygain\-fast, \-\-noreplaygain, \-\-clipdetect
 .TP
 .B \-\-noreplaygain
 Disable ReplayGain analysis.
 
 By default ReplayGain analysis is enabled. This switch disables it.
+See
+.B REPLAYGAIN
+below.
 
 See also:
-.B \-\-replaygain-fast, \-\-replaygain-accurate
+.B \-\-replaygain\-fast, \-\-replaygain\-accurate
 .TP
 .B \-\-replaygain\-id3v2
 Write the ReplayGain figures to the ID3v2 tag as well as to LAME's own tag,
@@ -1067,6 +1015,39 @@ i.e. if they are more than 30 characters.
 In this case,
 both v1 and v2 tags will be added,
 to ensure reading of tags by MP3 players which are unable to read ID3 v2 tags.
+
+.SH REPLAYGAIN
+ReplayGain proposes a per\(hytrack gain that plays every track at one
+perceived loudness.
+LAME measures it while encoding, as the ReplayGain specification
+describes:
+the signal passes an equal\(hyloudness filter,
+its RMS level is taken over 50 ms blocks,
+and the level 95\ % of the blocks fall below is compared with the
+reference volume of 89dB.
+Note: the reference volume has been changed from 83dB on transition from
+version 3.95 to 3.95.1.
+Only the track gain ("Radio" gain in the specification's terms) is
+computed.
+
+The value does not change the encoded audio:
+it is written into LAME's own tag in the first frame, and with
+.B \%\-\-replaygain\-id3v2
+also into the ID3v2 tag, where players read it.
+
+By default the measurement is taken on the input samples, after the
+volume scaling and resampling asked for on the command line, which is
+.BR \%\-\-replaygain\-fast ;
+.B \%\-\-replaygain\-accurate
+measures the decoded data instead and also finds the peak sample,
+.B \%\-\-noreplaygain
+turns the measurement off, and
+.B \%\-\-clipdetect
+reports whether the encoded audio would clip.
+
+The specification is at
+.br
+.B \%https://wiki.hydrogenaud.io/index.php?title=ReplayGain_1.0_specification
 
 .SH ENCODING MODES
 LAME is able to encode your music using one of its 3 encoding modes:

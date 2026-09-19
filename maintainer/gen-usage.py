@@ -105,7 +105,8 @@ class Renderer(html.parser.HTMLParser):
             if not chunk:
                 continue
             for line in textwrap.wrap(chunk, WIDTH, initial_indent=head,
-                                      subsequent_indent=indent):
+                                      subsequent_indent=indent,
+                                      break_long_words=False):
                 self.emit(line)
             head = indent
         self.emit('')

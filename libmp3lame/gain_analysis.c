@@ -26,8 +26,9 @@
  *    -- credit him for all the _good_ programming ;)
  *
  *
- *  For an explanation of the concepts and the basic algorithms involved, go to:
- *    http://www.replaygain.org/
+ *  For an explanation of the concepts and the basic algorithms involved, see
+ *  David Robinson's ReplayGain proposal (2001), kept as the ReplayGain
+ *  specification on the Hydrogenaudio wiki.
  */
 
 /*

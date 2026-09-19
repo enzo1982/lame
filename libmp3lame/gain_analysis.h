@@ -21,8 +21,9 @@
  *  coding by Glen Sawyer (mp3gain@hotmail.com) 735 W 255 N, Orem, UT 84057-4505 USA
  *    -- blame him if you think this runs too slowly, or the coding is otherwise flawed
  *
- *  For an explanation of the concepts and the basic algorithms involved, go to:
- *    http://www.replaygain.org/
+ *  For an explanation of the concepts and the basic algorithms involved, see
+ *  David Robinson's ReplayGain proposal (2001), kept as the ReplayGain
+ *  specification on the Hydrogenaudio wiki.
  */
 
 #ifndef GAIN_ANALYSIS_H
