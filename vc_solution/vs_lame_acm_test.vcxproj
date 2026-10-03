@@ -95,8 +95,8 @@
     <ProjectReference Include="vs_lame_acm_tinyxml.vcxproj">
       <Project>{30219289-3b7f-4e02-bc34-c1dbd08cd848}</Project>
     </ProjectReference>
-    <ProjectReference Include="vs_libmp3lame.vcxproj">
-      <Project>{20536101-3b0e-43ef-94f9-080d595dac57}</Project>
+    <ProjectReference Include="vs_libmp3lame_nodec.vcxproj">
+      <Project>{e1ef883d-7969-4f80-a91e-f260807f2961}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

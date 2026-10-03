@@ -327,6 +327,8 @@ EXTRA_DIST = \
 	vs_lame_test.vcxproj \
 	vs_lame.slnx \
 	vs_libmp3lame_dll.vcxproj \
+	vs_libmp3lame_files.props \
+	vs_libmp3lame_nodec.vcxproj \
 	vs_libmp3lame.vcxproj \
 	vs_libmp3lame.vcxproj.filters \
 	vs_libmpg123_config.props \

@@ -13,7 +13,8 @@
   Per component:
     - the image loads at all (LoadLibrary, which runs its DllMain);
     - every entry point it exists to provide resolves;
-    - it imports no redistributable runtime, read from the import table rather
+    - it imports no redistributable runtime and no other DLL that is not part
+      of Windows (libmpg123-0.dll, for one), read from the import table rather
       than from the project settings.
 
   Both components are built for Win32. A 64-bit PowerShell cannot load a 32-bit
@@ -155,8 +156,11 @@ foreach ($c in $components) {
 		$dlls = & $dumpbin /nologo /dependents $file |
 			Select-String -Pattern '^\s+(\S+\.dll)' | ForEach-Object { $_.Matches[0].Groups[1].Value }
 		$redist = $dlls | Where-Object { $_ -match '^(MSVCP|VCRUNTIME|MSVCR|api-ms-win-crt)' }
-		if ($redist) { Fail "imports the redistributable runtime: $($redist -join ' ')" }
-		else         { Pass "imports system DLLs only" }
+		$foreign = $dlls | Where-Object { $_ -notmatch '^(api|ext)-ms-' -and
+			-not (Test-Path (Join-Path ([Environment]::SystemDirectory) $_)) }
+		if ($redist)      { Fail "imports the redistributable runtime: $($redist -join ' ')" }
+		elseif ($foreign) { Fail "imports a DLL that is not part of Windows: $($foreign -join ' ')" }
+		else              { Pass "imports system DLLs only" }
 	}
 	Write-Host ""
 }

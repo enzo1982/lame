@@ -22,6 +22,8 @@
   </Project>
   <Project Path="vs_libmp3lame.vcxproj">
   </Project>
+  <Project Path="vs_libmp3lame_nodec.vcxproj">
+  </Project>
   <Project Path="vs_libmp3lame_dll.vcxproj">
   </Project>
 </Solution>

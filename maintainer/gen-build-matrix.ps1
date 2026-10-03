@@ -297,6 +297,17 @@ if ($clientsSln) {
 	$msbSkipped += "the client components - no clients solution under vc_solution\"
 }
 
+# The clients again with the decoder switched on. They link the library built
+# without it, so they must build and run with no libmpg123-0.dll beside them:
+# the cell fails if one is there, because the runs would then prove nothing.
+$mpg123Win32Marker = Join-Path $vcsol "mpg123\Win32\libmpg123-0.def"
+if ($clientsSln -and (Test-Path (Join-Path $vcsol "mpg123\Win32\mpg123.h")) -and (Test-Path $mpg123Win32Marker)) {
+	$cells += @{ Name = "msbuild-Release-Win32-clients-mpg123"
+		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$clientsSln`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 /p:HaveMpg123=true $msbDirs`r`nif errorlevel 1 exit /b 1`r`nif exist `"$binDir\libmpg123-0.dll`" (echo libmpg123-0.dll is beside the clients & exit /b 1)`r`n$smokeCmd -Path `"%~dp0bin`" -Require acm`r`nif errorlevel 1 exit /b 1`r`n$acmTest`r`nif errorlevel 1 exit /b 1`r`n$dshowTest`r`nif errorlevel 1 exit /b 1`r`n$bladeTest" }
+} elseif ($clientsSln) {
+	$msbSkipped += "the client components with mpg123 (decoder) - no $mpg123Win32Marker"
+}
+
 if ($baseCls -and $clientsSln) {
 	# No trailing separator on the path, for the reason the GTK cell above gives.
 	$cells += @{ Name = "msbuild-Release-Win32-dshow"

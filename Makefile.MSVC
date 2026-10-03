@@ -385,6 +385,11 @@ CPP_OPTS = /DHAVE_CONFIG_H -I.
 #	library, so this build makes its own into $(TARGET_DIR) and leaves the
 #	distribution folder alone.
 #
+#	lame.exe, mp3rtp.exe and libmp3lame.dll then use the decoder and need
+#	libmpg123-0.dll at run time. lame_enc.dll never contains the decoder: it
+#	links a second copy of the library compiled without it, from nodec\, and
+#	does not need libmpg123-0.dll.
+#
 #	The paths below supply their own separator, so that MPG123_DIR can be
 #	quoted against spaces: a directory quoted with a trailing backslash
 #	would escape the closing quote. A trailing backslash is still accepted,
@@ -394,6 +399,9 @@ CPP_OPTS = /DHAVE_CONFIG_H -I.
 CPP_OPTS = $(CPP_OPTS) /DHAVE_MPG123 -I"$(MPG123_DIR)\."
 MPG123_DEF = "$(MPG123_DIR)\libmpg123-0.def"
 MPG123_LIB = $(TARGET_DIR)libmpg123-0.lib
+T_LIB_NODEC = libmp3lame-static-nodec.lib
+!	ELSE
+T_LIB_NODEC = $(T_LIB_STATIC)
 !	ENDIF
 #___________________________________________________________ mpg123 DECODING __
 
@@ -477,6 +485,7 @@ ADDL_OBJ = bufferoverflowU.lib
 !ENDIF
 
 LIB_OBJ = $(lamelib_sources:.c=.obj)
+LIB_NODEC_OBJ = $(LIB_OBJ:libmp3lame/=nodec/libmp3lame/)
 CMMN_OBJ = $(common_sources:.c=.obj)
 LAME_OBJ = $(lame_sources:.c=.obj)
 MPRTP_OBJ = $(mp3rtp_sources:.c=.obj)
@@ -497,6 +506,13 @@ INCLUDES = -I. -I$(srcdir) -I$(srcdir)/include -I$(srcdir)/libmp3lame -I$(srcdir
 {$(srcdir)/libmp3lame/vector/}.c{libmp3lame/vector/}.obj:
 	@$(CC) $(CPP_OPTS) $(CC_SWITCHES) $(INCLUDES) $(CC_OUT)$@ -c $<
 
+#	The library without the decoder, for lame_enc.dll.
+{$(srcdir)/libmp3lame/}.c{nodec/libmp3lame/}.obj:
+	@$(CC) $(CPP_OPTS:/DHAVE_MPG123=) $(CC_SWITCHES) $(INCLUDES) $(CC_OUT)$@ -c $<
+
+{$(srcdir)/libmp3lame/vector/}.c{nodec/libmp3lame/vector/}.obj:
+	@$(CC) $(CPP_OPTS:/DHAVE_MPG123=) $(CC_SWITCHES) $(INCLUDES) $(CC_OUT)$@ -c $<
+
 {$(srcdir)/dll/}.c{dll/}.obj:
 	@$(CC) $(CPP_OPTS) $(CC_SWITCHES) $(INCLUDES) $(CC_OUT)$@ -c $<
 
@@ -514,6 +530,9 @@ target_directory :
 	@if not exist frontend mkdir frontend
 	@if not exist dll mkdir dll
 	@if not exist libmp3lame\vector mkdir libmp3lame\vector
+!	IF "$(MPG123)" == "YES"
+	@if not exist nodec\libmp3lame\vector mkdir nodec\libmp3lame\vector
+!	ENDIF
 
 common:	$(CMMN_OBJ)
 	@echo.
@@ -560,10 +579,10 @@ $(T_MP3RTP) : target_directory config.h $(MPG123_LIB) $(T_LIB_STATIC) common $(M
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
 
-$(T_LEGACY_DLL) : target_directory config.h $(MPG123_LIB) $(DLL_OBJ) lame_enc.res
+$(T_LEGACY_DLL) : target_directory config.h $(T_LIB_NODEC) $(DLL_OBJ) lame_enc.res
 	@$(LN) $(LN_OUT)$(TARGET_DIR)$@ $(LN_SWITCHES) \
-	       $(TARGET_DIR)$(T_LIB_STATIC) $(LN_DLL) \
-	       $(DLL_OBJ) $(ADDL_OBJ) $(MPG123_LIB) ./frontend/lame_enc.res user32.lib
+	       $(TARGET_DIR)$(T_LIB_NODEC) $(LN_DLL) \
+	       $(DLL_OBJ) $(ADDL_OBJ) ./frontend/lame_enc.res user32.lib
 	@echo.
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
@@ -585,6 +604,16 @@ $(T_LIB_STATIC) : target_directory lib
 	@echo.
 	@echo --=*  $(TARGET_DIR)$@ ready  *=--
 	@echo.
+
+!	IF "$(MPG123)" == "YES"
+$(T_LIB_NODEC) : target_directory config.h $(LIB_NODEC_OBJ)
+	@lib $(LIB_OPTS) \
+		/OUT:"$(TARGET_DIR)$@" \
+		$(LIB_NODEC_OBJ)
+	@echo.
+	@echo --=*  $(TARGET_DIR)$@ ready  *=--
+	@echo.
+!	ENDIF
 		
 config.h : $(srcdir)/configMS.h
 	@-copy "$(srcdir)\configMS.h" config.h
@@ -604,6 +633,9 @@ clean:
 	@-del mpglib\*.obj
 	@-del libmp3lame\*.obj
 	@-del libmp3lame\vector\*.obj
+	@-del $(TARGET_DIR)libmp3lame-static-nodec.lib
+	@-del nodec\libmp3lame\*.obj
+	@-del nodec\libmp3lame\vector\*.obj
 	@-del libmp3lame\*.res
 	@-del frontend\*.res
 

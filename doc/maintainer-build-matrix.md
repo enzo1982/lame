@@ -181,8 +181,12 @@ The Windows cells cover:
   `smoke-clients.ps1` rather than at the build, and its exit status is the
   cell's: these two are DLLs that Windows loads into another program's process,
   so it loads each one, resolves the entry points it exists to provide, and
-  reads its import table for a runtime that would have to be shipped alongside.
-  A clean build says the component linked, which is a different question.
+  reads its import table for a DLL that is not part of Windows and would have to
+  be shipped alongside. A clean build says the component linked, which is a
+  different question. Where the 32-bit mpg123 is laid out, a third cell builds
+  the clients with `/p:HaveMpg123=true` and runs the same checks with no
+  `libmpg123-0.dll` beside them: the clients link the library built without the
+  decoder, so they must load without it.
 
 The optional libraries are looked for under `vc_solution` where
 `setup-windows-deps.ps1` lays them out, or wherever a `-Mpg123Dir` /

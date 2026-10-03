@@ -109,7 +109,9 @@ Open the file "lame/vc_solution/vs_libmpg123_config.props" and edit the
 following  two user macro parameters:
 
 - The value of `HaveMpg123` can be set to false or true, and specifies if
-  the libmpg123 library is available and used in lame.exe and libmp3lame.dll.
+  the libmpg123 library is available and used in lame.exe, mp3rtp.exe,
+  mp3x.exe and libmp3lame.dll. These then need `libmpg123-0.dll` at run time;
+  the build copies it beside them.
   When set to false, decoding is not available in LAME. This includes
   calculating accurate Replaygain by decoding the just encoded data on-the-fly.
 - `Mpg123Path` specifies the path to the root folder of mpg123. The paths built
@@ -123,6 +125,11 @@ following  two user macro parameters:
 
 As described above, you can also use the Property Manager view to change the
 values.
+
+The Blade encoder DLL (lame_enc.dll), the ACM codec and the DirectShow filter
+never contain the decoder, whatever `HaveMpg123` says. They link
+`libmp3lame-static-nodec.lib`, which `vs_libmp3lame_nodec.vcxproj` builds from
+the same sources, and do not need `libmpg123-0.dll`.
 
 Note that when compiling for the x64 platform, you have to use the 64-bit
 version of libmpg123. Alternatively you can use the `Mpg123Path` as is
