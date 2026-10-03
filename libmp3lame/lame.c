@@ -1899,8 +1899,11 @@ lame_encode_buffer_sample_t(lame_internal_flags * gfc,
 
         in_buffer_ptr[0] = in_buffer[0];
         in_buffer_ptr[1] = in_buffer[1];
-        /* copy in new samples into mfbuf, with resampling */
-        if (fill_buffer(gfc, mfbuf, &in_buffer_ptr[0], nsamples, &n_in, &n_out) < 0)
+        /* copy in new samples into mfbuf, with resampling - unless a frame is
+           still waiting there from a call whose output did not fit; it is
+           encoded first */
+        if (esv->mf_size < mf_needed
+            && fill_buffer(gfc, mfbuf, &in_buffer_ptr[0], nsamples, &n_in, &n_out) < 0)
             return LAME_NOMEM;
 
         /* compute ReplayGain of resampled input if requested */

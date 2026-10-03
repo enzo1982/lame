@@ -604,6 +604,48 @@ test_flush_nogap_allows_continuing(LAME_UNUSED void **state)
 }
 
 /**
+ * @brief Calls whose output does not fit can be repeated, and the encoder then
+ *        goes on once there is room.
+ *
+ * Each call hands over twenty frames of noise and room for about four, so it
+ * answers -1 after encoding a few; the frame that did not fit stays in the
+ * encoder. At least one call must answer -1, or the case was not reached.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_small_buffer_calls_repeat(LAME_UNUSED void **state)
+{
+    enum { FRAMES = 20 * 1152, CALLS = 20, SMALL = 2000 };
+    static short pcm[2 * FRAMES];
+    static unsigned char mp3[LAME_MAXMP3BUFFER];
+    unsigned int s = 12345u;
+    int     i, call, n, refused = 0;
+    lame_t  gfp = lame_init();
+
+    assert_non_null(gfp);
+    assert_int_equal(lame_set_in_samplerate(gfp, 44100), 0);
+    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
+    assert_int_equal(lame_set_brate(gfp, 128), 0);
+    assert_true(lame_init_params(gfp) >= 0);
+    for (i = 0; i < 2 * FRAMES; i++) {
+        s = s * 1103515245u + 12345u;
+        pcm[i] = (short) (s >> 16);
+    }
+    for (call = 0; call < CALLS; call++) {
+        n = lame_encode_buffer_interleaved(gfp, pcm, FRAMES, mp3, SMALL);
+        if (n < 0)
+            refused++;
+    }
+    assert_true(refused > 0);
+    n = lame_encode_buffer_interleaved(gfp, pcm, 1152, mp3, sizeof mp3);
+    assert_true(n >= 0);
+    n = lame_encode_flush(gfp, mp3, sizeof mp3);
+    assert_true(n >= 0);
+    lame_close(gfp);
+}
+
+/**
  * @brief Reads the encoder delay and padding out of a LAME tag frame.
  * @param frame   the frame lame_get_lametag_frame() filled.
  * @param n       its length.
@@ -975,6 +1017,7 @@ main(void)
         cmocka_unit_test(test_two_dimensional_hists_agree),
         cmocka_unit_test(test_init_bitstream_clears_statistics),
         cmocka_unit_test(test_flush_nogap_allows_continuing),
+        cmocka_unit_test(test_small_buffer_calls_repeat),
         cmocka_unit_test(test_lametag_delay_zero_after_nogap_flush),
         cmocka_unit_test(test_encode_finish_matches_flush_then_close),
         cmocka_unit_test(test_lametag_frame_reports_required_size),
