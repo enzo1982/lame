@@ -1184,6 +1184,49 @@ test_v2_empty_url_frame_adds_nothing(void **state)
     assert_int_equal(walk_v2(sz, NULL, NULL), sz);
 }
 
+/**
+ * @brief In an ID3v2.4 tag, frames of 128 bytes and more are sized synchsafe,
+ *        so a reader reaches each of them and the frame after them.
+ *
+ * One long frame from each of the four frame writers - text, comment, URL,
+ * picture - since each writes its own size field.
+ *
+ * @param state the fixture's encoder instance.
+ */
+static void
+test_v2_4_long_frames_sized_synchsafe(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    char text[301], url[308];
+    unsigned char picture[300];
+    size_t sz, len = 0;
+    memset(text, 'T', 300);
+    text[300] = 0;
+    memcpy(url, "WXXX=d=", 7);
+    memset(url + 7, 'u', 300);
+    url[307] = 0;
+    memset(picture, 0, sizeof picture);
+    memcpy(picture, "\x89PNG", 4);
+    id3tag_v2_4_UTF8_only(gfp);
+    assert_int_equal(id3tag_set_textinfo_utf8(gfp, "TIT2", text), 0);
+    assert_int_equal(id3tag_set_comment_utf8(gfp, "eng", "d", text), 0);
+    assert_int_equal(id3tag_set_fieldvalue_utf8(gfp, url), 0);
+    assert_int_equal(id3tag_set_albumart(gfp, (const char *) picture, sizeof picture), 0);
+    assert_int_equal(id3tag_set_textinfo_utf8(gfp, "TPE1", "artist"), 0);
+    sz = get_v2(gfp);
+    assert_int_equal(tagbuf[3], 4);
+    assert_true(walk_v2(sz, "TIT2", &len) > 0);
+    assert_true(len > 300);
+    assert_true(walk_v2(sz, "COMM", &len) > 0);
+    assert_true(len > 300);
+    assert_true(walk_v2(sz, "WXXX", &len) > 0);
+    assert_true(len > 300);
+    assert_true(walk_v2(sz, "APIC", &len) > 0);
+    assert_true(len > 300);
+    assert_true(walk_v2(sz, "TPE1", NULL) > 0);
+    assert_int_equal(walk_v2(sz, NULL, NULL), sz);
+}
+
 /* --- fixture ----------------------------------------------------------- */
 
 /** @brief Per-test fixture: fresh lame_t into @p state. */
@@ -1254,6 +1297,7 @@ main(void)
         ID3_TEST(test_v2_comment_two_character_language),
         ID3_TEST(test_v2_short_frame_id_refused),
         ID3_TEST(test_v2_empty_url_frame_adds_nothing),
+        ID3_TEST(test_v2_4_long_frames_sized_synchsafe),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

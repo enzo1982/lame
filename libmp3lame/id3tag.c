@@ -904,6 +904,30 @@ set_4_byte_value(unsigned char *bytes, uint32_t value)
     return bytes + 4;
 }
 
+/**
+ * \internal
+ * \brief Writes a frame header's size field.
+ *
+ * ID3v2.3 stores the size as a plain 32-bit big-endian integer, ID3v2.4 as a
+ * synchsafe one: 28 bits, seven to a byte, the top bit of each byte clear.
+ * The tag as a whole is held to 28 bits before any frame is written, so every
+ * frame size fits either form.
+ *
+ * \param bytes      where the four size bytes go.
+ * \param size       the frame's size, header excluded.
+ * \param synchsafe  nonzero for an ID3v2.4 tag.
+ * \return the position after the size field.
+ */
+static unsigned char *
+set_frame_size(unsigned char *bytes, uint32_t size, int synchsafe)
+{
+    if (synchsafe) {
+        size = ((size & 0x0FE00000u) << 3) | ((size & 0x001FC000u) << 2)
+            | ((size & 0x00003F80u) << 1) | (size & 0x0000007Fu);
+    }
+    return set_4_byte_value(bytes, size);
+}
+
 static uint32_t
 toID3v2TagId(char const *s)
 {
@@ -2030,12 +2054,12 @@ writeLoBytes(unsigned char *frame, unsigned short const *str, size_t n)
 }
 
 static unsigned char *
-set_frame_comment(unsigned char *frame, FrameDataNode const *node)
+set_frame_comment(unsigned char *frame, FrameDataNode const *node, int synchsafe)
 {
     size_t const n = sizeOfCommentNode(node);
     if (n > 10) {
         frame = set_4_byte_value(frame, node->fid);
-        frame = set_4_byte_value(frame, (uint32_t) (n - 10));
+        frame = set_frame_size(frame, (uint32_t) (n - 10), synchsafe);
         /* clear 2-byte header flags */
         *frame++ = 0;
         *frame++ = 0;
@@ -2067,12 +2091,12 @@ set_frame_comment(unsigned char *frame, FrameDataNode const *node)
 }
 
 static unsigned char *
-set_frame_custom2(unsigned char *frame, FrameDataNode const *node)
+set_frame_custom2(unsigned char *frame, FrameDataNode const *node, int synchsafe)
 {
     size_t const n = sizeOfNode(node);
     if (n > 10) {
         frame = set_4_byte_value(frame, node->fid);
-        frame = set_4_byte_value(frame, (unsigned long) (n - 10));
+        frame = set_frame_size(frame, (uint32_t) (n - 10), synchsafe);
         /* clear 2-byte header flags */
         *frame++ = 0;
         *frame++ = 0;
@@ -2100,12 +2124,12 @@ set_frame_custom2(unsigned char *frame, FrameDataNode const *node)
 }
 
 static unsigned char *
-set_frame_wxxx(unsigned char *frame, FrameDataNode const *node)
+set_frame_wxxx(unsigned char *frame, FrameDataNode const *node, int synchsafe)
 {
     size_t const n = sizeOfWxxxNode(node);
     if (n > 10) {
         frame = set_4_byte_value(frame, node->fid);
-        frame = set_4_byte_value(frame, (unsigned long) (n - 10));
+        frame = set_frame_size(frame, (uint32_t) (n - 10), synchsafe);
         /* clear 2-byte header flags */
         *frame++ = 0;
         *frame++ = 0;
@@ -2133,7 +2157,8 @@ set_frame_wxxx(unsigned char *frame, FrameDataNode const *node)
 }
 
 static unsigned char *
-set_frame_apic(unsigned char *frame, const char *mimetype, const unsigned char *data, size_t size)
+set_frame_apic(unsigned char *frame, const char *mimetype, const unsigned char *data, size_t size,
+               int synchsafe)
 {
     /* ID3v2.3 standard APIC frame:
      *     <Header for 'Attached picture', ID: "APIC">
@@ -2145,7 +2170,7 @@ set_frame_apic(unsigned char *frame, const char *mimetype, const unsigned char *
      */
     if (mimetype && data && size) {
         frame = set_4_byte_value(frame, FRAME_ID('A', 'P', 'I', 'C'));
-        frame = set_4_byte_value(frame, (unsigned long) (4 + strlen(mimetype) + size));
+        frame = set_frame_size(frame, (uint32_t) (4 + strlen(mimetype) + size), synchsafe);
         /* clear 2-byte header flags */
         *frame++ = 0;
         *frame++ = 0;
@@ -2348,6 +2373,7 @@ lame_get_id3v2_tag(lame_t gfp, unsigned char *buffer, size_t size)
             unsigned char *p;
             size_t  adjusted_tag_size;
             const char *albumart_mime = NULL;
+            int const synchsafe = test_tag_spec_flags(gfc, V2_4_UTF8_FLAG);
             static const char *mime_jpeg = "image/jpeg";
             static const char *mime_png = "image/png";
             static const char *mime_gif = "image/gif";
@@ -2455,20 +2481,20 @@ lame_get_id3v2_tag(lame_t gfp, unsigned char *buffer, size_t size)
                     FrameDataNode *node;
                     for (node = tag->v2_head; node != 0; node = node->nxt) {
                         if (node->fid == ID_COMMENT || node->fid == ID_USER) {
-                            p = set_frame_comment(p, node);
+                            p = set_frame_comment(p, node, synchsafe);
                         }
                         else if (isFrameIdMatching(node->fid,FRAME_ID('W',0,0,0))) {
-                            p = set_frame_wxxx(p, node);
+                            p = set_frame_wxxx(p, node, synchsafe);
                         }
                         else {
-                            p = set_frame_custom2(p, node);
+                            p = set_frame_custom2(p, node, synchsafe);
                         }
                     }
                 }
             }
             if (albumart_mime) {
                 p = set_frame_apic(p, albumart_mime, gfc->tag_spec.albumart,
-                                   gfc->tag_spec.albumart_size);
+                                   gfc->tag_spec.albumart_size, synchsafe);
             }
             /* clear any padding bytes */
             memset(p, 0, tag_size - (p - buffer));

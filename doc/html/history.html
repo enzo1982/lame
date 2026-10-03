@@ -306,6 +306,9 @@
 			        tag, for instance from oversized embedded album art,
 			        would otherwise record a wrapped length and be
 			        unparseable; no tag is produced in that case.</li>
+			    <li>ID3v2.4 tags, as written by <i>--id3v2-utf8</i>,
+			        store each frame's size in the synchsafe format that
+			        ID3v2.4 requires.</li>
 			    <li><i>id3tag_set_textinfo_latin1()</i>,
 			        <i>id3tag_set_textinfo_utf8()</i> and
 			        <i>id3tag_set_textinfo_utf16()</i> return -1 for a frame
