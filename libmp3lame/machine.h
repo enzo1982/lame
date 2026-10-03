@@ -204,6 +204,53 @@ typedef FLOAT sample_t;
 #  endif
 #endif
 
+/**
+ *  \internal
+ *  Whether a float is a finite number. An IEEE-754 value is NaN or infinite
+ *  exactly when every exponent bit is set.
+ *
+ *  LAME is built with -ffast-math, under which the compiler is entitled to
+ *  assume that neither ever occurs and to delete a test for one. It sees
+ *  through the spelling: reading the raw bit pattern is not enough by itself,
+ *  because the integer comparison below is recognised as a floating point
+ *  class test and folded to a constant just as isfinite() or x!=x would be.
+ *  The value therefore reaches the comparison through a volatile object, whose
+ *  contents the compiler may not reason about.
+ *
+ *  @param x  the value to test.
+ *  @return nonzero when @p x is neither NaN nor an infinity.
+ */
+static inline int
+float_is_finite(float const x)
+{
+    float volatile opaque = x;
+    float   value;
+    uint32_t bits;
+
+    value = opaque;
+    memcpy(&bits, &value, sizeof bits);
+    return ((bits >> 23) & 0xFFu) != 0xFFu;
+}
+
+/**
+ *  \internal
+ *  float_is_finite() for a double.
+ *
+ *  @param x  the value to test.
+ *  @return nonzero when @p x is neither NaN nor an infinity.
+ */
+static inline int
+double_is_finite(double const x)
+{
+    double volatile opaque = x;
+    double  value;
+    uint64_t bits;
+
+    value = opaque;
+    memcpy(&bits, &value, sizeof bits);
+    return ((bits >> 52) & 0x7FFu) != 0x7FFu;
+}
+
 #endif
 
 /* end of machine.h */

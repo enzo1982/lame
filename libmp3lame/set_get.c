@@ -211,14 +211,16 @@ lame_get_num_channels(const lame_global_flags * gfp)
   up far enough will clip.
 
   \param gfp    the encoder instance.
-  \param scale  the factor. Not range-checked: 0 silences the input and a
-                negative value inverts it, both accepted.
-  \return 0 on success, -1 if the instance is not usable.
+  \param scale  the factor, a finite number. Not range-checked otherwise: 0
+                silences the input and a negative value inverts it, both
+                accepted.
+  \return 0 on success, -1 if the instance is not usable or the factor is NaN
+          or an infinity - the setting is then left as it was.
 */
 int
 lame_set_scale(lame_global_flags * gfp, float scale)
 {
-    if (is_lame_global_flags_valid(gfp)) {
+    if (is_lame_global_flags_valid(gfp) && float_is_finite(scale)) {
         /* default = 1 */
         gfp->scale = scale;
         return 0;
@@ -248,13 +250,13 @@ lame_get_scale(const lame_global_flags * gfp)
   multiply. Default 1. No effect on decoding, and none at all on mono input.
 
   \param gfp    the encoder instance.
-  \param scale  the factor, not range-checked. See \c lame_set_scale().
-  \return 0 on success, -1 if the instance is not usable.
+  \param scale  the factor, as for \c lame_set_scale().
+  \return as \c lame_set_scale().
 */
 int
 lame_set_scale_left(lame_global_flags * gfp, float scale)
 {
-    if (is_lame_global_flags_valid(gfp)) {
+    if (is_lame_global_flags_valid(gfp) && float_is_finite(scale)) {
         /* default = 1 */
         gfp->scale_left = scale;
         return 0;
@@ -283,13 +285,13 @@ lame_get_scale_left(const lame_global_flags * gfp)
   The counterpart of \c lame_set_scale_left(); the same rules apply.
 
   \param gfp    the encoder instance.
-  \param scale  the factor, not range-checked. See \c lame_set_scale().
-  \return 0 on success, -1 if the instance is not usable.
+  \param scale  the factor, as for \c lame_set_scale().
+  \return as \c lame_set_scale().
 */
 int
 lame_set_scale_right(lame_global_flags * gfp, float scale)
 {
-    if (is_lame_global_flags_valid(gfp)) {
+    if (is_lame_global_flags_valid(gfp) && float_is_finite(scale)) {
         /* default = 1 */
         gfp->scale_right = scale;
         return 0;
@@ -1258,13 +1260,15 @@ lame_get_brate(const lame_global_flags * gfp)
   \c lame_get_brate() reports afterwards is the real setting.
 
   \param gfp                the encoder instance.
-  \param compression_ratio  the ratio. Not range-checked here.
-  \return 0 on success, -1 if the instance is not usable.
+  \param compression_ratio  the ratio, a finite number. Not range-checked
+                            here otherwise.
+  \return 0 on success, -1 if the instance is not usable or the ratio is NaN
+          or an infinity - the setting is then left as it was.
 */
 int
 lame_set_compression_ratio(lame_global_flags * gfp, float compression_ratio)
 {
-    if (is_lame_global_flags_valid(gfp)) {
+    if (is_lame_global_flags_valid(gfp) && float_is_finite(compression_ratio)) {
         gfp->compression_ratio = compression_ratio;
         return 0;
     }
@@ -2031,17 +2035,18 @@ lame_get_VBR_q(const lame_global_flags * gfp)
   The upper bound is 9.999, not 9 - one whole level short of a tenth beyond
   it - because the value is split into a level and a remainder. As with
   \c lame_set_VBR_q(), an out-of-range value is clamped and -1 is returned
-  even though the setting took effect.
+  even though the setting took effect. NaN and the infinities are not clamped
+  but refused, and the setting is left as it was.
 
   \param gfp    the encoder instance.
   \param VBR_q  quality level, 0 to 9.999.
-  \return 0 on success, -1 if the instance is not usable, or if \a VBR_q was
-          out of range and has been clamped.
+  \return 0 on success, -1 if the instance is not usable, if \a VBR_q was
+          out of range and has been clamped, or if it is not a finite number.
 */
 int
 lame_set_VBR_quality(lame_global_flags * gfp, float VBR_q)
 {
-    if (is_lame_global_flags_valid(gfp)) {
+    if (is_lame_global_flags_valid(gfp) && float_is_finite(VBR_q)) {
         int     ret = 0;
 
         if (0 > VBR_q) {
@@ -2769,14 +2774,15 @@ lame_get_ATHcurve(const lame_global_flags * gfp)
   Applied to the curve as a whole, whichever formula produced it.
 
   \param gfp       the encoder instance.
-  \param ATHlower  how far to lower the curve, in dB. Default 0. Not
-                   validated.
-  \return 0 on success, -1 if the instance is not usable.
+  \param ATHlower  how far to lower the curve, in dB. Default 0. A finite
+                   number, not validated otherwise.
+  \return 0 on success, -1 if the instance is not usable or the value is NaN
+          or an infinity - the setting is then left as it was.
 */
 int
 lame_set_ATHlower(lame_global_flags * gfp, float ATHlower)
 {
-    if (is_lame_global_flags_valid(gfp)) {
+    if (is_lame_global_flags_valid(gfp) && float_is_finite(ATHlower)) {
         gfp->ATH_lower_db = ATHlower;
         return 0;
     }
@@ -2897,13 +2903,14 @@ lame_get_athaa_loudapprox(const lame_global_flags * gfp)
 
   \param gfp                 the encoder instance.
   \param athaa_sensitivity   the shift in dB. Default 0, meaning no shift.
-                             Not validated.
-  \return 0 on success, -1 if the instance is not usable.
+                             A finite number, not validated otherwise.
+  \return 0 on success, -1 if the instance is not usable or the value is NaN
+          or an infinity - the setting is then left as it was.
 */
 int
 lame_set_athaa_sensitivity(lame_global_flags * gfp, float athaa_sensitivity)
 {
-    if (is_lame_global_flags_valid(gfp)) {
+    if (is_lame_global_flags_valid(gfp) && float_is_finite(athaa_sensitivity)) {
         gfp->athaa_sensitivity = athaa_sensitivity;
         return 0;
     }
@@ -4377,13 +4384,14 @@ lame_set_tune(lame_global_flags * gfp, float val)
   \param gfp    the encoder instance.
   \param msfix  the factor; 0 or less disables the cap. Default is unset,
                 which \c lame_init_params() resolves to 0.
-  \note Returns nothing, so an unusable instance is silently ignored and a
-        caller cannot tell the setting was dropped.
+  \note Returns nothing, so an unusable instance, like a factor that is NaN or
+        an infinity, is silently ignored and a caller cannot tell the setting
+        was dropped.
 */
 void
 lame_set_msfix(lame_global_flags * gfp, double msfix)
 {
-    if (is_lame_global_flags_valid(gfp)) {
+    if (is_lame_global_flags_valid(gfp) && double_is_finite(msfix)) {
         /* default = 0 */
         gfp->msfix = msfix;
     }

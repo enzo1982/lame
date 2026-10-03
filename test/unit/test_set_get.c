@@ -22,6 +22,7 @@
 
 #include <stdarg.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <setjmp.h>
 #include <stdlib.h>
 #include <string.h>
@@ -904,6 +905,80 @@ test_vbr_floor_above_ceiling(void **state)
 }
 
 /**
+ * @brief Assembles a float from its IEEE-754 bit pattern, unfoldable by the
+ *        compiler - under the fast floating point maths these tests are built
+ *        with, a NaN or an infinity the compiler can see is folded away.
+ *
+ * @param bits the bit pattern.
+ * @return the float with that pattern.
+ */
+static float
+float_from_bits(uint32_t bits)
+{
+    uint32_t volatile opaque = bits;
+    uint32_t pattern;
+    float   f;
+
+    pattern = opaque;
+    memcpy(&f, &pattern, sizeof f);
+    return f;
+}
+
+/**
+ * @brief The floating point setters refuse NaN and the infinities and keep
+ *        the value they held, and an encode after such a refusal runs.
+ *
+ * Each setter first takes a valid value, then each non-finite one; the getter
+ * must still report the valid value. lame_set_msfix() returns nothing, so for
+ * it only the getter speaks.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_float_setters_refuse_nonfinite(void **state)
+{
+    static const uint32_t bad_bits[] = { 0x7FC00000u, 0x7F800000u, 0xFF800000u };
+    static short pcm[1152 * 4];
+    static unsigned char mp3[16384];
+    size_t  b;
+    (void) state;
+    for (b = 0; b < sizeof bad_bits / sizeof bad_bits[0]; ++b) {
+        float const bad = float_from_bits(bad_bits[b]);
+        lame_t  gf = lame_init();
+        assert_non_null(gf);
+        assert_int_equal(lame_set_scale(gf, 0.5f), 0);
+        assert_int_equal(lame_set_scale(gf, bad), -1);
+        ASSERT_FLT_EXACT(lame_get_scale(gf), 0.5f);
+        assert_int_equal(lame_set_scale_left(gf, 0.5f), 0);
+        assert_int_equal(lame_set_scale_left(gf, bad), -1);
+        ASSERT_FLT_EXACT(lame_get_scale_left(gf), 0.5f);
+        assert_int_equal(lame_set_scale_right(gf, 0.5f), 0);
+        assert_int_equal(lame_set_scale_right(gf, bad), -1);
+        ASSERT_FLT_EXACT(lame_get_scale_right(gf), 0.5f);
+        assert_int_equal(lame_set_compression_ratio(gf, 11.0f), 0);
+        assert_int_equal(lame_set_compression_ratio(gf, bad), -1);
+        ASSERT_FLT_EXACT(lame_get_compression_ratio(gf), 11.0f);
+        lame_set_msfix(gf, 1.5);
+        lame_set_msfix(gf, (double) bad);
+        ASSERT_FLT_EXACT(lame_get_msfix(gf), 1.5f);
+        assert_int_equal(lame_set_VBR_quality(gf, 2.5f), 0);
+        assert_int_equal(lame_set_VBR_quality(gf, bad), -1);
+        ASSERT_FLT_NEAR(lame_get_VBR_quality(gf), 2.5f);
+        assert_int_equal(lame_set_ATHlower(gf, 3.0f), 0);
+        assert_int_equal(lame_set_ATHlower(gf, bad), -1);
+        ASSERT_FLT_EXACT(lame_get_ATHlower(gf), 3.0f);
+        assert_int_equal(lame_set_athaa_sensitivity(gf, -2.0f), 0);
+        assert_int_equal(lame_set_athaa_sensitivity(gf, bad), -1);
+        ASSERT_FLT_EXACT(lame_get_athaa_sensitivity(gf), -2.0f);
+        assert_int_equal(lame_set_num_channels(gf, 1), 0);
+        assert_true(lame_init_params(gf) >= 0);
+        assert_true(lame_encode_buffer(gf, pcm, pcm, (int) (sizeof pcm / sizeof pcm[0]), mp3, sizeof mp3) >= 0);
+        assert_true(lame_encode_flush(gf, mp3, sizeof mp3) >= 0);
+        lame_close(gf);
+    }
+}
+
+/**
  * @brief lame_get_maximum_number_of_samples() keeps its promise: that many
  *        samples per call never overflow the buffer it was asked about.
  *
@@ -1075,6 +1150,7 @@ main(void)
         cmocka_unit_test(test_maximum_number_of_samples_holds),
         cmocka_unit_test(test_upsampling_ratio_limit),
         cmocka_unit_test(test_vbr_floor_above_ceiling),
+        cmocka_unit_test(test_float_setters_refuse_nonfinite),
 #if INTERNAL_OPTS
         cmocka_unit_test_setup_teardown(test_internal_opts, gfp_setup, gfp_teardown),
 #endif

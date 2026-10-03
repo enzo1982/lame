@@ -429,6 +429,14 @@
 			        The value at that point is the "not chosen yet"
 			        marker, and the check did not allow for it. It is
 			        now returned like any other unset setting.</li>
+			    <li>These setters reject NaN and infinite values and
+			        keep the previous value: <i>lame_set_scale()</i> and its
+			        per-channel variants,
+			        <i>lame_set_compression_ratio()</i>,
+			        <i>lame_set_VBR_quality()</i>,
+			        <i>lame_set_ATHlower()</i> and
+			        <i>lame_set_athaa_sensitivity()</i>.
+			        <i>lame_set_msfix()</i> ignores such values.</li>
 			    <li>A library built without libmpg123 now refuses to
 			        create a decoder instead of handing back one that
 			        fails on every use. Such a build cannot decode at
