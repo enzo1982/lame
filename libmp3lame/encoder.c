@@ -537,10 +537,12 @@ lame_encode_mp3_frame(       /* Output */
         for (i = 0; i < 9; i++)
             f += (gfc->sv_enc.pefirbuf[i] + gfc->sv_enc.pefirbuf[18 - i]) * fircoef[i];
 
-        f = (670 * 5 * cfg->mode_gr * cfg->channels_out) / f;
-        for (gr = 0; gr < cfg->mode_gr; gr++) {
-            for (ch = 0; ch < cfg->channels_out; ch++) {
-                pe_use[gr][ch] *= f;
+        if (f > 0) {
+            f = (670 * 5 * cfg->mode_gr * cfg->channels_out) / f;
+            for (gr = 0; gr < cfg->mode_gr; gr++) {
+                for (ch = 0; ch < cfg->channels_out; ch++) {
+                    pe_use[gr][ch] *= f;
+                }
             }
         }
     }
