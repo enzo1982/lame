@@ -922,6 +922,9 @@ toID3v2TagId(char const *s)
             }
         }
     }
+    if (i < 4) {
+        return 0;
+    }
     return x;
 }
 
@@ -946,6 +949,9 @@ toID3v2TagId_ucs2(unsigned short const *s)
         }
         x <<= 8;
         x |= c;
+    }
+    if (i < 4) {
+        return 0;
     }
     return x;
 }

@@ -1142,6 +1142,27 @@ test_v2_comment_two_character_language(void **state)
     assert_memory_equal(tagbuf + at + 1, "en ", 3);
 }
 
+/**
+ * @brief An identifier shorter than four characters is refused and adds no
+ *        frame, so a frame set after it stays within a reader's reach.
+ *
+ * @param state the fixture's encoder instance.
+ */
+static void
+test_v2_short_frame_id_refused(void **state)
+{
+    static const unsigned short u_text[] = { 0xFEFF, 'x', 0 };
+    lame_t gfp = (lame_t) *state;
+    size_t sz;
+    assert_int_equal(id3tag_set_textinfo_latin1(gfp, "X", "abc"), -1);
+    assert_int_equal(id3tag_set_textinfo_utf8(gfp, "TIT", "abc"), -1);
+    assert_int_equal(id3tag_set_textinfo_utf16(gfp, "WO", u_text), -1);
+    assert_int_equal(id3tag_set_textinfo_latin1(gfp, "TPE1", "artist"), 0);
+    sz = get_v2(gfp);
+    assert_true(walk_v2(sz, "TPE1", NULL) > 0);
+    assert_int_equal(walk_v2(sz, NULL, NULL), sz);
+}
+
 /* --- fixture ----------------------------------------------------------- */
 
 /** @brief Per-test fixture: fresh lame_t into @p state. */
@@ -1210,6 +1231,7 @@ main(void)
         ID3_TEST(test_set_track_with_total),
         ID3_TEST(test_v2_comment_one_character_language),
         ID3_TEST(test_v2_comment_two_character_language),
+        ID3_TEST(test_v2_short_frame_id_refused),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

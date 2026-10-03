@@ -306,6 +306,10 @@
 			        tag, for instance from oversized embedded album art,
 			        would otherwise record a wrapped length and be
 			        unparseable; no tag is produced in that case.</li>
+			    <li><i>id3tag_set_textinfo_latin1()</i>,
+			        <i>id3tag_set_textinfo_utf8()</i> and
+			        <i>id3tag_set_textinfo_utf16()</i> return -1 for a frame
+			        ID shorter than four characters.</li>
 			    <li>In ID3v2 tags, a comment language code shorter than
 			        three characters is padded with spaces.</li>
 			    <li>The ID3v2 tag carries the full audio play-length,
