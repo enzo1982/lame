@@ -138,6 +138,25 @@ static void FillRateTables()
 	}
 }
 
+/**
+	\brief Whether a sample rate is one an MPEG Layer-3 stream can have
+
+	\param the_Frequency the sample rate in Hz
+	\return true for one of the rates in the two tables above
+*/
+static bool IsMP3Frequency(const unsigned int the_Frequency)
+{
+	unsigned int i;
+
+	for (i = 0;i < SIZE_FREQ_MPEG1;i++)
+		if (mpeg1_freq[i] == the_Frequency)
+			return true;
+	for (i = 0;i < SIZE_FREQ_MPEG2;i++)
+		if (mpeg2_freq[i] == the_Frequency)
+			return true;
+	return false;
+}
+
 static const int FORMAT_TAG_MAX_NB = 2; // PCM and PERSONAL (mandatory to have at least PCM and your format)
 static const int FILTER_TAG_MAX_NB = 0; // this is a codec, not a filter
 
@@ -850,6 +869,9 @@ my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed B");
 			{
                 a_FormatSuggest->pwfxDst->nSamplesPerSec = a_FormatSuggest->pwfxSrc->nSamplesPerSec;
             }
+
+			if (!IsMP3Frequency(a_FormatSuggest->pwfxDst->nSamplesPerSec))
+				return (ACMERR_NOTPOSSIBLE);
 
 
 my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed C");

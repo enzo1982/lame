@@ -633,6 +633,68 @@ test_format_negotiation(HACMDRIVER had)
     }
 }
 
+/** @brief What the wrapper below answers when the codec faulted. */
+static const MMRESULT CALL_FAULTED = (MMRESULT) -1;
+
+/**
+ * @brief acmFormatSuggest(), with a fault inside the codec answered as a result.
+ * @param had the opened driver
+ * @param src the source format
+ * @param dst receives the suggestion
+ * @param cb the size of @a dst
+ * @param flags which fields of @a dst are fixed
+ * @return what the call returned, or CALL_FAULTED
+ */
+static MMRESULT
+suggest_catching_faults(HACMDRIVER had, WAVEFORMATEX *src, WAVEFORMATEX *dst,
+                        DWORD cb, DWORD flags)
+{
+    __try {
+        return acmFormatSuggest(had, src, dst, cb, flags);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        return CALL_FAULTED;
+    }
+}
+
+/**
+ * @brief A PCM source at a rate no MPEG Layer-3 stream has gets no suggestion.
+ *
+ * The codec does not resample, so the rate it would suggest is the source's
+ * own. Zero is no rate at all and 96000 Hz is one no MPEG Layer-3 stream has;
+ * 44100 Hz is the control: the same call, answered. A fault inside the codec
+ * is answered as CALL_FAULTED, so it fails the check rather than the program.
+ *
+ * @param had the opened driver
+ */
+static void
+test_suggest_unencodable_rate(HACMDRIVER had)
+{
+    static const DWORD rates[] = { 0, 96000 };
+    WAVEFORMATEX pcm;
+    MPEGLAYER3WAVEFORMAT sug;
+    size_t i;
+
+    printf("a suggestion for a PCM rate no MPEG Layer-3 stream has\n");
+    for (i = 0; i < sizeof(rates) / sizeof(rates[0]); i++) {
+        char what[CTEST_DETAIL_CHARS];
+
+        fill_pcm_format(&pcm, rates[i], 2);
+        memset(&sug, 0, sizeof(sug));
+        sug.wfx.wFormatTag = WAVE_FORMAT_MPEGLAYER3;
+        sprintf(what, "a %lu Hz source gets no suggestion", (unsigned long) rates[i]);
+        CHECK_EQ_U(suggest_catching_faults(had, &pcm, (WAVEFORMATEX *) &sug, sizeof(sug),
+                                           ACM_FORMATSUGGESTF_WFORMATTAG),
+                   ACMERR_NOTPOSSIBLE, what);
+    }
+    fill_pcm_format(&pcm, 44100, 2);
+    memset(&sug, 0, sizeof(sug));
+    sug.wfx.wFormatTag = WAVE_FORMAT_MPEGLAYER3;
+    CHECK_MM(suggest_catching_faults(had, &pcm, (WAVEFORMATEX *) &sug, sizeof(sug),
+                                     ACM_FORMATSUGGESTF_WFORMATTAG),
+             "a 44100 Hz source still gets one");
+}
+
 /**
  * @brief Counts MPEG frames in an encoded buffer and the distinct bitrates.
  *
@@ -860,6 +922,7 @@ test_under_the_acm(const char *driver)
     CHECK(formats > 0, "it offers at least one MPEG Layer-3 format");
 
     test_format_negotiation(had);
+    test_suggest_unencodable_rate(had);
 
     fill_pcm_format(&pcm, rate, channels);
     fill_mp3_format(&mp3, rate, channels, 128000);
