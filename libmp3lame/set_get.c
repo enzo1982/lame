@@ -2138,6 +2138,9 @@ lame_get_VBR_mean_bitrate_kbps(const lame_global_flags * gfp)
   The floor is a preference, not a guarantee - passages of near-silence go
   below it unless \c lame_set_VBR_hard_min() says otherwise.
 
+  \c lame_init_params() fails when the floor, once snapped, lies above the
+  ceiling of \c lame_set_VBR_max_bitrate_kbps().
+
   \param gfp                   the encoder instance.
   \param VBR_min_bitrate_kbps  the floor in kbps, or 0 for none. Not
                                validated here.

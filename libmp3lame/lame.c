@@ -1219,6 +1219,11 @@ lame_init_params(lame_global_flags * gfp)
         }
         gfp->VBR_min_bitrate_kbps = bitrate_table[cfg->version][cfg->vbr_min_bitrate_index];
         gfp->VBR_max_bitrate_kbps = bitrate_table[cfg->version][cfg->vbr_max_bitrate_index];
+        if (cfg->vbr_min_bitrate_index > cfg->vbr_max_bitrate_index) {
+            ERRORF(gfc, "Error: the minimum bitrate of %d kbps is above the maximum of %d kbps\n",
+                   gfp->VBR_min_bitrate_kbps, gfp->VBR_max_bitrate_kbps);
+            return -1;
+        }
         gfp->VBR_mean_bitrate_kbps =
             Min(bitrate_table[cfg->version][cfg->vbr_max_bitrate_index],
                 gfp->VBR_mean_bitrate_kbps);

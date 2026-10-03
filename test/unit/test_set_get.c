@@ -860,6 +860,50 @@ test_upsampling_ratio_limit(void **state)
 }
 
 /**
+ * @brief lame_init_params() refuses a variable bitrate floor above the
+ *        ceiling, in every variable bitrate mode, and accepts one equal to it.
+ *
+ * The comparison is between the snapped rates: at 22.05 kHz a floor of 256
+ * becomes 160, still above a ceiling of 128; at 11.025 kHz both become 64.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_vbr_floor_above_ceiling(void **state)
+{
+    static const vbr_mode modes[] = { vbr_abr, vbr_mt, vbr_rh, vbr_mtrh };
+    static const struct {
+        int     rate, floor_kbps, ceiling_kbps, accepted;
+    } cases[] = {
+        { 44100, 256, 128, 0 },
+        { 44100, 64, 8, 0 },    /* the ceiling snaps to 32 */
+        { 44100, 128, 128, 1 },
+        { 44100, 128, 256, 1 },
+        { 44100, 160, 0, 1 },   /* no ceiling asked for */
+        { 22050, 256, 128, 0 },
+        { 11025, 256, 128, 1 },
+    };
+    size_t  m, c;
+    (void) state;
+    for (m = 0; m < sizeof modes / sizeof modes[0]; ++m) {
+        for (c = 0; c < sizeof cases / sizeof cases[0]; ++c) {
+            lame_t  gf = lame_init();
+            int     r;
+            assert_non_null(gf);
+            assert_int_equal(lame_set_out_samplerate(gf, cases[c].rate), 0);
+            assert_int_equal(lame_set_VBR(gf, modes[m]), 0);
+            assert_int_equal(lame_set_VBR_min_bitrate_kbps(gf, cases[c].floor_kbps), 0);
+            assert_int_equal(lame_set_VBR_max_bitrate_kbps(gf, cases[c].ceiling_kbps), 0);
+            r = lame_init_params(gf);
+            if ((r >= 0) != cases[c].accepted)
+                fail_msg("mode %d, %d Hz, floor %d, ceiling %d kbps: lame_init_params() answered %d",
+                         (int) modes[m], cases[c].rate, cases[c].floor_kbps, cases[c].ceiling_kbps, r);
+            lame_close(gf);
+        }
+    }
+}
+
+/**
  * @brief lame_get_maximum_number_of_samples() keeps its promise: that many
  *        samples per call never overflow the buffer it was asked about.
  *
@@ -1030,6 +1074,7 @@ main(void)
         cmocka_unit_test_setup_teardown(test_maximum_number_of_samples, gfp_setup, gfp_teardown),
         cmocka_unit_test(test_maximum_number_of_samples_holds),
         cmocka_unit_test(test_upsampling_ratio_limit),
+        cmocka_unit_test(test_vbr_floor_above_ceiling),
 #if INTERNAL_OPTS
         cmocka_unit_test_setup_teardown(test_internal_opts, gfp_setup, gfp_teardown),
 #endif

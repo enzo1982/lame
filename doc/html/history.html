@@ -449,6 +449,10 @@
 			        <i class="ticket">[ #490 ]</i>.</li>
 			    <li><i>lame_init_params()</i> fails if the output sample
 			        rate is more than 128 times the input sample rate.</li>
+			    <li><i>lame_init_params()</i> fails if the minimum VBR
+			        bitrate is higher than the maximum. In <i>lame</i>, this
+			        is <i>-b</i> higher than <i>-B</i> together with
+			        <i>-V</i> or <i>--abr</i>.</li>
 			    <li><i>lame_get_maximum_number_of_samples()</i> returns
 			        a sample count whose MP3 data always fits into the
 			        buffer size passed to it, including the tags written at
