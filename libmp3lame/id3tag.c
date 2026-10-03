@@ -1978,6 +1978,9 @@ sizeOfWxxxNode(FrameDataNode const *node)
                 break;
             }
         }
+        if (n == 10) {
+            n = 0;              /* nothing to carry: set_frame_wxxx() writes no frame */
+        }
     }
     return n;
 }

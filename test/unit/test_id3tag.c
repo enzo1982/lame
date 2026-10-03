@@ -1163,6 +1163,27 @@ test_v2_short_frame_id_refused(void **state)
     assert_int_equal(walk_v2(sz, NULL, NULL), sz);
 }
 
+/**
+ * @brief A URL frame with nothing to carry adds no bytes to the tag, whichever
+ *        setter it comes through.
+ *
+ * @param state the fixture's encoder instance.
+ */
+static void
+test_v2_empty_url_frame_adds_nothing(void **state)
+{
+    static const unsigned short u_bom[] = { 0xFEFF, 0 };
+    lame_t gfp = (lame_t) *state;
+    size_t sz;
+    assert_int_equal(id3tag_set_textinfo_latin1(gfp, "TPE1", "artist"), 0);
+    (void) id3tag_set_textinfo_latin1(gfp, "WOAR", "");
+    (void) id3tag_set_textinfo_utf16(gfp, "WOAF", u_bom);
+    (void) id3tag_set_fieldvalue(gfp, "WXXX==");
+    sz = get_v2(gfp);
+    assert_true(walk_v2(sz, "TPE1", NULL) > 0);
+    assert_int_equal(walk_v2(sz, NULL, NULL), sz);
+}
+
 /* --- fixture ----------------------------------------------------------- */
 
 /** @brief Per-test fixture: fresh lame_t into @p state. */
@@ -1232,6 +1253,7 @@ main(void)
         ID3_TEST(test_v2_comment_one_character_language),
         ID3_TEST(test_v2_comment_two_character_language),
         ID3_TEST(test_v2_short_frame_id_refused),
+        ID3_TEST(test_v2_empty_url_frame_adds_nothing),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
