@@ -25,6 +25,10 @@
  * because what is at stake is one of them being folded into another, and the
  * surviving frame answers a search for its own text either way.
  *
+ * The last group reads the tag the way a player does, walking the frames by the
+ * sizes their headers declare, and checks what that walk reaches - a byte
+ * search finds text a reader never gets to.
+ *
  * These are library-level tests: they link libmp3lame and call the exported
  * API directly, so no frontend translation unit is compiled in.
  */
@@ -127,6 +131,48 @@ static size_t
 get_v2(lame_t gfp)
 {
     return lame_get_id3v2_tag(gfp, tagbuf, sizeof tagbuf);
+}
+
+/**
+ * @brief Walks the frames of the ID3v2 tag in ::tagbuf as a reader does.
+ *
+ * Each frame's size is read as the tag's version defines it: a plain 32-bit
+ * integer in ID3v2.3, a synchsafe one in ID3v2.4. The walk stops at the first
+ * zero byte where a frame would start, which a reader takes for padding.
+ *
+ * @param sz   the tag's size.
+ * @param id   a four-character frame id to look for, or NULL.
+ * @param len  receives the data size of the frame found; may be NULL.
+ * @return with @p id, the offset of that frame's data, 0 if a reader does not
+ *         reach it; without, the offset where the frames end, 0 if a frame
+ *         size cannot be read or runs past the tag.
+ */
+static size_t
+walk_v2(size_t sz, const char *id, size_t *len)
+{
+    size_t p = 10;
+    int const v24 = sz >= 10 && tagbuf[3] == 4;
+    while (p + 10 <= sz && tagbuf[p] != 0) {
+        const unsigned char *h = tagbuf + p + 4;
+        size_t n;
+        if (v24) {
+            if ((h[0] | h[1] | h[2] | h[3]) & 0x80)
+                return 0;
+            n = ((size_t) h[0] << 21) | ((size_t) h[1] << 14) | ((size_t) h[2] << 7) | h[3];
+        }
+        else {
+            n = ((size_t) h[0] << 24) | ((size_t) h[1] << 16) | ((size_t) h[2] << 8) | h[3];
+        }
+        if (n > sz - p - 10)
+            return 0;
+        if (id != NULL && memcmp(tagbuf + p, id, 4) == 0) {
+            if (len != NULL)
+                *len = n;
+            return p + 10;
+        }
+        p += 10 + n;
+    }
+    return id != NULL ? 0 : p;
 }
 
 /* --- ID3v2 text frames ------------------------------------------------- */
@@ -1049,6 +1095,53 @@ test_set_track_with_total(void **state)
     assert_int_equal(tagbuf[126], 3);
 }
 
+/* --- the tag as a reader walks it -------------------------------------- */
+
+/**
+ * @brief A one-character language is padded with spaces, and nothing past it
+ *        is read.
+ *
+ * The language is on the heap and exactly its own size, so a read past its
+ * terminator is out of bounds under a sanitizer.
+ *
+ * @param state the fixture's encoder instance.
+ */
+static void
+test_v2_comment_one_character_language(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    char *lang = malloc(2);
+    size_t sz, at, len = 0;
+    assert_non_null(lang);
+    lang[0] = 'e';
+    lang[1] = 0;
+    assert_int_equal(id3tag_set_comment_latin1(gfp, lang, "d", "text"), 0);
+    free(lang);
+    sz = get_v2(gfp);
+    at = walk_v2(sz, "COMM", &len);
+    assert_true(at > 0);
+    assert_true(len > 4);
+    assert_memory_equal(tagbuf + at + 1, "e  ", 3);
+}
+
+/**
+ * @brief A two-character language is padded with a space, not a NUL.
+ *
+ * @param state the fixture's encoder instance.
+ */
+static void
+test_v2_comment_two_character_language(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    size_t sz, at, len = 0;
+    assert_int_equal(id3tag_set_comment_latin1(gfp, "en", "d", "text"), 0);
+    sz = get_v2(gfp);
+    at = walk_v2(sz, "COMM", &len);
+    assert_true(at > 0);
+    assert_true(len > 4);
+    assert_memory_equal(tagbuf + at + 1, "en ", 3);
+}
+
 /* --- fixture ----------------------------------------------------------- */
 
 /** @brief Per-test fixture: fresh lame_t into @p state. */
@@ -1115,6 +1208,8 @@ main(void)
         ID3_TEST(test_textinfo_latin1),
         ID3_TEST(test_set_track),
         ID3_TEST(test_set_track_with_total),
+        ID3_TEST(test_v2_comment_one_character_language),
+        ID3_TEST(test_v2_comment_two_character_language),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

@@ -1036,7 +1036,7 @@ setLang(char *dst, char const *src)
         dst[2] = 'g';
     }
     else {
-        for (i = 0; i < 3 && src && *src; ++i) {
+        for (i = 0; i < 3 && src[i] != 0; ++i) {
             dst[i] = src[i];
         }
         for (; i < 3; ++i) {

@@ -306,6 +306,8 @@
 			        tag, for instance from oversized embedded album art,
 			        would otherwise record a wrapped length and be
 			        unparseable; no tag is produced in that case.</li>
+			    <li>In ID3v2 tags, a comment language code shorter than
+			        three characters is padded with spaces.</li>
 			    <li>The ID3v2 tag carries the full audio play-length,
 			        instead of clamping it to about 49.7 days.</li>
 			    <li>With <i>--nogap --nogaptags</i>, the LAME tag of
