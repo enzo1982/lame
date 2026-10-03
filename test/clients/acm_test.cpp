@@ -297,6 +297,63 @@ test_malformed_config(void)
 }
 
 /**
+ * @brief An ABR range the codec cannot walk keeps the defaults.
+ *
+ * The codec lists its ABR formats by stepping down from the maximum to the
+ * minimum, when the driver is opened. Each case is one attribute set wrong;
+ * the last is a valid range, read back as written, which says the element is
+ * read at all.
+ */
+static void
+test_abr_range_config(void)
+{
+    /* What AEncodeProperties::ParamsRestore() assigns before it consults the file. */
+    const unsigned int ABR_DEFAULT_MIN = 80, ABR_DEFAULT_MAX = 160, ABR_DEFAULT_STEP = 8;
+    static const struct {
+        const char *what;
+        const char *attributes;
+    } cases[] = {
+        { "a step of 0 keeps the default range", "min=\"96\" max=\"192\" step=\"0\"" },
+        { "a minimum of 0 keeps the default range", "min=\"0\" max=\"192\" step=\"32\"" },
+        { "a maximum below the minimum keeps the default range", "min=\"192\" max=\"96\" step=\"32\"" },
+        { "a maximum above 320 kbit/s keeps the default range", "min=\"96\" max=\"4000000000\" step=\"1\"" },
+        { "a negative step keeps the default range", "min=\"96\" max=\"192\" step=\"-8\"" },
+    };
+    char doc[512];
+    size_t i;
+
+    printf("ABR ranges in the configuration file\n");
+    for (i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        ::DeleteFileA(CONFIG_NAME);
+        sprintf(doc, "<lame_acm>\n    <encodings default=\"Current\">\n        <config name=\"Current\">\n"
+                     "            <ABR use=\"true\" %s />\n        </config>\n    </encodings>\n</lame_acm>\n",
+                cases[i].attributes);
+        if (!write_raw_config(doc)) {
+            CHECK(0, "the configuration file could be written");
+            continue;
+        }
+        AEncodeProperties props(NULL);
+        props.ParamsRestore();
+        CHECK(props.GetAbrBitrateMin() == ABR_DEFAULT_MIN && props.GetAbrBitrateMax() == ABR_DEFAULT_MAX
+              && props.GetAbrBitrateStep() == ABR_DEFAULT_STEP, cases[i].what);
+    }
+
+    ::DeleteFileA(CONFIG_NAME);
+    sprintf(doc, "<lame_acm>\n    <encodings default=\"Current\">\n        <config name=\"Current\">\n"
+                 "            <ABR use=\"true\" min=\"96\" max=\"192\" step=\"32\" />\n"
+                 "        </config>\n    </encodings>\n</lame_acm>\n");
+    if (write_raw_config(doc)) {
+        AEncodeProperties props(NULL);
+        props.ParamsRestore();
+        CHECK(props.GetAbrBitrateMin() == 96 && props.GetAbrBitrateMax() == 192
+              && props.GetAbrBitrateStep() == 32, "a valid range is read as written");
+    } else {
+        CHECK(0, "the configuration file could be written");
+    }
+    ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
  * @brief Saving works with no configuration file to start from.
  *
  * The installer lays one down beside the codec, so the writer used to be able
@@ -1079,6 +1136,7 @@ main(int argc, char **argv)
     test_output_sample_rate_extremes();
     test_smart_ratio_round_trip();
     test_malformed_config();
+    test_abr_range_config();
     test_save_without_a_file();
 
     if (argc > 1) {

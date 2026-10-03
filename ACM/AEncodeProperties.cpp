@@ -33,6 +33,8 @@
 #include <windowsx.h>
 #include <shlobj.h>
 #include <assert.h>
+#include <errno.h>
+#include <limits.h>
 #include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,6 +54,9 @@
 #ifndef TTS_BALLOON
 #define TTS_BALLOON            0x40
 #endif // TTS_BALLOON
+
+/** \brief The highest bitrate LAME encodes, in kbit/s. */
+static const unsigned int ABR_BITRATE_LIMIT = 320;
 
 const unsigned int AEncodeProperties::the_Bitrates[18] = {320, 256, 224, 192, 160, 144, 128, 112, 96, 80, 64, 56, 48, 40, 32, 24, 16, 8 };
 const unsigned int AEncodeProperties::the_MPEG1_Bitrates[14] = {320, 256, 224, 192, 160, 128, 112, 96, 80, 64, 56, 48, 40, 32 };
@@ -99,6 +104,26 @@ static double DoubleFromAttribute(const std::string & the_text)
 		_free_locale(c_locale);
 
 	return the_value;
+}
+
+/**
+ * \brief The whole number an attribute holds, or 0 when it holds none.
+ *
+ * \param the_text the attribute's value
+ * \return the number, or 0 for text that is not a whole number in range
+ */
+static unsigned int UnsignedFromAttribute(const std::string & the_text)
+{
+	const char * const start = the_text.c_str();
+	char * end = NULL;
+	unsigned long the_value;
+
+	errno = 0;
+	the_value = strtoul(start, &end, 10);
+	if (end == start || *end != '\0' || errno == ERANGE || the_value > UINT_MAX
+	    || the_text.find('-') != std::string::npos)
+		return 0;
+	return (unsigned int) the_value;
 }
 
 static void SetAttributeDouble(TiXmlElement * the_elt, const std::string & the_string, const double the_value)
@@ -1077,21 +1102,34 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 		tmpElt = iterateElmt->FirstChildElement("ABR");
 		if (tmpElt != NULL)
 		{
+			unsigned int abr_min = AverageBitrate_Min;
+			unsigned int abr_max = AverageBitrate_Max;
+			unsigned int abr_step = AverageBitrate_Step;
+
 			tmpname = tmpElt->Attribute("use");
 			if (tmpname != NULL)
 				bAbrOutput = (tmpname->compare("true") == 0);
-			
+
 			tmpname = tmpElt->Attribute("min");
 			if (tmpname != NULL)
-				AverageBitrate_Min = atoi(tmpname->c_str());
+				abr_min = UnsignedFromAttribute(*tmpname);
 
 			tmpname = tmpElt->Attribute("max");
 			if (tmpname != NULL)
-				AverageBitrate_Max = atoi(tmpname->c_str());
+				abr_max = UnsignedFromAttribute(*tmpname);
 
 			tmpname = tmpElt->Attribute("step");
 			if (tmpname != NULL)
-				AverageBitrate_Step = atoi(tmpname->c_str());
+				abr_step = UnsignedFromAttribute(*tmpname);
+
+			/* A range is taken only if it steps down from a maximum LAME can
+			   encode to a minimum above 0; any other keeps the one before. */
+			if (abr_step > 0 && abr_min > 0 && abr_min <= abr_max && abr_max <= ABR_BITRATE_LIMIT)
+			{
+				AverageBitrate_Min = abr_min;
+				AverageBitrate_Max = abr_max;
+				AverageBitrate_Step = abr_step;
+			}
 		}
 
 		// Copyright parameter
