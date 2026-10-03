@@ -943,6 +943,32 @@ test_extreme_int_settings(void **state)
 }
 
 /**
+ * @brief A compression ratio small enough to ask for more kbit/s than an int
+ *        holds gives the highest bitrate, not an overflow.
+ *
+ * Under UBSan with halt_on_error the conversion that used to overflow fails
+ * this test; either way the result must be the format's top rate.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_tiny_compression_ratio(void **state)
+{
+    /* normal floats: a denormal could be flushed to 0 under fast maths */
+    static const float ratios[] = { 1e-30f, 1e-20f };
+    size_t  i;
+    (void) state;
+    for (i = 0; i < sizeof ratios / sizeof ratios[0]; ++i) {
+        lame_t  gf = lame_init();
+        assert_non_null(gf);
+        assert_int_equal(lame_set_compression_ratio(gf, ratios[i]), 0);
+        assert_true(lame_init_params(gf) >= 0);
+        assert_int_equal(lame_get_brate(gf), 320);
+        lame_close(gf);
+    }
+}
+
+/**
  * @brief Assembles a float from its IEEE-754 bit pattern, unfoldable by the
  *        compiler - under the fast floating point maths these tests are built
  *        with, a NaN or an infinity the compiler can see is folded away.
@@ -1190,6 +1216,7 @@ main(void)
         cmocka_unit_test(test_vbr_floor_above_ceiling),
         cmocka_unit_test(test_float_setters_refuse_nonfinite),
         cmocka_unit_test(test_extreme_int_settings),
+        cmocka_unit_test(test_tiny_compression_ratio),
 #if INTERNAL_OPTS
         cmocka_unit_test_setup_teardown(test_internal_opts, gfp_setup, gfp_teardown),
 #endif

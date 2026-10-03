@@ -775,7 +775,12 @@ lame_init_params(lame_global_flags * gfp)
         /* choose a bitrate for the output samplerate which achieves
          * specified compression ratio
          */
-        gfp->brate = gfp->samplerate_out * 16 * cfg->channels_out / (1.e3 * gfp->compression_ratio);
+        {
+            /* a small enough ratio asks for more kbit/s than an int holds;
+               cap it where bits per second still fit */
+            double const kbps = gfp->samplerate_out * 16 * cfg->channels_out / (1.e3 * gfp->compression_ratio);
+            gfp->brate = kbps < INT_MAX / 1000 ? (int) kbps : INT_MAX / 1000;
+        }
 
         /* we need the version for the bitrate table look up */
         cfg->samplerate_index = SmpFrqIndex(gfp->samplerate_out, &cfg->version);
