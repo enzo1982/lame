@@ -26,7 +26,6 @@
 #include <windows.h>
 #include <Windef.h>
 #include "BladeMP3EncDLL.h"
-#include <assert.h>
 #include <limits.h>
 #include <stdio.h>
 
@@ -403,8 +402,8 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
                 break;
 
             default:
-                /* unsupported VBR method */
-                assert( FALSE );
+                DebugPrintf("Invalid lameConfig.format.LHV1.nVbrMethod, value is %d\n",lameConfig.format.LHV1.nVbrMethod);
+                return BE_ERR_INVALID_FORMAT_PARAMETERS;
             }
         }
         else

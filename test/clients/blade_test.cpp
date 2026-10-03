@@ -518,6 +518,38 @@ test_upsampled_chunks_fit(const blade_exports *be)
 }
 
 /**
+ * @brief A VBR stream asking for a VBR method the DLL does not have is
+ *        refused; one asking for a method it has is accepted.
+ *
+ * @param be the resolved entry points.
+ */
+static void
+test_unknown_vbr_method_refused(const blade_exports *be)
+{
+    static const int methods[] = { VBR_METHOD_ABR + 1, VBR_METHOD_NONE - 1 };
+    BE_CONFIG cfg;
+    HBE_STREAM hbe = 0;
+    DWORD   samples = 0, room = 0;
+    size_t  i;
+    char    detail[CTEST_DETAIL_CHARS];
+
+    for (i = 0; i < sizeof(methods) / sizeof(methods[0]); i++) {
+        make_config(&cfg, 0);
+        cfg.format.LHV1.bEnableVBR = TRUE;
+        cfg.format.LHV1.nVbrMethod = (VBRMETHOD) methods[i];
+        sprintf(detail, "VBR method %d is refused", methods[i]);
+        CHECK_EQ_U(be->init(&cfg, &samples, &room, &hbe), BE_ERR_INVALID_FORMAT_PARAMETERS, detail);
+        be->close(hbe);
+    }
+    make_config(&cfg, 0);
+    cfg.format.LHV1.bEnableVBR = TRUE;
+    cfg.format.LHV1.nVbrMethod = VBR_METHOD_MTRH;
+    CHECK_EQ_U(be->init(&cfg, &samples, &room, &hbe), BE_ERR_SUCCESSFUL,
+               "VBR method MTRH is accepted");
+    be->close(hbe);
+}
+
+/**
  * @brief Runs the Blade encoder DLL tests.
  * @param argc  argument count.
  * @param argv  an optional path to lame_enc.dll, and --require to turn a
@@ -626,6 +658,7 @@ main(int argc, char **argv)
     test_info_tag(&be, dir);
 
     test_upsampled_chunks_fit(&be);
+    test_unknown_vbr_method_refused(&be);
 
     FreeLibrary(mod);
     return ctest_summary("blade_test");
