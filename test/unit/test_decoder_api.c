@@ -462,6 +462,69 @@ test_headersB_reports_the_tags_delay_and_padding(LAME_UNUSED void **state)
 }
 
 /**
+ * @brief hip_decode1_headersB() answers the frame description, delay and
+ *        padding on a call that needs more input, too.
+ *
+ * Two such calls: the first one of a stream, fed too few bytes for a header,
+ * which has nothing to report and must say so - header_parsed 0, delay and
+ * padding -1; and one after a tagged stream was decoded to its end, which must
+ * report the tag's figures. The outputs start as values no answer can take
+ * (-2, a byte pattern), so a call that writes nothing shows.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_headersB_answers_while_it_needs_more_input(LAME_UNUSED void **state)
+{
+    unsigned char *tagged = malloc(MP3CAP);
+    short  *pcm_l = malloc(PCMCAP * sizeof(short));
+    short  *pcm_r = malloc(PCMCAP * sizeof(short));
+    mp3data_struct mp3data;
+    hip_t   hip;
+    int     taggedlen, total, n;
+    int     tag_delay = -999, tag_padding = -999;
+    int     delay = -2, padding = -2;
+
+    assert_non_null(tagged);
+    assert_non_null(pcm_l);
+    assert_non_null(pcm_r);
+    taggedlen = encode_a_stream(tagged, MP3CAP, 1);
+    assert_true(taggedlen > 4);
+
+    hip = hip_decode_init();
+    if (hip == NULL) {
+        free(tagged);
+        free(pcm_l);
+        free(pcm_r);
+        skip();         /* no decoder in this build */
+    }
+    memset(&mp3data, 0x55, sizeof(mp3data));
+    n = hip_decode1_headersB(hip, tagged, 4, pcm_l, pcm_r, &mp3data, &delay, &padding);
+    assert_int_equal(n, 0);
+    assert_int_equal(mp3data.header_parsed, 0);
+    assert_int_equal(delay, -1);
+    assert_int_equal(padding, -1);
+    assert_int_equal(hip_decode_exit(hip), 0);
+
+    hip = hip_decode_init();
+    assert_non_null(hip);
+    total = drain_headersB(hip, tagged, taggedlen, pcm_l, pcm_r, &mp3data,
+                           &tag_delay, &tag_padding);
+    assert_true(total > 0);
+    assert_true(tag_delay > 0);
+    delay = padding = -2;
+    n = hip_decode1_headersB(hip, NULL, 0, pcm_l, pcm_r, &mp3data, &delay, &padding);
+    assert_int_equal(n, 0);
+    assert_int_equal(delay, tag_delay);
+    assert_int_equal(padding, tag_padding);
+    assert_int_equal(hip_decode_exit(hip), 0);
+
+    free(tagged);
+    free(pcm_l);
+    free(pcm_r);
+}
+
+/**
  * @brief Every decoding entry point refuses a handle it was not given.
  *
  * hip_decode_init() returns NULL where the library has no decoder, and its
@@ -610,6 +673,7 @@ main(void)
         cmocka_unit_test(test_decode1_headers_round_trip),
         cmocka_unit_test(test_decode_matches_the_piecewise_total),
         cmocka_unit_test(test_headersB_reports_the_tags_delay_and_padding),
+        cmocka_unit_test(test_headersB_answers_while_it_needs_more_input),
         cmocka_unit_test(test_decode_calls_refuse_a_null_handle),
         cmocka_unit_test(test_gapless_handle_decodes),
         cmocka_unit_test(test_obsolete_decoders_are_inert),

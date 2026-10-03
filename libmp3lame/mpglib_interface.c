@@ -376,6 +376,38 @@ int hip_decode_exit(hip_t hip)
  */
 #define SAMPLE_T_FULL_SCALE 32768.0
 
+/*! Hand back the encoder delay and padding the stream's LAME tag carries. */
+/*!
+  \internal
+  Called on every return of \c hip123_decode1() that is not an error.
+
+  A call that fails leaves val as it found it, so it has to be asked whether
+  it answered - otherwise the figure handed back is whatever was on the stack,
+  and it would be handed back as a sample count the caller trims audio by. -1
+  is what the callers already read as "not available", which is also what
+  this reports for a stream that never carried it.
+
+  \param hip          the decoder, not NULL.
+  \param enc_delay    receives the delay, or NULL.
+  \param enc_padding  receives the padding, or NULL.
+*/
+static void
+report_delay_padding(hip_t hip, int *enc_delay, int *enc_padding)
+{
+    if(enc_delay) {
+        long val;
+        if(MPG123_OK != mpg123_getstate(hip->mh, MPG123_ENC_DELAY, &val, NULL))
+            val = -1;
+        *enc_delay = val > INT_MAX ? -1 : val;
+    }
+    if(enc_padding) {
+        long val;
+        if(MPG123_OK != mpg123_getstate(hip->mh, MPG123_ENC_PADDING, &val, NULL))
+            val = -1;
+        *enc_padding = val > INT_MAX ? -1 : val;
+    }
+}
+
 int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
     unsigned char *pcm_l, unsigned char *pcm_r,
     int *enc_delay, int *enc_padding,
@@ -407,6 +439,10 @@ int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
     ret = mpg123_getformat(hip->mh, &rate, &channels, &encoding);
     switch(ret) {
         case MPG123_NEED_MORE:
+            /* no frame header seen yet: nothing to describe */
+            if(mp3data)
+                memset(mp3data, 0, sizeof(mp3data_struct));
+            report_delay_padding(hip, enc_delay, enc_padding);
             return 0;
         case MPG123_OK:
             change_format = encoding != want_enc;
@@ -506,23 +542,7 @@ int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
             mp3data->bitrate = fi.bitrate;
         }
     }
-    /* A call that fails leaves val as it found it, so it has to be asked
-       whether it answered - otherwise the figure handed back is whatever was
-       on the stack, and it would be handed back as a sample count the caller
-       trims audio by. -1 is what the callers already read as "not available",
-       which is also what this reports for a stream that never carried it. */
-    if(enc_delay) {
-        long val;
-        if(MPG123_OK != mpg123_getstate(hip->mh, MPG123_ENC_DELAY, &val, NULL))
-            val = -1;
-        *enc_delay = val > INT_MAX ? -1 : val;
-    }
-    if(enc_padding) {
-        long val;
-        if(MPG123_OK != mpg123_getstate(hip->mh, MPG123_ENC_PADDING, &val, NULL))
-            val = -1;
-        *enc_padding = val > INT_MAX ? -1 : val;
-    }
+    report_delay_padding(hip, enc_delay, enc_padding);
     if(hip->pinfo)
         hip_finish_pinfo(hip);
     return samples;
@@ -562,8 +582,9 @@ hip_decode1_unclipped(hip_t hip, LAME_UNUSED unsigned char *buffer, LAME_UNUSED 
                   samples, is required whatever the return value turns out
                   to be.
   \param pcm_r    receives the right channel, on the same terms.
-  \param mp3data  receives the frame description. Cleared on every call that
-                  gets far enough to parse a header.
+  \param mp3data  receives the frame description, on every call that is not an
+                  error; its header_parsed is 0 until a frame header has been
+                  read.
   \return the number of samples per channel written, 0 if more input is
           needed first, or -1 on an error - including a NULL \a hip.
 */

@@ -449,6 +449,9 @@
 			        need no change; one that does not will fail at the
 			        same place it did before. A small memory leak on
 			        that path is gone with it.</li>
+			    <li><i>hip_decode1_headersB()</i> also reports the
+			        encoder delay and padding when it needs more input. Both
+			        are -1 until the stream has provided them.</li>
 			    <li>VBR scalefactors stay above their minimum when bits
 			        are reduced. A granule that ran out of bits could be
 			        given a scalefactor below the minimum of its band,
