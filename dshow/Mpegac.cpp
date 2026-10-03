@@ -497,7 +497,9 @@ HRESULT CMpegAudEnc::StartStreaming()
     m_rtBytePos = 0;
 
     // initialize encoder
-    m_Encoder.Init();
+    HRESULT hr = m_Encoder.Init();
+    if (FAILED(hr))
+        return hr;
 
     m_hasFinished   = FALSE;
 

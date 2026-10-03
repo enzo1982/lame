@@ -478,6 +478,45 @@ test_zero_output_rate(IBaseFilter *lame, IPin *lame_out)
 }
 
 /**
+ * @brief A setting the encoder refuses makes the graph refuse to run.
+ *
+ * A variable bitrate range whose minimum is above its maximum is stored by the
+ * property interface and refused by the library when the stream starts. The
+ * graph is the one the main test ran to completion; the settings are put back
+ * afterwards.
+ *
+ * @param lame  the filter, both pins connected.
+ * @param mc    the graph's media control.
+ */
+static void
+test_refused_setting_fails_run(IBaseFilter *lame, IMediaControl *mc)
+{
+    IAudioEncoderProperties *props = NULL;
+    DWORD   variable = 0, vmin = 0, vmax = 0;
+    HRESULT hr;
+    char    detail[CTEST_DETAIL_CHARS];
+
+    if (FAILED(lame->QueryInterface(IID_IAudioEncoderProperties_local, (void **) &props))) {
+        CHECK(0, "the filter offers its audio encoder properties for the refused setting");
+        return;
+    }
+    REQUIRE_HR(props->get_Variable(&variable), "the VBR switch reads back");
+    REQUIRE_HR(props->get_VariableMin(&vmin), "the VBR minimum reads back");
+    REQUIRE_HR(props->get_VariableMax(&vmax), "the VBR maximum reads back");
+    REQUIRE_HR(props->set_Variable(1), "VBR is switched on");
+    REQUIRE_HR(props->set_VariableMin(320), "a VBR minimum of 320 kbps is stored");
+    REQUIRE_HR(props->set_VariableMax(32), "a VBR maximum of 32 kbps is stored");
+    hr = mc->Run();
+    sprintf(detail, "hr 0x%08lX", (unsigned long) hr);
+    ctest_record(FAILED(hr), "the graph refuses to run with a VBR range LAME refuses", detail);
+    mc->Stop();
+    props->set_VariableMax(vmax);
+    props->set_VariableMin(vmin);
+    props->set_Variable(variable);
+    props->Release();
+}
+
+/**
  * @brief Seeking reaches through the encoder to whatever is upstream of it.
  *
  * A transform filter is expected to pass @c IMediaSeeking and
@@ -807,6 +846,7 @@ main(int argc, char **argv)
 
     inspect_mp3(mp3, seconds, rate, SECOND_BITRATE_KBPS);
     test_zero_output_rate(lame, lame_out);
+    test_refused_setting_fails_run(lame, mc);
 
 out:
     if (wr_in) wr_in->Release();

@@ -181,7 +181,12 @@ HRESULT CEncoder::Init()
             lame_set_quality(pgf, m_mabsi.dwQuality);
             lame_set_VBR_q(pgf, m_mabsi.dwVBRq);
 
-            lame_init_params(pgf);
+            if (lame_init_params(pgf) < 0)
+            {
+                lame_close(pgf);
+                pgf = NULL;
+                return E_FAIL;
+            }
 
             // encoder delay compensation
             {
