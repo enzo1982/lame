@@ -250,6 +250,8 @@ extern  "C" {
 #define RESAMPLE_FILTER_LENGTH 31
         /* the most input the resampler keeps back from one call for the next */
 #define RESAMPLE_HELD_INPUT (RESAMPLE_FILTER_LENGTH + 2)
+        /* the largest output/input rate ratio lame_init_params() accepts */
+#define MAX_UPSAMPLING_RATIO 128
         double  itime[2]; /* float precision seems to be not enough */
         sample_t *inbuf_old[2];
         sample_t *blackfilt[2 * BPC + 1];

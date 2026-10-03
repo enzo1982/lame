@@ -285,6 +285,8 @@ float CDECL lame_get_scale_right(const lame_global_flags *);
   MPEG1    32, 44.1,   48khz
   MPEG2    16, 22.05,  24
   MPEG2.5   8, 11.025, 12
+  lame_init_params() refuses an output rate more than 128 times the input
+  rate, whether set here or picked by LAME.
   (not used by decoding routines)
 */
 int CDECL lame_set_out_samplerate(lame_global_flags *, int);

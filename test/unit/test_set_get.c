@@ -823,6 +823,43 @@ test_maximum_number_of_samples(void **state)
 }
 
 /**
+ * @brief lame_init_params() refuses an output rate more than 128 times the
+ *        input rate, and accepts one exactly 128 times it.
+ *
+ * Both ways the output rate can come about: set by the caller, and picked by
+ * LAME - which for a very low input rate is its lowest, 8 kHz.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_upsampling_ratio_limit(void **state)
+{
+    static const struct {
+        int     in, out, accepted;
+    } cases[] = {
+        { 250, 32000, 1 },      /* 128 times */
+        { 249, 32000, 0 },      /* just over */
+        { 1, 44100, 0 },
+        { 100, 0, 1 },          /* picked: 8000 Hz, 80 times */
+        { 50, 0, 0 },           /* picked: 8000 Hz, 160 times */
+        { 8000, 48000, 1 },
+    };
+    size_t  c;
+    (void) state;
+    for (c = 0; c < sizeof cases / sizeof cases[0]; ++c) {
+        lame_t  gf = lame_init();
+        int     r;
+        assert_non_null(gf);
+        assert_int_equal(lame_set_in_samplerate(gf, cases[c].in), 0);
+        assert_int_equal(lame_set_out_samplerate(gf, cases[c].out), 0);
+        r = lame_init_params(gf);
+        if ((r >= 0) != cases[c].accepted)
+            fail_msg("%d Hz to %d Hz: lame_init_params() answered %d", cases[c].in, cases[c].out, r);
+        lame_close(gf);
+    }
+}
+
+/**
  * @brief lame_get_maximum_number_of_samples() keeps its promise: that many
  *        samples per call never overflow the buffer it was asked about.
  *
@@ -992,6 +1029,7 @@ main(void)
 #endif
         cmocka_unit_test_setup_teardown(test_maximum_number_of_samples, gfp_setup, gfp_teardown),
         cmocka_unit_test(test_maximum_number_of_samples_holds),
+        cmocka_unit_test(test_upsampling_ratio_limit),
 #if INTERNAL_OPTS
         cmocka_unit_test_setup_teardown(test_internal_opts, gfp_setup, gfp_teardown),
 #endif

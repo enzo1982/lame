@@ -930,6 +930,14 @@ lame_init_params(lame_global_flags * gfp)
     cfg->highpassfreq = gfp->highpassfreq;
     cfg->samplerate_in = gfp->samplerate_in;
     cfg->samplerate_out = gfp->samplerate_out;
+    /* What an encode call and the flush return grows with the upsampling
+       ratio; past this one the buffer sizes lame.h gives no longer hold. */
+    if (cfg->samplerate_out > MAX_UPSAMPLING_RATIO * (double) cfg->samplerate_in) {
+        ERRORF(gfc, "Error: an input sample rate of %d Hz cannot be resampled to %d Hz,"
+               " more than %d times as high\n", cfg->samplerate_in, cfg->samplerate_out,
+               MAX_UPSAMPLING_RATIO);
+        return -1;
+    }
     cfg->mode_gr = cfg->samplerate_out <= 24000 ? 1 : 2; /* Number of granules per frame */
 
 
