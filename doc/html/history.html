@@ -558,6 +558,10 @@
 			        rate for its output.</li>
 			    <li>The DirectShow filter does not start if LAME rejects
 			        its settings.</li>
+			    <li>The DirectShow filter pads the end of a stream with
+			        zeros when the next filter requires aligned buffers. It
+			        refuses to connect if that alignment is larger than its
+			        buffer.</li>
 			    <li>The Visual Studio build has been brought up to
 			        date: the solutions and project files agree with
 			        each other and with the autotools build; the nmake

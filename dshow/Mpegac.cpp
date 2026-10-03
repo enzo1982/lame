@@ -412,6 +412,10 @@ HRESULT CMpegAudEnc::FlushEncodedSamples()
             if (hr == S_OK && pDst)
             {
                 CopyMemory(pDst, pblock, iBlockLength);
+                if (iBufferSize > pOutSample->GetSize())
+                    iBufferSize = pOutSample->GetSize();
+                if (iBufferSize > iBlockLength)
+                    ZeroMemory(pDst + iBlockLength, iBufferSize - iBlockLength);
                 REFERENCE_TIME rtEndPos = m_rtBytePos + iBufferSize;
                 EXECUTE_ASSERT(S_OK == pOutSample->SetTime(&m_rtBytePos, &rtEndPos));
                 pOutSample->SetActualDataLength(iBufferSize);
@@ -740,7 +744,12 @@ HRESULT CMpegAudEnc::DecideBufferSize(
     HRESULT hr = S_OK;
 
     if(m_bStreamOutput)
+    {
+        // A block the encoder's buffer never fills would never be delivered.
+        if (pProperties->cbAlign > OUT_BUFFER_MAX)
+            return VFW_E_BADALIGN;
         m_cbStreamAlignment = pProperties->cbAlign;
+    }
 
     ///
     if (pProperties->cBuffers == 0) pProperties->cBuffers = 1;  // If downstream filter didn't suggest a buffer count then default to 1

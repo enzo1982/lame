@@ -637,6 +637,363 @@ test_stream_caps(IPin *lame_out, const char *when)
     cfg->Release();
 }
 
+/**
+ * @brief A stream sink whose input pin asks for an allocator alignment.
+ *
+ * The stock File Writer asks for none, so a graph built from stock filters
+ * never shows how the encoder pads a stream to an alignment. This pin accepts
+ * a byte stream, requests @c cbAlign bytes, and appends what it receives to
+ * one buffer. It lives on the stack of the test that uses it; reference
+ * counting is not needed and not done.
+ */
+class AlignedSinkPin : public IPin, public IMemInputPin {
+public:
+    long    align;          /**< the alignment the pin asks for */
+    IPin   *peer;           /**< the connected output pin */
+    IBaseFilter *owner;     /**< the filter the pin reports as its own */
+    HANDLE  eos;            /**< signalled by EndOfStream() */
+    BYTE   *stream;         /**< everything received, in order */
+    long    length;         /**< bytes in #stream */
+    long    capacity;       /**< bytes allocated for #stream */
+    int     deliveries;     /**< samples received */
+
+    /** @brief A pin asking for @p a bytes of alignment. @param a the alignment. */
+    AlignedSinkPin(long a) : align(a), peer(NULL), owner(NULL), stream(NULL),
+        length(0), capacity(0), deliveries(0)
+    {
+        eos = CreateEvent(NULL, TRUE, FALSE, NULL);
+    }
+    /** @brief Frees the received stream and the event. */
+    ~AlignedSinkPin()
+    {
+        if (peer)
+            peer->Release();
+        free(stream);
+        CloseHandle(eos);
+    }
+
+    STDMETHODIMP QueryInterface(REFIID riid, void **ppv)
+    {
+        if (riid == IID_IUnknown || riid == IID_IPin) {
+            *ppv = static_cast<IPin *>(this);
+            return S_OK;
+        }
+        if (riid == IID_IMemInputPin) {
+            *ppv = static_cast<IMemInputPin *>(this);
+            return S_OK;
+        }
+        *ppv = NULL;
+        return E_NOINTERFACE;
+    }
+    STDMETHODIMP_(ULONG) AddRef() { return 2; }
+    STDMETHODIMP_(ULONG) Release() { return 1; }
+
+    STDMETHODIMP Connect(IPin *, const AM_MEDIA_TYPE *) { return E_UNEXPECTED; }
+    STDMETHODIMP ReceiveConnection(IPin *p, const AM_MEDIA_TYPE *mt)
+    {
+        if (mt == NULL || mt->majortype != MEDIATYPE_Stream)
+            return VFW_E_TYPE_NOT_ACCEPTED;
+        peer = p;
+        peer->AddRef();
+        return S_OK;
+    }
+    STDMETHODIMP Disconnect()
+    {
+        if (peer == NULL)
+            return S_FALSE;
+        peer->Release();
+        peer = NULL;
+        return S_OK;
+    }
+    STDMETHODIMP ConnectedTo(IPin **p)
+    {
+        *p = peer;
+        if (peer == NULL)
+            return VFW_E_NOT_CONNECTED;
+        peer->AddRef();
+        return S_OK;
+    }
+    STDMETHODIMP ConnectionMediaType(AM_MEDIA_TYPE *mt)
+    {
+        ZeroMemory(mt, sizeof *mt);
+        mt->majortype = MEDIATYPE_Stream;
+        return peer ? S_OK : VFW_E_NOT_CONNECTED;
+    }
+    STDMETHODIMP QueryPinInfo(PIN_INFO *pi)
+    {
+        pi->pFilter = owner;
+        if (owner)
+            owner->AddRef();
+        pi->dir = PINDIR_INPUT;
+        wcscpy(pi->achName, L"In");
+        return S_OK;
+    }
+    STDMETHODIMP QueryDirection(PIN_DIRECTION *d) { *d = PINDIR_INPUT; return S_OK; }
+    STDMETHODIMP QueryId(LPWSTR *id)
+    {
+        *id = (LPWSTR) CoTaskMemAlloc(3 * sizeof(WCHAR));
+        if (*id == NULL)
+            return E_OUTOFMEMORY;
+        wcscpy(*id, L"In");
+        return S_OK;
+    }
+    STDMETHODIMP QueryAccept(const AM_MEDIA_TYPE *mt)
+    {
+        return mt->majortype == MEDIATYPE_Stream ? S_OK : S_FALSE;
+    }
+    STDMETHODIMP EnumMediaTypes(IEnumMediaTypes **) { return E_NOTIMPL; }
+    STDMETHODIMP QueryInternalConnections(IPin **, ULONG *) { return E_NOTIMPL; }
+    STDMETHODIMP EndOfStream() { SetEvent(eos); return S_OK; }
+    STDMETHODIMP BeginFlush() { return S_OK; }
+    STDMETHODIMP EndFlush() { return S_OK; }
+    STDMETHODIMP NewSegment(REFERENCE_TIME, REFERENCE_TIME, double) { return S_OK; }
+
+    STDMETHODIMP GetAllocator(IMemAllocator **a) { *a = NULL; return VFW_E_NO_ALLOCATOR; }
+    STDMETHODIMP NotifyAllocator(IMemAllocator *, BOOL) { return S_OK; }
+    STDMETHODIMP GetAllocatorRequirements(ALLOCATOR_PROPERTIES *p)
+    {
+        ZeroMemory(p, sizeof *p);
+        p->cBuffers = 1;
+        p->cbAlign = align;
+        return S_OK;
+    }
+    STDMETHODIMP Receive(IMediaSample *s)
+    {
+        BYTE   *p = NULL;
+        long    n = s->GetActualDataLength();
+
+        deliveries++;
+        if (FAILED(s->GetPointer(&p)) || n <= 0)
+            return S_OK;
+        if (length + n > capacity) {
+            long    want = (length + n) * 2;
+            BYTE   *grown = (BYTE *) realloc(stream, want);
+
+            if (grown == NULL)
+                return E_OUTOFMEMORY;
+            stream = grown;
+            capacity = want;
+        }
+        memcpy(stream + length, p, n);
+        length += n;
+        return S_OK;
+    }
+    STDMETHODIMP ReceiveMultiple(IMediaSample **s, long n, long *done)
+    {
+        for (*done = 0; *done < n; ++*done)
+            Receive(s[*done]);
+        return S_OK;
+    }
+    STDMETHODIMP ReceiveCanBlock() { return S_FALSE; }
+};
+
+/**
+ * @brief The filter that owns an #AlignedSinkPin: one pin and a state.
+ *
+ * The graph manager asks every connected pin for its filter, so the pin needs
+ * one to be part of a running graph.
+ */
+class AlignedSinkFilter : public IBaseFilter, public IEnumPins {
+public:
+    AlignedSinkPin &pin;    /**< the only pin */
+    FILTER_STATE state;     /**< as set by Stop(), Pause() and Run() */
+    IFilterGraph *graph;    /**< the graph the filter joined */
+    IReferenceClock *clock; /**< the clock the graph handed over */
+    ULONG   next;           /**< the enumeration position */
+
+    /** @brief The filter owning @p p. @param p the pin. */
+    AlignedSinkFilter(AlignedSinkPin &p) : pin(p), state(State_Stopped), graph(NULL),
+        clock(NULL), next(0)
+    {
+        p.owner = this;
+    }
+
+    STDMETHODIMP QueryInterface(REFIID riid, void **ppv)
+    {
+        if (riid == IID_IUnknown || riid == IID_IPersist || riid == IID_IMediaFilter
+            || riid == IID_IBaseFilter) {
+            *ppv = static_cast<IBaseFilter *>(this);
+            return S_OK;
+        }
+        *ppv = NULL;
+        return E_NOINTERFACE;
+    }
+    STDMETHODIMP_(ULONG) AddRef() { return 2; }
+    STDMETHODIMP_(ULONG) Release() { return 1; }
+
+    STDMETHODIMP GetClassID(CLSID *c) { *c = CLSID_NULL; return S_OK; }
+    STDMETHODIMP Stop() { state = State_Stopped; return S_OK; }
+    STDMETHODIMP Pause() { state = State_Paused; return S_OK; }
+    STDMETHODIMP Run(REFERENCE_TIME) { state = State_Running; return S_OK; }
+    STDMETHODIMP GetState(DWORD, FILTER_STATE *s) { *s = state; return S_OK; }
+    STDMETHODIMP SetSyncSource(IReferenceClock *c) { clock = c; return S_OK; }
+    STDMETHODIMP GetSyncSource(IReferenceClock **c)
+    {
+        *c = clock;
+        if (clock)
+            clock->AddRef();
+        return S_OK;
+    }
+    STDMETHODIMP EnumPins(IEnumPins **e) { next = 0; *e = this; return S_OK; }
+    STDMETHODIMP FindPin(LPCWSTR id, IPin **p)
+    {
+        if (wcscmp(id, L"In") == 0) {
+            *p = &pin;
+            return S_OK;
+        }
+        *p = NULL;
+        return VFW_E_NOT_FOUND;
+    }
+    STDMETHODIMP QueryFilterInfo(FILTER_INFO *fi)
+    {
+        wcscpy(fi->achName, L"Aligned sink");
+        fi->pGraph = graph;
+        if (graph)
+            graph->AddRef();
+        return S_OK;
+    }
+    STDMETHODIMP JoinFilterGraph(IFilterGraph *g, LPCWSTR) { graph = g; return S_OK; }
+    STDMETHODIMP QueryVendorInfo(LPWSTR *) { return E_NOTIMPL; }
+
+    STDMETHODIMP Next(ULONG n, IPin **out, ULONG *got)
+    {
+        ULONG   k = 0;
+
+        if (n > 0 && next == 0) {
+            out[0] = &pin;
+            k = 1;
+            next = 1;
+        }
+        if (got)
+            *got = k;
+        return k == n ? S_OK : S_FALSE;
+    }
+    STDMETHODIMP Skip(ULONG n) { next += n; return next <= 1 ? S_OK : S_FALSE; }
+    STDMETHODIMP Reset() { next = 0; return S_OK; }
+    STDMETHODIMP Clone(IEnumPins **) { return E_NOTIMPL; }
+};
+
+/**
+ * @brief Encodes the test WAV into an #AlignedSinkPin.
+ * @param cf    the filter DLL's class factory.
+ * @param wav   the input file.
+ * @param sink  the pin to deliver to; it asks for its own alignment.
+ * @param connected receives whether the encoder accepted the sink.
+ * @return Non-zero when the stream ended within the graph timeout.
+ */
+static int
+encode_into_aligned_sink(IClassFactory *cf, const WCHAR *wav, AlignedSinkPin &sink,
+                         int *connected)
+{
+    IGraphBuilder *graph = NULL;
+    IBaseFilter *lame = NULL, *src = NULL;
+    IPin   *src_out = NULL, *lame_in = NULL, *lame_out = NULL;
+    IMediaControl *mc = NULL;
+    AlignedSinkFilter owner(sink);
+    DWORD   until;
+    int     ended = 0;
+
+    *connected = 0;
+    if (FAILED(cf->CreateInstance(NULL, IID_IBaseFilter, (void **) &lame)))
+        return 0;
+    if (FAILED(CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER,
+                                IID_IGraphBuilder, (void **) &graph)))
+        goto out;
+    graph->AddFilter(lame, L"LAME Audio Encoder");
+    if (FAILED(graph->AddSourceFilter(wav, L"Source", &src)))
+        goto out;
+    src_out = find_pin(src, PINDIR_OUTPUT);
+    lame_in = find_pin(lame, PINDIR_INPUT);
+    lame_out = find_pin(lame, PINDIR_OUTPUT);
+    if (src_out == NULL || lame_in == NULL || lame_out == NULL
+        || FAILED(graph->Connect(src_out, lame_in)))
+        goto out;
+    graph->AddFilter(&owner, L"Aligned sink");
+    if (FAILED(graph->ConnectDirect(lame_out, &sink, NULL)))
+        goto out;
+    *connected = 1;
+    if (FAILED(graph->QueryInterface(IID_IMediaControl, (void **) &mc)) || FAILED(mc->Run()))
+        goto out;
+    until = GetTickCount() + GRAPH_TIMEOUT_MS;
+    while (!ended && (long) (until - GetTickCount()) > 0) {
+        MSG     m;
+        DWORD   r = MsgWaitForMultipleObjects(1, &sink.eos, FALSE, 100, QS_ALLINPUT);
+
+        if (r == WAIT_OBJECT_0)
+            ended = 1;
+        while (PeekMessage(&m, NULL, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&m);
+            DispatchMessage(&m);
+        }
+    }
+    mc->Stop();
+out:
+    if (lame_out) {
+        lame_out->Disconnect();
+        lame_out->Release();
+    }
+    sink.Disconnect();
+    if (mc) mc->Release();
+    if (lame_in) lame_in->Release();
+    if (src_out) src_out->Release();
+    if (src) src->Release();
+    if (graph) {
+        graph->RemoveFilter(&owner);
+        graph->Release();
+    }
+    if (lame) lame->Release();
+    return ended;
+}
+
+/**
+ * @brief A sink asking for an alignment gets the stream, padded with zeros.
+ *
+ * The stream encoded without alignment is the reference. With an alignment
+ * the encoder rounds the last block up; the bytes after the reference must be
+ * zero, not what the reused sample buffer held before. An alignment above
+ * what the encoder buffers could never fill a block, and has to be refused at
+ * connection rather than end in an empty stream.
+ *
+ * @param cf   the filter DLL's class factory.
+ * @param wav  the input file.
+ */
+static void
+test_aligned_stream_end(IClassFactory *cf, const WCHAR *wav)
+{
+    static const long aligns[] = { 512, 4096, 8192 };
+    AlignedSinkPin ref(1), big(12288);
+    char    detail[CTEST_DETAIL_CHARS];
+    int     connected, i;
+    long    k;
+
+    CHECK(encode_into_aligned_sink(cf, wav, ref, &connected) && ref.length > 0,
+          "the encoder streams into a sink without alignment");
+    if (ref.length <= 0)
+        return;
+    for (i = 0; i < (int) (sizeof aligns / sizeof aligns[0]); i++) {
+        AlignedSinkPin s(aligns[i]);
+        long    zero = 0, tail;
+        char    what[96];
+
+        encode_into_aligned_sink(cf, wav, s, &connected);
+        tail = s.length - ref.length;
+        for (k = ref.length; k < s.length; k++)
+            if (s.stream[k] == 0)
+                zero++;
+        sprintf(detail, "%ld bytes, reference %ld, %ld of %ld after it zero",
+                s.length, ref.length, zero, tail > 0 ? tail : 0);
+        sprintf(what, "an alignment of %ld delivers the whole stream", aligns[i]);
+        ctest_record(s.length >= ref.length && memcmp(s.stream, ref.stream, ref.length) == 0,
+                     what, detail);
+        sprintf(what, "an alignment of %ld pads the stream's end with zeros", aligns[i]);
+        ctest_record(tail >= 0 && zero == tail, what, detail);
+    }
+    encode_into_aligned_sink(cf, wav, big, &connected);
+    sprintf(detail, "connected %d, %ld bytes", connected, big.length);
+    ctest_record(!connected, "an alignment the encoder cannot fill is refused at connection",
+                 detail);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -847,6 +1204,7 @@ main(int argc, char **argv)
     inspect_mp3(mp3, seconds, rate, SECOND_BITRATE_KBPS);
     test_zero_output_rate(lame, lame_out);
     test_refused_setting_fails_run(lame, mc);
+    test_aligned_stream_end(cf, wavw);
 
 out:
     if (wr_in) wr_in->Release();
