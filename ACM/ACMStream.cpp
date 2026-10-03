@@ -346,7 +346,7 @@ int dwSamples;
 
 if (my_debug != NULL)
 {
-my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "ACMStream::ConvertBuffer result = %d (0x%02X 0x%02X)",result,a_StreamHeader->pbDst[0],a_StreamHeader->pbDst[1]);
+my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "ACMStream::ConvertBuffer result = %d",result);
 }
 
 	return result;
