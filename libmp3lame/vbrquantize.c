@@ -1035,7 +1035,7 @@ bitcount(const algo_t * that)
     }
     /*  this should not happen due to the way the scalefactors are selected  */
     ERRORF(that->gfc, "INTERNAL ERROR IN VBR NEW CODE (986), please send bug report\n");
-    exit(-1);
+    that->gfc->sv_enc.internal_error = 1;
 }
 
 
@@ -1623,5 +1623,6 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
 
     ERRORF(gfc, "INTERNAL ERROR IN VBR NEW CODE (1313), please send bug report\n"
            "maxbits=%d usedbits=%d\n", max_nbits_fr, use_nbits_fr);
-    exit(-1);
+    gfc->sv_enc.internal_error = 1;
+    return use_nbits_fr;
 }

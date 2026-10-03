@@ -351,6 +351,9 @@ lame_encode_mp3_frame(       /* Output */
     inbuf[0] = inbuf_l;
     inbuf[1] = inbuf_r;
 
+    if (gfc->sv_enc.internal_error)
+        return LAME_INTERNALERROR;
+
     if (gfc->lame_encode_frame_init == 0) {
         /*first run? */
         lame_encode_frame_init(gfc, inbuf);
@@ -563,6 +566,8 @@ lame_encode_mp3_frame(       /* Output */
         VBR_new_iteration_loop(gfc, (const FLOAT (*)[2])pe_use, ms_ener_ratio, masking);
         break;
     }
+    if (gfc->sv_enc.internal_error)
+        return LAME_INTERNALERROR;
 
 
     /****************************************

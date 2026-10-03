@@ -1084,6 +1084,42 @@ test_float_setters_refuse_nonfinite(void **state)
 }
 
 /**
+ * @brief The scale setters take a factor up to 4096 in magnitude and refuse a
+ *        larger one, keeping the value they held.
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_scale_setters_refuse_beyond_bound(void **state)
+{
+    static const float taken[] = { 4096.0f, -4096.0f, 0.0f };
+    static const float refused[] = { 4097.0f, -4097.0f, 1.e9f };
+    size_t  i;
+    lame_t  gf = lame_init();
+    (void) state;
+    assert_non_null(gf);
+    for (i = 0; i < sizeof taken / sizeof taken[0]; ++i) {
+        assert_int_equal(lame_set_scale(gf, taken[i]), 0);
+        ASSERT_FLT_EXACT(lame_get_scale(gf), taken[i]);
+        assert_int_equal(lame_set_scale_left(gf, taken[i]), 0);
+        ASSERT_FLT_EXACT(lame_get_scale_left(gf), taken[i]);
+        assert_int_equal(lame_set_scale_right(gf, taken[i]), 0);
+        ASSERT_FLT_EXACT(lame_get_scale_right(gf), taken[i]);
+    }
+    assert_int_equal(lame_set_scale(gf, 2.0f), 0);
+    assert_int_equal(lame_set_scale_left(gf, 2.0f), 0);
+    assert_int_equal(lame_set_scale_right(gf, 2.0f), 0);
+    for (i = 0; i < sizeof refused / sizeof refused[0]; ++i) {
+        assert_int_equal(lame_set_scale(gf, refused[i]), -1);
+        assert_int_equal(lame_set_scale_left(gf, refused[i]), -1);
+        assert_int_equal(lame_set_scale_right(gf, refused[i]), -1);
+    }
+    ASSERT_FLT_EXACT(lame_get_scale(gf), 2.0f);
+    ASSERT_FLT_EXACT(lame_get_scale_left(gf), 2.0f);
+    ASSERT_FLT_EXACT(lame_get_scale_right(gf), 2.0f);
+    lame_close(gf);
+}
+
+/**
  * @brief lame_get_maximum_number_of_samples() keeps its promise: that many
  *        samples per call never overflow the buffer it was asked about.
  *
@@ -1256,6 +1292,7 @@ main(void)
         cmocka_unit_test(test_upsampling_ratio_limit),
         cmocka_unit_test(test_vbr_floor_above_ceiling),
         cmocka_unit_test(test_float_setters_refuse_nonfinite),
+        cmocka_unit_test(test_scale_setters_refuse_beyond_bound),
         cmocka_unit_test(test_extreme_int_settings),
         cmocka_unit_test(test_tiny_compression_ratio),
         cmocka_unit_test(test_vbr_with_cbr_bitrate_beyond_tables),

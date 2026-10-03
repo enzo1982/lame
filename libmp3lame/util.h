@@ -85,6 +85,10 @@ extern  "C" {
 #define MAX_BITS_PER_CHANNEL 4095
 #define MAX_BITS_PER_GRANULE 7680
 
+/* the loudest input the encoder takes, in multiples of full scale, and the
+   largest scale factor the scale setters accept: 2^12 (+72 dB) */
+#define MAX_INPUT_SCALE 4096.0f
+
 /* "bit_stream.h" Definitions */
 #define         BUFFER_SIZE     LAME_MAXMP3BUFFER
 
@@ -307,6 +311,10 @@ extern  "C" {
 
         int     mf_samples_to_encode;
         int     mf_size;
+
+        /* set when the quantization could not fit a frame into its bits; every
+           later encode call then fails with LAME_INTERNALERROR */
+        int     internal_error;
 
     } EncStateVar_t;
 

@@ -712,6 +712,49 @@ test_null_output_buffer_empty_frame(LAME_UNUSED void **state)
 }
 
 /**
+ * @brief A sample louder than 4096 times full scale, all scale factors
+ *        applied, is refused as bad input data; one just under is encoded.
+ *
+ * Floating point input reaches the bound by itself; 16-bit input only
+ * through the scale factors, whose product the setters cannot bound. The
+ * bitrate presets scale the input by 0.95 to 1, so the refused sample sits
+ * well beyond 4096 rather than just past it.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_input_beyond_bound_refused(LAME_UNUSED void **state)
+{
+    static unsigned char mp3[MP3CAP];
+    static float fl[NSAMPLES], fr[NSAMPLES];
+    lame_t  gfp = encoder_new(0, 0);
+    int     i;
+
+    for (i = 0; i < NSAMPLES; i++)
+        fl[i] = fr[i] = 4000.0f * (float) pcm_l[i] / 32768.0f;
+    assert_true(lame_encode_buffer_ieee_float(gfp, fl, fr, NSAMPLES, mp3, MP3CAP) >= 0);
+    fl[NSAMPLES / 2] = 5000.0f;
+    assert_int_equal(lame_encode_buffer_ieee_float(gfp, fl, fr, NSAMPLES, mp3, MP3CAP),
+                     LAME_BADINPUTDATA);
+    fl[NSAMPLES / 2] = -5000.0f;
+    assert_int_equal(lame_encode_buffer_ieee_float(gfp, fl, fr, NSAMPLES, mp3, MP3CAP),
+                     LAME_BADINPUTDATA);
+    assert_true(lame_encode_flush(gfp, mp3, MP3CAP) > 0);
+    lame_close(gfp);
+
+    gfp = lame_init();
+    assert_non_null(gfp);
+    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
+    assert_int_equal(lame_set_in_samplerate(gfp, RATE), 0);
+    assert_int_equal(lame_set_scale(gfp, 4096.0f), 0);
+    assert_int_equal(lame_set_scale_left(gfp, 2.0f), 0);
+    assert_int_equal(lame_init_params(gfp), 0);
+    assert_int_equal(lame_encode_buffer(gfp, pcm_l, pcm_r, NSAMPLES, mp3, MP3CAP),
+                     LAME_BADINPUTDATA);
+    lame_close(gfp);
+}
+
+/**
  * @brief Reads the encoder delay and padding out of a LAME tag frame.
  * @param frame   the frame lame_get_lametag_frame() filled.
  * @param n       its length.
@@ -1087,6 +1130,7 @@ main(void)
         cmocka_unit_test(test_negative_count_refused),
         cmocka_unit_test(test_null_output_buffer_refused),
         cmocka_unit_test(test_null_output_buffer_empty_frame),
+        cmocka_unit_test(test_input_beyond_bound_refused),
         cmocka_unit_test(test_lametag_delay_zero_after_nogap_flush),
         cmocka_unit_test(test_encode_finish_matches_flush_then_close),
         cmocka_unit_test(test_lametag_frame_reports_required_size),

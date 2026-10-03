@@ -1951,18 +1951,18 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 
                 T_ELIF("scale")
                     argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed)
-                        (void) lame_set_scale(gfp, (float) double_value);
+                    if (argUsed && lame_set_scale(gfp, (float) double_value) != 0)
+                        refuse_number(token, nextArg);
 
                 T_ELIF("scale-l")
                     argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed)
-                        (void) lame_set_scale_left(gfp, (float) double_value);
+                    if (argUsed && lame_set_scale_left(gfp, (float) double_value) != 0)
+                        refuse_number(token, nextArg);
 
                 T_ELIF("scale-r")
                     argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed)
-                        (void) lame_set_scale_right(gfp, (float) double_value);
+                    if (argUsed && lame_set_scale_right(gfp, (float) double_value) != 0)
+                        refuse_number(token, nextArg);
 
                 T_ELIF("gain")
                     argUsed = getDoubleValue(token, nextArg, &double_value);

@@ -211,16 +211,18 @@ lame_get_num_channels(const lame_global_flags * gfp)
   up far enough will clip.
 
   \param gfp    the encoder instance.
-  \param scale  the factor, a finite number. Not range-checked otherwise: 0
+  \param scale  the factor, a finite number of magnitude at most 4096: 0
                 silences the input and a negative value inverts it, both
-                accepted.
-  \return 0 on success, -1 if the instance is not usable or the factor is NaN
-          or an infinity - the setting is then left as it was.
+                accepted. A sample that ends up louder than 4096 times full
+                scale, all factors applied, is refused by the encode call.
+  \return 0 on success, -1 if the instance is not usable or the factor is NaN,
+          an infinity or beyond 4096 - the setting is then left as it was.
 */
 int
 lame_set_scale(lame_global_flags * gfp, float scale)
 {
-    if (is_lame_global_flags_valid(gfp) && float_is_finite(scale)) {
+    if (is_lame_global_flags_valid(gfp) && float_is_finite(scale)
+        && scale <= MAX_INPUT_SCALE && scale >= -MAX_INPUT_SCALE) {
         /* default = 1 */
         gfp->scale = scale;
         return 0;
@@ -256,7 +258,8 @@ lame_get_scale(const lame_global_flags * gfp)
 int
 lame_set_scale_left(lame_global_flags * gfp, float scale)
 {
-    if (is_lame_global_flags_valid(gfp) && float_is_finite(scale)) {
+    if (is_lame_global_flags_valid(gfp) && float_is_finite(scale)
+        && scale <= MAX_INPUT_SCALE && scale >= -MAX_INPUT_SCALE) {
         /* default = 1 */
         gfp->scale_left = scale;
         return 0;
@@ -291,7 +294,8 @@ lame_get_scale_left(const lame_global_flags * gfp)
 int
 lame_set_scale_right(lame_global_flags * gfp, float scale)
 {
-    if (is_lame_global_flags_valid(gfp) && float_is_finite(scale)) {
+    if (is_lame_global_flags_valid(gfp) && float_is_finite(scale)
+        && scale <= MAX_INPUT_SCALE && scale >= -MAX_INPUT_SCALE) {
         /* default = 1 */
         gfp->scale_right = scale;
         return 0;

@@ -1990,15 +1990,22 @@ lame_copy_inbuffer(lame_internal_flags* gfc,
     sample_t* ib0 = esv->in_buffer_0;
     sample_t* ib1 = esv->in_buffer_1;
     FLOAT   m[2][2];
+    FLOAT const loudest = MAX_INPUT_SCALE * 32768.0f;
+    double  gain_l, gain_r, gain;
 
     /* Apply user defined re-scaling */
     m[0][0] = s * cfg->pcm_transform[0][0];
     m[0][1] = s * cfg->pcm_transform[0][1];
     m[1][0] = s * cfg->pcm_transform[1][0];
     m[1][1] = s * cfg->pcm_transform[1][1];
+    gain_l = fabs(m[0][0]) + fabs(m[0][1]);
+    gain_r = fabs(m[1][0]) + fabs(m[1][1]);
+    gain = gain_l > gain_r ? gain_l : gain_r;
 
-    /* Integer sample types cannot represent NaN or infinity, so they are taken
-     * as given; only the floating point ones are screened.
+    /* Integer sample types cannot represent NaN or infinity; only the floating
+     * point ones are screened for them. Every type is refused beyond the
+     * loudest input the encoder takes, once scaled - checked per sample only
+     * where the type's full range times the scaling can get there.
      */
 #define VALIDATE_NONE(sl, sr)
 #define VALIDATE_FLOAT(sl, sr) \
@@ -2010,8 +2017,14 @@ lame_copy_inbuffer(lame_internal_flags* gfc,
         return -1; \
     }
 
+#define BOUND_NONE(u, v)
+#define BOUND_CHECK(u, v) \
+    if (u > loudest || u < -loudest || v > loudest || v < -loudest) { \
+        return -1; \
+    }
+
     /* make a copy of input buffer, changing type to sample_t */
-#define COPY_AND_TRANSFORM(T, VALIDATE) \
+#define COPY_AND_TRANSFORM(T, VALIDATE, BOUND) \
 { \
     T const *bl = l, *br = r; \
     int     i; \
@@ -2022,6 +2035,7 @@ lame_copy_inbuffer(lame_internal_flags* gfc,
             sample_t const xr = *br; \
             sample_t const u = xl * m[0][0] + xr * m[0][1]; \
             sample_t const v = xl * m[1][0] + xr * m[1][1]; \
+            BOUND(u, v) \
             ib0[i] = u; \
             ib1[i] = v; \
         } \
@@ -2029,21 +2043,27 @@ lame_copy_inbuffer(lame_internal_flags* gfc,
         br += jump; \
     } \
 }
+#define COPY_INTEGER(T, FULL_RANGE) \
+    if ((FULL_RANGE) * gain > loudest) \
+        COPY_AND_TRANSFORM(T, VALIDATE_NONE, BOUND_CHECK) \
+    else \
+        COPY_AND_TRANSFORM(T, VALIDATE_NONE, BOUND_NONE)
+
     switch ( pcm_type ) {
     case pcm_short_type:
-        COPY_AND_TRANSFORM(short int, VALIDATE_NONE);
+        COPY_INTEGER(short int, 32768.0);
         break;
     case pcm_int_type:
-        COPY_AND_TRANSFORM(int, VALIDATE_NONE);
+        COPY_INTEGER(int, 2147483648.0);
         break;
     case pcm_long_type:
-        COPY_AND_TRANSFORM(long int, VALIDATE_NONE);
+        COPY_INTEGER(long int, (double) LONG_MAX + 1.0);
         break;
     case pcm_float_type:
-        COPY_AND_TRANSFORM(float, VALIDATE_FLOAT);
+        COPY_AND_TRANSFORM(float, VALIDATE_FLOAT, BOUND_CHECK);
         break;
     case pcm_double_type:
-        COPY_AND_TRANSFORM(double, VALIDATE_DOUBLE);
+        COPY_AND_TRANSFORM(double, VALIDATE_DOUBLE, BOUND_CHECK);
         break;
     }
     return 0;
@@ -2097,7 +2117,8 @@ lame_encode_buffer_template(lame_global_flags * gfp,
                     rc = lame_copy_inbuffer(gfc, buffer_l, buffer_l, nsamples, pcm_type, aa, norm);
                 }
                 /* A non-finite sample would spread through the psycho acoustic
-                 * model and turn the whole frame into noise.
+                 * model and turn the whole frame into noise; one beyond the
+                 * loudest input is more than any frame can carry.
                  */
                 if (rc != 0) {
                     return LAME_BADINPUTDATA;

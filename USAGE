@@ -1426,6 +1426,8 @@ file
     arg = 1: no effect
     arg < 1: reduce volume
 
+    arg is at most 4096 in magnitude; a larger factor is refused.
+
     Use with care, since most MP3 decoders will truncate data which
     decodes to values greater than 32768.
 

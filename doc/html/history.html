@@ -495,6 +495,15 @@
 			        for a negative sample count. An encode or flush call
 			        without an output buffer returns -1 as soon as it has
 			        data to write.</li>
+			    <li>The encode functions return <i>LAME_BADINPUTDATA</i>
+			        for a sample louder than 4096 times full scale after
+			        scaling. <i>lame_set_scale()</i> and its per-channel
+			        variants reject a factor above 4096, and so do
+			        <i>lame</i>'s <i>--scale</i>, <i>--scale-l</i> and
+			        <i>--scale-r</i>.</li>
+			    <li>If the encoder cannot fit a frame into the available
+			        bits, that encode call and all later ones return
+			        <i>LAME_INTERNALERROR</i>.</li>
 			    <li>The resampler reports a failed allocation instead of
 			        crashing on it. It allocated its FIR input and filter
 			        buffers without checking the result, then dereferenced
