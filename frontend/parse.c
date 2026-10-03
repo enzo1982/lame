@@ -52,6 +52,7 @@ char   *strchr(), *strrchr();
 #endif
 
 #include "lame.h"
+#include "machine.h"
 
 #include "parse.h"
 #include "main.h"
@@ -419,10 +420,36 @@ static int evaluateArgument(char const* token, char const* arg, char* _EndPtr)
     return 0;
 }
 
+/* No option means anything beyond this magnitude, and the callers scale what
+   they read by up to a thousand before converting it to an int - so a
+   thousand times this has to fit in one. */
+#define MAX_NUMERIC_ARGUMENT 1.e6
+
+/* Set when an option's value was refused; parse_args_() fails at the end. */
+static int unusable_number = 0;
+
+/**
+ * @internal
+ * @brief Refuse an option value no option can use, and mark the parse failed.
+ *
+ * @param token  the option, for the message.
+ * @param arg    the value as given.
+ */
+static void
+refuse_number(char const* token, char const* arg)
+{
+    error_printf("Error: '%s' is not a usable value for '%s'\n", arg, token);
+    unusable_number = 1;
+}
+
 static int getDoubleValue(char const* token, char const* arg, double* ptr)
 {
     char *_EndPtr=0;
     double d = strtod(arg, &_EndPtr);
+    if (!double_is_finite(d) || d > MAX_NUMERIC_ARGUMENT || d < -MAX_NUMERIC_ARGUMENT) {
+        refuse_number(token, arg);
+        d = 0;
+    }
     if (ptr != 0) {
         *ptr = d;
     }
@@ -433,6 +460,10 @@ static int getIntValue(char const* token, char const* arg, int* ptr)
 {
     char *_EndPtr=0;
     long d = strtol(arg, &_EndPtr, 10);
+    if (d > (long) MAX_NUMERIC_ARGUMENT || d < -(long) MAX_NUMERIC_ARGUMENT) {
+        refuse_number(token, arg);
+        d = 0;
+    }
     if (ptr != 0) {
         *ptr = (int)d;
     }
@@ -1791,6 +1822,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
     global_decoder.disable_wav_header = 0;
     global_ui_config.print_clipping_info = 0;
     id3tag_init(gfp);
+    unusable_number = 0;
 
     /* process args */
     for (i = 0; ++i < argc;) {
@@ -2755,6 +2787,9 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
             }
         }
     }                   /* loop over args */
+
+    if (unusable_number)
+        return -1;
 
     if (!input_file) {
         usage(Console_IO.Console_fp, ProgramName);

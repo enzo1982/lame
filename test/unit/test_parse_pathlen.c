@@ -1,10 +1,12 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit test for @c set_path_arg() in @c frontend/parse.c.
+ * @brief Unit test for @c set_path_arg() and the option value readers in
+ *        @c frontend/parse.c.
  *
  * Verifies that a positional input/output filename of @c PATH_MAX bytes or
- * longer is rejected, and that a shorter one is copied and null-terminated.
+ * longer is rejected, and that a shorter one is copied and null-terminated;
+ * and that an option value no option can use makes @c parse_args() fail.
  *
  * @c set_path_arg() is static, so the whole translation unit is pulled in with
  * @c \#include; @c parse_test_stubs.c supplies the console/file helpers
@@ -95,7 +97,50 @@ test_boundary_length(LAME_UNUSED void **state)
     free(src);
 }
 
-/** @brief Registers and runs the set_path_arg() test group. */
+/**
+ * @brief parse_args() refuses an option value that is not a finite number or
+ *        lies beyond what any option can mean, and accepts an ordinary one.
+ *
+ * The values cover both readers: a double that is NaN, infinite or huge, which
+ * several options convert to an int, and an integer beyond the range of one.
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_unusable_numbers_refused(LAME_UNUSED void **state)
+{
+    static const struct {
+        const char *opt, *val;
+        int     ret;
+    } cases[] = {
+        { "-s", "nan", -1 },
+        { "-s", "1e10", -1 },
+        { "-s", "-44444444", -1 },      /* scaled by 1000 before the conversion */
+        { "--scale", "inf", -1 },
+        { "--resample", "-1e300", -1 },
+        { "--lowpass", "nan", -1 },
+        { "-b", "4294967424", -1 },
+        { "-s", "44.1", 0 },
+    };
+    static char in_path[PATH_MAX + 1], out_path[PATH_MAX + 1];
+    size_t  c;
+    for (c = 0; c < sizeof cases / sizeof cases[0]; ++c) {
+        char    prog[] = "lame", in[] = "in.wav", out[] = "out.mp3";
+        char    opt[32], val[32];
+        char   *argv[6];
+        lame_t  gf = lame_init();
+        int     r;
+        assert_non_null(gf);
+        snprintf(opt, sizeof opt, "%s", cases[c].opt);
+        snprintf(val, sizeof val, "%s", cases[c].val);
+        argv[0] = prog; argv[1] = opt; argv[2] = val; argv[3] = in; argv[4] = out; argv[5] = NULL;
+        r = parse_args(gf, 5, argv, in_path, out_path, NULL, NULL);
+        if (r != cases[c].ret)
+            fail_msg("%s %s: parse_args() answered %d", cases[c].opt, cases[c].val, r);
+        lame_close(gf);
+    }
+}
+
+/** @brief Registers and runs the set_path_arg() and option value test group. */
 int
 main(void)
 {
@@ -103,6 +148,7 @@ main(void)
         cmocka_unit_test(test_overlong_path_rejected),
         cmocka_unit_test(test_fitting_path_terminated),
         cmocka_unit_test(test_boundary_length),
+        cmocka_unit_test(test_unusable_numbers_refused),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
