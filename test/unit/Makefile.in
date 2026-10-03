@@ -117,6 +117,7 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_file_times$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_decode_scale$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_quantize_pe$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_gain_analysis$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_1) $(am__EXEEXT_2) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_3)
 
@@ -249,6 +250,16 @@ test_free_format_OBJECTS = $(am_test_free_format_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@test_free_format_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+am__test_gain_analysis_SOURCES_DIST = test_gain_analysis.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_gain_analysis_OBJECTS = test_gain_analysis-test_gain_analysis.$(OBJEXT)
+test_gain_analysis_OBJECTS = $(am_test_gain_analysis_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_gain_analysis_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+test_gain_analysis_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(AM_CFLAGS) $(CFLAGS) $(test_gain_analysis_LDFLAGS) \
+	$(LDFLAGS) -o $@
 am__test_get_audio_aiff_SOURCES_DIST = test_get_audio_aiff.c \
 	test_stubs.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_get_audio_aiff_OBJECTS = test_get_audio_aiff-test_get_audio_aiff.$(OBJEXT) \
@@ -441,6 +452,7 @@ am__depfiles_remade = $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametim
 	./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po \
 	./$(DEPDIR)/test_file_times-test_file_times.Po \
 	./$(DEPDIR)/test_free_format-test_free_format.Po \
+	./$(DEPDIR)/test_gain_analysis-test_gain_analysis.Po \
 	./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po \
 	./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po \
 	./$(DEPDIR)/test_get_audio_float-test_get_audio_float.Po \
@@ -494,12 +506,12 @@ SOURCES = $(test_bitstream_headers_SOURCES) \
 	$(test_encode_api_SOURCES) $(test_encode_clipgain_SOURCES) \
 	$(test_encode_mono_interleaved_SOURCES) \
 	$(test_encode_nonfinite_SOURCES) $(test_file_times_SOURCES) \
-	$(test_free_format_SOURCES) $(test_get_audio_aiff_SOURCES) \
-	$(test_get_audio_float_SOURCES) $(test_get_audio_wav_SOURCES) \
-	$(test_help_exit_SOURCES) $(test_huffman_tables_SOURCES) \
-	$(test_id3tag_SOURCES) $(test_lib_info_SOURCES) \
-	$(test_merge_argv_SOURCES) $(test_parse_id3_SOURCES) \
-	$(test_parse_pathlen_SOURCES) \
+	$(test_free_format_SOURCES) $(test_gain_analysis_SOURCES) \
+	$(test_get_audio_aiff_SOURCES) $(test_get_audio_float_SOURCES) \
+	$(test_get_audio_wav_SOURCES) $(test_help_exit_SOURCES) \
+	$(test_huffman_tables_SOURCES) $(test_id3tag_SOURCES) \
+	$(test_lib_info_SOURCES) $(test_merge_argv_SOURCES) \
+	$(test_parse_id3_SOURCES) $(test_parse_pathlen_SOURCES) \
 	$(test_quantize_lines_vector_SOURCES) \
 	$(test_quantize_pe_SOURCES) $(test_resample_decision_SOURCES) \
 	$(test_rtp_socket_SOURCES) $(test_sanity_SOURCES) \
@@ -517,6 +529,7 @@ DIST_SOURCES = $(am__test_bitstream_headers_SOURCES_DIST) \
 	$(am__test_encode_nonfinite_SOURCES_DIST) \
 	$(am__test_file_times_SOURCES_DIST) \
 	$(am__test_free_format_SOURCES_DIST) \
+	$(am__test_gain_analysis_SOURCES_DIST) \
 	$(am__test_get_audio_aiff_SOURCES_DIST) \
 	$(am__test_get_audio_float_SOURCES_DIST) \
 	$(am__test_get_audio_wav_SOURCES_DIST) \
@@ -1204,6 +1217,19 @@ SH_LOG_COMPILER = $(SHELL)
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
 
+# The ReplayGain analysis is internal as well: the static archive again.
+@ENABLE_UNIT_TESTS_TRUE@test_gain_analysis_SOURCES = test_gain_analysis.c
+@ENABLE_UNIT_TESTS_TRUE@test_gain_analysis_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_gain_analysis_LDFLAGS = -static
+@ENABLE_UNIT_TESTS_TRUE@test_gain_analysis_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
+
 # lame_get_totalframes() is public, so this test links libmp3lame and calls it
 # directly - no frontend translation unit compiled in.
 @ENABLE_UNIT_TESTS_TRUE@test_totalframes_SOURCES = test_totalframes.c
@@ -1544,6 +1570,10 @@ test_free_format$(EXEEXT): $(test_free_format_OBJECTS) $(test_free_format_DEPEND
 	@rm -f test_free_format$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_free_format_OBJECTS) $(test_free_format_LDADD) $(LIBS)
 
+test_gain_analysis$(EXEEXT): $(test_gain_analysis_OBJECTS) $(test_gain_analysis_DEPENDENCIES) $(EXTRA_test_gain_analysis_DEPENDENCIES) 
+	@rm -f test_gain_analysis$(EXEEXT)
+	$(AM_V_CCLD)$(test_gain_analysis_LINK) $(test_gain_analysis_OBJECTS) $(test_gain_analysis_LDADD) $(LIBS)
+
 test_get_audio_aiff$(EXEEXT): $(test_get_audio_aiff_OBJECTS) $(test_get_audio_aiff_DEPENDENCIES) $(EXTRA_test_get_audio_aiff_DEPENDENCIES) 
 	@rm -f test_get_audio_aiff$(EXEEXT)
 	$(AM_V_CCLD)$(test_get_audio_aiff_LINK) $(test_get_audio_aiff_OBJECTS) $(test_get_audio_aiff_LDADD) $(LIBS)
@@ -1644,6 +1674,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_file_times-test_file_times.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_free_format-test_free_format.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_gain_analysis-test_gain_analysis.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_get_audio_float-test_get_audio_float.Po@am__quote@ # am--include-marker
@@ -1882,6 +1913,20 @@ test_free_format-test_free_format.obj: test_free_format.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_free_format.c' object='test_free_format-test_free_format.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_free_format_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_free_format-test_free_format.obj `if test -f 'test_free_format.c'; then $(CYGPATH_W) 'test_free_format.c'; else $(CYGPATH_W) '$(srcdir)/test_free_format.c'; fi`
+
+test_gain_analysis-test_gain_analysis.o: test_gain_analysis.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_gain_analysis_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_gain_analysis-test_gain_analysis.o -MD -MP -MF $(DEPDIR)/test_gain_analysis-test_gain_analysis.Tpo -c -o test_gain_analysis-test_gain_analysis.o `test -f 'test_gain_analysis.c' || echo '$(srcdir)/'`test_gain_analysis.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_gain_analysis-test_gain_analysis.Tpo $(DEPDIR)/test_gain_analysis-test_gain_analysis.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_gain_analysis.c' object='test_gain_analysis-test_gain_analysis.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_gain_analysis_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_gain_analysis-test_gain_analysis.o `test -f 'test_gain_analysis.c' || echo '$(srcdir)/'`test_gain_analysis.c
+
+test_gain_analysis-test_gain_analysis.obj: test_gain_analysis.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_gain_analysis_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_gain_analysis-test_gain_analysis.obj -MD -MP -MF $(DEPDIR)/test_gain_analysis-test_gain_analysis.Tpo -c -o test_gain_analysis-test_gain_analysis.obj `if test -f 'test_gain_analysis.c'; then $(CYGPATH_W) 'test_gain_analysis.c'; else $(CYGPATH_W) '$(srcdir)/test_gain_analysis.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_gain_analysis-test_gain_analysis.Tpo $(DEPDIR)/test_gain_analysis-test_gain_analysis.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_gain_analysis.c' object='test_gain_analysis-test_gain_analysis.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_gain_analysis_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_gain_analysis-test_gain_analysis.obj `if test -f 'test_gain_analysis.c'; then $(CYGPATH_W) 'test_gain_analysis.c'; else $(CYGPATH_W) '$(srcdir)/test_gain_analysis.c'; fi`
 
 test_get_audio_aiff-test_get_audio_aiff.o: test_get_audio_aiff.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_get_audio_aiff_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_get_audio_aiff-test_get_audio_aiff.o -MD -MP -MF $(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Tpo -c -o test_get_audio_aiff-test_get_audio_aiff.o `test -f 'test_get_audio_aiff.c' || echo '$(srcdir)/'`test_get_audio_aiff.c
@@ -2667,6 +2712,13 @@ test_quantize_pe.log: test_quantize_pe$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_gain_analysis.log: test_gain_analysis$(EXEEXT)
+	@p='test_gain_analysis$(EXEEXT)'; \
+	b='test_gain_analysis'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 test_choose_table_vector.log: test_choose_table_vector$(EXEEXT)
 	@p='test_choose_table_vector$(EXEEXT)'; \
 	b='test_choose_table_vector'; \
@@ -2812,6 +2864,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po
 	-rm -f ./$(DEPDIR)/test_file_times-test_file_times.Po
 	-rm -f ./$(DEPDIR)/test_free_format-test_free_format.Po
+	-rm -f ./$(DEPDIR)/test_gain_analysis-test_gain_analysis.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_float-test_get_audio_float.Po
@@ -2897,6 +2950,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_encode_nonfinite-test_encode_nonfinite.Po
 	-rm -f ./$(DEPDIR)/test_file_times-test_file_times.Po
 	-rm -f ./$(DEPDIR)/test_free_format-test_free_format.Po
+	-rm -f ./$(DEPDIR)/test_gain_analysis-test_gain_analysis.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_get_audio_aiff.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_aiff-test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_get_audio_float-test_get_audio_float.Po

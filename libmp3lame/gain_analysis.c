@@ -324,18 +324,22 @@ AnalyzeSamples(replaygain_t * rgData, const Float_t * left_samples, const Float_
             curright = right_samples + cursamplepos;
         }
 
+        /* Mono is filtered once. Both sums below then read the left result, so
+           they are what filtering the same samples twice would give. */
         YULE_FILTER(curleft, rgData->lstep + rgData->totsamp, cursamples,
                     ABYule[rgData->freqindex]);
-        YULE_FILTER(curright, rgData->rstep + rgData->totsamp, cursamples,
-                    ABYule[rgData->freqindex]);
+        if (num_channels == 2)
+            YULE_FILTER(curright, rgData->rstep + rgData->totsamp, cursamples,
+                        ABYule[rgData->freqindex]);
 
         BUTTER_FILTER(rgData->lstep + rgData->totsamp, rgData->lout + rgData->totsamp, cursamples,
                       ABButter[rgData->freqindex]);
-        BUTTER_FILTER(rgData->rstep + rgData->totsamp, rgData->rout + rgData->totsamp, cursamples,
-                      ABButter[rgData->freqindex]);
+        if (num_channels == 2)
+            BUTTER_FILTER(rgData->rstep + rgData->totsamp, rgData->rout + rgData->totsamp,
+                          cursamples, ABButter[rgData->freqindex]);
 
         curleft = rgData->lout + rgData->totsamp; /* Get the squared values */
-        curright = rgData->rout + rgData->totsamp;
+        curright = num_channels == 2 ? rgData->rout + rgData->totsamp : curleft;
 
         sum_l = 0;
         sum_r = 0;

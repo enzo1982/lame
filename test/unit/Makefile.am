@@ -26,7 +26,7 @@ check_PROGRAMS = test_sanity test_get_audio_aiff test_get_audio_wav \
 	test_vector_ladder test_decoder_api test_encode_clipgain \
 	test_huffman_tables test_help_exit test_bitstream_headers \
 	test_free_format test_encode_api test_resample_decision \
-	test_file_times test_decode_scale test_quantize_pe
+	test_file_times test_decode_scale test_quantize_pe test_gain_analysis
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -266,6 +266,17 @@ test_resample_decision_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_builddir)
 test_resample_decision_LDFLAGS = -static
 test_resample_decision_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The ReplayGain analysis is internal as well: the static archive again.
+test_gain_analysis_SOURCES = test_gain_analysis.c
+test_gain_analysis_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_builddir)
+test_gain_analysis_LDFLAGS = -static
+test_gain_analysis_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 
