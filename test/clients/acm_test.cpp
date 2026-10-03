@@ -162,6 +162,24 @@ test_output_sample_rate(void)
 }
 
 /**
+ * @brief Fields far beyond any stream give the rate their values call for.
+ *
+ * The bitrate and the channel count come from the application's formats. A
+ * bitrate of 2^30 bytes per second is so high that the source rate stands; 40000
+ * channels without a bitrate stand for 64 kbps each, which is again far above
+ * what the source needs.
+ */
+static void
+test_output_sample_rate_extremes(void)
+{
+    printf("fields far beyond any stream\n");
+    CHECK_EQ_U(ACMStream::GetOutputSampleRate(44100, 1 << 30, 2), 44100,
+               "a bitrate of 2^30 bytes per second leaves 44.1 kHz stereo at 44100");
+    CHECK_EQ_U(ACMStream::GetOutputSampleRate(44100, 0, 40000), 44100,
+               "40000 channels with no bitrate leave 44.1 kHz at 44100");
+}
+
+/**
  * @brief The smart output ratio survives being written and read back.
  *
  * A ratio with a fractional part is what the fix preserved, so the value is
@@ -1058,6 +1076,7 @@ main(int argc, char **argv)
 
     ctest_start("acm_test: the ACM codec's rate selection, configuration and conversion");
     test_output_sample_rate();
+    test_output_sample_rate_extremes();
     test_smart_ratio_round_trip();
     test_malformed_config();
     test_save_without_a_file();

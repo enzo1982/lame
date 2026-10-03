@@ -386,15 +386,16 @@ map2MP3Frequency(int freq)
 unsigned int ACMStream::GetOutputSampleRate(int samples_per_sec, int bitrate, int channels)
 {
     if (bitrate==0)
-        bitrate = (64000*channels)/8;
-  
+        bitrate = (64000/8)*channels;
+
         /// \todo pass through the same LAME routine
 	unsigned int OutputFrequency;
 	// Both operands are ints, so the division is deliberately written on
 	// doubles: done in integer arithmetic it floors the ratio before the
 	// comparison below, which puts a ratio of 13.7 on the wrong side of the
-	// boundary and offers a rate the caller then refuses to convert to.
-	double compression_ratio = double(samples_per_sec * 16 * channels) / double(bitrate * 8);
+	// boundary and offers a rate the caller then refuses to convert to. The
+	// products are taken in double as well.
+	double compression_ratio = double(samples_per_sec) * 16 * channels / (double(bitrate) * 8);
 	// map2MP3Frequency() takes a frequency in Hz as an int, so the fractional
 	// part of both expressions has always been discarded here.  The casts
 	// write that down; they do not change which rate comes back.
