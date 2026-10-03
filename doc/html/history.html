@@ -177,9 +177,11 @@
 			        CBR and VBR encoding. Bug ticket
 			        <i class="ticket">[ #521 ]</i>.</span></li>
 			    <li><span class="speed">The ReplayGain analysis, which
-			        <i>lame</i> runs by default, does half the work on mono
-			        input. A mono encode is about 5 to 8% faster, measured
-			        on a Core&nbsp;i7-10700.</span></li>
+			        <i>lame</i> runs by default, does less work. It filters
+			        mono input once, and both channels of stereo input in
+			        one pass. A mono encode is about 5 to 8% faster, and a
+			        stereo encode up to 3%, depending on the compiler.
+			        Measured on a Core&nbsp;i7-10700.</span></li>
 			</ul>
 		    </li>
 		    <li><b>Quality</b>

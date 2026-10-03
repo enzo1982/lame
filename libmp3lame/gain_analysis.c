@@ -142,37 +142,73 @@ static const Float_t ABButter[9][multiple_of(4, 2 * BUTTER_ORDER + 1)] = {
 #pragma warning ( default : 4305 )
 #endif
 
+/**
+ * \internal
+ * \brief Computes one output sample of the Yule filter.
+ *
+ * filterYule() and filterYule2() use it for every channel.
+ *
+ * \param input   the input sample. The 10 samples before it are read too.
+ * \param output  where the output sample goes. The 10 outputs before it are
+ *                read.
+ * \param kernel  the filter coefficients.
+ * \param result  the variable that gets the output sample.
+ */
+#define YULE_SAMPLE(input, output, kernel, result)                                  \
+    do {                                                                            \
+        Float_t y0 =  (input)[-10] * (kernel)[ 0];                                  \
+        Float_t y2 =  (input)[ -9] * (kernel)[ 1];                                  \
+        Float_t y4 =  (input)[ -8] * (kernel)[ 2];                                  \
+        Float_t y6 =  (input)[ -7] * (kernel)[ 3];                                  \
+        Float_t s00 = y0 + y2 + y4 + y6;                                            \
+        Float_t y8 =  (input)[ -6] * (kernel)[ 4];                                  \
+        Float_t yA =  (input)[ -5] * (kernel)[ 5];                                  \
+        Float_t yC =  (input)[ -4] * (kernel)[ 6];                                  \
+        Float_t yE =  (input)[ -3] * (kernel)[ 7];                                  \
+        Float_t s01 = y8 + yA + yC + yE;                                            \
+        Float_t yG =  (input)[ -2] * (kernel)[ 8] + (input)[ -1] * (kernel)[ 9];    \
+        Float_t yK =  (input)[  0] * (kernel)[10];                                  \
+                                                                                    \
+        Float_t s1 = s00 + s01 + yG + yK;                                           \
+                                                                                    \
+        Float_t x1 = (output)[-10] * (kernel)[11] + (output)[ -9] * (kernel)[12];   \
+        Float_t x5 = (output)[ -8] * (kernel)[13] + (output)[ -7] * (kernel)[14];   \
+        Float_t x9 = (output)[ -6] * (kernel)[15] + (output)[ -5] * (kernel)[16];   \
+        Float_t xD = (output)[ -4] * (kernel)[17] + (output)[ -3] * (kernel)[18];   \
+        Float_t xH = (output)[ -2] * (kernel)[19] + (output)[ -1] * (kernel)[20];   \
+                                                                                    \
+        Float_t s2 = x1 + x5 + x9 + xD + xH;                                        \
+                                                                                    \
+        (result) = (Float_t)(s1 - s2);                                              \
+    } while (0)
+
+/**
+ * \internal
+ * \brief Computes one output sample of the Butterworth filter.
+ *
+ * filterButter() and filterButter2() use it for every channel.
+ *
+ * \param input   the input sample. The 2 samples before it are read too.
+ * \param output  where the output sample goes. The 2 outputs before it are
+ *                read.
+ * \param kernel  the filter coefficients.
+ * \param result  the variable that gets the output sample.
+ */
+#define BUTTER_SAMPLE(input, output, kernel, result)                                \
+    do {                                                                            \
+        Float_t s1 =  (input)[-2] * (kernel)[0] +  (input)[-1] * (kernel)[2]        \
+                   +  (input)[ 0] * (kernel)[4];                                    \
+        Float_t s2 = (output)[-2] * (kernel)[1] + (output)[-1] * (kernel)[3];       \
+        (result) = (Float_t)(s1 - s2);                                              \
+    } while (0)
+
 /* When calling this procedure, make sure that ip[-order] and op[-order] point to real data! */
 
 static void
 filterYule(const Float_t * input, Float_t * output, size_t nSamples, const Float_t * const kernel)
 {
     while (nSamples--) {
-        Float_t y0 =  input[-10] * kernel[ 0];
-        Float_t y2 =  input[ -9] * kernel[ 1];
-        Float_t y4 =  input[ -8] * kernel[ 2];
-        Float_t y6 =  input[ -7] * kernel[ 3];
-        Float_t s00 = y0 + y2 + y4 + y6;
-        Float_t y8 =  input[ -6] * kernel[ 4];
-        Float_t yA =  input[ -5] * kernel[ 5];
-        Float_t yC =  input[ -4] * kernel[ 6];
-        Float_t yE =  input[ -3] * kernel[ 7];
-        Float_t s01 = y8 + yA + yC + yE;
-        Float_t yG =  input[ -2] * kernel[ 8] + input[ -1] * kernel[ 9];
-        Float_t yK =  input[  0] * kernel[10];
-
-        Float_t s1 = s00 + s01 + yG + yK;
-
-        Float_t x1 = output[-10] * kernel[11] + output[ -9] * kernel[12];
-        Float_t x5 = output[ -8] * kernel[13] + output[ -7] * kernel[14];
-        Float_t x9 = output[ -6] * kernel[15] + output[ -5] * kernel[16];
-        Float_t xD = output[ -4] * kernel[17] + output[ -3] * kernel[18];
-        Float_t xH = output[ -2] * kernel[19] + output[ -1] * kernel[20];
-
-        Float_t s2 = x1 + x5 + x9 + xD + xH;
-
-        output[0] = (Float_t)(s1 - s2);
-
+        YULE_SAMPLE(input, output, kernel, output[0]);
         ++output;
         ++input;
     }
@@ -182,11 +218,65 @@ static void
 filterButter(const Float_t * input, Float_t * output, size_t nSamples, const Float_t * const kernel)
 {
     while (nSamples--) {
-        Float_t s1 =  input[-2] * kernel[0] +  input[-1] * kernel[2] +  input[ 0] * kernel[4];
-        Float_t s2 = output[-2] * kernel[1] + output[-1] * kernel[3];
-        output[0] = (Float_t)(s1 - s2);
+        BUTTER_SAMPLE(input, output, kernel, output[0]);
         ++output;
         ++input;
+    }
+}
+
+/**
+ * \internal
+ * \brief Runs the Yule filter over both channels of stereo input in one loop.
+ *
+ * \param inl       the left input. The 10 samples before it are read too.
+ * \param inr       the right input. The 10 samples before it are read too.
+ * \param outl      the left output. The 10 outputs before it are read.
+ * \param outr      the right output. The 10 outputs before it are read.
+ * \param nSamples  the number of samples in each channel.
+ * \param kernel    the filter coefficients.
+ */
+static void
+filterYule2(const Float_t * inl, const Float_t * inr, Float_t * outl, Float_t * outr,
+            size_t nSamples, const Float_t * const kernel)
+{
+    while (nSamples--) {
+        Float_t l, r;
+        YULE_SAMPLE(inl, outl, kernel, l);
+        YULE_SAMPLE(inr, outr, kernel, r);
+        outl[0] = l;
+        outr[0] = r;
+        ++outl;
+        ++outr;
+        ++inl;
+        ++inr;
+    }
+}
+
+/**
+ * \internal
+ * \brief Runs the Butterworth filter the way filterYule2() runs the Yule filter.
+ *
+ * \param inl       the left input. The 2 samples before it are read too.
+ * \param inr       the right input. The 2 samples before it are read too.
+ * \param outl      the left output. The 2 outputs before it are read.
+ * \param outr      the right output. The 2 outputs before it are read.
+ * \param nSamples  the number of samples in each channel.
+ * \param kernel    the filter coefficients.
+ */
+static void
+filterButter2(const Float_t * inl, const Float_t * inr, Float_t * outl, Float_t * outr,
+              size_t nSamples, const Float_t * const kernel)
+{
+    while (nSamples--) {
+        Float_t l, r;
+        BUTTER_SAMPLE(inl, outl, kernel, l);
+        BUTTER_SAMPLE(inr, outr, kernel, r);
+        outl[0] = l;
+        outr[0] = r;
+        ++outl;
+        ++outr;
+        ++inl;
+        ++inr;
     }
 }
 
@@ -324,19 +414,21 @@ AnalyzeSamples(replaygain_t * rgData, const Float_t * left_samples, const Float_
             curright = right_samples + cursamplepos;
         }
 
-        /* Mono is filtered once. Both sums below then read the left result, so
-           they are what filtering the same samples twice would give. */
-        YULE_FILTER(curleft, rgData->lstep + rgData->totsamp, cursamples,
-                    ABYule[rgData->freqindex]);
-        if (num_channels == 2)
-            YULE_FILTER(curright, rgData->rstep + rgData->totsamp, cursamples,
-                        ABYule[rgData->freqindex]);
-
-        BUTTER_FILTER(rgData->lstep + rgData->totsamp, rgData->lout + rgData->totsamp, cursamples,
-                      ABButter[rgData->freqindex]);
-        if (num_channels == 2)
-            BUTTER_FILTER(rgData->rstep + rgData->totsamp, rgData->rout + rgData->totsamp,
+        if (num_channels == 2) {
+            filterYule2(curleft, curright, rgData->lstep + rgData->totsamp,
+                        rgData->rstep + rgData->totsamp, cursamples, ABYule[rgData->freqindex]);
+            filterButter2(rgData->lstep + rgData->totsamp, rgData->rstep + rgData->totsamp,
+                          rgData->lout + rgData->totsamp, rgData->rout + rgData->totsamp,
                           cursamples, ABButter[rgData->freqindex]);
+        }
+        else {
+            /* Mono is filtered once. Both sums below then read the left result, so
+               they are what filtering the same samples twice would give. */
+            YULE_FILTER(curleft, rgData->lstep + rgData->totsamp, cursamples,
+                        ABYule[rgData->freqindex]);
+            BUTTER_FILTER(rgData->lstep + rgData->totsamp, rgData->lout + rgData->totsamp,
+                          cursamples, ABButter[rgData->freqindex]);
+        }
 
         curleft = rgData->lout + rgData->totsamp; /* Get the squared values */
         curright = num_channels == 2 ? rgData->rout + rgData->totsamp : curleft;
