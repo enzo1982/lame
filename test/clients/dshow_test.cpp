@@ -367,6 +367,117 @@ test_encoder_properties(IBaseFilter *lame)
 }
 
 /**
+ * @brief IPin::QueryAccept(), with a fault inside the filter answered as its
+ *        exception code.
+ * @param pin  the pin to ask.
+ * @param mt   the media type to propose.
+ * @return what the call returned, or the exception code if it faulted.
+ */
+static HRESULT
+query_accept_catching_faults(IPin *pin, const AM_MEDIA_TYPE *mt)
+{
+    __try {
+        return pin->QueryAccept(mt);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        return (HRESULT) GetExceptionCode();
+    }
+}
+
+/**
+ * @brief Walks a pin's media types, under the same guard as
+ *        query_accept_catching_faults().
+ * @param pin    the pin to ask.
+ * @param count  receives how many types the walk returned.
+ * @return S_OK once the walk ended, the enumeration's failure, or the exception
+ *         code if it faulted.
+ */
+static HRESULT
+enum_types_catching_faults(IPin *pin, ULONG *count)
+{
+    IEnumMediaTypes *e = NULL;
+    AM_MEDIA_TYPE *mt = NULL;
+    HRESULT hr;
+
+    *count = 0;
+    __try {
+        hr = pin->EnumMediaTypes(&e);
+        if (FAILED(hr)) {
+            return hr;
+        }
+        while (e->Next(1, &mt, NULL) == S_OK) {
+            ++*count;
+            CoTaskMemFree(mt->pbFormat);
+            if (mt->pUnk != NULL) {
+                mt->pUnk->Release();
+            }
+            CoTaskMemFree(mt);
+        }
+        e->Release();
+        return S_OK;
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        return (HRESULT) GetExceptionCode();
+    }
+}
+
+/**
+ * @brief An output sample rate of 0 set through the property interface leaves
+ *        the output pin answering for an audio media type.
+ *
+ * The output pin checks a proposed audio type against the configured output
+ * rate. Run last: a fault inside the filter can leave its lock held. The rate
+ * set before is put back afterwards.
+ *
+ * @param lame      the filter, its input connected.
+ * @param lame_out  its output pin.
+ */
+static void
+test_zero_output_rate(IBaseFilter *lame, IPin *lame_out)
+{
+    IAudioEncoderProperties *props = NULL;
+    MPEGLAYER3WAVEFORMAT wf;
+    AM_MEDIA_TYPE mt;
+    DWORD   before = 0;
+    HRESULT hr;
+    char    detail[CTEST_DETAIL_CHARS];
+
+    if (FAILED(lame->QueryInterface(IID_IAudioEncoderProperties_local, (void **) &props))) {
+        CHECK(0, "the filter offers its audio encoder properties again");
+        return;
+    }
+    REQUIRE_HR(props->get_SampleRate(&before), "the output rate reads back");
+    REQUIRE_HR(props->set_SampleRate(0), "an output rate of 0 is stored");
+
+    memset(&wf, 0, sizeof(wf));
+    wf.wfx.wFormatTag = WAVE_FORMAT_MPEGLAYER3;
+    wf.wfx.nChannels = 2;
+    wf.wfx.nSamplesPerSec = 44100;
+    wf.wfx.nAvgBytesPerSec = 128000 / 8;
+    wf.wfx.nBlockAlign = 1;
+    wf.wfx.cbSize = MPEGLAYER3_WFX_EXTRA_BYTES;
+    memset(&mt, 0, sizeof(mt));
+    mt.majortype = MEDIATYPE_Audio;
+    mt.formattype = FORMAT_WaveFormatEx;
+    mt.cbFormat = sizeof(wf);
+    mt.pbFormat = (BYTE *) &wf;
+    hr = query_accept_catching_faults(lame_out, &mt);
+    sprintf(detail, "hr 0x%08lX", (unsigned long) hr);
+    ctest_record(hr == S_OK, "the output pin accepts an audio type with the output rate at 0", detail);
+
+    {
+        ULONG   types = 0;
+
+        hr = enum_types_catching_faults(lame_out, &types);
+        sprintf(detail, "hr 0x%08lX, %lu type(s)", (unsigned long) hr, (unsigned long) types);
+        ctest_record(hr == S_OK && types > 0, "the output pin lists its types with the output rate at 0", detail);
+    }
+
+    props->set_SampleRate(before);
+    props->Release();
+}
+
+/**
  * @brief Seeking reaches through the encoder to whatever is upstream of it.
  *
  * A transform filter is expected to pass @c IMediaSeeking and
@@ -695,6 +806,7 @@ main(int argc, char **argv)
     mc->Stop();
 
     inspect_mp3(mp3, seconds, rate, SECOND_BITRATE_KBPS);
+    test_zero_output_rate(lame, lame_out);
 
 out:
     if (wr_in) wr_in->Release();

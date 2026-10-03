@@ -102,23 +102,6 @@ HRESULT CEncoder::SetOutputType(MPEG_ENCODER_CONFIG &mabsi)
 }
 
 //////////////////////////////////////////////////////////////////////
-// SetDefaultOutputType - sets default MPEG audio properties according
-// to input type
-//////////////////////////////////////////////////////////////////////
-HRESULT CEncoder::SetDefaultOutputType(LPWAVEFORMATEX lpwfex)
-{
-    CAutoLock l(&m_lock);
-
-    if(lpwfex->nChannels == 1 || m_mabsi.bForceMono)
-        m_mabsi.ChMode = MONO;
-
-    if((lpwfex->nSamplesPerSec < m_mabsi.dwSampleRate) || (lpwfex->nSamplesPerSec % m_mabsi.dwSampleRate != 0))
-        m_mabsi.dwSampleRate = lpwfex->nSamplesPerSec;
-
-    return S_OK;
-}
-
-//////////////////////////////////////////////////////////////////////
 // Init - initialized or reiniyialized encoder SDK with given input 
 // and output settings
 //////////////////////////////////////////////////////////////////////

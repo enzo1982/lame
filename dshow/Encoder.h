@@ -144,7 +144,6 @@ protected:
     HRESULT updateLameTagFrame(IStream* pStream);
     static HRESULT skipId3v2(IStream *pStream, size_t lametag_frame_size);
     static HRESULT maybeSyncWord(IStream *pStream);
-    HRESULT SetDefaultOutputType(LPWAVEFORMATEX lpwfex);
 
     // Input media type
     WAVEFORMATEX        m_wfex;

@@ -713,7 +713,8 @@ HRESULT CMpegAudEnc::CheckTransform(const CMediaType* mtIn, const CMediaType* mt
         if(FAILED(m_Encoder.GetOutputType(&mec)))
             return S_OK;
 
-        if (((LPWAVEFORMATEX)mtIn->Format())->nSamplesPerSec % mec.dwSampleRate != 0)
+        if (mec.dwSampleRate == 0 ||
+            ((LPWAVEFORMATEX)mtIn->Format())->nSamplesPerSec % mec.dwSampleRate != 0)
             return S_OK;
 
         if (mec.dwSampleRate != ((LPWAVEFORMATEX)mtOut->Format())->nSamplesPerSec)
@@ -1740,7 +1741,7 @@ HRESULT CMpegAudEncOutPin::GetMediaType(int iPosition, CMediaType *pmt)
     m_pFilter->m_Encoder.GetInputType(&wf);
 
     // Use the current encoder sample rate unless it isn't a modulus of the input rate
-    if ((wf.nSamplesPerSec % mec.dwSampleRate) == 0) { 
+    if (mec.dwSampleRate != 0 && (wf.nSamplesPerSec % mec.dwSampleRate) == 0) {
         m_CurrentOutputFormat.nSampleRate = mec.dwSampleRate;
     }
     else {
