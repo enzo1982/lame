@@ -51,6 +51,13 @@ static const FLOAT costab[TRI_SIZE * 2] = {
 };
 
 
+/* Coefficients below 2^-80 are set to zero before the roots: from 2^-84 down,
+   x * sqrt(x) is a denormal, and a square root evaluated from a reciprocal
+   estimate, as a compiler may do under -ffast-math, makes a NaN of a denormal;
+   the margin keeps the estimate's error away from that edge. They quantize to
+   zero at every step size. */
+#define XRPOW_SMALLEST_ROOTED 8.271806125530277e-25f
+
 SSE_FUNCTION void
 init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int max_nz, FLOAT * sum)
 {
@@ -63,6 +70,7 @@ init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int max_nz, FLOA
 
     const vecfloat_union fabs_mask = {{ 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF }};
     const __m128 vec_fabs_mask = _mm_loadu_ps(&fabs_mask._float[0]);
+    const __m128 vec_smallest = _mm_set_ps1(XRPOW_SMALLEST_ROOTED);
     vecfloat_union vec_xrpow_max;
     vecfloat_union vec_sum;
     vecfloat_union vec_tmp;
@@ -77,6 +85,7 @@ init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int max_nz, FLOA
         vec_tmp._m128 = _mm_loadu_ps(&(cod_info->xr[i])); /* load */
         vec_tmp._m128 = _mm_and_ps(vec_tmp._m128, vec_fabs_mask); /* fabs */
         vec_sum._m128 = _mm_add_ps(vec_sum._m128, vec_tmp._m128);
+        vec_tmp._m128 = _mm_and_ps(vec_tmp._m128, _mm_cmpge_ps(vec_tmp._m128, vec_smallest));
         vec_tmp._m128 = _mm_sqrt_ps(_mm_mul_ps(vec_tmp._m128, _mm_sqrt_ps(vec_tmp._m128)));
         vec_xrpow_max._m128 = _mm_max_ps(vec_xrpow_max._m128, vec_tmp._m128); /* retrieve max */
         _mm_storeu_ps(&(xrpow[i]), vec_tmp._m128); /* store into xrpow[] */
@@ -88,6 +97,7 @@ init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int max_nz, FLOA
         case 1: vec_tmp._float[0] = cod_info->xr[upper4+0];
             vec_tmp._m128 = _mm_and_ps(vec_tmp._m128, vec_fabs_mask); /* fabs */
             vec_sum._m128 = _mm_add_ps(vec_sum._m128, vec_tmp._m128);
+            vec_tmp._m128 = _mm_and_ps(vec_tmp._m128, _mm_cmpge_ps(vec_tmp._m128, vec_smallest));
             vec_tmp._m128 = _mm_sqrt_ps(_mm_mul_ps(vec_tmp._m128, _mm_sqrt_ps(vec_tmp._m128)));
             vec_xrpow_max._m128 = _mm_max_ps(vec_xrpow_max._m128, vec_tmp._m128); /* retrieve max */
             switch (rest) {

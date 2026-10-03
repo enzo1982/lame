@@ -18,6 +18,8 @@
  * float, and the truncating convert answers out-of-range input with INT_MIN
  * where C leaves it undefined, so the two forms agree only inside the range
  * the caller guarantees. The extremes of that range are checked explicitly.
+ * What feeds them has to stay inside it too: the SSE form of xr^(3/4) is
+ * checked for coefficients far below audibility.
  *
  * The reference is written here rather than taken from LAME's own loop, and
  * deliberately in a different shape - flat over the element count instead of
@@ -35,8 +37,10 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include <cmocka.h>
 
@@ -46,6 +50,14 @@
 #include "util.h"
 #include "quantize_pvt.h"
 #include "vector/lame_intrin.h"
+
+#if defined( HAVE_SSE2_INTRINSICS )
+# include <xmmintrin.h>
+/** MXCSR bit that flushes denormal results to zero. */
+# define MXCSR_FLUSH_TO_ZERO 0x8000u
+/** MXCSR bit that reads denormal operands as zero. */
+# define MXCSR_DENORMALS_ARE_ZERO 0x0040u
+#endif
 
 /** Longest run the encoder ever asks about. */
 #define MAX_LEN 576
@@ -402,6 +414,88 @@ test_reference_can_disagree(LAME_UNUSED void **state)
     assert_int_not_equal(got[1], want[1]);
 }
 
+/**
+ * @brief The exponent field of the float at @p p is all ones (NaN or infinity).
+ *
+ * @param p a float in memory.
+ * @return nonzero for a NaN or an infinity.
+ */
+static int
+float_bits_nonfinite(const void *p)
+{
+    uint32_t bits;
+    memcpy(&bits, p, sizeof bits);
+    return ((bits >> 23) & 0xFFu) == 0xFFu;
+}
+
+/**
+ * @brief The SSE form of xr^(3/4) stays finite for coefficients far below
+ *        audibility.
+ *
+ * From 2^-84 down, x * sqrt(x) is a denormal, and square roots evaluated
+ * from a reciprocal estimate - clang does so under the -ffast-math the library
+ * is built with - make a NaN of it. The quantizer's range check lets a NaN
+ * through, and the vector quantizers then use it as a table index. Magnitudes
+ * from 2^-60 down to 2^-139, both signs, denormals included, at every tail
+ * length: every result has to be finite, match |x|^0.75 above the cut-off,
+ * and be zero or no larger than that below it.
+ *
+ * Run with denormals as they are. A program linked with -ffast-math starts
+ * with them flushed to zero, which hides the fault - this test is such a
+ * program - but an application that only loads the library does not.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_xrpow_core_tiny_coefficients(LAME_UNUSED void **state)
+{
+#if defined( HAVE_SSE2_INTRINSICS )
+    /* values the encoder produced where the fault was found, beside a ladder
+       of powers of two */
+    static const double seen[4] = { 4.98604e-28, -1.67134e-26, -1.34997e-28, -4.51382e-29 };
+    gr_info *gi = calloc(1, sizeof *gi);
+    FLOAT   xrpow[576], sum = 0;
+    int     i, bad = 0, first = -1, max_nz, upper;
+    unsigned int const csr = _mm_getcsr();
+    assert_non_null(gi);
+    _mm_setcsr(csr & ~(MXCSR_FLUSH_TO_ZERO | MXCSR_DENORMALS_ARE_ZERO));
+    for (i = 0; i < 576; ++i) {
+        double const m = (i % 5 == 4) ? seen[(i / 5) % 4] : ldexp(1.0, -60 - (i % 80));
+        gi->xr[i] = (FLOAT) ((i & 1) ? -m : m);
+    }
+    /* every tail length: the last 1-3 values take their own path through the
+       vector code, and that path is where the fault was */
+    for (max_nz = 0; max_nz < 576; max_nz += (max_nz < 24 ? 1 : 37)) {
+        init_xrpow_core_sse(gi, xrpow, max_nz, &sum);
+        upper = max_nz + 1;
+        for (i = 0; i < upper; ++i) {
+            float const f = xrpow[i];
+            double const x = fabs((double) gi->xr[i]);
+            double const want = pow(x, 0.75);
+            int     ok;
+            if (float_bits_nonfinite(&xrpow[i]))
+                ok = 0;
+            else if (x >= ldexp(1.0, -80))
+                ok = fabs(f - want) <= want * 1e-5;
+            else
+                ok = f >= 0 && f <= want * 1.01;
+            if (!ok && bad++ == 0)
+                first = i;
+        }
+        assert_false(float_bits_nonfinite(&gi->xrpow_max));
+        if (bad) {
+            _mm_setcsr(csr);
+            fail_msg("max_nz %d: %d value(s) wrong, the first at xr %g: %g", max_nz, bad,
+                     (double) gi->xr[first], (double) xrpow[first]);
+        }
+    }
+    _mm_setcsr(csr);
+    free(gi);
+#else
+    skip();
+#endif
+}
+
 int
 main(void)
 {
@@ -412,6 +506,7 @@ main(void)
         cmocka_unit_test(test_tiers_agree),
         cmocka_unit_test(test_odd_length_drops_last),
         cmocka_unit_test(test_reference_can_disagree),
+        cmocka_unit_test(test_xrpow_core_tiny_coefficients),
     };
     tables_init();
     return cmocka_run_group_tests(tests, NULL, NULL);
