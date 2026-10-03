@@ -64,6 +64,11 @@
 			        a higher sample rate, <i>lame_enc.dll</i> asks the
 			        application for a large enough output buffer, and never
 			        writes more data than that size.</span></li>
+			    <li><span class="security">In <i>lame_enc.dll</i>,
+			        <i>beCloseStream()</i> after <i>beWriteInfoTag()</i>
+			        succeeds. <i>beWriteInfoTag()</i> on a stream already
+			        closed by <i>beCloseStream()</i> returns
+			        <i>BE_ERR_INVALID_HANDLE</i>.</span></li>
 			</ul>
 		    </li>
 		    <li><b>Speed</b>

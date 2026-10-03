@@ -518,6 +518,84 @@ test_upsampled_chunks_fit(const blade_exports *be)
 }
 
 /**
+ * @brief Encodes a short tone into a file, leaving the stream open.
+ * @param be          the resolved entry points.
+ * @param with_tag    whether the stream reserves a LAME-tag frame.
+ * @param path        the file to write.
+ * @param hbe         receives the open stream.
+ * @return 1 when the stream was opened and the file written, else 0.
+ */
+static int
+encode_short_file(const blade_exports *be, int with_tag, const char *path, HBE_STREAM *hbe)
+{
+    enum { CHUNKS = 8 };
+    BE_CONFIG cfg;
+    DWORD   samples = 0, room = 0, written = 0, total = 0, n, i;
+    unsigned char *out;
+    SHORT  *pcm;
+    int     ok;
+
+    make_config(&cfg, with_tag);
+    if (be->init(&cfg, &samples, &room, hbe) != BE_ERR_SUCCESSFUL) {
+        return 0;
+    }
+    out = (unsigned char *) malloc(room * (CHUNKS + 1));
+    pcm = (SHORT *) malloc(samples * sizeof(SHORT));
+    ok = out != NULL && pcm != NULL;
+    for (n = 0; ok && n < CHUNKS; n++) {
+        for (i = 0; i < samples; i++) {
+            pcm[i] = tone_sample((n * samples + i) / CHANNELS);
+        }
+        ok = be->chunk(*hbe, samples, pcm, out + total, &written) == BE_ERR_SUCCESSFUL;
+        total += written;
+    }
+    ok = ok && be->deinit(*hbe, out + total, &written) == BE_ERR_SUCCESSFUL;
+    total += written;
+    ok = ok && write_stream(path, out, total, 0);
+    free(out);
+    free(pcm);
+    return ok;
+}
+
+/**
+ * @brief A stream the DLL has released is answered for, never touched.
+ *
+ * beWriteInfoTag() releases the stream it wrote the tag for, and
+ * beCloseStream() releases a stream without a tag. The legacy
+ * beWriteVBRHeader() then has no stream left to write, and beWriteInfoTag()
+ * on a stream beCloseStream() released answers BE_ERR_INVALID_HANDLE.
+ *
+ * @param be    the resolved entry points.
+ * @param dir   directory for the scratch file, with a trailing separator.
+ */
+static void
+test_released_stream(const blade_exports *be, const char *dir)
+{
+    HBE_STREAM hbe = 0;
+    char    path[MAX_PATH];
+
+    sprintf(path, "%slame_blade_test_released.mp3", dir);
+    if (!encode_short_file(be, 1, path, &hbe)) {
+        CHECK(0, "a short stream with a tag frame is encoded");
+        return;
+    }
+    CHECK_EQ_U(be->close(hbe), BE_ERR_SUCCESSFUL, "a stream with a tag frame closes");
+    CHECK_EQ_U(be->info_tag(hbe, path), BE_ERR_SUCCESSFUL, "its tag is written after the close");
+    CHECK_EQ_U(be->vbr_header(path), BE_ERR_INVALID_FORMAT_PARAMETERS,
+               "beWriteVBRHeader() then has no stream left to write");
+    remove(path);
+
+    if (!encode_short_file(be, 0, path, &hbe)) {
+        CHECK(0, "a short stream without a tag frame is encoded");
+        return;
+    }
+    CHECK_EQ_U(be->close(hbe), BE_ERR_SUCCESSFUL, "a stream without a tag frame closes");
+    CHECK_EQ_U(be->info_tag(hbe, path), BE_ERR_INVALID_HANDLE,
+               "beWriteInfoTag() on the closed stream answers BE_ERR_INVALID_HANDLE");
+    remove(path);
+}
+
+/**
  * @brief A VBR stream asking for a VBR method the DLL does not have is
  *        refused; one asking for a method it has is accepted.
  *
@@ -659,6 +737,7 @@ main(int argc, char **argv)
 
     test_upsampled_chunks_fit(&be);
     test_unknown_vbr_method_refused(&be);
+    test_released_stream(&be, dir);
 
     FreeLibrary(mod);
     return ctest_summary("blade_test");

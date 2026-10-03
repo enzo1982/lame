@@ -53,6 +53,8 @@ static DWORD				dwMP3BufferSize=0;
 static HMODULE				gs_hModule=NULL;
 static BOOL					gs_bLogFile=FALSE;
 static lame_global_flags*	gfp_save = NULL;
+/* the stream the DLL released last: a handle equal to it is not dereferenced */
+static lame_global_flags*	gfp_released = NULL;
 
 // Local function prototypes
 static void dump_config( 	lame_global_flags*	gfp );
@@ -238,6 +240,22 @@ static void PresetOptions( lame_global_flags *gfp, LONG myPreset )
 }
 
 
+/**
+    \brief Frees a stream and remembers that it is gone.
+
+    \param gfp the stream; the one beWriteVBRHeader() would write is
+               forgotten with it
+*/
+static void release_stream( lame_global_flags* gfp )
+{
+    lame_close( gfp );
+    gfp_released = gfp;
+    if ( gfp == gfp_save )
+    {
+        gfp_save = NULL;
+    }
+}
+
 __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples, PDWORD dwBufferSize, PHBE_STREAM phbeStream)
 {
     int actual_bitrate;
@@ -249,6 +267,10 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
     // Init the global flags structure
     gfp = lame_init();
     *phbeStream = (HBE_STREAM)gfp;
+    if ( gfp == gfp_released )
+    {
+        gfp_released = NULL;
+    }
 
     // clear out structure
     memset(&lameConfig,0x00,CURRENT_STRUCT_SIZE);
@@ -627,11 +649,17 @@ __declspec(dllexport) BE_ERR	beCloseStream(HBE_STREAM hbeStream)
 {
     lame_global_flags*	gfp = (lame_global_flags*)hbeStream;
 
+    // released already, by beWriteInfoTag() or an earlier close
+    if ( gfp == gfp_released )
+    {
+        return BE_ERR_SUCCESSFUL;
+    }
+
     // lame will be close in VbrWriteTag function
     if ( !lame_get_bWriteVbrTag( gfp ) )
     {
         // clean up of allocated memory
-        lame_close( gfp );
+        release_stream( gfp );
 
         gfp_save = NULL;
     }
@@ -895,6 +923,10 @@ __declspec(dllexport) BE_ERR beWriteInfoTag( HBE_STREAM hbeStream,
 
     lame_global_flags*	gfp = (lame_global_flags*)hbeStream;
 
+    if ( NULL != gfp && gfp == gfp_released )
+    {
+        return BE_ERR_INVALID_HANDLE;
+    }
     if ( NULL != gfp )
     {
         // Do we have to write the VBR tag?
@@ -920,7 +952,7 @@ __declspec(dllexport) BE_ERR beWriteInfoTag( HBE_STREAM hbeStream,
         }
 
         // clean up of allocated memory
-        lame_close( gfp );
+        release_stream( gfp );
     }
     else
     {
