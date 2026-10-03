@@ -800,11 +800,13 @@ void CDECL lame_print_internals( const lame_global_flags *gfp);
  * @return The number of bytes written to @p mp3buf, which is 0 while the
  *         encoder is still accumulating a full frame, or a negative value on
  *         failure:
- *         @li -1 @p mp3buf was too small.
+ *         @li -1 @p mp3buf was too small, or NULL while there were bytes to
+ *             hand over.
  *         @li -2 malloc() problem.
  *         @li -3 lame_init_params() not called.
  *         @li -4 psycho acoustic problems.
  *         @li -6 the ReplayGain analysis of the resampled input failed.
+ *         @li #LAME_BADINPUTDATA @p nsamples is negative.
  */
 int CDECL lame_encode_buffer (
         lame_global_flags*  gfp,           /* global context handle         */
@@ -1003,7 +1005,8 @@ int CDECL lame_encode_buffer_interleaved_int(
  *
  * will also write id3v1 tags (if any) into the bitstream
  *
- * return code = number of bytes output to mp3buf. Can be 0
+ * return code = number of bytes output to mp3buf. Can be 0; -1 when
+ * mp3buf is too small for them, or NULL.
  */
 int CDECL lame_encode_flush(
         lame_global_flags *  gfp,    /* global context handle                 */
@@ -1026,7 +1029,8 @@ int CDECL lame_encode_flush(
  *
  * This routine will NOT write id3v1 tags into the bitstream.
  *
- * return code = number of bytes output to mp3buf. Can be 0
+ * return code = number of bytes output to mp3buf. Can be 0; -1 when
+ * mp3buf is too small for them, or NULL.
  */
 int CDECL lame_encode_flush_nogap(
         lame_global_flags *  gfp,    /* global context handle                 */

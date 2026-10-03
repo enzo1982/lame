@@ -491,6 +491,10 @@
 			        a sample count whose MP3 data always fits into the
 			        buffer size passed to it, including the tags written at
 			        the start of the stream.</li>
+			    <li>The encode functions return <i>LAME_BADINPUTDATA</i>
+			        for a negative sample count. An encode or flush call
+			        without an output buffer returns -1 as soon as it has
+			        data to write.</li>
 			    <li>The resampler reports a failed allocation instead of
 			        crashing on it. It allocated its FIR input and filter
 			        buffers without checking the result, then dereferenced

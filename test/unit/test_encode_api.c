@@ -646,6 +646,72 @@ test_small_buffer_calls_repeat(LAME_UNUSED void **state)
 }
 
 /**
+ * @brief A negative sample count is refused as bad input data, and the
+ *        encoder takes samples normally afterwards.
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_negative_count_refused(LAME_UNUSED void **state)
+{
+    static unsigned char mp3[MP3CAP];
+    static short interleaved[2 * NSAMPLES];
+    lame_t  gfp = encoder_new(0, 0);
+
+    assert_int_equal(lame_encode_buffer(gfp, pcm_l, pcm_r, -1, mp3, MP3CAP), LAME_BADINPUTDATA);
+    assert_int_equal(lame_encode_buffer(gfp, pcm_l, pcm_r, INT_MIN, mp3, MP3CAP), LAME_BADINPUTDATA);
+    assert_int_equal(lame_encode_buffer_interleaved(gfp, interleaved, -1, mp3, MP3CAP),
+                     LAME_BADINPUTDATA);
+    assert_true(lame_encode_buffer(gfp, pcm_l, pcm_r, NSAMPLES, mp3, MP3CAP) >= 0);
+    assert_true(lame_encode_flush(gfp, mp3, MP3CAP) > 0);
+    lame_close(gfp);
+}
+
+/**
+ * @brief A missing output buffer is answered as a buffer that is too small
+ *        once there are bytes to hand over.
+ * @param state cmocka fixture state (unused).
+ *
+ * A call that produces no bytes yet may pass no buffer; the calls that do
+ * produce bytes answer -1, with a size of 0 ("do not check the size") as with
+ * a size given.
+ */
+static void
+test_null_output_buffer_refused(LAME_UNUSED void **state)
+{
+    lame_t  gfp = encoder_new(0, 0);
+    int     i, n = 0;
+
+    assert_int_equal(lame_encode_buffer(gfp, pcm_l, pcm_r, 64, NULL, 0), 0);
+    for (i = 0; i < NCALLS && n == 0; i++)
+        n = lame_encode_buffer(gfp, pcm_l + i * NSAMPLES, pcm_r + i * NSAMPLES, NSAMPLES, NULL, 0);
+    assert_int_equal(n, -1);
+    assert_int_equal(lame_encode_buffer(gfp, pcm_l, pcm_r, NSAMPLES, NULL, MP3CAP), -1);
+    assert_int_equal(lame_encode_flush(gfp, NULL, MP3CAP), -1);
+    lame_close(gfp);
+}
+
+/**
+ * @brief A call without an output buffer returns 0 while the frames it
+ *        encodes hand over no bytes.
+ * @param state cmocka fixture state (unused).
+ *
+ * With silent input, the first frame hands over no bytes.
+ */
+static void
+test_null_output_buffer_empty_frame(LAME_UNUSED void **state)
+{
+    static short silence[NSAMPLES];
+    lame_t  gfp = encoder_new(0, 0);
+    int const n = lame_get_framesize(gfp);
+
+    assert_true(n <= NSAMPLES);
+    assert_int_equal(lame_encode_buffer(gfp, silence, silence, n, NULL, 0), 0);
+    assert_int_equal(lame_encode_buffer(gfp, silence, silence, n, NULL, 0), 0);
+    assert_true(lame_get_frameNum(gfp) > 0);
+    lame_close(gfp);
+}
+
+/**
  * @brief Reads the encoder delay and padding out of a LAME tag frame.
  * @param frame   the frame lame_get_lametag_frame() filled.
  * @param n       its length.
@@ -1018,6 +1084,9 @@ main(void)
         cmocka_unit_test(test_init_bitstream_clears_statistics),
         cmocka_unit_test(test_flush_nogap_allows_continuing),
         cmocka_unit_test(test_small_buffer_calls_repeat),
+        cmocka_unit_test(test_negative_count_refused),
+        cmocka_unit_test(test_null_output_buffer_refused),
+        cmocka_unit_test(test_null_output_buffer_empty_frame),
         cmocka_unit_test(test_lametag_delay_zero_after_nogap_flush),
         cmocka_unit_test(test_encode_finish_matches_flush_then_close),
         cmocka_unit_test(test_lametag_frame_reports_required_size),

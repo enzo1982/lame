@@ -1049,8 +1049,8 @@ do_copy_buffer(lame_internal_flags * gfc, unsigned char *buffer, int size)
     int const minimum = bs->buf_byte_idx + 1;
     if (minimum <= 0)
         return 0;
-    if (minimum > size)
-        return -1;      /* buffer is too small */
+    if (minimum > size || buffer == NULL)
+        return -1;      /* buffer is too small, or there is none */
     memcpy(buffer, bs->buf, minimum);
     bs->buf_byte_idx = -1;
     bs->buf_bit_idx = 0;

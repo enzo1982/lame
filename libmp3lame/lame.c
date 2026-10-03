@@ -1880,8 +1880,10 @@ lame_encode_buffer_sample_t(lame_internal_flags * gfc,
     }
     if (mp3out < 0)
         return mp3out;  /* not enough buffer space */
-    mp3buf += mp3out;
-    mp3size += mp3out;
+    if (mp3out > 0) {
+        mp3buf += mp3out;
+        mp3size += mp3out;
+    }
 
     in_buffer[0] = esv->in_buffer_0;
     in_buffer[1] = esv->in_buffer_1;
@@ -1952,8 +1954,10 @@ lame_encode_buffer_sample_t(lame_internal_flags * gfc,
 
             if (ret < 0)
                 return ret;
-            mp3buf += ret;
-            mp3size += ret;
+            if (ret > 0) {
+                mp3buf += ret;
+                mp3size += ret;
+            }
 
             /* shift out old samples */
             esv->mf_size -= pcm_samples_per_frame;
@@ -2058,6 +2062,8 @@ lame_encode_buffer_template(lame_global_flags * gfp,
 
             if (nsamples == 0)
                 return 0;
+            if (nsamples < 0)
+                return LAME_BADINPUTDATA;
 
             if (update_inbuffer_size(gfc, nsamples) != 0) {
                 return -2;
@@ -2567,8 +2573,10 @@ lame_encode_flush(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buff
         /* some type of fatal error */
         return imp3;
     }
-    mp3buffer += imp3;
-    mp3count += imp3;
+    if (imp3 > 0) {
+        mp3buffer += imp3;
+        mp3count += imp3;
+    }
     mp3buffer_size_remaining = mp3buffer_size - mp3count;
     /* if user specifed buffer size = 0, dont check size */
     if (mp3buffer_size == 0)
