@@ -75,6 +75,7 @@ typedef struct {
     hip_t       hip;              /* decoder for the just-encoded data */
     int         mpglag;
     short int   buffer[2][1152];
+    float       bufferf[2][1152]; /* the input frame, for a floating point file */
     int         frame_num;
     int         decoder_flushing; /* encoder flush was fed; HIP may have output queued */
     int         drain_frame_num;  /* synthetic slot number used only for decode mapping */
@@ -253,7 +254,11 @@ mp3x_core_makeframe(lame_global_flags *gfp)
 
         /* feed data to encoder until encoder produces some output */
         while (lame_get_frameNum(gfp) == pinfo->frameNum) {
-            iread = get_audio16(gfp, core_state.buffer);
+            int const floats = input_is_float();
+            if (floats)
+                iread = get_audio_float(gfp, core_state.bufferf);
+            else
+                iread = get_audio16(gfp, core_state.buffer);
             if (iread > framesize) {
                 /* NOTE: frame analyzer requires that we encode one frame
                  * for each pass through this loop.  If lame_encode_buffer()
@@ -265,9 +270,14 @@ mp3x_core_makeframe(lame_global_flags *gfp)
             if (iread <= 0)
                 break;  /* eof */
 
-            mp3count = lame_encode_buffer(gfp, core_state.buffer[0],
-                                          core_state.buffer[1], iread,
-                                          mp3buffer, sizeof(mp3buffer));
+            if (floats)
+                mp3count = lame_encode_buffer_ieee_float(gfp, core_state.bufferf[0],
+                                                         core_state.bufferf[1], iread,
+                                                         mp3buffer, sizeof(mp3buffer));
+            else
+                mp3count = lame_encode_buffer(gfp, core_state.buffer[0],
+                                              core_state.buffer[1], iread,
+                                              mp3buffer, sizeof(mp3buffer));
             if (mp3count < 0) {
                 error_printf("mp3x: lame_encode_buffer failed with error %d\n",
                              mp3count);

@@ -47,10 +47,12 @@ int     is_mpeg_file_format( int input_file_format );
 int     init_infile(lame_t gfp, char const * inPath);
 int     samples_to_skip_at_start(void);
 int     samples_to_skip_at_end(void);
-unsigned long samples_clipped_on_input(void);
+unsigned long samples_above_full_scale(void);
+int     input_is_float(void);
 void    close_infile(void);
 int     get_audio(lame_t gfp, int buffer[2][1152]);
 int     get_audio16(lame_t gfp, short buffer[2][1152]);
+int     get_audio_float(lame_t gfp, float buffer[2][1152]);
 hip_t   get_hip(void);
 
 FILE   *init_outfile(char const *outPath, int decode);

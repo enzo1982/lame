@@ -114,9 +114,9 @@ test_get_audio_wav_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	$(SNDFILE_LIBS)
 
-# The conversion from a floating point sample to an integer one is static in
-# the same file, so the same arrangement again. Both readers convert through
-# that function, so its assertions hold in either --with-fileio build.
+# The floating point reader's helpers are static in the same file, so the same
+# arrangement again. The file tests drive the frontend's own reader, which
+# every --with-fileio build has.
 test_get_audio_float_SOURCES = test_get_audio_float.c test_stubs.c
 test_get_audio_float_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/frontend \

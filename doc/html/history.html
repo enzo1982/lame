@@ -266,6 +266,9 @@
 			        read is refused. Integer samples are read at 8, 16,
 			        24 and 32&nbsp;bit, floating-point samples at
 			        32&nbsp;bit.</li>
+			    <li><i>lame</i> stops with an error if a floating point
+			        input file contains a sample that is NaN, infinite, or
+			        more than 4096 times full scale.</li>
 			    <li>An extensible WAV header that describes too small an
 			        extension, or claims more valid bits than its samples
 			        hold, is rejected, and a 64-bit floating-point AIFF
@@ -374,10 +377,10 @@
 			        worth tagging again. <i>--replaygain-fast</i>, which
 			        is the default, is unaffected, and the encoded audio
 			        is unchanged either way.</li>
-			    <li>Input samples past full scale are now counted and
-			        reported as clipped. They are clipped as the file is
-			        read and such files need to be scaled outside of LAME
-			        before encoding. Bug ticket
+			    <li>Floating point input samples above full scale are
+			        encoded at their full level. <i>lame</i> counts them
+			        and warns, because they clip when played back at full
+			        volume. Bug ticket
 			        <i class="ticket">[ #512 ]</i>.</li>
 			    <li>Input whose samples are all zero is now reported as
 			        having no headroom figure by <i>--clipdetect</i> and

@@ -387,7 +387,7 @@ typedef struct get_audio_global_data_struct {
     int     pcm_is_unsigned_8bit;
     int     pcm_is_ieee_float;
     unsigned long num_samples_read;
-    unsigned long num_samples_clipped;
+    unsigned long num_samples_above_full_scale;
     FILE   *music_in;
     SNDFILE *snd_file;
 #ifdef HAVE_MPG123
@@ -396,6 +396,7 @@ typedef struct get_audio_global_data_struct {
     hip_t     hip;
     PcmBuffer pcm32;
     PcmBuffer pcm16;
+    PcmBuffer pcmf;
     size_t  in_id3v2_size;
     unsigned char* in_id3v2_tag;
 } get_audio_global_data;
@@ -410,6 +411,7 @@ int     lame123_decode_initfile(FILE * fd, mp3data_struct * mp3data, int *enc_de
 
 
 static int read_samples_pcm(FILE * musicin, int sample_buffer[2304], int samples_to_read);
+static int read_samples_float(FILE * musicin, float sample_buffer[2304], int samples_to_read);
 static int read_samples_mp3(lame_t gfp, FILE * musicin, short int mpg123pcm[2][1152]);
 #ifdef LIBSNDFILE
 static SNDFILE *open_snd_file(lame_t gfp, char const *inPath);
@@ -641,8 +643,8 @@ setSkipStartAndEnd(lame_t gfp, int enc_delay, int enc_padding)
     }
     skip_start = skip_start < 0 ? 0 : skip_start;
     skip_end = skip_end < 0 ? 0 : skip_end;
-    global. pcm16.skip_start = global.pcm32.skip_start = skip_start;
-    global. pcm16.skip_end = global.pcm32.skip_end = skip_end;
+    global. pcmf.skip_start = global.pcm16.skip_start = global.pcm32.skip_start = skip_start;
+    global. pcmf.skip_end = global.pcm16.skip_end = global.pcm32.skip_end = skip_end;
 }
 
 
@@ -654,7 +656,7 @@ init_infile(lame_t gfp, char const *inPath)
     /* open the input file */
     global. count_samples_carefully = 0;
     global. num_samples_read = 0;
-    global. num_samples_clipped = 0;
+    global. num_samples_above_full_scale = 0;
     global. pcmbitwidth = global_raw_pcm.in_bitwidth;
     global. pcmswapbytes = global_reader.swapbytes;
     global. pcm_is_unsigned_8bit = global_raw_pcm.in_signed == 1 ? 0 : 1;
@@ -679,6 +681,7 @@ init_infile(lame_t gfp, char const *inPath)
     }
     initPcmBuffer(&global.pcm32, sizeof(int));
     initPcmBuffer(&global.pcm16, sizeof(short));
+    initPcmBuffer(&global.pcmf, sizeof(float));
     setSkipStartAndEnd(gfp, enc_delay, enc_padding);
     {
         unsigned long n = lame_get_num_samples(gfp);
@@ -704,19 +707,35 @@ samples_to_skip_at_end(void)
 
 /**
  * @internal
- * @brief How many input samples the reader clipped.
+ * @brief How many floating point input samples lie beyond full scale once the
+ *        encoder's scaling is applied.
  *
- * Strictly beyond full scale only - the branch that decides it carries the
- * reason. Counted while reading, so it answers for the file read so far, and
- * reset for each input file.
+ * Counted by @c get_audio_float() as it hands samples on, so it answers for
+ * the file read so far, and reset for each input file. Exactly full scale is
+ * not counted.
  *
  * @return the number of samples, 0 when the input stayed within full scale or
  *         held no floating point samples.
  */
 unsigned long
-samples_clipped_on_input(void)
+samples_above_full_scale(void)
 {
-    return global.num_samples_clipped;
+    return global.num_samples_above_full_scale;
+}
+
+/**
+ * @internal
+ * @brief Whether the open input file holds floating point samples.
+ *
+ * Such a file is read with @c get_audio_float() and encoded with
+ * @c lame_encode_buffer_ieee_float(); @c get_audio() refuses it.
+ *
+ * @return nonzero for floating point samples, 0 otherwise.
+ */
+int
+input_is_float(void)
+{
+    return global.pcm_is_ieee_float;
 }
 
 void
@@ -741,6 +760,7 @@ close_infile(void)
 #endif
     freePcmBuffer(&global.pcm32);
     freePcmBuffer(&global.pcm16);
+    freePcmBuffer(&global.pcmf);
     global. music_in = 0;
     free(global.in_id3v2_tag);
     global.in_id3v2_tag = 0;
@@ -749,53 +769,85 @@ close_infile(void)
 
 
 static int
-        get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152]);
+        get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152],
+                         float bufferf[2][1152]);
 
 
 /**
  * @internal
- * @brief Converts a floating point sample to an integer sample.
+ * @brief Converts a floating point sample to a 16 bit one, for the 16 bit
+ *        PCM that @c --decode writes.
  *
- * Both readers in this file convert through here, so a binary answers the same
- * whichever one @c --with-fileio selected.
+ * Rounds at 32 bit resolution and keeps the top 16 bits, as an integer
+ * sample is reduced to 16 bit, so both readers in this file give the same
+ * value whichever one @c --with-fileio selected.
  *
- * The parameter is a 32 bit float even for a file holding doubles: libmp3lame
- * converts its input to @c FLOAT, so the extra precision does not reach the
- * bitstream.
- *
- * @param u a sample, where 1.0 is full scale.
- * @return the sample as an integer, clamped to @c INT_MAX or @c INT_MIN at and
- *         beyond full scale. Samples strictly beyond it lose something to the
- *         clamp and are counted; @c samples_clipped_on_input() reports them.
+ * @param u a finite sample, where 1.0 is full scale.
+ * @return the sample as a 16 bit value, the extremes at and beyond full scale.
  */
-static int
-float_sample_to_int(ieee754_float32_t u)
+static short
+float_sample_to_16bit(float u)
 {
-    /* Magnitude that a sample of 1.0 would map to. The two full-scale
-       magnitudes differ by one, but neither is representable in a float:
-       both round to 2^31, so a single factor scales both signs. Samples
-       of magnitude 1 or above are clamped before scaling, so the product
-       always stays below 2^31 and the conversion cannot overflow. */
-    ieee754_float32_t const full_scale = -(ieee754_float32_t) INT_MIN;
-    if (u >= 1) {
-        /* Counted only where the clamp loses something. Exactly full scale
-           does not: -1.0 reaches INT_MIN either way, and 1.0 gives up one part
-           in 2^31. Not a corner case - -32768/32768 is exactly -1.0, so a
-           16 bit recording at full scale becomes a floating point file made
-           entirely of such samples. */
-        if (u > 1)
-            global.num_samples_clipped++;
-        return INT_MAX;
+    /* Magnitude that a sample of 1.0 would map to at 32 bit. The two
+       full-scale magnitudes differ by one, but neither is representable in a
+       float: both round to 2^31, so a single factor scales both signs. Samples
+       of magnitude 1 or above are taken before scaling, so the product always
+       stays below 2^31 and the conversion cannot overflow. */
+    float const full_scale = -(float) INT_MIN;
+    int     wide;
+    if (u >= 1)
+        return SHRT_MAX;
+    if (u <= -1)
+        return SHRT_MIN;
+    if (u >= 0)
+        wide = (int) (u * full_scale + 0.5f);
+    else
+        wide = (int) (u * full_scale - 0.5f);
+    return (short) (wide >> (8 * sizeof(int) - 16));
+}
+
+/**
+ * @internal
+ * @brief Counts the samples the encoder will see beyond full scale.
+ *
+ * Applies what @c lame_init_params() makes of the scale factors - the overall
+ * and the per-channel ones, and the mix of two input channels into one output
+ * channel - so a sample the scaling brings within full scale is not counted.
+ *
+ * @param gfp  the encoder, initialised.
+ * @param l    the left channel, 1.0 being full scale.
+ * @param r    the right channel; not read for mono input.
+ * @param n    samples per channel.
+ * @return how many samples lie strictly beyond full scale.
+ */
+static unsigned long
+count_above_full_scale(lame_t gfp, float const *l, float const *r, int n)
+{
+    float const gain = lame_get_scale(gfp);
+    float const gain_l = gain * lame_get_scale_left(gfp);
+    float const gain_r = gain * lame_get_scale_right(gfp);
+    unsigned long count = 0;
+    int     i;
+
+    if (lame_get_num_channels(gfp) == 2 && lame_get_mode(gfp) == MONO) {
+        float const mix_l = 0.5f * gain_l, mix_r = 0.5f * gain_r;
+        for (i = 0; i < n; ++i) {
+            float const u = mix_l * l[i] + mix_r * r[i];
+            count += (u > 1.0f) | (u < -1.0f);
+        }
+        return count;
     }
-    if (u <= -1) {
-        if (u < -1)
-            global.num_samples_clipped++;
-        return INT_MIN;
+    for (i = 0; i < n; ++i) {
+        float const u = gain_l * l[i];
+        count += (u > 1.0f) | (u < -1.0f);
     }
-    if (u >= 0) {
-        return (int) (u * full_scale + 0.5f);
+    if (lame_get_num_channels(gfp) == 2) {
+        for (i = 0; i < n; ++i) {
+            float const v = gain_r * r[i];
+            count += (v > 1.0f) | (v < -1.0f);
+        }
     }
-    return (int) (u * full_scale - 0.5f);
+    return count;
 }
 
 /************************************************************************
@@ -812,7 +864,7 @@ get_audio(lame_t gfp, int buffer[2][1152])
 {
     int     used = 0, read = 0;
     do {
-        read = get_audio_common(gfp, buffer, NULL);
+        read = get_audio_common(gfp, buffer, NULL, NULL);
         used = addPcmBuffer(&global.pcm32, buffer[0], buffer[1], read);
     } while (used <= 0 && read > 0);
     if (read < 0) {
@@ -833,7 +885,7 @@ get_audio16(lame_t gfp, short buffer[2][1152])
 {
     int     used = 0, read = 0;
     do {
-        read = get_audio_common(gfp, NULL, buffer);
+        read = get_audio_common(gfp, NULL, buffer, NULL);
         used = addPcmBuffer(&global.pcm16, buffer[0], buffer[1], read);
     } while (used <= 0 && read > 0);
     if (read < 0) {
@@ -845,17 +897,53 @@ get_audio16(lame_t gfp, short buffer[2][1152])
         return takePcmBuffer(&global.pcm16, buffer[1], buffer[0], used, 1152);
 }
 
+/**
+ * @internal
+ * @brief Reads a frame of floating point samples, as @c get_audio() reads
+ *        integer ones.
+ *
+ * The samples are handed on as the file holds them, 1.0 being full scale, for
+ * @c lame_encode_buffer_ieee_float(). Those beyond full scale once scaled are
+ * counted; @c samples_above_full_scale() reports them.
+ *
+ * @param gfp     the encoder, initialised.
+ * @param buffer  receives up to 1152 samples per channel.
+ * @return the samples per channel, 0 at the end of the input, negative on an
+ *         error.
+ */
+int
+get_audio_float(lame_t gfp, float buffer[2][1152])
+{
+    int     used = 0, read = 0, n;
+    do {
+        read = get_audio_common(gfp, NULL, NULL, buffer);
+        used = addPcmBuffer(&global.pcmf, buffer[0], buffer[1], read);
+    } while (used <= 0 && read > 0);
+    if (read < 0) {
+        return read;
+    }
+    if (global_reader.swap_channel == 0)
+        n = takePcmBuffer(&global.pcmf, buffer[0], buffer[1], used, 1152);
+    else
+        n = takePcmBuffer(&global.pcmf, buffer[1], buffer[0], used, 1152);
+    global.num_samples_above_full_scale += count_above_full_scale(gfp, buffer[0], buffer[1], n);
+    return n;
+}
+
 /************************************************************************
   get_audio_common - central functionality of get_audio*
     in: gfp
-        buffer    output to the int buffer or 16-bit buffer
    out: buffer    int output    (if buffer != NULL)
-        buffer16  16-bit output (if buffer == NULL) 
+        buffer16  16-bit output (if buffer16 != NULL)
+        bufferf   float output  (if bufferf != NULL)
 returns: samples read
-note: either buffer or buffer16 must be allocated upon call
+note: exactly one of the three is given; a floating point file is read into
+      bufferf, or into buffer16 for --decode, never into buffer, and only a
+      floating point file into bufferf
 */
 static int
-get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152])
+get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152],
+                 float bufferf[2][1152])
 {
     const int num_channels = lame_get_num_channels(gfp);
     const int framesize = lame_get_framesize(gfp);
@@ -871,7 +959,9 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152])
 
     /* sanity checks, that's what we expect to be true */
     if ((num_channels < 1 || 2 < num_channels)
-      ||(framesize < 1 || 1152 < framesize)) {
+      ||(framesize < 1 || 1152 < framesize)
+      ||(bufferf != NULL && !global.pcm_is_ieee_float)
+      ||(buffer != NULL && global.pcm_is_ieee_float)) {
         if (global_ui_config.silent < 10) {
             error_printf("Error: internal problem!\n");
         }
@@ -924,27 +1014,76 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152])
             return samples_read;
         }
     }
+    else if (global.pcm_is_ieee_float) {
+        /* The samples as stored, 1.0 being full scale. fsamp[] is bounded as
+           insamp[] is: the sanity check above holds the frame to 1152 samples
+           of at most two channels. */
+        float   fsamp[2 * 1152];
+        float const *q;
+        if (global.snd_file) {
+#ifdef LIBSNDFILE
+            samples_read = (int) sf_read_float(global.snd_file, fsamp,
+                                               num_channels * samples_to_read);
+#else
+            samples_read = 0;
+#endif
+        }
+        else {
+            samples_read =
+                read_samples_float(global.music_in, fsamp, num_channels * samples_to_read);
+        }
+        if (samples_read < 0) {
+            return samples_read;
+        }
+        q = fsamp + samples_read;
+        if (bufferf == NULL) {
+            /* --decode writes 16 bit PCM, and a sample that is not a finite
+               number has no 16 bit value */
+            for (i = 0; i < samples_read; ++i) {
+                if (!float_is_finite(fsamp[i])) {
+                    if (global_ui_config.silent < 10) {
+                        error_printf("Error: the input holds a sample that is not a finite number\n");
+                    }
+                    return -1;
+                }
+            }
+        }
+        samples_read /= num_channels;
+        if (bufferf != NULL) {
+            if (num_channels == 2) {
+                for (i = samples_read; --i >= 0;) {
+                    bufferf[1][i] = *--q;
+                    bufferf[0][i] = *--q;
+                }
+            }
+            else {
+                memset(bufferf[1], 0, samples_read * sizeof(float));
+                for (i = samples_read; --i >= 0;) {
+                    bufferf[0][i] = *--q;
+                }
+            }
+        }
+        else {
+            if (num_channels == 2) {
+                for (i = samples_read; --i >= 0;) {
+                    buffer16[1][i] = float_sample_to_16bit(*--q);
+                    buffer16[0][i] = float_sample_to_16bit(*--q);
+                }
+            }
+            else {
+                memset(buffer16[1], 0, samples_read * sizeof(short));
+                for (i = samples_read; --i >= 0;) {
+                    buffer16[0][i] = float_sample_to_16bit(*--q);
+                }
+            }
+        }
+    }
     else {
         int    *p;
         if (global.snd_file) {
 #ifdef LIBSNDFILE
             int const items = num_channels * samples_to_read;
-            if (global.pcm_is_ieee_float) {
-                /* sf_read_int() on a floating point file scales either by the
-                   file's own peak or not at all, so read the samples as
-                   doubles and convert them here. dsamp[] is bounded exactly as
-                   insamp[] is: the sanity check above holds the frame to 1152
-                   samples of at most two channels. */
-                double  dsamp[2 * 1152];
-                int     j;
-                samples_read = sf_read_double(global.snd_file, dsamp, items);
-                for (j = 0; j < samples_read; ++j) {
-                    insamp[j] = float_sample_to_int((ieee754_float32_t) dsamp[j]);
-                }
-            }
-            else {
-                samples_read = sf_read_int(global.snd_file, insamp, items);
-            }
+            samples_read = sf_read_int(global.snd_file, insamp, items);
 #else
             samples_read = 0;
 #endif
@@ -1415,14 +1554,6 @@ unpack_read_samples(const int samples_to_read, const int bytes_per_sample,
             * --op = (int) ((unsigned int) ip[i] << (b - 8) | (unsigned int) ip[i + 1] << (b - 16) | (unsigned int) ip[i + 2] << (b - 24) | (unsigned int) ip[i + 3] << (b - 32));
     }
 #undef GA_URS_IFLOOP
-    if (global.pcm_is_ieee_float) {
-        ieee754_float32_t *x = (ieee754_float32_t *) sample_buffer;
-        assert(sizeof(ieee754_float32_t) == sizeof(int));
-        for (i = 0; i < samples_to_read; ++i) {
-            ieee754_float32_t const u = x[i];
-            sample_buffer[i] = float_sample_to_int(u);
-        }
-    }
     return (samples_read);
 }
 
@@ -1488,6 +1619,59 @@ read_samples_pcm(FILE * musicin, int sample_buffer[2304], int samples_to_read)
         return -1;
     }
 
+    return samples_read;
+}
+
+/**
+ * @internal
+ * @brief Reads 32 bit floating point samples into the host's byte order.
+ *
+ * The file's byte order is decided as for integer samples: little endian
+ * unless the format or @c --swap-bytes says otherwise. Where it differs from
+ * the host's, the four bytes of each sample are reversed.
+ *
+ * @param musicin          the input file.
+ * @param sample_buffer    receives the samples, interleaved.
+ * @param samples_to_read  how many, at most 2304.
+ * @return the samples read, negative on an error.
+ */
+static int
+read_samples_float(FILE * musicin, float sample_buffer[2304], int samples_to_read)
+{
+    compiletime_assert(sizeof(float) == 4);
+    uint16_t const probe = 1;
+    unsigned char first_byte;
+    int     file_is_big_endian = (global_raw_pcm.in_endian != ByteOrderLittleEndian) ? 1 : 0;
+    int     samples_read, i;
+
+    if (global.pcmswapbytes) {
+        file_is_big_endian = !file_is_big_endian;
+    }
+    if (samples_to_read < 0 || samples_to_read > 2304) {
+        if (global_ui_config.silent < 10) {
+            error_printf("Error: unexpected number of samples to read: %d\n", samples_to_read);
+        }
+        return -1;
+    }
+    samples_read = (int) fread(sample_buffer, 4, (size_t) samples_to_read, musicin);
+    if (ferror(musicin)) {
+        if (global_ui_config.silent < 10) {
+            error_printf("Error reading input file\n");
+        }
+        return -1;
+    }
+    memcpy(&first_byte, &probe, 1);
+    if (file_is_big_endian != (first_byte == 0)) {
+        unsigned char *b = (unsigned char *) sample_buffer;
+        for (i = 0; i < samples_read; ++i, b += 4) {
+            unsigned char t = b[0];
+            b[0] = b[3];
+            b[3] = t;
+            t = b[1];
+            b[1] = b[2];
+            b[2] = t;
+        }
+    }
     return samples_read;
 }
 

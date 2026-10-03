@@ -396,12 +396,13 @@ print_trailing_info(lame_global_flags * gf)
     }
 
     /* Not the report above: that one measures the decoded output at the
-       current gain and needs decoding on the fly. These samples were past full
-       scale in the input file itself, so the count is independent of both
-       switches and no later stage can recover them. */
-    if (samples_clipped_on_input() > 0) {
-        error_printf("WARNING: %lu input sample(s) clipped, lower the input level\n"
-                     "         before encoding.\n", samples_clipped_on_input());
+       current gain and needs decoding on the fly. This counts the input
+       samples beyond full scale at the current gain, as they were read. */
+    if (samples_above_full_scale() > 0) {
+        error_printf("WARNING: %lu input sample(s) are above full scale. They are encoded at\n"
+                     "         their level and clip when played back at full volume. Lower\n"
+                     "         the level with --scale, or check the result with --clipdetect.\n",
+                     samples_above_full_scale());
     }
 }
 
@@ -651,6 +652,8 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
 {
     unsigned char mp3buffer[LAME_MAXMP3BUFFER];
     int     Buffer[2][1152];
+    float   BufferF[2][1152];
+    int const floats = input_is_float();
     int     iread, imp3, owrite, in_limit=0;
     size_t  id3v2_size;
 
@@ -696,28 +699,32 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
     /* encode until we hit eof */
     do {
         /* read in 'iread' samples */
-        iread = get_audio(gf, Buffer);
+        iread = floats ? get_audio_float(gf, BufferF) : get_audio(gf, Buffer);
 
         if (iread >= 0) {
-            const int* buffer_l = Buffer[0];
-            const int* buffer_r = Buffer[1];
-            int     rest = iread;
+            int     done = 0;
             do {
+                int const rest = iread - done;
                 int const chunk = rest < in_limit ? rest : in_limit;
                 encoder_progress(gf);
 
                 /* encode */
 
-                imp3 = lame_encode_buffer_int(gf, buffer_l, buffer_r, chunk,
-                                              mp3buffer, sizeof(mp3buffer));
-                buffer_l += chunk;
-                buffer_r += chunk;
-                rest -= chunk;
+                if (floats)
+                    imp3 = lame_encode_buffer_ieee_float(gf, BufferF[0] + done, BufferF[1] + done,
+                                                         chunk, mp3buffer, sizeof(mp3buffer));
+                else
+                    imp3 = lame_encode_buffer_int(gf, Buffer[0] + done, Buffer[1] + done,
+                                                  chunk, mp3buffer, sizeof(mp3buffer));
+                done += chunk;
 
                 /* was our output buffer big enough? */
                 if (imp3 < 0) {
                     if (imp3 == -1)
                         error_printf("mp3 buffer is not big enough... \n");
+                    else if (imp3 == LAME_BADINPUTDATA)
+                        error_printf("Error: the input holds a sample that is not a number, is infinite,\n"
+                                     "       or is more than 4096 times full scale.\n");
                     else
                         error_printf("mp3 internal error:  error code=%i\n", imp3);
                     return 1;
@@ -728,7 +735,7 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
                     error_printf("Error writing mp3 output \n");
                     return 1;
                 }
-            } while (rest > 0);
+            } while (done < iread);
         }
         else {
             if (global_ui_config.silent < 10)

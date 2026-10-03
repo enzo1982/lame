@@ -99,6 +99,32 @@ maxvalue(int Buffer[2][1152])
     return max >> 16;
 }
 
+/**
+ * @internal
+ * @brief The loudest sample of a frame of floating point samples, on the scale
+ *        @c levelmessage() takes.
+ *
+ * @param Buffer  the frame, per channel, 1.0 being full scale.
+ * @param n       samples per channel.
+ * @return the magnitude, 32768 at and beyond full scale.
+ */
+static unsigned int
+maxvalue_float(float Buffer[2][1152], int n)
+{
+    float   max = 0;
+    int     i;
+
+    for (i = 0; i < n; i++) {
+        float const l = Buffer[0][i] < 0 ? -Buffer[0][i] : Buffer[0][i];
+        float const r = Buffer[1][i] < 0 ? -Buffer[1][i] : Buffer[1][i];
+        if (l > max)
+            max = l;
+        if (r > max)
+            max = r;
+    }
+    return max >= 1.0f ? 32768u : (unsigned int) (max * 32768.0f);
+}
+
 static void
 levelmessage(unsigned int maxv, int* maxx, int* tmpx)
 {
@@ -136,6 +162,8 @@ lame_main(lame_t gf, int argc, char **argv)
     char    inPath[PATH_MAX + 1];
     char    outPath[PATH_MAX + 1];
     int     Buffer[2][1152];
+    float   BufferF[2][1152];
+    int     floats;
 
     int     maxx = 0, tmpx = 0;
     int     ret;
@@ -260,11 +288,29 @@ lame_main(lame_t gf, int argc, char **argv)
         global_ui_config.update_interval = 2.;
 
     /* encode until we hit EOF */
-    while ((wavsamples = get_audio(gf, Buffer)) > 0) { /* read in 'wavsamples' samples */
-        levelmessage(maxvalue(Buffer), &maxx, &tmpx);
-        mp3bytes = lame_encode_buffer_int(gf, /* encode the frame */
-                                          Buffer[0], Buffer[1], wavsamples,
-                                          mp3buffer, sizeof(mp3buffer));
+    floats = input_is_float();
+    while ((wavsamples = floats ? get_audio_float(gf, BufferF) : get_audio(gf, Buffer)) > 0) {
+        if (floats) {
+            levelmessage(maxvalue_float(BufferF, wavsamples), &maxx, &tmpx);
+            mp3bytes = lame_encode_buffer_ieee_float(gf, BufferF[0], BufferF[1], wavsamples,
+                                                     mp3buffer, sizeof(mp3buffer));
+        }
+        else {
+            levelmessage(maxvalue(Buffer), &maxx, &tmpx);
+            mp3bytes = lame_encode_buffer_int(gf, Buffer[0], Buffer[1], wavsamples,
+                                              mp3buffer, sizeof(mp3buffer));
+        }
+        if (mp3bytes < 0) {
+            if (mp3bytes == LAME_BADINPUTDATA)
+                error_printf("Error: the input holds a sample that is not a number, is infinite,\n"
+                             "       or is more than 4096 times full scale.\n");
+            else
+                error_printf("mp3rtp: encoding failed with error %d\n", mp3bytes);
+            rtp_deinitialization();
+            fclose(outf);
+            close_infile();
+            return -1;
+        }
         rtp_output(mp3buffer, mp3bytes); /* write MP3 output to RTP port */
         fwrite(mp3buffer, 1, mp3bytes, outf); /* write the MP3 output to file */
     }
