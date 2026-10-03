@@ -1052,7 +1052,7 @@ read_samples_mp3(LAME_UNUSED lame_t gfp, LAME_UNUSED FILE * musicin,
             mpg123pcm[1][i] = *outbuf++;
         }
     }
-    else
+    else if (out > 0)
         memcpy(mpg123pcm[0], outbuf, sizeof(short)*out);
     if(global.hip->pinfo)
         hip_finish_pinfo(global.hip);
