@@ -91,7 +91,7 @@ int
 get_max_frame_buffer_size_by_constraint(SessionConfig_t const * cfg, int constraint)
 {
     int     maxmp3buf = 0;
-    if (cfg->avg_bitrate > 320) {
+    if (cfg->free_format && cfg->avg_bitrate > 320) {
         /* in freeformat the buffer is constant */
         if (constraint == MDB_STRICT_ISO) {
             maxmp3buf = calcFrameLength(cfg, cfg->avg_bitrate, 0);

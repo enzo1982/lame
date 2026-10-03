@@ -969,6 +969,47 @@ test_tiny_compression_ratio(void **state)
 }
 
 /**
+ * @brief A variable bitrate stream with a constant bitrate far beyond the
+ *        tables set as well encodes under strict ISO.
+ *
+ * The constant bitrate is not the stream's in VBR mode, and the frontend's
+ * -b sets it alongside the VBR minimum. Noise at an MPEG-2 and an MPEG-1 rate,
+ * the bit reservoir off as lame_set_brate() leaves it above 320 kbps.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_vbr_with_cbr_bitrate_beyond_tables(void **state)
+{
+    static const int rates[] = { 22050, 44100 };
+    static short pcm[2 * 1152];
+    static unsigned char mp3[LAME_MAXMP3BUFFER];
+    size_t  r;
+    int     i, f;
+    (void) state;
+    for (r = 0; r < sizeof rates / sizeof rates[0]; ++r) {
+        unsigned seed = 12345u;
+        lame_t  gf = lame_init();
+        assert_non_null(gf);
+        assert_int_equal(lame_set_in_samplerate(gf, rates[r]), 0);
+        assert_int_equal(lame_set_VBR(gf, vbr_mtrh), 0);
+        assert_int_equal(lame_set_brate(gf, 41536), 0);
+        assert_int_equal(lame_set_VBR_min_bitrate_kbps(gf, 41536), 0);
+        assert_int_equal(lame_set_strict_ISO(gf, 1), 0);
+        assert_true(lame_init_params(gf) >= 0);
+        for (f = 0; f < 20; ++f) {
+            for (i = 0; i < 2 * 1152; ++i) {
+                seed = seed * 1103515245u + 12345u;
+                pcm[i] = (short) (seed >> 16);
+            }
+            assert_true(lame_encode_buffer_interleaved(gf, pcm, 1152, mp3, sizeof mp3) >= 0);
+        }
+        assert_true(lame_encode_flush(gf, mp3, sizeof mp3) >= 0);
+        lame_close(gf);
+    }
+}
+
+/**
  * @brief Assembles a float from its IEEE-754 bit pattern, unfoldable by the
  *        compiler - under the fast floating point maths these tests are built
  *        with, a NaN or an infinity the compiler can see is folded away.
@@ -1217,6 +1258,7 @@ main(void)
         cmocka_unit_test(test_float_setters_refuse_nonfinite),
         cmocka_unit_test(test_extreme_int_settings),
         cmocka_unit_test(test_tiny_compression_ratio),
+        cmocka_unit_test(test_vbr_with_cbr_bitrate_beyond_tables),
 #if INTERNAL_OPTS
         cmocka_unit_test_setup_teardown(test_internal_opts, gfp_setup, gfp_teardown),
 #endif

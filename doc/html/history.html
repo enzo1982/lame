@@ -475,6 +475,9 @@
 			        bitrate is higher than the maximum. In <i>lame</i>, this
 			        is <i>-b</i> higher than <i>-B</i> together with
 			        <i>-V</i> or <i>--abr</i>.</li>
+			    <li>With <i>--strictly-enforce-ISO</i>, VBR and ABR
+			        streams stay within the buffer size the MP3 standard
+			        allows, whatever <i>-b</i> is set to.</li>
 			    <li><i>lame_get_maximum_number_of_samples()</i> returns
 			        a sample count whose MP3 data always fits into the
 			        buffer size passed to it, including the tags written at
