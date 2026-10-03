@@ -593,7 +593,7 @@ fill_buffer_resample(lame_internal_flags * gfc,
     fcn = 1.00 / resample_ratio;
     if (fcn > 1.00)
         fcn = 1.00;
-    filter_l = 31;     /* must be odd */
+    filter_l = RESAMPLE_FILTER_LENGTH; /* must be odd */
     filter_l += intratio; /* unless resample_ratio=int, it must be even */
 
 

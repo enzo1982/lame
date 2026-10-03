@@ -790,8 +790,9 @@ test_asm_optimizations_roundtrip(void **state)
  * size and returns it in an int, so every step of the estimate has to be
  * bounded to that int - the frame count, their product with the frame size,
  * and the resampled result. At 44.1 kHz stereo 128 kbps CBR the arithmetic is
- * fully determined (418 bytes per frame, no resampling), so both the ordinary
- * answers and the two ceilings can be asserted exactly.
+ * fully determined (418 bytes per frame, no resampling, and with the LAME tag
+ * frame off nothing waiting in the stream), so both the ordinary answers and
+ * the two ceilings can be asserted exactly.
  */
 static void
 test_maximum_number_of_samples(void **state)
@@ -802,12 +803,14 @@ test_maximum_number_of_samples(void **state)
     assert_int_equal(lame_set_num_channels(gfp, 2), 0);
     assert_int_equal(lame_set_brate(gfp, 128), 0);
     assert_int_equal(lame_set_VBR(gfp, vbr_off), 0);
+    assert_int_equal(lame_set_bWriteVbrTag(gfp, 0), 0);
     assert_int_equal(lame_init_params(gfp), 0);
 
-    /* ordinary buffers: 65536/418 = 156 frames, 268435456/418 = 642190,
-       1152 samples each - these must be reported exactly, not clamped */
-    assert_int_equal(lame_get_maximum_number_of_samples(gfp, 65536), 156 * 1152);
-    assert_int_equal(lame_get_maximum_number_of_samples(gfp, 268435456), 642190 * 1152);
+    /* ordinary buffers: 65536/418 = 156 frames, 268435456/418 = 642190, one
+       of them held back, 1152 samples each - these must be reported exactly,
+       not clamped */
+    assert_int_equal(lame_get_maximum_number_of_samples(gfp, 65536), 155 * 1152);
+    assert_int_equal(lame_get_maximum_number_of_samples(gfp, 268435456), 642189 * 1152);
 
     /* a buffer whose frame count still fits an int but whose sample count does
        not, and the largest buffer expressible at all: both report the ceiling
@@ -817,6 +820,80 @@ test_maximum_number_of_samples(void **state)
     assert_int_equal(lame_get_maximum_number_of_samples(gfp, (size_t) -1), INT_MAX);
 
     assert_int_equal(lame_get_maximum_number_of_samples(NULL, 65536), LAME_GENERICERROR);
+}
+
+/**
+ * @brief lame_get_maximum_number_of_samples() keeps its promise: that many
+ *        samples per call never overflow the buffer it was asked about.
+ *
+ * Asked before every call, since what the encoder holds changes from call to
+ * call: the first call also hands out what lame_init_params() wrote - the
+ * ID3v2 tag, the LAME tag frame - and a resampling encoder returns the output
+ * of input it held back the call before. White noise, the input that needs
+ * the most bits; resampling up to a ratio of 80, free format, and a tag
+ * carrying album art.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_maximum_number_of_samples_holds(void **state)
+{
+    static const struct {
+        int     in, out, kbps, free_format, vbr, tag;
+    } cases[] = {
+        { 44100, 44100, 320, 0, 0, 0 },
+        { 44100, 44100, 0, 0, 1, 1 },
+        { 8000, 44100, 128, 0, 0, 1 },
+        { 11025, 32000, 640, 1, 0, 0 },
+        { 400, 32000, 32, 0, 0, 0 },
+        { 100, 8000, 64, 0, 0, 1 },
+    };
+    static short pcm_l[65536], pcm_r[65536];
+    static unsigned char mp3[16384], art[4096];
+    unsigned int s = 1;
+    size_t  c;
+    int     i;
+    (void) state;
+    for (i = 0; i < 65536; ++i) {
+        s = s * 1103515245u + 12345u;
+        pcm_l[i] = (short) (s >> 16);
+        s = s * 1103515245u + 12345u;
+        pcm_r[i] = (short) (s >> 16);
+    }
+    memcpy(art, "\x89PNG", 4);
+    for (c = 0; c < sizeof cases / sizeof cases[0]; ++c) {
+        lame_t  gf = lame_init();
+        int     call;
+        assert_non_null(gf);
+        assert_int_equal(lame_set_in_samplerate(gf, cases[c].in), 0);
+        assert_int_equal(lame_set_out_samplerate(gf, cases[c].out), 0);
+        assert_int_equal(lame_set_num_channels(gf, 2), 0);
+        assert_int_equal(lame_set_quality(gf, 7), 0);
+        if (cases[c].vbr) {
+            assert_int_equal(lame_set_VBR(gf, vbr_mtrh), 0);
+        }
+        else {
+            assert_int_equal(lame_set_brate(gf, cases[c].kbps), 0);
+            assert_int_equal(lame_set_free_format(gf, cases[c].free_format), 0);
+        }
+        if (cases[c].tag) {
+            id3tag_init(gf);
+            id3tag_add_v2(gf);
+            id3tag_set_title(gf, "a title");
+            assert_int_equal(id3tag_set_albumart(gf, (const char *) art, sizeof art), 0);
+        }
+        assert_int_equal(lame_init_params(gf), 0);
+        for (call = 0; call < 12; ++call) {
+            int const n = lame_get_maximum_number_of_samples(gf, sizeof mp3);
+            int     r;
+            assert_true(n > 0);
+            r = lame_encode_buffer(gf, pcm_l, pcm_r, n < 65536 ? n : 65536, mp3, sizeof mp3);
+            if (r < 0)
+                fail_msg("case %d, call %d: %d samples for %u bytes answered %d", (int) c, call, n,
+                         (unsigned int) sizeof mp3, r);
+        }
+        lame_close(gf);
+    }
 }
 
 /*
@@ -914,6 +991,7 @@ main(void)
                                         gfp_setup, gfp_teardown),
 #endif
         cmocka_unit_test_setup_teardown(test_maximum_number_of_samples, gfp_setup, gfp_teardown),
+        cmocka_unit_test(test_maximum_number_of_samples_holds),
 #if INTERNAL_OPTS
         cmocka_unit_test_setup_teardown(test_internal_opts, gfp_setup, gfp_teardown),
 #endif

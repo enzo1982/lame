@@ -4461,7 +4461,23 @@ calc_maximum_input_samples_for_buffer_size(lame_internal_flags const* gfc, size_
     {
         int const pad = 1;
         int const bpf = ((cfg->version + 1) * 72000 * kbps / cfg->samplerate_out + pad);
-        size_t const frames = buffer_size / (size_t) bpf;
+        /* What the stream already holds goes out first: after
+           lame_init_params() that is the ID3v2 tag and the Xing/LAME frame. */
+        size_t const pending = gfc->bs.buf_byte_idx >= 0 ? (size_t) gfc->bs.buf_byte_idx + 1 : 0;
+        size_t const room = buffer_size > pending ? buffer_size - pending : 0;
+        /* A frame's header goes into the stream where the preceding frame's
+           main data reaches it, which the bit reservoir can make earlier than
+           that data's end, so a call can return bytes beyond its own frames.
+           One frame of the buffer is held back for them. */
+        size_t const whole = room / (size_t) bpf;
+        /* The resampler keeps up to its filter's length of input back for the
+           next call, which then returns that input's output as well - the
+           filter length times the rate ratio, in samples. */
+        size_t const held = cfg->samplerate_in == cfg->samplerate_out ? 0
+            : (size_t) ((RESAMPLE_HELD_INPUT * (double) cfg->samplerate_out / cfg->samplerate_in
+                         + pcm_samples_per_frame - 1) / pcm_samples_per_frame);
+        size_t const reserve = 1 + held;
+        size_t const frames = whole > reserve ? whole - reserve : 0;
         /* an encode call takes an int sample count, so a buffer holding more
            frames than that can express is reported at the representable
            ceiling instead of wrapping into a negative estimate */
@@ -4484,9 +4500,12 @@ calc_maximum_input_samples_for_buffer_size(lame_internal_flags const* gfc, size_
 
   The estimate assumes the worst case for the settings in force: the highest
   bitrate the chosen sample rate allows, or the actual bitrate where that is
-  fixed. It accounts for resampling. A buffer large enough for more samples
-  than an encode call can express is reported at that ceiling rather than
-  overflowing.
+  fixed. It accounts for resampling, for what the next call returns besides
+  its own frames - what the stream already holds, such as the ID3v2 tag before
+  the first call, and the bytes the bit reservoir and the resampler carry over
+  from one call to the next - so ask it before each call. A buffer large
+  enough for more samples than an encode call can express is reported at that
+  ceiling rather than overflowing.
 
   \param gfp          the encoder instance, already initialized.
   \param buffer_size  the output buffer size in bytes.

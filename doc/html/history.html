@@ -447,6 +447,10 @@
 			        which aborted builds with assertions enabled. Only
 			        such a bit-starved granule is affected. Bug ticket
 			        <i class="ticket">[ #490 ]</i>.</li>
+			    <li><i>lame_get_maximum_number_of_samples()</i> returns
+			        a sample count whose MP3 data always fits into the
+			        buffer size passed to it, including the tags written at
+			        the start of the stream.</li>
 			    <li>The resampler reports a failed allocation instead of
 			        crashing on it. It allocated its FIR input and filter
 			        buffers without checking the result, then dereferenced
