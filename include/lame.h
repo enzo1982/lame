@@ -774,17 +774,17 @@ void CDECL lame_print_internals( const lame_global_flags *gfp);
  * Input pcm data, output (maybe) mp3 frames.
  * This routine handles all buffering, resampling and filtering for you.
  *
- * The required @p mp3buf_size can be computed from @p nsamples,
- * samplerate and encoding rate, but here is a worst case estimate:
+ * The @p mp3buf_size needed depends on the settings. A worst case for the
+ * standard bitrates, with the samples counted at the output sample rate:
  *
- *     mp3buf_size in bytes = 1.25*nsamples + 7200
+ *     mp3buf_size in bytes = 1.25 * nsamples * max(1, out_rate / in_rate) + 7200
  *
- * I think a tighter bound could be:  (mt, March 2000)
- *
- *     MPEG1: nsamples*(bitrate/8)/samplerate + 4*1152*(bitrate/8)/samplerate + 512
- *     MPEG2: nsamples*(bitrate/8)/samplerate + 4*576*(bitrate/8)/samplerate + 256
- *
- * but test first if you use that!
+ * The first call after lame_init_params() also returns the ID3v2 tag, when one
+ * is written automatically: add its size (lame_get_id3v2_tag()) for that call.
+ * Free format is not covered - its bitrates go beyond what the figure assumes.
+ * lame_get_maximum_number_of_samples() answers for any settings, free format
+ * included, the other way round: how many samples a buffer of a given size
+ * takes.
  *
  * @note If the encoder is configured for 2 channels but mono mode, the L & R
  *       channels are averaged into the L channel before encoding only the L
@@ -998,7 +998,8 @@ int CDECL lame_encode_buffer_interleaved_int(
  * 0's to make sure the final frame is complete, and then flush
  * the internal MP3 buffers, and thus may return a
  * final few mp3 frames.  'mp3buf' should be at least 7200 bytes long
- * to hold all possible emitted data.
+ * to hold all possible emitted data at the standard bitrates; free format
+ * is not covered.
  *
  * will also write id3v1 tags (if any) into the bitstream
  *
@@ -1015,7 +1016,8 @@ int CDECL lame_encode_flush(
  * the last frame with ancillary data so it is a complete mp3 frame.
  *
  * 'mp3buf' should be at least 7200 bytes long
- * to hold all possible emitted data.
+ * to hold all possible emitted data at the standard bitrates; free format
+ * is not covered.
  *
  * After a call to this routine, the outputed mp3 data is complete, but
  * you may continue to encode new PCM samples and write future mp3 data
