@@ -1005,8 +1005,12 @@ int CDECL lame_encode_buffer_interleaved_int(
  * 0's to make sure the final frame is complete, and then flush
  * the internal MP3 buffers, and thus may return a
  * final few mp3 frames.  'mp3buf' should be at least 7200 bytes long
- * to hold all possible emitted data at the standard bitrates; free format
- * is not covered.
+ * to hold all possible emitted data at the standard bitrates. For free
+ * format it should hold 8 frames at the chosen bitrate plus 2048 bytes,
+ * and 128 more when an ID3v1 tag is written; a frame is
+ * 144000 * kbps / samplerate + 1 bytes for MPEG-1 and
+ * 72000 * kbps / samplerate + 1 bytes for MPEG-2 and 2.5, samplerate
+ * being the output sample rate.
  *
  * will also write id3v1 tags (if any) into the bitstream
  *
@@ -1025,8 +1029,9 @@ int CDECL lame_encode_flush(
  * the last frame with ancillary data so it is a complete mp3 frame.
  *
  * 'mp3buf' should be at least 7200 bytes long
- * to hold all possible emitted data at the standard bitrates; free format
- * is not covered.
+ * to hold all possible emitted data at the standard bitrates. For free
+ * format it should hold 8 frames at the chosen bitrate plus 2048 bytes,
+ * counted as for lame_encode_flush().
  *
  * After a call to this routine, the outputed mp3 data is complete, but
  * you may continue to encode new PCM samples and write future mp3 data
