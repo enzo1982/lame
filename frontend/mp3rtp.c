@@ -84,13 +84,21 @@
  */
 
 
+/**
+ * @internal
+ * @brief The loudest sample of a frame, on the scale @c levelmessage() takes.
+ *
+ * @param Buffer  the frame, per channel.
+ * @param n       samples per channel.
+ * @return the magnitude, at most 32768.
+ */
 static unsigned int
-maxvalue(int Buffer[2][1152])
+maxvalue(int Buffer[2][1152], int n)
 {
     int     max = 0;
     int     i;
 
-    for (i = 0; i < 1152; i++) {
+    for (i = 0; i < n; i++) {
         if (abs(Buffer[0][i]) > max)
             max = abs(Buffer[0][i]);
         if (abs(Buffer[1][i]) > max)
@@ -296,7 +304,7 @@ lame_main(lame_t gf, int argc, char **argv)
                                                      mp3buffer, sizeof(mp3buffer));
         }
         else {
-            levelmessage(maxvalue(Buffer), &maxx, &tmpx);
+            levelmessage(maxvalue(Buffer, wavsamples), &maxx, &tmpx);
             mp3bytes = lame_encode_buffer_int(gf, Buffer[0], Buffer[1], wavsamples,
                                               mp3buffer, sizeof(mp3buffer));
         }
