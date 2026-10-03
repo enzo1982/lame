@@ -82,6 +82,8 @@ typedef struct calc_noise_data_t {
 } calc_noise_data;
 
 
+int     bits_in_range(FLOAT bits, int lo, int hi);
+
 int     on_pe(lame_internal_flags * gfc, const FLOAT pe[2][2],
               int targ_bits[2], int mean_bits, int gr, int cbr);
 

@@ -421,6 +421,29 @@ iteration_init(lame_internal_flags * gfc)
 
 
 
+/**
+ * @internal
+ * @brief A bit count computed in floating point, as an int within [lo, hi].
+ *
+ * Clamped before the conversion, which is undefined for a value an int
+ * cannot hold.
+ *
+ * @param bits the count
+ * @param lo   the smallest result
+ * @param hi   the largest result, at least @a lo
+ * @return @a bits truncated toward zero and clamped to [lo, hi]
+ */
+int
+bits_in_range(FLOAT bits, int lo, int hi)
+{
+    if (bits >= hi)
+        return hi;
+    if (bits > lo)
+        return (int) bits;
+    return lo;
+}
+
+
 /************************************************************************
  * allocate bits among 2 channels based on PE
  * mt 6/99
@@ -447,13 +470,9 @@ on_pe(lame_internal_flags * gfc, const FLOAT pe[2][2], int targ_bits[2], int mea
          ******************************************************************/
         targ_bits[ch] = Min(MAX_BITS_PER_CHANNEL, tbits / cfg->channels_out);
 
-        add_bits[ch] = targ_bits[ch] * pe[gr][ch] / 700.0 - targ_bits[ch];
-
         /* at most increase bits by 1.5*average */
-        if (add_bits[ch] > mean_bits * 3 / 4)
-            add_bits[ch] = mean_bits * 3 / 4;
-        if (add_bits[ch] < 0)
-            add_bits[ch] = 0;
+        add_bits[ch] = bits_in_range(targ_bits[ch] * pe[gr][ch] / 700.0 - targ_bits[ch],
+                                     0, mean_bits * 3 / 4);
 
         if (add_bits[ch] + targ_bits[ch] > MAX_BITS_PER_CHANNEL)
             add_bits[ch] = Max(0, MAX_BITS_PER_CHANNEL - targ_bits[ch]);

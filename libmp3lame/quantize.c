@@ -1824,7 +1824,7 @@ calc_target_bits(lame_internal_flags * gfc,
             targ_bits[gr][ch] = res_factor * mean_bits;
 
             if (pe[gr][ch] > 700) {
-                int     add_bits = (pe[gr][ch] - 700) / 1.4;
+                int     add_bits = bits_in_range((pe[gr][ch] - 700) / 1.4, 0, mean_bits * 3 / 2);
 
                 gr_info const *const cod_info = &l3_side->tt[gr][ch];
                 targ_bits[gr][ch] = res_factor * mean_bits;
