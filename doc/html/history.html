@@ -56,6 +56,10 @@
 			        rather than read past the buffer, for the sake of any
 			        other caller that makes this mistake. Bug ticket
 			        <i class="ticket">[ #522 ]</i>.</span></li>
+			    <li><span class="security">At the end of a stream, the
+			        ACM codec writes no more data than fits into the
+			        application's buffer. A failed conversion returns no
+			        data.</span></li>
 			</ul>
 		    </li>
 		    <li><b>Speed</b>

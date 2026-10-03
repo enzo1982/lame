@@ -686,6 +686,86 @@ count_frames(const BYTE *buf, DWORD len, DWORD rate, int *distinct, int *sole_kb
 }
 
 /**
+ * @brief A destination buffer smaller than what the codec has to hand back is
+ *        answered with an error, never written past.
+ *
+ * The codec flushes the encoder when the header is unprepared, into the same
+ * destination buffer. The buffer here is the application's own choice - far
+ * below what acmStreamSize() recommends - with guard bytes behind it that the
+ * codec is not told about; every one must be as it was after the conversion
+ * and the unprepare. A conversion that fails must not report a byte count
+ * larger than the buffer either.
+ *
+ * @param had the opened driver.
+ */
+static void
+test_small_destination_buffer(HACMDRIVER had)
+{
+    enum { SMALL = 64, GUARD = 8192 };
+    const DWORD rate = 44100;
+    const DWORD frames = rate / 2;
+    WAVEFORMATEX pcm;
+    MPEGLAYER3WAVEFORMAT mp3;
+    HACMSTREAM has = NULL;
+    ACMSTREAMHEADER hdr;
+    short *src = NULL;
+    BYTE *dst = NULL;
+    DWORD i;
+    int untouched = 1;
+    MMRESULT mr;
+
+    fill_pcm_format(&pcm, rate, 1);
+    fill_mp3_format(&mp3, rate, 1, 128000);
+    mr = acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) &mp3, NULL, 0, 0, 0);
+    CHECK_MM(mr, "44100/16/mono to 128 kbps is negotiated");
+    if (mr != MMSYSERR_NOERROR) {
+        return;
+    }
+    src = (short *) calloc(frames, sizeof(short));
+    dst = (BYTE *) malloc(SMALL + GUARD);
+    if (src == NULL || dst == NULL) {
+        CHECK(0, "the buffers could be allocated");
+        goto out;
+    }
+    for (i = 0; i < frames; i++) {
+        src[i] = (short) (TONE_AMPLITUDE * sin(TWO_PI * TONE_HZ * (double) i / (double) rate));
+    }
+    memset(dst, 0xA5, SMALL + GUARD);
+
+    memset(&hdr, 0, sizeof(hdr));
+    hdr.cbStruct = sizeof(hdr);
+    hdr.pbSrc = (BYTE *) src;
+    hdr.cbSrcLength = frames * sizeof(short);
+    hdr.pbDst = dst;
+    hdr.cbDstLength = SMALL;
+    mr = acmStreamPrepareHeader(has, &hdr, 0);
+    CHECK_MM(mr, "a header with a small destination buffer is prepared");
+    if (mr != MMSYSERR_NOERROR) {
+        goto out;
+    }
+    mr = acmStreamConvert(has, &hdr, ACM_STREAMCONVERTF_BLOCKALIGN | ACM_STREAMCONVERTF_END);
+    CHECK(hdr.cbDstLengthUsed <= SMALL, "the conversion reports no more bytes than the buffer holds");
+    CHECK_MM(acmStreamUnprepareHeader(has, &hdr, 0),
+             "the header is released although what is left does not fit");
+    for (i = SMALL; i < SMALL + GUARD; i++) {
+        if (dst[i] != 0xA5) {
+            untouched = 0;
+            break;
+        }
+    }
+    CHECK(untouched, "nothing is written past the destination buffer");
+    CHECK_MM(acmStreamClose(has, 0), "the stream closes afterwards");
+    has = NULL;
+
+out:
+    free(src);
+    free(dst);
+    if (has != NULL) {
+        acmStreamClose(has, 0);
+    }
+}
+
+/**
  * @brief Drives the built codec through the Audio Compression Manager.
  *
  * The smoke test asks whether the DLL loads and exports what it should. This
@@ -866,6 +946,8 @@ test_under_the_acm(const char *driver)
         }
         acmStreamUnprepareHeader(has, &hdr, 0);
     }
+
+    test_small_destination_buffer(had);
 
 out:
     free(src);

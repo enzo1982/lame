@@ -268,7 +268,8 @@ bool bResult = false;
 
 	int nOutputSamples = 0;
 
-    nOutputSamples = lame_encode_flush( gfp, pOutputBuffer, 0 );
+    /* the caller passes the destination buffer's size in *pOutputSize */
+    nOutputSamples = lame_encode_flush( gfp, pOutputBuffer, (int) *pOutputSize );
 
 	if ( nOutputSamples < 0 )
 	{
@@ -336,9 +337,10 @@ int dwSamples;
 	}
 
 	a_StreamHeader->cbSrcLengthUsed = a_StreamHeader->cbSrcLength;
-	a_StreamHeader->cbDstLengthUsed = nOutputSamples;
+	/* a negative answer is an error, not a byte count */
+	a_StreamHeader->cbDstLengthUsed = nOutputSamples < 0 ? 0 : nOutputSamples;
 
-	result = a_StreamHeader->cbDstLengthUsed <= a_StreamHeader->cbDstLength;
+	result = nOutputSamples >= 0 && a_StreamHeader->cbDstLengthUsed <= a_StreamHeader->cbDstLength;
 
 	my_debug->OutPut(DEBUG_LEVEL_FUNC_CODE, "UsedSize = %d / EncodedSize = %d, result = %d (%d <= %d)", InSize, OutSize, result, a_StreamHeader->cbDstLengthUsed, a_StreamHeader->cbDstLength);
 

@@ -1207,12 +1207,18 @@ inline DWORD ACM::OnStreamUnPrepareHeader(LPACMDRVSTREAMINSTANCE a_StreamInstanc
     {
 	ACMStream * the_stream = (ACMStream *)a_StreamInstance->dwInstance;
 	DWORD OutputSize = a_StreamHeader->cbDstLength;
-	
+
+	/* The header is released either way: an application that cannot
+	   unprepare it cannot close the stream. What does not fit is lost. */
 	if (the_stream->close(a_StreamHeader->pbDst, &OutputSize) && (OutputSize <= a_StreamHeader->cbDstLength))
 	{
 		a_StreamHeader->cbDstLengthUsed = OutputSize;
-			Result = MMSYSERR_NOERROR;
-		}
+	}
+	else
+	{
+		a_StreamHeader->cbDstLengthUsed = 0;
+	}
+	Result = MMSYSERR_NOERROR;
 	}
     else if (PERSONAL_FORMAT == a_StreamInstance->pwfxSrc->wFormatTag &&
 		 WAVE_FORMAT_PCM== a_StreamInstance->pwfxDst->wFormatTag)
