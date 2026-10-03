@@ -353,9 +353,11 @@ FindNearestBitrate(int bRate, /* legal rates from 8 to 320 */
 
     bitrate = bitrate_table[version][1];
 
+    /* the distances in double, which holds every difference of two ints
+       exactly: bRate is whatever the caller set */
     for (i = 2; i <= 14; i++) {
         if (bitrate_table[version][i] > 0) {
-            if (ABS(bitrate_table[version][i] - bRate) < ABS(bitrate - bRate))
+            if (ABS((double) bitrate_table[version][i] - bRate) < ABS((double) bitrate - bRate))
                 bitrate = bitrate_table[version][i];
         }
     }

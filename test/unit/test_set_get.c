@@ -905,6 +905,44 @@ test_vbr_floor_above_ceiling(void **state)
 }
 
 /**
+ * @brief lame_init_params() copes with the extreme ints a caller can set for
+ *        the bitrates and the lowpass frequency.
+ *
+ * Under UBSan with halt_on_error, arithmetic that overflows on the way fails
+ * this test; without it, the test checks that the settings end up usable - a
+ * bitrate from the table, a lowpass within the output band.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_extreme_int_settings(void **state)
+{
+    static const int values[] = { INT_MIN, INT_MAX };
+    size_t  v, s;
+    (void) state;
+    for (v = 0; v < sizeof values / sizeof values[0]; ++v) {
+        for (s = 0; s < 5; ++s) {
+            lame_t  gf = lame_init();
+            int     r;
+            assert_non_null(gf);
+            switch (s) {
+            case 0: (void) lame_set_brate(gf, values[v]); break;
+            case 1: (void) lame_set_VBR(gf, vbr_abr); (void) lame_set_VBR_mean_bitrate_kbps(gf, values[v]); break;
+            case 2: (void) lame_set_VBR(gf, vbr_mtrh); (void) lame_set_VBR_min_bitrate_kbps(gf, values[v]); break;
+            case 3: (void) lame_set_VBR(gf, vbr_mtrh); (void) lame_set_VBR_max_bitrate_kbps(gf, values[v]); break;
+            default: (void) lame_set_lowpassfreq(gf, values[v]); break;
+            }
+            r = lame_init_params(gf);
+            if (r >= 0) {
+                assert_true(lame_get_brate(gf) >= 0 && lame_get_brate(gf) <= 320);
+                assert_true(lame_get_lowpassfreq(gf) <= lame_get_out_samplerate(gf) / 2);
+            }
+            lame_close(gf);
+        }
+    }
+}
+
+/**
  * @brief Assembles a float from its IEEE-754 bit pattern, unfoldable by the
  *        compiler - under the fast floating point maths these tests are built
  *        with, a NaN or an infinity the compiler can see is folded away.
@@ -1151,6 +1189,7 @@ main(void)
         cmocka_unit_test(test_upsampling_ratio_limit),
         cmocka_unit_test(test_vbr_floor_above_ceiling),
         cmocka_unit_test(test_float_setters_refuse_nonfinite),
+        cmocka_unit_test(test_extreme_int_settings),
 #if INTERNAL_OPTS
         cmocka_unit_test_setup_teardown(test_internal_opts, gfp_setup, gfp_teardown),
 #endif

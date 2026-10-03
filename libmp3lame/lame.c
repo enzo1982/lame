@@ -904,7 +904,7 @@ lame_init_params(lame_global_flags * gfp)
     }
 
     if (gfp->samplerate_out == 0) {
-        if (2 * gfp->lowpassfreq > gfp->samplerate_in) {
+        if (gfp->lowpassfreq > gfp->samplerate_in / 2) {
             gfp->lowpassfreq = gfp->samplerate_in / 2;
         }
         gfp->samplerate_out = optimum_samplefreq((int) gfp->lowpassfreq, gfp->samplerate_in);
