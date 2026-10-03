@@ -439,6 +439,85 @@ test_info_tag(const blade_exports *be, const char *dir)
 }
 
 /**
+ * @brief Upsampled output stays inside the buffer beInitStream() advised.
+ *
+ * A 4 kHz stream resampled to 48 kHz returns twelve times the frames per
+ * chunk of an unresampled one. The output buffer is exactly the size
+ * beInitStream() reported, followed by guard bytes the DLL is not told about;
+ * after every chunk and after the final flush each call must have succeeded
+ * within the buffer and every guard byte must be as it was.
+ *
+ * @param be the resolved entry points.
+ */
+static void
+test_upsampled_chunks_fit(const blade_exports *be)
+{
+    enum { GUARD = 65536, SOURCE_RATE = 4000, OUTPUT_RATE = 48000, CHUNKS = 20 };
+    BE_CONFIG cfg;
+    HBE_STREAM hbe = 0;
+    DWORD   samples = 0, room = 0, written = 0, i, n, largest = 0;
+    unsigned char *buf;
+    SHORT  *pcm;
+    unsigned s = 4711;
+    int     calls_ok = 1, untouched = 1;
+    char    detail[CTEST_DETAIL_CHARS];
+
+    make_config(&cfg, 0);
+    cfg.format.LHV1.dwSampleRate = SOURCE_RATE;
+    cfg.format.LHV1.dwReSampleRate = OUTPUT_RATE;
+    cfg.format.LHV1.dwBitrate = 320;
+    if (be->init(&cfg, &samples, &room, &hbe) != BE_ERR_SUCCESSFUL) {
+        CHECK(0, "a 4 kHz stream resampled to 48 kHz is accepted");
+        return;
+    }
+    buf = (unsigned char *) malloc(room + GUARD);
+    pcm = (SHORT *) malloc(samples * sizeof(SHORT));
+    if (buf == NULL || pcm == NULL) {
+        CHECK(0, "the upsampling test's buffers could be allocated");
+        free(buf);
+        free(pcm);
+        be->close(hbe);
+        return;
+    }
+    memset(buf + room, 0xA5, GUARD);
+    for (n = 0; n < CHUNKS && calls_ok && untouched; n++) {
+        for (i = 0; i < samples; i++) {
+            s = s * 1103515245u + 12345u;
+            pcm[i] = (SHORT) ((int) ((s >> 16) & 0xffff) - 32768);
+        }
+        written = 0;
+        calls_ok = be->chunk(hbe, samples, pcm, buf, &written) == BE_ERR_SUCCESSFUL && written <= room;
+        if (written > largest) {
+            largest = written;
+        }
+        for (i = 0; i < GUARD; i++) {
+            if (buf[room + i] != 0xA5) {
+                untouched = 0;
+                break;
+            }
+        }
+    }
+    written = 0;
+    if (calls_ok && untouched) {
+        calls_ok = be->deinit(hbe, buf, &written) == BE_ERR_SUCCESSFUL && written <= room;
+        for (i = 0; i < GUARD; i++) {
+            if (buf[room + i] != 0xA5) {
+                untouched = 0;
+                break;
+            }
+        }
+    }
+    printf("        upsampled 12x: advised %lu bytes, largest chunk %lu\n",
+           (unsigned long) room, (unsigned long) largest);
+    sprintf(detail, "advised %lu, largest %lu", (unsigned long) room, (unsigned long) largest);
+    ctest_record(calls_ok, "every upsampled chunk and the flush succeed within the advised buffer", detail);
+    CHECK(untouched, "nothing is written past the advised buffer");
+    be->close(hbe);
+    free(buf);
+    free(pcm);
+}
+
+/**
  * @brief Runs the Blade encoder DLL tests.
  * @param argc  argument count.
  * @param argv  an optional path to lame_enc.dll, and --require to turn a
@@ -545,6 +624,8 @@ main(int argc, char **argv)
     /* The tag rewrite, over a bare file and over an ID3v2 tag. */
     GetTempPathA(MAX_PATH, dir);
     test_info_tag(&be, dir);
+
+    test_upsampled_chunks_fit(&be);
 
     FreeLibrary(mod);
     return ctest_summary("blade_test");

@@ -60,6 +60,10 @@
 			        ACM codec writes no more data than fits into the
 			        application's buffer. A failed conversion returns no
 			        data.</span></li>
+			    <li><span class="security">When a stream is resampled to
+			        a higher sample rate, <i>lame_enc.dll</i> asks the
+			        application for a large enough output buffer, and never
+			        writes more data than that size.</span></li>
 			</ul>
 		    </li>
 		    <li><b>Speed</b>
