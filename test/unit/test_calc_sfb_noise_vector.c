@@ -116,7 +116,7 @@ fill(FLOAT * xr, FLOAT * xr34)
     }
 }
 
-/** Every length to a full band, both tiers, every odd length (the tail). */
+/** Every length from 0 to 80 and the last four up to a full band (the tail). */
 static void
 test_lengths(LAME_UNUSED void **state)
 {

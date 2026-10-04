@@ -712,8 +712,9 @@ test_null_output_buffer_empty_frame(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A sample louder than 4096 times full scale, all scale factors
- *        applied, is refused as bad input data; one just under is encoded.
+ * @brief A sample louder than 4096 times full scale, after all scaling
+ *        factors, returns LAME_BADINPUTDATA. Input up to about 4000 times
+ *        full scale is encoded.
  *
  * Floating point input reaches the bound by itself; 16-bit input only
  * through the scale factors, whose product the setters cannot bound. The

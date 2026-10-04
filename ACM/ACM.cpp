@@ -544,8 +544,8 @@ switch (msg) {
 // Special message handlers
 //////////////////////////////////////////////////////////////////////
 /*!
-	Retreive the config details of this ACM driver
-	The index represent the specified format
+	Fills in the details of one format that this driver supports.
+	The format tag and the format index in \a a_FormatDetails select it.
 
 	\param a_FormatDetails will be filled with all the corresponding data
 	\param a_Query which kind of detail is wanted, in the bits

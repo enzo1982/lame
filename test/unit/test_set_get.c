@@ -4,9 +4,8 @@
  * @brief Unit tests for the libmp3lame parameter API (set_get.c).
  *
  * set_get.c is almost entirely getter/setter pairs that the CLI frontend never
- * exercises: it drives the encoder through a handful of paths, so the coverage
- * harness leaves ~500 of its ~930 lines unexecuted (report/uncovered.txt). Those
- * lines are not dead - they are the public ABI every third-party caller uses -
+ * exercises: it drives the encoder through a handful of paths. These functions
+ * are not dead - they are the public ABI every third-party caller uses -
  * so they are exactly what a unit test should pin down. Each function is probed
  * three ways where it applies: a valid round-trip, an invalid-@p gfp call (the
  * `is_lame_global_flags_valid` false branch, i.e. the `return -1` / default
@@ -14,6 +13,8 @@
  * pins behaviour; the latter two are the branches the frontend never reaches.
  *
  * Library-level tests: they link libmp3lame and call the exported API directly.
+ * With --enable-internal the test links the static library, so that it can
+ * reach the internal setters as well.
  */
 
 #ifdef HAVE_CONFIG_H

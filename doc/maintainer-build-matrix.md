@@ -85,7 +85,7 @@ The generated `build-all.sh` (POSIX) / `build-all.ps1` (Windows):
 ## POSIX usage
 
 ```
-sh maintainer/gen-build-matrix.sh [-d DIR] [-s SRCDIR] [-c LIST] [-j N]
+sh maintainer/gen-build-matrix.sh [-d DIR] [-s SRCDIR] [-c LIST] [-j N] [-x ARGS]
 sh DIR/build-all.sh
 ```
 
@@ -136,7 +136,8 @@ matrix says so in `matrix-info.txt` rather than passing quietly.
 
 ```
 pwsh maintainer/gen-build-matrix.ps1 [-Dir DIR] [-SrcDir DIR] `
-     [-VsPath DIR] [-Mpg123Dir DIR] [-Config LIST] [-Arch LIST]
+     [-VsPath DIR] [-Mpg123Dir DIR] [-LibsndfileDir DIR] [-GtkDir DIR] `
+     [-DShowBaseClassesDir DIR] [-Config LIST] [-Arch LIST]
 pwsh DIR\build-all.ps1
 ```
 
@@ -146,6 +147,9 @@ pwsh DIR\build-all.ps1
 | `-SrcDir`     | LAME source directory (default: parent of the script)             |
 | `-VsPath`     | Visual Studio install to use (overrides autodetection)            |
 | `-Mpg123Dir`  | folder with `mpg123.h` + import lib; enables the decoder-on cells |
+| `-LibsndfileDir` | libsndfile folder with `lib\sndfile.lib`; enables the libsndfile cells |
+| `-GtkDir`     | GTK 4 install prefix with `lib\gtk-4.lib`; enables the mp3x cell  |
+| `-DShowBaseClassesDir` | DirectShow base class sources (`streams.h`); enables the DirectShow filter cell |
 | `-Config`     | MSBuild configurations (default `Release,Debug`)                  |
 | `-Arch`       | MSBuild platforms (default `x64`)                                 |
 

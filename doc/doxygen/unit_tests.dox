@@ -91,6 +91,8 @@ rather than returning), it interposes a libc call with the linker's
 
 @section unit_tests_list The tests
 
+Each test program has its own page in this group. Four examples:
+
 - @c test_sanity.c &mdash; harness smoke test (@ref test_sanity.c).
 - @c test_get_audio_aiff.c &mdash; AIFF FORM-size underflow guard in
   @c parse_aiff_header() (@ref test_get_audio_aiff.c).

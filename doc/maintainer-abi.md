@@ -55,7 +55,7 @@ are:
 
 Two things follow. A configure option that compiles code out does **not** mean
 the symbol should leave the list: `--disable-decoder` builds the decoding entry
-points as stubs and still exports all 241 names, so the list is the same either
+points as stubs and still exports every name, so the list is the same either
 way. And anything our own frontends call across the library boundary must be in
 the list, or a dynamically linked build of what we ship does not link at all.
 
@@ -254,9 +254,9 @@ contract: include/libmp3lame.sym, include/lame.def
 baseline: maintainer/abi/libmp3lame.abi
 
 [1/3] contract: the committed export lists (libmp3lame.sym, lame.def) name the same symbols
-      PASS  241 symbols, named by both
+      PASS  246 symbols, named by both
 [2/3] exports: the built library exports exactly the symbols the contract promises
-      PASS  241 symbols, matching libmp3lame.sym
+      PASS  246 symbols, matching libmp3lame.sym
 [3/3] abi: no signature, struct-layout or enum change inside those symbols
       PASS  identical to the baseline
 

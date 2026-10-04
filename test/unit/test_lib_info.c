@@ -153,7 +153,7 @@ test_version_strings_agree_with_numbers(LAME_UNUSED void **state)
  * The build-type character can only be cross-checked one way. An alpha or beta
  * build reports its patch level in @c alpha or @c beta, so a non-zero one of
  * those must be matched by an 'a' or a 'b'. The converse does not hold: an
- * alpha at patch level 0 - which is what this tree currently is - leaves both
+ * alpha at patch level 0 leaves both
  * fields 0 and is numerically indistinguishable from a release, so a caller
  * cannot use them to ask "is this an alpha?".
  */

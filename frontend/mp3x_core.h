@@ -36,13 +36,14 @@ extern "C" {
  *  \name Shared analyzer state
  *
  *  The engine fills a frame slot (\c pinfo); the frontend owns navigation - it
- *  decides which decoded frame is currently on screen (\c pplot) and shuffles
+ *  decides which decoded frame is currently on screen (\c pdisp) and shuffles
  *  the ring as it reads ahead / steps back.
  *  \{
  */
 /** The frame slot the engine is currently filling. */
 extern plotting_data *pinfo;
-/** The frame the frontend is currently displaying. */
+/** The ring slot the decoder fills, <tt>&amp;Pinfo[READ_AHEAD]</tt>. The
+    graphs read \c pdisp. */
 extern plotting_data *pplot;
 /** Ring buffer: \c READ_AHEAD frames ahead plus \c NUMBACK frames back. */
 extern plotting_data  Pinfo[NUMPINFO];
@@ -86,8 +87,12 @@ typedef struct {
     int     frames;      /**< Frames analyzed. */
     double  avebits;     /**< Running mean of main-data bits per frame. */
     int     maxbits;     /**< Largest main-data frame seen. */
-    int     approxbits;  /**< Bits a frame holds at this bitrate, less the header. */
-    int     mean_bits;   /**< LAME's own per-granule figure, x4 for the frame. */
+    int     approxbits;  /**< Bits in a frame at this bitrate, less the header
+                              and the side information. Assumes 1152 samples
+                              per frame (MPEG-1). */
+    int     mean_bits;   /**< The encoder's target bits per channel and
+                              granule, times 4: the frame total for MPEG-1
+                              stereo. */
     int     totemph;     /**< Frames using de-emphasis. */
     int     totms;       /**< Frames using ms_stereo. */
     int     totis;       /**< Frames using intensity stereo. */

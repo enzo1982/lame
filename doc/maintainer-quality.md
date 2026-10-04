@@ -144,9 +144,9 @@ python3 maintainer/quality-compare.py -o DIR -n DIR -d DIR
 | `-t`, `--tolerance`   | flag a track whose ODG drops by more than this (default: 0.05) |
 
 `-e` takes all the encoder options as its single value, so more than one goes in
-one quoted argument. Because every LAME option starts with a dash, the value has
-to be attached to the flag rather than separated by a space &mdash; the script
-accepts either form and joins them for you:
+one quoted argument. Every LAME option starts with a dash, so the script
+attaches the value to the flag itself before it parses the command line. A
+value separated by a space works as well as an attached one:
 
 ```
 python3 maintainer/quality-compare.py -o ../base-matrix -n ../cand-matrix \

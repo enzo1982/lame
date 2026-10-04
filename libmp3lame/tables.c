@@ -454,8 +454,8 @@ const struct huffcodetab ht[HTN] = {
   entry above carries a code-length table but a null codeword table. It is
   nevertheless a real outcome of the table search, which compares candidates by
   their code lengths, so it has to be turned into something writable before
-  either the side information or the code words are produced: 16 is what the
-  standard says a decoder shall read here.
+  either the side information or the code words are produced. LAME writes
+  table 16 in its place.
 
   Everything that acts on a chosen table asks this, so no part of the bitstream
   writer depends on another part having converted the value first.

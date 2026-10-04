@@ -223,7 +223,8 @@ check_one(unsigned int l, FLOAT istep, const FLOAT * xr, const FLOAT * adj, int 
 /* ------------------------------------------------------------------ */
 
 /**
- * @brief Every length from nothing to a full run, both tiers.
+ * @brief Every length from 0 to 72 and the last four up to a full run, on
+ *        each tier this processor can run.
  *
  * Covers both sides of the two vector thresholds and of the block size, and
  * every odd length in between - which is where the untouched last value is.

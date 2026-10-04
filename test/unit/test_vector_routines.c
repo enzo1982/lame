@@ -168,10 +168,10 @@ test_reserved_names(void **state)
 }
 
 /**
- * @brief The rejections, each of which tells the caller a different thing.
+ * @brief An unknown name returns -2, and a NULL instance returns -1.
  *
- * -2 is a typo, -3 asks for a rebuild, -4 asks for another machine, -1 is a
- * broken call. Collapsing any two of them would leave a user guessing.
+ * The function also returns -3 for a set this build does not include and -4
+ * for a set this processor cannot run. This test does not check those two.
  */
 static void
 test_rejections(void **state)

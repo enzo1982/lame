@@ -4,9 +4,9 @@
  * @brief Link-time stubs for the parse.c unit tests.
  *
  * Minimal stand-ins for the console and file helpers that @c frontend/parse.c
- * references but that normally live in @c console.c / @c lame_main.c. They only
- * need to satisfy the linker; none is exercised on the @c set_path_arg() /
- * @c merge_argv() paths the unit tests drive. @c parse.c itself defines the
+ * references but that normally live in @c console.c / @c lame_main.c. The
+ * parse.c tests link this file. The console stand-ins print nothing, and
+ * @c lame_fopen() opens the file with @c fopen(). @c parse.c itself defines the
  * frontend global-config blocks (@c global_reader / @c global_writer / ...),
  * so - unlike the get_audio test - those are @e not stubbed here.
  *

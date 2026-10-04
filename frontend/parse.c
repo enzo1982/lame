@@ -279,8 +279,8 @@ char* fromUtf16( char* src )
  *
  * iconv() stops at the first character it cannot produce and leaves the rest
  * unread. What could be converted is still returned - a transliterating
- * conversion is what is asked for - and the caller is told the rest was
- * dropped, so a value written short is at least a visible one.
+ * conversion is what is asked for - and a warning names the value and how
+ * many bytes were dropped.
  *
  * @param to        the character set to produce, as iconv_open() names it.
  * @param from      the character set the text is in.
@@ -290,7 +290,8 @@ char* fromUtf16( char* src )
  *                  plus a margin, and @a room is what iconv may fill.
  * @param lead      bytes at the front of the result that belong to the caller
  *                  rather than to the conversion, for a byte-order mark.
- * @return the converted text, or NULL.
+ * @return the converted text. An empty string if this system cannot convert
+ *         between the two character sets. NULL if no memory is left.
  */
 static char *
 convert_text(char const *to, char const *from, char const *src,

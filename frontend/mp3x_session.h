@@ -51,8 +51,7 @@ extern "C" {
  *  A snapshot of the five process-wide frontend configuration structs.
  *
  *  parse.c exposes \c global_reader, \c global_writer, \c global_ui_config,
- *  \c global_decoder and \c global_raw_pcm, plus get_audio.c's
- *  \c get_audio_global_data. They are mutated by \c parse_args and by
+ *  \c global_decoder and \c global_raw_pcm. They are mutated by \c parse_args and by
  *  \c init_infile. mp3x_session treats them as the per-file session state they
  *  actually are: every session open restores a captured startup baseline before
  *  any new configuration is applied, so options from a prior file - or

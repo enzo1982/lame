@@ -116,7 +116,7 @@ encoder_new(int channels)
     return gfp;
 }
 
-/** @brief Fills a buffer with a valid, finite ramp scaled to +/- 1 full scale. */
+/** @brief Fills a float buffer with a finite ramp from -0.25 to +0.25 full scale. */
 static void
 fill_valid_float(float *buf, int n)
 {
@@ -127,7 +127,7 @@ fill_valid_float(float *buf, int n)
     }
 }
 
-/** @brief Fills a buffer with a valid, finite ramp scaled to +/- 1 full scale. */
+/** @brief As fill_valid_float(), for a double buffer. */
 static void
 fill_valid_double(double *buf, int n)
 {

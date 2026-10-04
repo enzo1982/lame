@@ -74,7 +74,7 @@ public:
 	*/
 	bool HandleDialogCommand(const HWND parentWnd, const WPARAM wParam, const LPARAM lParam);
 	/**
-		\brief check wether 2 instances are equal, ie have the same encoding parameters
+		\brief Returns true if the two instances have different encoding parameters
 	*/
 	bool operator != (const AEncodeProperties & the_instance) const;
 
@@ -114,7 +114,7 @@ public:
 	inline const bool GetForceChannelMode() const { return bForceChannel; }
 
 	/**
-		\brief Check wether the Encode process should use the VBR mode
+		\brief Returns the bitrate mode: CBR, VBR or ABR
 	*/
 	inline const BRMode GetVBRUseMode() const { return mBRmode; }
 	/**
@@ -188,7 +188,7 @@ public:
 		\param bitrate the data that will be filled with the bitrate
 		\param MPEG_Version The MPEG version (MPEG1 or MPEG2)
 
-		\return 0 if the bitrate is not found, 1 if the bitrate is found
+		\return the result of GetBitrateValueMPEG1() or GetBitrateValueMPEG2()
 	*/
 	const int GetBitrateValue(DWORD & bitrate, const DWORD MPEG_Version) const;
 	/**
@@ -196,7 +196,8 @@ public:
 
 		\param bitrate the data that will be filled with the bitrate
 
-		\return 0 if the bitrate is not found, 1 if the bitrate is found
+		\return 0 if the bitrate is in the MPEG-1 table. 1 if it is not; then
+		        \a bitrate is the next higher MPEG-1 bitrate.
 	*/
 	const int GetBitrateValueMPEG1(DWORD & bitrate) const;
 	/**
@@ -204,7 +205,8 @@ public:
 
 		\param bitrate the data that will be filled with the bitrate
 
-		\return 0 if the bitrate is not found, 1 if the bitrate is found
+		\return 0 if the bitrate is in the MPEG-2 table. -1 if it is not; then
+		        \a bitrate is the next lower MPEG-2 bitrate.
 	*/
 	const int GetBitrateValueMPEG2(DWORD & bitrate) const;
 
@@ -234,7 +236,7 @@ public:
 	*/
 	inline const int GetBitrateLentgh() const { return sizeof(the_Bitrates) / sizeof(unsigned int); }
 	/**
-		\brief Get the number of possible sampling frequencies
+		\brief Returns the selected resampling frequency
 	*/
 	inline const unsigned int GetResampleFreq() const { return the_SamplingFreqs[nSamplingFreqIndex]; }
 	/**
@@ -305,23 +307,17 @@ public:
 	*/
 	inline const int GetChannelLentgh() const { return 3; }
 
-	/**
-		\brief Get the current preset to use, see lame documentation/code for more info on the possible presets
-	*/
 //	const LAME_QUALTIY_PRESET GetPresetModeValue() const;
 	/**
-		\brief Get the preset in the form of a string for the specified Channel mode index
+		\brief Get the name of the preset with the given index
 
-		\param a_presetID the preset index (see GetPresetLentgh())
+		\param a_presetID the preset index
 	*/
 	const char * GetPresetModeString(const int a_presetID) const;
-	/**
-		\brief Get the number of possible presets
-	*/
 //	inline const int GetPresetLentgh() const { return sizeof(the_Presets) / sizeof(LAME_QUALTIY_PRESET); }
 
 	/**
-		\brief Start the user configuration process (called by AOut::config())
+		\brief Start the user configuration process (called for the DRV_CONFIGURE message)
 	*/
 	bool Config(const HINSTANCE hInstance, const HWND HwndParent);
 

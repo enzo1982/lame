@@ -31,9 +31,8 @@
 
 #include <windows.h>
 
-/// The ACM is considered as a driver and run in Kernel-Mode
-/// So the new/delete operators have to be overriden in order to use memory
-/// readable out of the calling process
+/// The new and delete operators of the codec allocate with LocalAlloc() and
+/// free with LocalFree().
 
 void * operator new( unsigned int cb )
 {
