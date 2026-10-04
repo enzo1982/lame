@@ -6,8 +6,10 @@
  *
  * The first check rejects a FORM chunk size below 4. The parser subtracts 4
  * from @c ui32_ChunkSize before the chunk loop. Without the check, a size
- * below 4 wraps to about 4.29e9. The chunk loop then reads chunks until the
- * input ends.
+ * below 4 wraps to about 4.29e9, and then the FORM size does not limit the
+ * chunk loop. The test input is ::valid_aiff with only the FORM size
+ * changed. So without the check, the loop reads the COMM and SSND chunks and
+ * the parser accepts the file. With the check, it returns -1.
  *
  * The second check rejects a sample rate that does not fit in an @c int. The
  * COMM chunk stores the sample rate as an 80-bit extended float. The parser
@@ -19,10 +21,9 @@
  * fold a rate away before the parser sees it.
  *
  * @c parse_aiff_header() is static, so the test compiles the reader into
- * itself. The test also wraps @c fread(). The return value alone cannot tell
- * the fixed code from the faulty code, because both return -1. When the trap
- * is armed, a call past a fixed read budget calls @c longjmp(). So a parser
- * that loops fails the test fast and does not hang the suite.
+ * itself. The test also wraps @c fread(). When the trap is armed, a call past
+ * a fixed read budget calls @c longjmp(). So a parser that loops fails the
+ * test fast and does not hang the suite.
  *
  * The test does not depend on the byte order of the host. It writes all
  * multi-byte fields in big-endian order, the byte order of AIFF files. It does
@@ -168,11 +169,13 @@ test_undersized_form_size_rejected(void **state)
     volatile uint32_t fs;
 
     for (fs = 0; fs < 4; ++fs) {
-        unsigned char hdr[8];
+        unsigned char hdr[sizeof valid_aiff];
         FILE   *sf;
 
+        /* A valid header with only the FORM size changed: without the check,
+           the wrapped size lets the loop read COMM and SSND and accept it. */
+        memcpy(hdr, valid_aiff, sizeof hdr);
         put_be32(hdr, fs);              /* FORM chunk size = 0..3 */
-        memcpy(hdr + 4, "AIFF", 4);     /* form type */
         sf = aiff_stream(hdr, sizeof hdr);
 
         fread_calls = 0;
