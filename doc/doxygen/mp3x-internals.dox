@@ -1,132 +1,143 @@
 /**
 \page mp3x_internals mp3x frame analyzer - internals
 
-The GTK4 frame analyzer is built from four implementation units:
-mp3x_core.c holds the toolkit-independent engine, mp3x_plot.c the Cairo drawing
-layer, mp3x_session.c the per-file lifecycle, and mp3x_ui.c the application,
-window and menus. Comments in them cite gtkanal.c and gpkplotting.c where a
-constant, a default or a transform reproduces the behaviour of the GTK 1.2
-predecessor those files implemented; the files themselves are no longer in the
-tree and are reachable through the version history.
+The GTK4 frame analyzer has four source files:
 
-What the analyzer looks like to someone using it - the graphs, the display
-controls and the keyboard - is described in the mp3x(1) manual page, not here.
+- mp3x_core.c: the analysis engine. It does not use GTK.
+- mp3x_plot.c: the drawing code, with Cairo.
+- mp3x_session.c: opening and closing one input file.
+- mp3x_ui.c: the application, the window and the menus.
+
+The mp3x(1) manual page describes what the user sees: the graphs, the display
+controls and the keys. This page describes the code.
 
 \section mp3x_internals_lifetime Architecture and lifetime
 
-\c Mp3xDriver is process and UI lifetime state. It borrows the application and
-window, and owns the current session, menu model, CSS provider, view
-preferences, async-request identity slots, session-generation counter, and the
-cumulative analysis-failure exit latch.
+\c Mp3xDriver holds the state of the process and of the user interface. It
+uses the application and the window, but does not own them. It owns the
+current session, the menu model, the CSS provider, the view settings, the
+slots that identify pending dialog requests, the session generation counter,
+and the exit status flag for analysis failures. Once this flag is set, it stays
+set.
 
-\c Mp3xSession is one open input. It owns its \c lame_t, path and display name,
-and transport state. Closing removes its idle source first, shuts down the core
-decoder, calls \c close_infile(), closes the LAME handle and frees its strings.
-Opening another file restores the captured startup frontend-global baseline, so
-options given on the command line cannot leak into a later GUI-selected file.
+\c Mp3xSession is one open input file. It owns its \c lame_t, the path, the
+display name, and the playback state. To close a session, the code first removes
+its idle source, then shuts down the decoder of the engine, calls
+\c close_infile(), closes the LAME instance and frees the strings. Before it
+opens another file, the code restores the frontend globals as they were at
+startup. So options from the command line do not apply to a file that the user
+opens later in the GUI.
 
-Each file-dialog request owns a strong driver reference, a dialog, a
-cancellable, and one matching \c g_application_hold(); its completion route
-releases all four. Each idle source owns a strong driver reference plus the
-captured session pointer and generation, and frees them in its destroy notify.
+Each file dialog request owns a strong reference to the driver, a dialog, a
+cancellable, and one matching \c g_application_hold(). The code that completes
+the request releases all four. Each idle source owns a strong reference to the
+driver, the session pointer and the session generation from the time it was
+created. Its destroy notify frees them.
 
-\note A stale async callback must match **both** the driver state epoch and the
-session generation before touching session state. That pairing is what makes it
-safe for a dialog to complete after the file it was opened for has been closed.
+\note An async callback must match <b>both</b> the state epoch of the driver and
+the session generation before it changes the session state. This is why a
+dialog can complete safely after the file it was opened for is closed.
 
-The GUI prevalidates a selected \c GFile before retiring the current session, so
-an unusable selection never costs the user the file they already had open. A
-successful \c Mp3xPrevalidateResult owns its three strings until they are either
-cleared or stolen by the replacement session.
+The GUI checks a selected \c GFile before it closes the current session. So if
+the selected file cannot be used, the user keeps the file that is already open.
+A successful \c Mp3xPrevalidateResult owns its three strings until they are
+cleared or taken over by the new session.
 
-\section mp3x_internals_transport Transport and end of input
+\section mp3x_internals_transport Playback and end of input
 
-Input exhaustion and display completion are different states, and conflating
-them is the easiest way to lose the last frames of a file.
+The end of the input and the end of the display are different states. If the
+code mixes them up, the last frames of a file are lost.
 
-For PCM input, the first mp3x_core_step() that returns zero has already shifted
-the ring, called \c lame_encode_flush() once, fed its complete output to HIP,
-and decoded at most one queued frame. The session then performs exactly
-<tt>READ_AHEAD - 1</tt> mp3x_core_drain_step() shifts. Their first calls collect
-any remaining HIP output already queued by the flush; once HIP needs more data
-they shift invalid sentinels. Drain steps do no input, encoding or statistics
-work.
+For PCM input, the first mp3x_core_step() that returns zero has already done
+four things: it shifted the ring, called \c lame_encode_flush() once, passed
+all of its output to HIP, and decoded at most one queued frame. The session then
+calls mp3x_core_drain_step() exactly <tt>READ_AHEAD - 1</tt> times. The first
+of these calls collect the HIP output that the flush left in the queue. When
+HIP needs more data, the calls shift in invalid placeholder frames. Drain steps
+do not read input, encode, or update the statistics.
 
-Completion is set only when the final real frame reaches the display position.
-Play, repeated Step, and Last/Advance therefore all reach the same final frame,
-with its correctly mapped re-synthesis companion.
+The display is complete only when the last real frame reaches the display
+position. So Play, repeated Step, and Last/Advance all end on the same last
+frame, with the matching decoded frame.
 
-\c frames_done counts real analyzed frames only, and every real plotting slot
-stores <tt>totbits == sum(mainbits[gr][ch])</tt>. A negative core result stops
-the session and latches process exit status 1; a later successful open does not
-erase it.
+\c frames_done counts only real analyzed frames. Every plotting slot of a real
+frame stores <tt>totbits == sum(mainbits[gr][ch])</tt>. If the engine returns a
+negative result, the session stops and the process exit status becomes 1. A
+later successful open does not reset it.
 
 \section mp3x_internals_cli Command line
 
-Initial command-line parsing happens before the \c GtkApplication is created.
-The existing parser's informational result prints help, version, license, usage,
-long help or the genre list once and exits 0 without a window. Parser and open
-failures exit non-zero. A successfully opened command-line session is installed
-when GTK activates. Subsequent GUI opens use documented clean defaults rather
-than replaying the initial argv.
+mp3x parses the command line before it creates the \c GtkApplication. If the
+parser shows information (help, version, license, usage, long help or the genre
+list), mp3x prints it once and exits with 0, without a window. If parsing or
+opening fails, mp3x exits with a non-zero status. A session opened from the
+command line is installed when GTK activates. A file opened later in the GUI
+uses clean default settings. It does not use the options from the command
+line again.
 
 \section mp3x_internals_plot Plotting and export
 
-On-screen titles use a Pango layout created from the drawing widget, inheriting
-its font map, font description, direction, DPI and desktop text scaling.
-Offscreen PNGs use a deterministic PangoCairo \c "Sans 11" layout instead, so a
-saved image does not vary with the desktop it was produced on. A measured title
-band is excluded from every graph's data mapping, and drawing areas publish
-accessible labels.
+The titles on the screen use a Pango layout created from the drawing widget. So
+they use the font map, font, text direction, DPI and text scaling of the
+desktop. PNG files use a fixed PangoCairo \c "Sans 11" layout instead, so a
+saved image looks the same on every desktop. Each graph leaves out the measured
+height of the title when it maps its data. The drawing areas have accessible
+labels.
 
-Every PNG writer checks the image surface, the Cairo context and the
-\c cairo_surface_write_to_png() status. Interactive Save and Export report the
-returned error rather than claiming success.
+Every PNG writer checks the image surface, the Cairo context and the result of
+\c cairo_surface_write_to_png(). Save and Export show the returned error. They
+do not report success after a failure.
 
 \section mp3x_internals_hooks Test-only instrumentation
 
-Production builds contain no environment-variable automation behaviour at all.
-The hooks below are compiled only when \c MP3X_ENABLE_TEST_HOOKS is defined:
+Normal builds do not read any of the environment variables below. The test hooks
+are compiled only when \c MP3X_ENABLE_TEST_HOOKS is defined:
 
 \code
 ./configure --enable-mp3x CPPFLAGS=-DMP3X_ENABLE_TEST_HOOKS
 make
 \endcode
 
-\warning There is no configure option for this, deliberately - the define is the
-only door, and it is meant to be awkward. Confirming that a normal binary
-contains none of the \c MP3X_ strings is part of the regression routine below.
+\warning On purpose, there is no configure option for this. The define is the
+only way to enable the hooks, and it is meant to be inconvenient. The
+regression checks below include a check that a normal binary contains none of
+the \c MP3X_ strings.
 
-Only that build recognises:
+Only a build with this define reads:
 
-- \c MP3X_START_PAUSED - analyze one transition, then wait.
-- \c MP3X_STEP_TO_END - exercise repeated paused Step transitions to completion.
-- \c MP3X_ADVANCE_TO_END - exercise Last/Advance-to-end.
-- \c MP3X_QUIT_WHEN_DONE - quit after completion or injected failure.
-- \c MP3X_FAIL_AFTER=N - inject an analyzer failure after N real frames.
-- \c MP3X_STATE_REPORT=path - write the final frame, drain and \c totbits
-  invariants, plus the final re-synthesis companion offset and decoded PCM peak.
+- \c MP3X_START_PAUSED: analyze one step, then wait.
+- \c MP3X_STEP_TO_END: use repeated Step while paused, until the end.
+- \c MP3X_ADVANCE_TO_END: use Last/Advance to go to the end.
+- \c MP3X_QUIT_WHEN_DONE: quit when the display is complete, or after an
+  injected failure.
+- \c MP3X_FAIL_AFTER=N: inject an analysis failure after N real frames.
+- \c MP3X_STATE_REPORT=path: write a report with the last frame, the drain
+  state, the \c totbits check, the offset of the matching decoded frame, and the
+  peak of the decoded PCM.
 - \c MP3X_SHOT, \c MP3X_SHOT_RESYNTH, \c MP3X_SHOT_MDCT, \c MP3X_SHOT_MDCT1,
   \c MP3X_SHOT_PSY, \c MP3X_SHOT_PSY1, \c MP3X_SHOT_SFB, \c MP3X_SHOT_SFB1,
-  \c MP3X_SHOT_COMPOSITE - save all nine final plot artifacts.
+  \c MP3X_SHOT_COMPOSITE: save all nine plots of the last frame.
 - \c MP3X_CHANNEL, \c MP3X_MS, \c MP3X_DIFF, \c MP3X_SOURCE, \c MP3X_NOSFBLINES,
-  \c MP3X_KBFLAG - override display choices.
+  \c MP3X_KBFLAG: set the display options.
 
-\section mp3x_internals_regression Suggested regression matrix
+\section mp3x_internals_regression Suggested regression checks
 
--# Fresh normal and instrumented builds; changed files warning-clean.
--# Timeout-bound every informational command-line route and one invalid option.
--# WAV, AIFF and MP3 inputs both shorter and longer than \c READ_AHEAD.
--# Play, repeated Step, and Last/Advance to the same final displayed frame.
--# Verify every reported \c totbits against the four \c mainbits fields, and
-   require a re-synthesis companion for every displayed final frame. A silent
-   fixture may legitimately report a zero decoded PCM peak.
--# Empty, directory, missing, unreadable and non-regular selections.
--# Repeated open, recent, close, cancel and save cycles under the platform leak
-   tool.
--# All nine PNG save routes, including an unwritable destination.
--# Channel, source, difference, SFB, subblock and spectrum controls; statistics;
-   keyboard transport; fullscreen; and file replacement.
--# Confirm a normal binary contains none of the \c MP3X_ hook strings.
+-# Build a normal and an instrumented binary. The changed files build without
+   warnings.
+-# Run every informational command-line option and one invalid option, each
+   with a time limit.
+-# Use WAV, AIFF and MP3 inputs, both shorter and longer than \c READ_AHEAD.
+-# Check that Play, repeated Step, and Last/Advance end on the same last frame.
+-# Check every reported \c totbits against the four \c mainbits fields. Every
+   last displayed frame must have a matching decoded frame. For a silent input,
+   a decoded PCM peak of zero is correct.
+-# Select an empty file, a directory, a missing file, an unreadable file and a
+   file that is not a regular file.
+-# Repeat open, recent, close, cancel and save many times under the leak checker
+   of the platform.
+-# Use all nine PNG save options, also with a destination that cannot be written.
+-# Use the channel, source, difference, SFB, subblock and spectrum controls, the
+   statistics, the playback keys, full screen, and replacing the open file.
+-# Check that a normal binary contains none of the \c MP3X_ hook strings.
 
 */

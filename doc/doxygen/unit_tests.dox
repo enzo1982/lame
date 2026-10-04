@@ -1,19 +1,19 @@
 /**
 @defgroup unit_tests Unit tests
-@brief CMocka-based unit tests for the LAME library and frontend.
+@brief CMocka unit tests for the LAME library and the frontend.
 
-The tests under @c test/unit exercise individual functions in isolation using
-the [CMocka](https://cmocka.org/) framework. They are optional: the build only
-compiles and runs them when configured with
+The tests in @c test/unit test single functions on their own, with the
+[CMocka](https://cmocka.org/) framework. They are optional. The build compiles
+and runs them only when it is configured with
 
 @code
 ./configure --enable-unit-tests
 @endcode
 
-(default off). With the flag set, @c "make check" builds and runs every test
-under @c test/unit and reports each one's pass/fail status. Only the pre-2.0 CMocka macro set is used, a
-temporary restriction until cmocka 2.0 is more widely available across
-distributions.
+The default is off. With this option, @c "make check" builds and runs every
+test in @c test/unit and reports for each test whether it passed. The tests use
+only the CMocka macros from before version 2.0, because cmocka 2.0 is not yet
+available in many distributions.
 
 @section unit_tests_running Running the tests
 
@@ -23,81 +23,83 @@ make
 make check
 @endcode
 
-The flag is what matters: the whole @c test/unit tree is wrapped in
-@c "if ENABLE_UNIT_TESTS", so without it @c "make check" has nothing to build
-and succeeds without running a single test. Having CMocka installed does not
-enable them on its own.
+The configure option is required. All of @c test/unit is inside
+@c "if ENABLE_UNIT_TESTS". Without the option, @c "make check" has nothing to
+build, runs no test, and succeeds. An installed CMocka alone does not enable
+the tests.
 
 @subsection unit_tests_check_vs_test "make check" is not "make test"
 
-The two targets sound alike and answer different questions. Only one of them
-can fail.
+The two targets have similar names, but they do different things. Only one of
+them can fail.
 
 <table>
 <tr><th>Target</th><th>What it does</th><th>Fails the build?</th></tr>
 <tr><td>@c "make check"</td>
     <td>Builds and runs the CMocka tests.</td>
-    <td>Yes &mdash; a failing test exits non-zero. This is the gate.</td></tr>
+    <td>Yes. A failing test exits with a non-zero status. Use this target to
+        check a change.</td></tr>
 <tr><td>@c "make test"</td>
     <td>Encodes @c testcase.wav and counts the bytes that differ from the
         committed @c testcase.mp3.</td>
-    <td>No &mdash; it prints a number and always succeeds.</td></tr>
+    <td>No. It prints a number and always succeeds.</td></tr>
 </table>
 
-@c "make test" measures bitstream drift, and its count is expected to be
-non-zero on a different processor, compiler or optimization level; the number
-is only meaningful to a developer comparing it against the same build before a
-change. Use @c "make check" to find out whether anything is broken.
+@c "make test" measures changes in the bitstream. Its count is usually not zero
+on a different processor, compiler or optimization level. The number is only
+useful to a developer who compares it with the same build before a change. To
+find out whether something is broken, use @c "make check".
 
 @subsection unit_tests_results Where the results are
 
-@c "make check" prints a one-line PASS/FAIL per test and a summary. When
-something fails, the detail is in the files automake leaves in the build tree:
+@c "make check" prints one line with PASS or FAIL for each test, and a summary.
+When a test fails, the details are in files that automake writes into the build
+tree:
 
-- @c test/unit/test-suite.log &mdash; the failing tests' output, collected.
-  It sits next to the tests, not at the top of the build tree.
-- @c test/unit/&lt;name&gt;.log &mdash; one per test, including the ones that
-  passed. CMocka's own message for the failing assertion, with its file and
-  line, is here.
-- @c test/unit/&lt;name&gt;.trs &mdash; the machine-readable result automake
-  itself reads.
+- @c test/unit/test-suite.log: the output of all failing tests. This file is in
+  @c test/unit, not at the top of the build tree.
+- @c test/unit/&lt;name&gt;.log: one file per test, also for the tests that
+  passed. It has the CMocka message for the failing assertion, with its file and
+  line.
+- @c test/unit/&lt;name&gt;.trs: the result in the form that automake reads.
 
-A single test can also be run directly: the binaries are built in
+You can also run a single test directly. The test programs are built in
 @c test/unit and take no arguments.
 
 @subsection unit_tests_coverage Running them under coverage
 
-Which lines the suite actually reaches is a separate question from whether it
-passes, and has its own harness &mdash; see @ref maintainer_coverage.
+Which lines the tests run is a different question from whether they pass. It
+has its own harness, see @ref maintainer_coverage.
 
 @section unit_tests_seam Testing static functions
 
-Several of the functions under test are @c static and have no external linkage.
-To reach them, the corresponding test compiles the whole translation unit in
-directly with @c \#include (for example @c test_parse_pathlen.c does
-@c \#include @c "parse.c"). That pulls in the file's other external references,
-which a small companion "stubs" object then satisfies for the linker:
+Some of the tested functions are @c static, so other files cannot call them.
+To test them, the test file includes the whole source file with @c \#include.
+For example, @c test_parse_pathlen.c does @c \#include @c "parse.c". The
+included file also refers to functions and variables in other files. A small
+"stubs" file provides these for the linker:
 
-- @c test_stubs.c &mdash; the frontend globals and console/file helpers that
-  @c get_audio.c drags in.
-- @c parse_test_stubs.c &mdash; the console/file helpers that @c parse.c drags
-  in (@c parse.c defines the frontend global-config blocks itself, so those are
-  not re-stubbed).
+- @c test_stubs.c: the frontend globals, and the console and file helpers that
+  @c get_audio.c needs.
+- @c parse_test_stubs.c: the console and file helpers that @c parse.c needs.
+  @c parse.c defines the frontend configuration globals itself, so this file
+  does not provide them.
 
-libmp3lame supplies the real @c lame_* API. Where a test needs to observe
-behaviour that the return value alone cannot reveal (such as a parser spinning
-rather than returning), it interposes a libc call with the linker's
-@c --wrap mechanism.
+libmp3lame provides the real @c lame_* API. Sometimes a test must see behavior
+that the return value does not show, for example a parser that loops forever
+instead of returning. Then the test replaces a libc function with the
+@c --wrap option of the linker.
 
 @section unit_tests_list The tests
 
 Each test program has its own page in this group. Four examples:
 
-- @c test_sanity.c &mdash; harness smoke test (@ref test_sanity.c).
-- @c test_get_audio_aiff.c &mdash; AIFF FORM-size underflow guard in
-  @c parse_aiff_header() (@ref test_get_audio_aiff.c).
-- @c test_parse_pathlen.c &mdash; positional input/output filename length bound
+- @c test_sanity.c: checks that the test harness works (@ref test_sanity.c).
+- @c test_get_audio_aiff.c: two checks in @c parse_aiff_header(), for a FORM
+  size below 4 and for a sample rate that does not fit into an @c int
+  (@ref test_get_audio_aiff.c).
+- @c test_parse_pathlen.c: the length limit for the input and output file names
   in @c set_path_arg() (@ref test_parse_pathlen.c).
-- @c test_merge_argv.c &mdash; argument-vector sizing and the @c merge_argv()
-  count clamp (@ref test_merge_argv.c).
+- @c test_merge_argv.c: the size of the argument vector, and the count limit in
+  @c merge_argv() (@ref test_merge_argv.c).
 */

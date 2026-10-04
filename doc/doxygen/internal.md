@@ -2,22 +2,23 @@
 
 <img src="lame_logo_full.svg" alt="LAME" style="display:block;margin:0 auto 1.5em;width:100%;max-width:360px;height:auto;">
 
-This is the **internal** documentation for LAME. It covers the implementation:
-the static internal functions of `libmp3lame` and the command-line frontend,
-together with the CMocka unit-test suite (see @ref unit_tests).
+This is the **internal** documentation for LAME. It describes the
+implementation: the static internal functions of `libmp3lame` and of the
+command-line frontend, and the CMocka unit tests (see @ref unit_tests).
 
-It exists for people working on LAME itself. **If you use LAME as a library,
-this is not the documentation you want** - read the public API documentation
-instead. That is generated from the same sources but limited to the supported
-public interface declared in `include/lame.h`.
+It is for people who work on LAME itself. **If you use LAME as a library, read
+the public API documentation instead.** The public documentation is generated
+from the same sources, but it shows only the supported public interface in
+`include/lame.h`.
 
-This configuration enables `EXTRACT_ALL` and `EXTRACT_STATIC`, so the entities
-shown here include unsupported internals that carry no stability or ABI
-guarantee; do not rely on them from outside the library.
+This configuration enables `EXTRACT_ALL` and `EXTRACT_STATIC`. So this
+documentation also shows internal functions and types that are not supported.
+They have no stability or ABI guarantee. Do not use them from outside the
+library.
 
 ## Implementation notes
 
-Longer-form notes on how a subsystem is built and why it is built that way:
+Longer notes on how a part of LAME works, and why it works that way:
 
 - @ref vector_dispatch - the tiers of SIMD routines that LAME selects at run
   time, and why each tier has the routines it has. There is no SSE4.1 or
@@ -27,23 +28,22 @@ Longer-form notes on how a subsystem is built and why it is built that way:
 
 ## Maintainer guides
 
-The scripts under `maintainer/` check a change against more than the tree it
-was written in. Each has a guide of its own:
+The scripts in `maintainer/` check a change in more ways than a normal build
+does. Each script has its own guide:
 
 - @ref maintainer_build_matrix - building LAME in every configuration at once,
-  so that a change is checked against each of them before it is committed.
+  to check a change in each of them before it is committed.
 - @ref maintainer_perf - comparing the encoding speed of two builds, and
   telling a real difference from measurement noise.
-- @ref maintainer_quality - scoring what a change did to the encoded audio,
-  for the changes that are meant to alter it.
+- @ref maintainer_quality - measuring how a change affects the encoded audio,
+  for changes that are meant to change it.
 - @ref maintainer_coverage - measuring which source lines the test material
-  reaches, and which configurations and invocations are worth running under
-  the sanitizers.
-- @ref maintainer_abi - checking the library's exported interface against the
-  contract committed in the source tree, so that a change to it is a decision
-  rather than an accident.
-- @ref maintainer_check_dist - validating a finished distribution tarball
-  before it is announced: does it unpack, build in every configuration this
-  machine can build, pass its tests, and still describe itself correctly.
+  runs, and finding the configurations and command lines that are worth
+  running under the sanitizers.
+- @ref maintainer_abi - checking the exported interface of the library against
+  the list in the source tree, so that every change to it is made on purpose.
+- @ref maintainer_check_dist - checking a finished distribution tarball before
+  it is announced: does it unpack, build in every configuration this machine
+  can build, pass its tests, and show the right version information.
 - @ref maintainer_gen_api_docs - building this documentation and the public
-  API reference, and putting both where the website can serve them.
+  API reference, and copying both to where the website serves them.
