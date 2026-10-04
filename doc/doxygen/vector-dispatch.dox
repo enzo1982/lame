@@ -30,7 +30,7 @@ not cross:
 <ul>
 <li><b>x86: scalar &rarr; SSE2 &rarr; AVX2 &rarr; AVX-512</b>, with nothing
 between SSE2 and AVX2. On x86-64 the SSE2 tier needs no feature probe at all:
-every x86-64 CPU has SSE2, as does every 32-bit x86 CPU since 2001, so the SSE2
+every x86-64 CPU has SSE2, and so do most 32-bit x86 CPUs made since 2001, so the SSE2
 win is unconditional. The two rungs above it are gated on run-time feature
 bits.</li>
 <li><b>ARM: scalar &rarr; NEON</b>, one rung and one routine on it. Advanced
@@ -186,13 +186,11 @@ Two stages, separate because they carried different risks:
   reproducing the narrower tier's pinned per-four-block association exactly, and
   an opt-in freely-reducing form built only to price what that pinning costs.
 
-Only stage 1 survives, and the split is visible in the ladder itself: the two
-rungs are not equivalent in coverage. @c quantize_lines_xrpow() is reached only
-from @c count_bits(), which only @c quantize.c calls, so that kernel is
-constant-bitrate by construction; @c choose_table() is reached from
-@c noquant_count_bits() as well and therefore runs on both paths. Stage 2's
-kernel was the one piece of AVX-512 that a variable-bitrate encode would have
-spent real time in, and it is the piece that was dropped.
+Only the quantization loop survives. The table search and stage 2 were removed
+after the measurements below. @c quantize_lines_xrpow() is reached only from
+@c count_bits(), which only @c quantize.c calls, so the AVX-512 tier is used
+only by constant-bitrate encodes. Stage 2's kernel was the one piece of AVX-512
+that a variable-bitrate encode would have spent real time in.
 
 While the question was open the tier was confined to alpha builds. That gate is
 gone: the measurement settled it, so the tier is now built wherever the compiler
@@ -387,7 +385,7 @@ for at run time rather than assumed, so the routine is written to build there.
 
 There is no @c VECTOR_IMPL_SSE41 / @c VECTOR_IMPL_SSE42 enumerator, no configure
 probe and no dispatch branch for them. Every x86-64 CPU, and every 32-bit x86 CPU
-since 2001, receives the full table-search and quantization win at the SSE2
+with SSE2, receives the full table-search and quantization win at the SSE2
 baseline the build already guarantees; AVX2 adds a further 6&ndash;8% on constant
 bitrate and nothing measurable on variable bitrate.
 

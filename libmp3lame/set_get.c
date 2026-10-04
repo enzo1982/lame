@@ -336,8 +336,8 @@ lame_get_scale_right(const lame_global_flags * gfp)
   | MPEG-2   | 16, 22.05, 24  |
   | MPEG-2.5 | 8, 11.025, 12  |
 
-  Unlike most setters here, this one really does validate: a rate that is not
-  in the table is refused immediately rather than at \c lame_init_params().
+  This function rejects a rate that is not in the table. It returns -1 at
+  once, not at \c lame_init_params().
   It has no effect on decoding.
 
   \param gfp              the encoder instance.
@@ -445,7 +445,7 @@ lame_get_analysis(const lame_global_flags * gfp)
   delay and padding, and the replay-gain values. Without it a VBR file cannot
   be seeked accurately and its duration is guessed from the first frame.
 
-  Default on for VBR and ABR, off for CBR. Turning it off is for callers who
+  Default on, in every mode. Turning it off is for callers who
   must not have a leading non-audio frame; there is no benefit otherwise.
 
   \param gfp           the encoder instance.
@@ -1199,14 +1199,14 @@ lame_set_msgf(lame_global_flags * gfp, lame_report_function func)
  *  - brate
  *  - compression ratio.
  *
- * Default is compression ratio of 11.
+ * Default is compression ratio of 11.025.
  */
 /*! Set the bitrate, in kbps. */
 /*!
-  For CBR this is the bitrate of every frame; for ABR it is the average
-  (\c lame_set_VBR_mean_bitrate_kbps() is the same setting under its ABR name).
+  For CBR this is the bitrate of every frame. For ABR, set the average
+  bitrate with \c lame_set_VBR_mean_bitrate_kbps().
   It is the alternative to \c lame_set_compression_ratio() - set one of the
-  two, not both, and if neither is set LAME uses a compression ratio of 11.
+  two, not both, and if neither is set LAME uses a compression ratio of 11.025.
 
   A rate above 320 kbps requires free format, and setting one here **silently
   turns the bit reservoir off** as a side effect, because the two cannot be
@@ -1258,7 +1258,8 @@ lame_get_brate(const lame_global_flags * gfp)
   The ratio of the input's data rate to the output's, so 11 means roughly
   eleven times smaller - which for 44.1 kHz 16-bit stereo works out near
   128 kbps. The alternative to \c lame_set_brate(): set one or the other.
-  Default 11.
+  If neither is set, \c lame_init_params() uses 11.025, which gives 128 kbps
+  for 44.1 kHz 16-bit stereo input.
 
   \c lame_init_params() turns it into a bitrate, so what
   \c lame_get_brate() reports afterwards is the real setting.
@@ -1461,9 +1462,8 @@ Padding_type CDECL lame_get_padding_type(const lame_global_flags *);
   header; the definition remains so that programs linked against an older
   release still resolve it.
 
-  Unlike the other setters this one **reports success unconditionally** -
-  including for an unusable instance - because there is nothing it could fail
-  at.
+  This function **always returns 0**, even for an instance that is not
+  usable, because there is nothing it could fail at.
 
   \param gfp           ignored.
   \param padding_type  ignored.
@@ -1552,9 +1552,7 @@ lame_get_extension(const lame_global_flags * gfp)
     granule. Gives the bit allocator the most room, and is what LAME uses
     unless told otherwise.
 
-  Note that the default is \c MDB_MAXIMUM, **not 0**. The name invites the
-  opposite assumption, and so does the comment in the public header, which
-  predates the choice becoming three-way.
+  Note that the default is \c MDB_MAXIMUM, **not 0**.
 
   \param gfp  the encoder instance.
   \param val  one of the \c buffer_constraint values.
@@ -2986,9 +2984,8 @@ lame_get_cwlimit(const lame_global_flags * gfp)
   called wins and the other two are forgotten.
 
   Note that **the request does not survive a stereo encode**: \c lame_init_params()
-  couples the block types again for both stereo and joint stereo, so the
-  setting only takes effect for mono - and the getter reports 0 afterwards,
-  having been overruled.
+  couples the block types again for both stereo and joint stereo, and the
+  getter then returns 0.
 
   \param gfp               the encoder instance.
   \param allow_diff_short  non-zero to allow the channels to differ, 0 to
@@ -3987,8 +3984,10 @@ lame_get_totalframes(const lame_global_flags * gfp)
   \param gfp     the encoder instance.
   \param preset  a bitrate, a \c preset_mode value, or one of the named
                  presets.
-  \return \a preset itself, not 0, which is the one place in this file where
-          success is not 0. -1 if the instance is not usable.
+  \return the preset that was applied, not 0. For a named preset this is the
+          value it stands for, for example \c V2 for \c STANDARD and 320 for
+          \c INSANE. Otherwise \a preset itself, also for a value LAME does
+          not know. -1 if the instance is not usable.
 */
 int
 lame_set_preset(lame_global_flags * gfp, int preset)
@@ -4004,6 +4003,8 @@ lame_set_preset(lame_global_flags * gfp, int preset)
 
 /*! Allow or forbid one family of processor instructions. */
 /*!
+  \deprecated Use \c lame_set_vector_routines().
+
   Every family is allowed by default, and each is used only if the processor
   running the code actually has it - so this is a way to *forbid* an
   instruction set, not to require one. Forbidding one is useful for comparing
@@ -4083,6 +4084,8 @@ lame_set_asm_optimizations(lame_global_flags * gfp, int optim, int mode)
 
 /*! Get whether an instruction-set family may be used. */
 /*!
+  \deprecated Use \c lame_get_vector_routines().
+
   Answers for the one family named, the same shape
   \c lame_set_asm_optimizations() takes. A family that gates something starts
   out allowed, so a fresh instance answers 1 for \c SSE and \c AVX2. \c MMX
@@ -4241,8 +4244,9 @@ lame_get_vector_routines_name(int index)
   something other than \c "auto"; under \c "auto" the older flags still apply.
 
   \code
-  if (lame_set_vector_routines(gfp, "sse2") != 0)
+  if (lame_set_vector_routines(gfp, "sse2") != 0) {
       // this build or this processor cannot do it - report and carry on
+  }
   \endcode
 
   \see lame_get_vector_routines(), lame_get_vector_routines_name()

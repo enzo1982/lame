@@ -42,7 +42,8 @@ is usable is decided later, by lame_init_params().
 Two properties hold throughout and are not repeated on each function:
 
 - a setter returns 0 on success and -1 if the value was rejected or the
-  instance is not usable;
+  instance is not usable. A setter that returns other values lists them on
+  its own page;
 - **a getter cannot report an error.** Given an unusable instance it returns
   0, which for most of these settings is also a legitimate value, so a caller
   has no way to tell the two apart. Check the instance, not the result.

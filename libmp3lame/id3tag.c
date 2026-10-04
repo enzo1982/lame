@@ -2198,8 +2198,8 @@ set_frame_apic(unsigned char *frame, const char *mimetype, const unsigned char *
   \ingroup api_tags
   The escape hatch for frames LAME has no named setter for. The argument is
   one string of the form <tt>"TPE2=Various Artists"</tt>: a four-character
-  ID3v2 frame identifier, an equals sign, then the text. Anything the format
-  defines can be written this way.
+  ID3v2 frame identifier, an equals sign, then the text. It writes the frames
+  that \c id3tag_set_textinfo_latin1() writes.
 
   The text is taken as Latin-1; the \c _utf8, \c _utf16 and \c _ucs2 variants
   take the other encodings.
@@ -2208,7 +2208,8 @@ set_frame_apic(unsigned char *frame, const char *mimetype, const unsigned char *
   \param fieldvalue  the frame identifier, "=", and the text. NULL or empty is
                      accepted and does nothing.
   \return 0 on success, -1 if \a fieldvalue is too short to hold an identifier
-          or has no "=" in the fifth position.
+          or has no "=" in the fifth position. Otherwise the result of
+          \c id3tag_set_textinfo_latin1().
 */
 int
 id3tag_set_fieldvalue(lame_t gfp, const char *fieldvalue)
@@ -2237,7 +2238,8 @@ id3tag_set_fieldvalue(lame_t gfp, const char *fieldvalue)
   \return 0 on success, -1 if the string is too short, has no "=" after the
           identifier, or names an identifier that is not valid. Unlike the
           Latin-1 version, a NULL or empty argument is reported as -1 here
-          rather than accepted.
+          rather than accepted. Otherwise the result of
+          \c id3tag_set_textinfo_utf16(). 0 if the instance is not usable.
 */
 int
 id3tag_set_fieldvalue_utf16(lame_t gfp, const unsigned short *fieldvalue)
@@ -2280,8 +2282,7 @@ id3tag_set_fieldvalue_ucs2(lame_t gfp, const unsigned short *fieldvalue);
 
   \param gfp         the encoder instance.
   \param fieldvalue  the frame identifier, "=", and the text.
-  \return as \c id3tag_set_fieldvalue_utf16(), except that an instance which
-          is not usable yields 0 rather than -1.
+  \return as \c id3tag_set_fieldvalue_utf16().
 */
 int
 id3tag_set_fieldvalue_ucs2(lame_t gfp, const unsigned short *fieldvalue)
@@ -2570,10 +2571,10 @@ set_text_field(unsigned char *field, const char *text, size_t size, int pad)
   \param gfp     the encoder instance.
   \param buffer  where to copy the tag.
   \param size    how large \a buffer is.
-  \return 128 if the tag was copied, 128 as well if \a buffer is smaller than
-          that and nothing was copied, and 0 if there is no ID3v1 tag to write
-          - because the caller asked for ID3v2 only, or because no field was
-          ever set.
+  \return 128 if \a size is less than 128. Nothing is copied then.
+          Otherwise 128 if the tag was copied, and 0 if there is no ID3v1 tag
+          to write, because the caller asked for ID3v2 only or set no field.
+          0 also if \a buffer is NULL.
 */
 size_t
 lame_get_id3v1_tag(lame_t gfp, unsigned char *buffer, size_t size)

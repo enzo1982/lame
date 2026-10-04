@@ -73,7 +73,8 @@ typedef enum vbr_mode_e {
   vbr_mtrh,             /**< variable bitrate, the faster implementation -
                              \c --vbr-new on the command line */
   vbr_max_indicator,    /* Don't use this! It's used for sanity checks.       */
-  vbr_default=vbr_mtrh  /**< what a fresh encoder instance is set to */
+  vbr_default=vbr_mtrh  /**< the recommended variable bitrate mode. A new
+                             encoder instance uses \c vbr_off. */
 } vbr_mode;
 
 
@@ -308,7 +309,7 @@ int CDECL lame_get_analysis(const lame_global_flags *);
 int CDECL lame_set_bWriteVbrTag(lame_global_flags *, int);
 int CDECL lame_get_bWriteVbrTag(const lame_global_flags *);
 
-/* 1=decode only.  use lame/mpglib to convert mp3/ogg to wav.  default=0 */
+/* 1=decode only.  the lame tool uses it to convert mp3 to wav.  default=0 */
 int CDECL lame_set_decode_only(lame_global_flags *, int);
 int CDECL lame_get_decode_only(const lame_global_flags *);
 
@@ -470,7 +471,7 @@ Padding_type CDECL lame_get_padding_type(const lame_global_flags *);
 int CDECL lame_set_extension(lame_global_flags *, int);
 int CDECL lame_get_extension(const lame_global_flags *);
 
-/* enforce strict ISO compliance.  default=0 */
+/* limit the bit reservoir, see buffer_constraint.  default=MDB_MAXIMUM */
 int CDECL lame_set_strict_ISO(lame_global_flags *, int);
 int CDECL lame_get_strict_ISO(const lame_global_flags *);
 
@@ -622,7 +623,7 @@ int CDECL lame_get_allow_diff_short(const lame_global_flags *);
 int CDECL lame_set_useTemporal(lame_global_flags *, int);
 int CDECL lame_get_useTemporal(const lame_global_flags *);
 
-/* use temporal masking effect (default = 1) */
+/* inter-channel masking ratio, 0 to 1 (default = 0) */
 int CDECL lame_set_interChRatio(lame_global_flags *, float);
 float CDECL lame_get_interChRatio(const lame_global_flags *);
 
@@ -786,9 +787,9 @@ void CDECL lame_print_internals( const lame_global_flags *gfp);
  * included, the other way round: how many samples a buffer of a given size
  * takes.
  *
- * @note If the encoder is configured for 2 channels but mono mode, the L & R
- *       channels are averaged into the L channel before encoding only the L
- *       channel. This overwrites the data in @p buffer_l and @p buffer_r.
+ * @note If the input has 2 channels and the mode is \c MONO, the encoder
+ *       averages the two channels and encodes the result. The data in
+ *       @p buffer_l and @p buffer_r is not changed.
  *
  * @param gfp          global context handle.
  * @param buffer_l     PCM data for the left channel.
@@ -1071,7 +1072,7 @@ int CDECL lame_init_bitstream(
  *   2: MS    mid-side encoded
  *   3: MS-I  mid-side and intensity encoded (currently not supported)
  *
- * attention: don't call them after lame_encode_finish
+ * attention: call them before lame_close()
  * suggested: lame_encode_flush -> lame_*_hist -> lame_close
  */
 
@@ -1189,11 +1190,9 @@ typedef struct {
   int mode_ext;        /* mp3 frame type                                 */
   int framesize;       /* number of samples per mp3 frame                */
 
-  /* this data is only computed if mpglib detects a Xing VBR header */
+  /* the decoder does not fill in the three fields below */
   unsigned long nsamp; /* number of samples in mp3 file.                 */
   int totalframes;     /* total number of frames in mp3 file             */
-
-  /* this data is not currently computed by the mpglib routines */
   int framenum;        /* frames decoded counter                         */
 } mp3data_struct;
 
@@ -1508,7 +1507,7 @@ int CDECL lame_get_samplerate(int mpeg_version, int table_index);
 #define LAME_MAXALBUMART    (128 * 1024)
 
 /* maximum size of mp3buffer needed if you encode at most 1152 samples for
-   each call to lame_encode_buffer.  see lame_encode_buffer() below  
+   each call to lame_encode_buffer.  see lame_encode_buffer()
    (LAME_MAXMP3BUFFER is now obsolete)  */
 #define LAME_MAXMP3BUFFER   (16384 + LAME_MAXALBUMART)
 

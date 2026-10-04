@@ -23,6 +23,8 @@ frontend, developed and maintained by [The LAME Project](https://lame.sf.net).
 
 ## License
 
-LAME is distributed under the GNU Lesser General Public License (LGPL),
-version 2. See the `LICENSE` file in the repository root for the full text,
-and `USAGE`/`API` for command-line and library usage details.
+LAME is distributed under the GNU Library General Public License (LGPL),
+version 2 or any later version. The full text is in the `COPYING` file in the
+repository root. The `LICENSE` file covers common questions about using LAME
+in other programs. See `USAGE`/`API` for command-line and library usage
+details.
