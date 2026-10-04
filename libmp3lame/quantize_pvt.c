@@ -425,8 +425,8 @@ iteration_init(lame_internal_flags * gfc)
  * @internal
  * @brief A bit count computed in floating point, as an int within [lo, hi].
  *
- * Clamped before the conversion, which is undefined for a value an int
- * cannot hold.
+ * The value is limited before the conversion, because the conversion of a
+ * value that does not fit into an int is undefined.
  *
  * @param bits the count
  * @param lo   the smallest result
@@ -566,9 +566,13 @@ reduce_side(int targ_bits[2], FLOAT ms_ener_ratio, int mean_bits, int max_bits)
 
 
 /**
- *  Robert Hegemann 2001-04-27:
- *  this adjusts the ATH, keeping the original noise floor
- *  affects the higher frequencies more than the lower ones
+ *  \brief Lowers the ATH value \a x according to the loudness \a a.
+ *
+ *  The part of \a x (in dB) above \a athFloor is scaled by a factor that gets
+ *  smaller for quieter granules, so the floor stays the same. High ATH values
+ *  change most, and these occur at high frequencies.
+ *
+ *  Robert Hegemann 2001-04-27
  */
 
 FLOAT

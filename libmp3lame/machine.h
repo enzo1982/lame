@@ -209,13 +209,13 @@ typedef FLOAT sample_t;
  *  Whether a float is a finite number. An IEEE-754 value is NaN or infinite
  *  exactly when every exponent bit is set.
  *
- *  LAME is built with -ffast-math, under which the compiler is entitled to
- *  assume that neither ever occurs and to delete a test for one. It sees
- *  through the spelling: reading the raw bit pattern is not enough by itself,
- *  because the integer comparison below is recognised as a floating point
- *  class test and folded to a constant just as isfinite() or x!=x would be.
- *  The value therefore reaches the comparison through a volatile object, whose
- *  contents the compiler may not reason about.
+ *  LAME is built with -ffast-math. With this option, the compiler may assume
+ *  that NaN and infinity never occur, and may remove a test for them. Reading
+ *  the raw bits does not prevent this. The compiler recognizes the integer
+ *  comparison below as a floating-point class test and replaces it with a
+ *  constant, as it does for isfinite() or x!=x. So the value is first stored
+ *  in a volatile object. The compiler may not make assumptions about a
+ *  volatile object.
  *
  *  @param x  the value to test.
  *  @return nonzero when @p x is neither NaN nor an infinity.

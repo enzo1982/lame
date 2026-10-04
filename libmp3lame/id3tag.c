@@ -35,10 +35,9 @@
   \file   id3tag.c
   \brief  The metadata interface of the public API.
 
-  Holds the tagging calls of the public API, described with the group they
-  belong to: \ref api_tags. Most of this file is the tag machinery behind
-  them and is not part of the interface, so the group is named on each public
-  function rather than opened over the file.
+  The group \ref api_tags describes the public tag functions of this file.
+  Most of this file is the tag code behind them and is not part of the
+  interface.
 */
 
 #ifdef HAVE_CONFIG_H
@@ -906,10 +905,10 @@ set_4_byte_value(unsigned char *bytes, uint32_t value)
  * \internal
  * \brief Writes a frame header's size field.
  *
- * ID3v2.3 stores the size as a plain 32-bit big-endian integer, ID3v2.4 as a
- * synchsafe one: 28 bits, seven to a byte, the top bit of each byte clear.
- * The tag as a whole is held to 28 bits before any frame is written, so every
- * frame size fits either form.
+ * ID3v2.3 stores the size as a plain 32-bit big-endian integer. ID3v2.4
+ * stores it synchsafe: 28 bits, seven in each byte, with the top bit of each
+ * byte clear. The size of the whole tag is limited to 28 bits before any
+ * frame is written, so every frame size fits into both forms.
  *
  * \param bytes      where the four size bytes go.
  * \param size       the frame's size, header excluded.

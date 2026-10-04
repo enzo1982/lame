@@ -19,6 +19,12 @@
  * Boston, MA 02111-1307, USA.
  */
 
+/**
+ * \file
+ * \internal
+ * \brief The AVX2 form of the quantization loop (quantize_lines_xrpow_avx2()).
+ */
+
 /*
  *  Unlike the Huffman table lookups, this one has a gather worth having: the
  *  table is thirty-two-bit floats and the indices are thirty-two-bit, so no

@@ -493,7 +493,7 @@ InitVbrTag(lame_global_flags * gfp)
     if (cfg->vbr == vbr_off)
         kbps_header = cfg->avg_bitrate;
 
-    /** make sure LAME Header fits into Frame
+    /* make sure LAME Header fits into Frame
      */
     {
         int     total_frame_size = ((cfg->version + 1) * 72000 * kbps_header) / cfg->samplerate_out;
@@ -779,12 +779,12 @@ PutLameVBR(lame_global_flags const *gfp, size_t nMusicLength, uint8_t * pbtStrea
     CreateI4(&pbtStreamBuffer[nBytesWritten], nQuality);
     nBytesWritten += 4;
 
-    /*! \par LAME tag: encoder-version sub-field, fixed 9-byte width.
-     *  \c szVersion (\c get_lame_tag_encoder_short_version()) must fit in
-     *  9 bytes - see the \c \\par blocks in that function's doc comment in
-     *  \c version.c for the exact byte budget, the reason the width can't
-     *  be changed, and the compile-time check that enforces it. `strncpy`
-     *  silently truncates (and skips the NUL terminator) if it doesn't fit. */
+    /*  LAME tag: the encoder version field has a fixed width of 9 bytes.
+     *  szVersion (get_lame_tag_encoder_short_version()) must fit into 9
+     *  bytes. The comment of that function in version.c gives the byte
+     *  budget, the reason the width cannot change, and the compile-time
+     *  check. strncpy cuts the string without a message, and without the NUL
+     *  terminator, if it does not fit. */
     strncpy((char *) &pbtStreamBuffer[nBytesWritten], szVersion, 9);
     nBytesWritten += 9;
 

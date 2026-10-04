@@ -19,6 +19,13 @@
  * Boston, MA 02111-1307, USA.
  */
 
+/**
+ * \file
+ * \internal
+ * \brief The SSE2 forms of the Huffman table search: the region maximum and
+ *        the bit counts.
+ */
+
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>

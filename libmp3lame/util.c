@@ -197,21 +197,21 @@ their minimum value for input = -1*/
  * \brief The absolute threshold of hearing, in dB, at frequency \a f.
  *
  * Terhardt's threshold formula, as given by Painter and Spanias, with two
- * changes made here after measuring real threshold values: an added term
- * lifting the curve around 8-9 kHz, and a high-frequency tail whose steepness
- * \a value selects. The tree records that the unmodified formula was
- * inaccurate at high frequencies, and that correcting it costs a substantial
- * amount of bitrate in VBR.
+ * changes based on measured threshold values: an added term that raises the
+ * curve around 8-9 kHz, and a high-frequency tail whose steepness \a value
+ * selects. A comment in the source says that the unchanged formula was not
+ * accurate at high frequencies, and that the correction costs a lot of
+ * bitrate in VBR.
  *
- * \a value is what lets one formula serve the whole quality range: the tail
- * moves from something close to the published curve at the lowest quality
- * settings towards the measured one at the highest.
+ * With \a value, one formula covers the whole quality range. The tail goes
+ * from close to the published curve at the lowest quality settings towards
+ * the measured curve at the highest.
  *
- * \param f      frequency in Hz. Passing a value below -0.3 asks for the
- *               curve's minimum instead of evaluating it at a frequency.
+ * \param f      frequency in Hz. A value below -0.3 returns the minimum of the
+ *               curve instead of the value at a frequency.
  * \param value  selects the high-frequency tail.
- * \param f_min  frequency range the curve is evaluated over; \a f is clamped
- * \param f_max  into it first, so the curve is flat outside.
+ * \param f_min  frequency range of the curve. \a f is first limited to this
+ * \param f_max  range, so the curve is flat outside it.
  * \return the threshold in dB.
  */
 static  FLOAT
@@ -262,14 +262,13 @@ bitrate is more balanced according to the -V value.*/
  * \internal
  * \brief The absolute threshold of hearing for the configured curve.
  *
- * Dispatches on the selected curve type to ATHformula_GB(). The types differ
- * in which high-frequency tail they ask for, whether the caller may choose it,
- * and over what frequency range the curve is evaluated before it flattens; one
- * of them additionally offsets the whole curve.
+ * Calls ATHformula_GB() for the selected curve type. The types differ in the
+ * high-frequency tail they use, in whether the caller can choose it, and in
+ * the frequency range before the curve is flat. One of them also shifts the
+ * whole curve.
  *
- * The threshold that finally reaches the quantizer is not this value alone: a
- * configured offset is added, and adjust_ATH() may scale the result down in
- * quiet passages.
+ * The threshold that the quantizer uses is not only this value. A configured
+ * offset is added, and adjust_ATH() can lower the result in quiet passages.
  */
 FLOAT
 ATHformula(SessionConfig_t const *cfg, FLOAT freq)
@@ -306,8 +305,8 @@ ATHformula(SessionConfig_t const *cfg, FLOAT freq)
  * \internal
  * \brief Convert a frequency in Hz to the Bark scale.
  *
- * The scale on which masking is roughly translation-invariant, so that a
- * single spreading function can serve all frequencies. Zwicker's analytic
+ * On this scale, masking has about the same shape at every frequency, so one
+ * spreading function covers all frequencies. This is Zwicker's analytic
  * approximation.
  *
  * \see s3_func(), init_numline()
@@ -1089,26 +1088,23 @@ has_NEON(void)
 }
 
 /** @internal
- * The one table.  Every question about vector routines is answered from it -
- * how many this build carries, what they are called, whether a name is one of
- * them, whether this CPU can run it, and which one an encode ends up using.
+ * The vector routine sets of this build.  All code reads this table to find
+ * out how many sets the build has, their names, whether a name is valid,
+ * whether this CPU can run a set, and which set an encode uses.  Because
+ * there is only one table, the sets that the library reports always match the
+ * sets that the encoder can use.
  *
- * That is the point of it existing rather than the answers being spread over
- * the places that need them.  A build can otherwise advertise a set the
- * encoder never dispatches, and nothing is able to see the disagreement,
- * because the claim and the behaviour come from different code.
+ * The order is ascending capability, and the public API promises this order:
+ * index count-1 is the widest set of this build, so "the best available" is
+ * found from the end.  The names are the identifiers that the API takes:
+ * lowercase, and the real instruction set, not a family, so SSE2 and not SSE.
+ * For display, the name is converted to uppercase; there is no second string.
  *
- * Ascending capability, and the public enumeration promises that order: index
- * count-1 is the widest set this build has, so "the best available" is a walk
- * from the end.  Names are the identifiers the API takes - lowercase, and the
- * real instruction set rather than a family, so SSE2 and not SSE.  The
- * displayed form is this name upper-cased; there is no second string.
- *
- * On x86 the ladder is scalar -> SSE2 -> AVX2 -> AVX-512, with no SSE4.1/SSE4.2
- * rung, and the top rung carries only the constant-bitrate kernels.  On ARM it
- * is scalar -> NEON, and that rung carries one routine, the compiler already
- * vectorising the rest as well or better.  See @ref vector_dispatch for why
- * each is shaped the way it is.
+ * On x86 the tiers are scalar, SSE2, AVX2 and AVX-512, with no SSE4.1/SSE4.2
+ * tier, and the top tier has only the quantization loop of count_bits().  On
+ * ARM the tiers are scalar and NEON, and NEON has one routine, because the
+ * compiler already vectorizes the rest as well or better.  See
+ * @ref vector_dispatch for the reasons.
  */
 static const struct {
     const char *name;
@@ -1135,17 +1131,19 @@ static const struct {
 /** @internal
  * Every name LAME knows, on any architecture and in any configuration.
  *
- * The table above holds what this build *has*; this holds what the project
- * has ever *called* something, so that a request can be refused with the
- * reason rather than a shrug: a name in here that is missing from the table
- * means "not compiled into this build" (rebuild, or use another binary),
- * while a name in neither means "no such thing" (a typo).
+ * The table above lists the sets this build has.  This list has every set
+ * name LAME uses, so that an error can give the reason.  A name in this list
+ * but not in the table is not compiled into this build (rebuild, or use
+ * another binary).  A name in neither list is wrong, for example a typo.
  *
- * Deliberately plain strings: it must list sets this architecture does not
- * have, whose vector_impl_t values do not exist here to be named.
+ * These are plain strings, because the list must also name sets that this
+ * architecture does not have, and their vector_impl_t values do not exist
+ * here.
  *
- * The two lists can drift, which is the price of the second one; a unit test
- * asserts that every name in the table appears here.
+ * The two lists can differ.  Every name in the table must also be in this
+ * list.
+ *
+ * \todo No test checks that every name in the table is also in this list.
  */
 static const char *const vector_impl_known_names[] = {
     "sse2", "avx2", "avx512", "neon", 0
@@ -1226,13 +1224,12 @@ vector_impl_supported(vector_impl_t impl)
 }
 
 /** @internal
- * Decide, once, what this instance will run.
+ * Decide, once, which set this instance runs.
  *
- * @p request is VECTOR_IMPL_AUTO, or a set validated when it was selected.
- * Under AUTO the answer is the widest set the machine offers that the
- * deprecated asm_optimizations mask still allows - which is exactly what this
- * library did before the selection existed, and has to stay so, because the
- * encoder's output must not depend on which of the two APIs a caller used.
+ * @p request is VECTOR_IMPL_AUTO, or a set that was checked when it was
+ * selected.  With AUTO the result is the widest set of the machine that the
+ * deprecated asm_optimizations mask still allows.  The output of the encoder
+ * must not depend on which of the two APIs a caller used.
  */
 void
 vector_impl_init(lame_internal_flags * gfc, int request)
@@ -1321,11 +1318,11 @@ display_name(const char *name, char *buf, size_t size)
 }
 
 /** @internal
- * The displayed spelling of a set: the identifier, upper-cased.
+ * The display form of a set: the identifier in uppercase.
  *
- * There is deliberately no second string per set.  One name is stored, in the
- * form the API takes, and display is derived from it - so the two can never
- * drift, and adding a set means adding one string.
+ * There is no second string per set.  One name is stored, in the form that
+ * the API takes, and the display form comes from it.  So the two cannot
+ * differ, and a new set needs one string.
  */
 const char *
 vector_impl_display(const char *name, char *buf, size_t size)
@@ -1337,16 +1334,15 @@ vector_impl_display(const char *name, char *buf, size_t size)
 }
 
 /** @internal
- * The sets this build carries that the processor can also execute, in display
- * form, in table order, comma-separated.
+ * The sets of this build that the processor can also run, in display form,
+ * in table order, separated by commas.
  *
- * Both conditions are required: a set the build lacks cannot run however
- * capable the processor is, and a set the processor lacks cannot run however
- * the build was configured.  What is left is exactly the range
- * lame_set_vector_routines() accepts here.
+ * Both conditions are needed.  A set that the build does not have cannot run
+ * on any processor.  A set that the processor does not have cannot run in any
+ * build.  The rest is exactly what lame_set_vector_routines() accepts here.
  *
- * The result is empty when there are none, which is an ordinary answer.
- * Entries are appended whole or not at all.
+ * The result is empty when there are none, which is a normal result.  Each
+ * entry is added whole or not at all.
  */
 const char *
 vector_impl_available_list(char *buf, size_t size)

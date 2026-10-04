@@ -19,6 +19,13 @@
  * Boston, MA 02111-1307, USA.
  */
 
+/**
+ * \file
+ * \internal
+ * \brief The NEON form of the Huffman bit count for the escape tables
+ *        (count_bit_esc_neon()).
+ */
+
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>

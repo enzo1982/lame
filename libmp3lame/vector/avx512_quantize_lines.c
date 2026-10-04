@@ -19,6 +19,13 @@
  * Boston, MA 02111-1307, USA.
  */
 
+/**
+ * \file
+ * \internal
+ * \brief The AVX-512 form of the quantization loop
+ *        (quantize_lines_xrpow_avx512()).
+ */
+
 /*
  *  Sixteen values per pass, and the gather stays as wide as the arithmetic:
  *  the table is thirty-two-bit floats and the indices are thirty-two-bit, so

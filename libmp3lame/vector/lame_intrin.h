@@ -19,6 +19,12 @@
  * Boston, MA 02111-1307, USA.
  */
 
+/**
+ * \file
+ * \internal
+ * \brief Declarations of the vector routines and their compiler attributes.
+ */
+
 
 #ifndef LAME_INTRIN_H
 #define LAME_INTRIN_H

@@ -1072,7 +1072,7 @@ copy_buffer(lame_internal_flags * gfc, unsigned char *buffer, int size, int mp3d
     if (minimum > 0 && mp3data) {
         UpdateMusicCRC(&gfc->nMusicCRC, buffer, minimum);
 
-        /** sum number of bytes belonging to the mp3 stream
+        /* sum number of bytes belonging to the mp3 stream
          *  this info will be written into the Xing/LAME header for seeking
          */
         gfc->VBR_seek_table.nBytesWritten += minimum;

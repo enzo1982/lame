@@ -70,8 +70,7 @@ typedef struct calc_noise_result_t {
 
 /**
 * \internal
-* allows re-use of previously
-* computed noise values
+* \brief Noise values computed before, kept so that they can be reused.
 */
 typedef struct calc_noise_data_t {
     int     global_gain;

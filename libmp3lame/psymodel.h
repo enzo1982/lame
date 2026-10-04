@@ -24,7 +24,7 @@
  * \internal
  * \brief Entry points and tuning constants of the psychoacoustic model.
  *
- * \see psymodel.c for what the model computes and in what order.
+ * \see psymodel.c for what the model computes and in which order.
  */
 
 #ifndef LAME_PSYMODEL_H
@@ -42,12 +42,12 @@ int     psymodel_init(lame_global_flags const* gfp);
 
 
 /**
- * \brief How far a long-block threshold may rise above the previous granule's,
- *        and above the one before that.
+ * \brief How far a long-block threshold may rise above the threshold of the
+ *        previous granule, and of the granule before that.
  *
- * Pre-echo control: a quiet granule followed by a surge must not have its noise
- * floor lifted before the surge arrives to mask it. The nearer granule
- * constrains more tightly than the older one.
+ * Pre-echo control: in a quiet granule before a sudden loud passage, the noise
+ * floor must not rise before the loud passage arrives to mask it. The nearer
+ * granule sets the tighter limit.
  *
  * \see vbrpsy_compute_masking_l()
  */
@@ -57,11 +57,11 @@ int     psymodel_init(lame_global_flags const* gfp);
 /**
  * \brief The short-block counterparts of #rpelev and #rpelev2.
  *
- * Reachable only from the disabled partition-band branch in
- * vbrpsy_compute_masking_s(). Short-block pre-echo control is applied instead
- * after the mapping to scalefactor bands, where the position of the attack
- * inside the granule is known, and that path uses #NS_PREECHO_ATT0 and its
- * companions rather than these.
+ * Used only by the disabled partition-band branch in
+ * vbrpsy_compute_masking_s(). Short-block pre-echo control happens after the
+ * mapping to scalefactor bands, where the position of the attack in the
+ * granule is known. That code uses #NS_PREECHO_ATT0 and the two values after
+ * it, not these.
  */
 #define rpelev_s 2
 #define rpelev2_s 16    /**< \brief \copybrief rpelev_s */
@@ -71,35 +71,36 @@ int     psymodel_init(lame_global_flags const* gfp);
 
 
 /**
- * \brief Scale factor bringing psycho_loudness_approx() onto a calibrated
- *        range, where a signal near clipping gives about 1.0.
+ * \brief Factor that scales the result of psycho_loudness_approx(), so that a
+ *        signal near clipping gives about 1.0.
  *
- * Sensitive to the encoder's internal energy scale: it is not a free parameter.
+ * It depends on the internal energy scale of the encoder, so it is not a free
+ * parameter.
  */
 #define VO_SCALE (1./( 14752*14752 )/(BLKSIZE/2))
 
 /**
  * \brief Time constant of the post-masking sustain, in seconds.
  *
- * Sound remains partly masked for a while after the masker stops. This is the
- * only place the encoder claims that effect: psymodel_init() turns the value
- * into a per-sub-block decay factor, and calc_xmin() uses it to raise a short
- * sub-block's allowance towards the preceding sub-block's where that one was
- * higher.
+ * After a masker stops, a sound stays partly masked for a short time
+ * (temporal masking). The encoder uses this effect only here.
+ * psymodel_init() converts the value into a decay factor for each sub-block.
+ * calc_xmin() then raises the allowed noise of a short sub-block towards the
+ * value of the previous sub-block, if that value is higher.
  *
- * The claim is made only when the caller asks for it - see
- * lame_set_useTemporal(), which defaults on, except under the VBR mode that
- * is itself the default, where it defaults off.
+ * This happens only when temporal masking is on (lame_set_useTemporal()). It
+ * is on by default, except with \c vbr_mtrh, where it is off by default.
  */
 #define temporalmask_sustain_sec 0.01
 
 /**
  * \brief Short-block pre-echo attenuations.
  *
- * Applied to scalefactor-band thresholds once the position of an attack within
- * the granule is known, in L3psycho_anal_vbr(). #NS_PREECHO_ATT0 attenuates
- * every sub-block; the other two weight an interpolation towards the preceding
- * sub-block's threshold, more strongly the closer the attack is.
+ * Applied to the thresholds of the scalefactor bands in L3psycho_anal_vbr(),
+ * when the position of an attack in the granule is known. #NS_PREECHO_ATT0
+ * attenuates every sub-block. The other two weight an interpolation towards
+ * the threshold of the previous sub-block. The closer the attack, the
+ * stronger the weight.
  */
 #define NS_PREECHO_ATT0 0.8
 #define NS_PREECHO_ATT1 0.6     /**< \brief \copybrief NS_PREECHO_ATT0 */
@@ -110,14 +111,14 @@ int     psymodel_init(lame_global_flags const* gfp);
 #define NS_MSFIX 3.5
 
 /**
- * \brief Fallback energy ratio between sub-blocks that counts as an attack,
- *        for the left, right and mid channels and for the side channel
- *        respectively.
+ * \brief Default energy ratio between sub-blocks that counts as an attack.
+ *        #NSATTACKTHRE is for the left, right and mid channels,
+ *        #NSATTACKTHRE_S for the side channel.
  *
- * Consulted only where the caller left the attack threshold negative.
- * lame_init_params() applies a preset in every mode, CBR and ABR included, and
- * a preset always sets both thresholds - so an encode driven through the
- * frontend or through the documented interfaces never reaches these values.
+ * Used only if the attack threshold is still negative. lame_init_params()
+ * applies a preset in every mode, including CBR and ABR. A preset always sets
+ * both thresholds. So an encode through the frontend or the documented API
+ * never uses these values.
  *
  * \see vbrpsy_attack_detection(), lame_set_short_threshold_lrm()
  */

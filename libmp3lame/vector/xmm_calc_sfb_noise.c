@@ -19,6 +19,12 @@
  * Boston, MA 02111-1307, USA.
  */
 
+/**
+ * \file
+ * \internal
+ * \brief The SSE2 form of the VBR band noise (calc_sfb_noise_x34_sse2()).
+ */
+
 /*
  *  calc_sfb_noise_x34() quantizes a band and sums the squared quantization
  *  error.  Two parts: the quantization itself - multiply, truncate, look up

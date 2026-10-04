@@ -53,15 +53,15 @@
 
 #if defined( HAVE_SSE2_INTRINSICS )
 /** @internal
- * The x86 vector routines compare sixteen bits at a time, so a region maximum
- * comes back exact only while it fits there.  That is enough because the
- * table search rejects anything above IXMAX_VAL, and everything above the
- * saturation point is above IXMAX_VAL too - which stops being true if
- * IXMAX_VAL is ever raised past it.  See @ref vector_dispatch for the wider
- * rationale (why 16-bit SSE2 beats the 32-bit SSE4.1 path here).
+ * The x86 vector routines compare 16 bits at a time, so a region maximum is
+ * exact only while it fits into 16 bits.  This is enough, because the table
+ * search rejects any value above IXMAX_VAL, and every value above the
+ * saturation point is above IXMAX_VAL too.  This stops being true if
+ * IXMAX_VAL is ever raised above that point.  See @ref vector_dispatch for
+ * why 16-bit SSE2 is faster than the 32-bit SSE4.1 path here.
  *
- * The ARM routine works in 32-bit lanes and never narrows, so this assertion
- * is about the x86 tier alone and stays with it.
+ * The ARM routine uses 32-bit lanes and never narrows, so this assertion is
+ * only about the x86 tier.
  */
 enum { static_assert_ixmax_val_fits_in_16_bits = 1 / (IXMAX_VAL < 32767 ? 1 : 0) };
 #endif

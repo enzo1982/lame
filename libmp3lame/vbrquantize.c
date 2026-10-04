@@ -224,23 +224,17 @@ k_34_4(DOUBLEX x[4], int l3[4])
 #define CALC_SFB_NOISE_VECTOR_MIN      8
 
 /** @internal
- * Only an SSE2 tier, and both wider ones were tried rather than assumed away.
+ * This routine has an SSE2 version only.  On the tested CPUs, AVX2 and
+ * AVX-512 versions are not faster.  The AVX-512 version costs about 5 % of a
+ * `-V 2` encode on Ice Lake, and is at the noise floor on Zen 4.
  *
- * An AVX2 version was written and measured, and it adds nothing on the
- * variable-bitrate encode this routine serves (the gain would be the eight-wide
- * gather, but hardware gather is no faster than the SSE2 manual gather on the
- * tested cores, and the reduction is done a four-block at a time for cross-CPU
- * output stability, so the wider vector never accumulates).
+ * The reason is the reduction.  It is done four blocks at a time, so that the
+ * output is the same on all CPUs.  A wider vector does not change this, so the
+ * extra lanes only add cost.  The hardware gather of AVX2 is also not faster
+ * than the manual gather of SSE2 on the tested cores.  The measurements are in
+ * @ref vector_dispatch.
  *
- * An AVX-512 version was written too, kept behind a switch until it could be
- * measured on silicon that has AVX-512, and **removed once it was**: it costs
- * about 5 % of a `-V 2` encode on Ice Lake and is at the noise floor on Zen 4.
- * The same reduction pin is why - the width doubles again and the fold does
- * not, so all the extra lanes buy is the cost of entering them.  Numbers and
- * method: @ref vector_dispatch.
- *
- * The capability ladder permits a routine to exist at one tier only, and this
- * is that case.
+ * A routine may exist at one tier only, and this is such a routine.
  */
 static  FLOAT
 calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, unsigned int bw, uint8_t sf,
@@ -351,8 +345,9 @@ tri_calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsi
 
 
 /**
+ *  \brief Computes the quantization step size from the allowed masking.
+ *
  *  Robert Hegemann 2001-05-01
- *  calculates quantization step size determined by allowed masking
  */
 static int
 calc_scalefac(FLOAT l3_xmin, int bw)
@@ -481,7 +476,7 @@ block_sf(algo_t * that, const FLOAT l3_xmin[SFBMAX], int vbrsf[SFBMAX], int vbrs
                 m2 = that->find(&xr[j], &xr34_orig[j], l3_xmin[sfb], l, m1, impl);
 #if 0
                 if (0) {
-                    /** Robert Hegemann 2007-09-29:
+                    /*  Robert Hegemann 2007-09-29:
                      *  It seems here is some more potential for speed improvements.
                      *  Current find method does 11-18 quantization calculations.
                      *  Using a "good guess" may help to reduce this amount.

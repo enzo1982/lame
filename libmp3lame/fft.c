@@ -300,17 +300,16 @@ fft_long(lame_internal_flags const *const gfc,
  * \internal
  * \brief Build the analysis windows and select the transform implementation.
  *
- * Two windows, because the psychoacoustic model analyses at two time
+ * Two windows, because the psychoacoustic model analyzes at two time
  * resolutions: a Blackman window over the long block, and a Hann window over
  * each short sub-block.
  *
- * \todo The choice of window for the long block is recorded in this file as
- *       making no real difference, and was made to match another model's
- *       during a merge. It is not known to have been measured. The windows
- *       differ materially in how far a strong component leaks into
- *       neighbouring bins, and the model estimates tonality by comparing a
- *       band's peak against its mean - so the choice bears directly on the
- *       tonality estimate, and on every threshold derived from it.
+ * \todo Measure whether the long-block window matters. A comment in this file
+ *       says the choice makes no real difference, but no measurement is
+ *       known. The windows differ a lot in how much a strong component leaks
+ *       into neighboring bins. The model estimates tonality from the ratio of
+ *       the peak of a band to its mean. So the window affects the tonality
+ *       estimate and every threshold computed from it.
  */
 void
 init_fft(lame_internal_flags * const gfc)

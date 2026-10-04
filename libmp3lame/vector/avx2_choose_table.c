@@ -19,6 +19,12 @@
  * Boston, MA 02111-1307, USA.
  */
 
+/**
+ * \file
+ * \internal
+ * \brief The AVX2 region maximum of the Huffman table search (ix_max_avx2()).
+ */
+
 /*
  *  Only the region maximum is here.  The table lookups this file might be
  *  expected to hold as well are faster in their SSE2 form: the gather

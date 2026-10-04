@@ -183,39 +183,34 @@ get_lame_very_short_version(void)
   \internal
   Get the encoder version string written into the LAME tag.
 
-  Not part of the public API - it is not exported, and the field it fills is
-  fixed by the tag format rather than by anything a caller chooses. Library
-  users wanting a compact version string want
-  \c get_lame_very_short_version() instead.
+  It is not part of the public API. It is not exported, and the tag format
+  fixes the field that it fills. A program that needs a short version string
+  uses \c get_lame_very_short_version().
 
-  The whole comment sits inside \c \\internal on purpose: the marker runs to
-  the end of its comment block, so a brief in a block of its own would survive
-  into the public documentation and reintroduce the name there.
+  The string has at most 9 characters. It must start with "LAME", because
+  some hardware and software decoders check for it.
 
-  Limited to 9 characters max. Due to some 3rd party HW/SW decoders, it has to
-  start with LAME.
-
-  \par Field width and format (fixed, binary-compatibility critical)
-  This string is copied into a **fixed 9-byte** field of the LAME tag that
-  gets embedded in every encoded MP3 stream (see \c VbrTag.c,
-  \c LAMEHEADERSIZE and the \c strncpy(...,9) call in the tag-writing code).
-  Widening that field would shift every subsequent byte of the tag and break
-  every third-party decoder that parses it at a fixed offset - it is not
-  adjustable. The format itself (`"LAME" major "." minor type`) is likewise
-  fixed for the same reason: some decoders reportedly pattern-match on it.
+  \par Field width and format (fixed, critical for binary compatibility)
+  This string is copied into a **fixed 9-byte** field of the LAME tag, which
+  is in every encoded MP3 stream (see \c VbrTag.c, \c LAMEHEADERSIZE and the
+  \c strncpy(...,9) call in the code that writes the tag). A wider field
+  would move every later byte of the tag, and break every decoder that reads
+  the tag at a fixed offset. So the width cannot change. The format
+  (`"LAME" major "." minor type`) is fixed for the same reason, because some
+  decoders reportedly match on it.
 
   \par Byte budget
   `strlen("LAME")` (4) + `strlen(major)` + `strlen(".")` (1) +
-  `strlen(minor)` + `strlen(type)` (1, always exactly one character:
-  `'a'`/`'b'`/`'r'`/`' '`) must not exceed 9, i.e.
+  `strlen(minor)` + `strlen(type)` (1, always one character:
+  `'a'`/`'b'`/`'r'`/`' '`) must not be more than 9, that is:
   \code
       strlen(major) + strlen(minor) <= 3
   \endcode
-  This invariant is enforced at compile time right below this function
-  (`compiletime_assert`) - if it ever trips, the version numbers (not this
-  field's width or format) are what needs to change.
+  A compile-time check right below this function enforces this
+  (`compiletime_assert`). If it fails, change the version numbers, not the
+  width or the format of this field.
 
-  \return a pointer to the short version of the LAME version string.
+  \return the short version string.
  */
 const char*
 get_lame_tag_encoder_short_version(void)
@@ -228,9 +223,9 @@ get_lame_tag_encoder_short_version(void)
 }
 
 /*! \internal
- *  Enforces the byte budget documented above at compile time: catches an
- *  overflow the moment a version bump reintroduces it, instead of letting
- *  it silently truncate at run time. */
+ *  Checks the byte budget above at compile time. It fails at the version
+ *  change that breaks the budget, instead of cutting the string without a
+ *  message at run time. */
 compiletime_assert(sizeof("LAME" STR(LAME_MAJOR_VERSION) "." STR(LAME_MINOR_VERSION) P) - 1 <= 9);
 
 /*! Get the version string for GPSYCHO. */

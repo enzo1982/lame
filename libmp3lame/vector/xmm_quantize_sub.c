@@ -19,6 +19,12 @@
  * Boston, MA 02111-1307, USA.
  */
 
+/**
+ * \file
+ * \internal
+ * \brief The SSE2 forms of init_xrpow_core() and of the FFT (fht_SSE2()).
+ */
+
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>

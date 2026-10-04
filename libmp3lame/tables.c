@@ -448,20 +448,20 @@ const struct huffcodetab ht[HTN] = {
 };
 
 
-/*! Maps a chosen table onto the one whose codewords encode it. */
+/*! Maps a chosen table to the table whose codewords encode it. */
 /*!
-  Table 14 has no codewords of its own - the standard defines none, and the
-  entry above carries a code-length table but a null codeword table. It is
-  nevertheless a real outcome of the table search, which compares candidates by
-  their code lengths, so it has to be turned into something writable before
-  either the side information or the code words are produced. LAME writes
-  table 16 in its place.
+  Table 14 has no codewords of its own. The standard defines none, and the
+  entry above has a code-length table but no codeword table. The table search
+  can still choose it, because it compares candidates by their code lengths.
+  So it must become a table that can be written, before the side information
+  or the codewords are written. LAME writes table 16 in its place.
 
-  Everything that acts on a chosen table asks this, so no part of the bitstream
-  writer depends on another part having converted the value first.
+  Every part of the code that uses a chosen table calls this function. So no
+  part of the bitstream writer depends on another part converting the value
+  first.
 
   \param table_select a table number as chosen by the table search.
-  \return the number of the table to encode with, which is the same one for
+  \return the number of the table to encode with. It is the same table for
           every value that has codewords.
 */
 unsigned int

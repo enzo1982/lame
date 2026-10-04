@@ -80,7 +80,7 @@ extern const struct huffcodetab ht[HTN];
     /* 0..31 Huffman code table 0..31  */
     /* 32,33 count1-tables   */
 
-/*! Maps a chosen table onto the one whose codewords encode it. */
+/*! Maps a chosen table to the table whose codewords encode it. */
 unsigned int resolve_huffman_table(unsigned int table_select);
 
 extern const uint8_t t32l[];

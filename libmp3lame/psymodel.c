@@ -33,72 +33,72 @@
  * \brief Psychoacoustic model: per-band masking thresholds, block type and
  *        perceptual entropy.
  *
- * The model answers one question per granule: how much quantisation noise may
- * each scalefactor band carry before a listener would hear it. Everything
- * downstream consumes that answer - the quantisation loops shape noise to the
- * thresholds, the bit reservoir is steered by the perceptual entropy, and the
- * stereo mode decision reads the per-channel thresholds.
+ * For each granule, the model computes how much quantization noise each
+ * scalefactor band can contain before a listener hears it. The rest of the
+ * encoder uses these thresholds. The quantization loops shape the noise to
+ * them. The perceptual entropy controls the bit reservoir. The stereo mode
+ * decision reads the thresholds of each channel.
  *
  * \par One entry point, every mode
  *
- * L3psycho_anal_vbr() serves CBR, ABR and VBR alike. The name records which
- * encoder the code was written for, not which ones reach it.
+ * Despite its name, L3psycho_anal_vbr() is used for CBR, ABR and VBR.
  *
  * \par Results lag the input by one granule
  *
- * A granule's block type cannot be settled until the following granule has been
- * analysed, because an attack decides retroactively that its predecessor has to
- * be a start block. The analysis therefore runs on the current granule and
- * returns the previous granule's results; callers carry that delay.
+ * The block type of a granule is known only after the next granule is
+ * analyzed, because an attack makes the granule before it a start block. So
+ * the analysis runs on the current granule and returns the results of the
+ * previous granule. Callers handle this delay.
  *
  * \par Two frequency partitionings
  *
- * Analysis runs on a partition-band grid of at most CBANDS bands, each about
- * DELBARK bark wide on the Zwicker scale (freq2bark()); how many are actually
- * used depends on the sample rate and is decided by init_numline(). Results are
- * mapped at the end onto the scalefactor bands the bitstream quantises in -
- * SBMAX_l long, SBMAX_s short - by convert_partition2scalefac(), which splits a
- * partition straddling a scalefactor-band boundary between its two neighbours.
+ * The analysis uses a grid of at most CBANDS partition bands, each about
+ * DELBARK bark wide on the Zwicker scale (freq2bark()). init_numline() decides
+ * how many are used, from the sample rate. At the end,
+ * convert_partition2scalefac() maps the results onto the scalefactor bands of
+ * the bitstream, SBMAX_l long and SBMAX_s short. It splits a partition that
+ * crosses a scalefactor band boundary between its two neighbors.
  *
- * \par The analysis filterbank is not the coding filterbank
+ * \par The analysis filter bank is not the coding filter bank
  *
- * Thresholds are computed from a dedicated FFT rather than from the MDCT the
- * encoder quantises: 1024 points with a Blackman window for long blocks, 256
- * with a Hann window for each of the three short sub-blocks (init_fft()). A
- * transform that is not critically sampled retains the signal's full energy and
- * offers a magnitude spectrum to measure tonality on; the thresholds it yields
- * are scaled into the coder's domain where they are consumed.
+ * The thresholds come from a separate FFT, not from the MDCT that the encoder
+ * quantizes: 1024 points with a Blackman window for long blocks, and 256
+ * points with a Hann window for each of the three short sub-blocks
+ * (init_fft()). This transform is not critically sampled. So it keeps the full
+ * energy of the signal and gives a magnitude spectrum to measure tonality on.
+ * The thresholds are scaled into the domain of the coder where they are used.
  *
  * \par What the model computes, in order
  *
  * -# Attack detection. vbrpsy_attack_detection() high-passes the input at
- *    fs/4, splits the granule into nine sub-blocks and compares each against
- *    the one two positions earlier. A large enough ratio counts as an attack,
- *    and attacks select short blocks.
+ *    fs/4, splits the granule into nine sub-blocks, and compares each with the
+ *    one two positions earlier. A large enough ratio counts as an attack, and
+ *    an attack selects short blocks.
  * -# Energy per partition band, from the FFT (calc_energy()).
- * -# Tonality, as a peak-to-average energy ratio over a three-partition
- *    neighbourhood (calc_mask_index_l(), vbrpsy_calc_mask_index_s()). Tone-like
- *    content masks less well than noise-like content, so the index selects how
- *    far below the signal the band's threshold sits.
- * -# Spreading. Every band masks its neighbours through s3_func(), and the
- *    contributions are combined by vbrpsy_mask_add(), which is not a plain
+ * -# Tonality, as the ratio of peak to average energy over three neighboring
+ *    partitions (calc_mask_index_l(), vbrpsy_calc_mask_index_s()). Tonal
+ *    content masks less than noise, so the index selects how far below the
+ *    signal the threshold of the band is.
+ * -# Spreading. Every band masks its neighbors through s3_func().
+ *    vbrpsy_mask_add() combines the contributions, and this is not a plain
  *    power sum.
- * -# Pre-echo control, holding thresholds down where raising them would let
- *    noise precede a transient: against the two preceding granules in the long
- *    path (vbrpsy_compute_masking_l()), and against the preceding sub-block,
- *    keyed on where in the granule the attack falls, in the short path - that
- *    one lives in L3psycho_anal_vbr() itself, after the scalefactor-band
- *    mapping, because only there is the attack position known.
+ * -# Pre-echo control. It keeps thresholds low where higher thresholds would
+ *    let noise come before a transient. In the long path it compares with the
+ *    two granules before (vbrpsy_compute_masking_l()). In the short path it
+ *    compares with the sub-block before, depending on where the attack is in
+ *    the granule. That code is in L3psycho_anal_vbr() itself, after the
+ *    mapping to scalefactor bands, because only there is the attack position
+ *    known.
  * -# Mid/side thresholds, in joint stereo only
  *    (vbrpsy_compute_MS_thresholds()).
- * -# Perceptual entropy, an estimate of how much the granule will cost to code
+ * -# Perceptual entropy, an estimate of how many bits the granule will need
  *    (pecalc_l(), pecalc_s()).
  *
- * \par The absolute threshold is a separate mechanism
+ * \par The absolute threshold is separate
  *
- * Masking thresholds are relative to the signal; the absolute threshold of
- * hearing bounds them from below, and is computed elsewhere - ATHformula(),
- * together with the loudness-driven adjustment in adjust_ATH().
+ * Masking thresholds follow the signal. The absolute threshold of hearing is a
+ * lower limit for them. Other code computes it: ATHformula(), with the
+ * loudness adjustment in adjust_ATH().
  */
 
 
@@ -181,17 +181,17 @@ future:  Data indicates that the shape of the equal loudness curve varies
  *        power sum.
  *
  * The weights in \a eql_w come from the absolute threshold of hearing, which
- * approximates an equal-loudness contour. Calibrated so that a signal near
- * clipping returns about 1.0, and full-scale binary white noise (samples at
- * +32767 / -32768) approaches 3.
+ * approximates an equal-loudness contour. The scale is set so that a signal
+ * near clipping returns about 1.0, and full-scale binary white noise (samples
+ * at +32767 and -32768) returns almost 3.
  *
- * The result drives adjust_ATH(), and through it the only place the encoder
- * adapts to programme level.
+ * The result controls adjust_ATH(). This is the only place where the encoder
+ * adapts to the level of the material.
  *
- * \todo The shape of an equal-loudness contour varies with intensity, and the
- *       ATH is the shape at threshold rather than at a typical playback level.
- *       Bending the curve towards a playback-level shape would be more
- *       faithful; whether the difference is worth the effort is unmeasured.
+ * \todo The shape of an equal-loudness contour changes with the level, and the
+ *       ATH has the shape at the threshold, not at a typical playback level. A
+ *       curve with the shape at playback level would be more accurate. Nobody
+ *       has measured whether this is worth the work.
  */
 static  FLOAT
 psycho_loudness_approx(FLOAT const *energy, FLOAT const *eql_w)
@@ -257,11 +257,11 @@ static const int tab_mask_add_delta[] = { 2, 2, 2, 1, 1, 1, 0, 0, -1 };
 #define STATIC_ASSERT_EQUAL_DIMENSION(A,B) enum{static_assert_##A=1/((dimension_of(A) == dimension_of(B))?1:0)}
 
 /**
- * \brief Bark distance, in partition bands, within which two maskers are
- *        combined non-linearly by vbrpsy_mask_add().
+ * \brief Distance in partition bands within which vbrpsy_mask_add() combines
+ *        two maskers non-linearly.
  *
- * Indexed by the tonality index: tone-like partitions get a narrower window
- * than noise-like ones. Roughly three partitions to the bark.
+ * The tonality index selects it: tonal partitions get a narrower window than
+ * noise-like ones. About three partitions make one bark.
  */
 inline static int
 mask_add_delta(int i)
@@ -273,11 +273,11 @@ mask_add_delta(int i)
 
 
 /**
- * \brief Assert that vbrpsy_mask_add()'s precomputed comparison limits still
- *        equal the expressions they were derived from.
+ * \brief Check that the precomputed limits of vbrpsy_mask_add() still equal
+ *        the expressions they come from.
  *
- * Compiled to nothing under NDEBUG. The limits exist so the hot path can
- * compare energies directly instead of taking a logarithm.
+ * Compiles to nothing under NDEBUG. The limits let the hot path compare
+ * energies directly, without a logarithm.
  */
 static void
 init_mask_add_max_values(void)
@@ -299,14 +299,12 @@ init_mask_add_max_values(void)
 /**
  * \brief Combine two masking contributions.
  *
- * Not a power sum. Within \a delta partitions and a moderate level ratio the
- * two add with a boost above unity; further apart, or with one masker well
- * above the other, the result falls back to a plain sum or to the larger of
- * the two alone.
+ * Not a power sum. Within \a delta partitions and a moderate level ratio, the
+ * two are added and the sum is increased. Further apart, or when one masker
+ * is much stronger, the result is the plain sum or only the larger one.
  *
- * Modelling addition this way matters because a plain sum over many
- * neighbouring bands overestimates how much masking a spread-out signal
- * actually provides.
+ * This matters because a plain sum over many neighboring bands overestimates
+ * how much a spread-out signal masks.
  *
  * Naoki Shibata, 2000.
  */
@@ -369,10 +367,10 @@ vbrpsy_mask_add(FLOAT m1, FLOAT m2, int b, int delta)
 /**
  * \brief Map partition-band energies and thresholds onto scalefactor bands.
  *
- * The two grids do not align: the analysis works in partition bands of roughly
- * constant bark width, the bitstream quantises in the scalefactor bands the
- * standard defines. A partition straddling a scalefactor-band boundary is
- * split between the two, weighted by how much of it falls on each side.
+ * The two grids do not match. The analysis uses partition bands of about
+ * constant bark width. The bitstream quantizes in the scalefactor bands of
+ * the standard. A partition that crosses a scalefactor band boundary is split
+ * between the two, weighted by how much of it is on each side.
  */
 static void
 convert_partition2scalefac(PsyConst_CB2SB_t const *const gd, FLOAT const *eb, FLOAT const *thr,
@@ -456,11 +454,10 @@ convert_partition2scalefac_l(lame_internal_flags * gfc, FLOAT const *eb, FLOAT c
 /**
  * \brief Derive short-block thresholds from a long-block analysis.
  *
- * Used where the short-block analysis was not run but short-block thresholds
- * are still required. The threshold is scaled down by a constant factor and
- * the same value is given to all three sub-blocks, so it is a placeholder
- * rather than an analysis: it cannot distinguish the sub-blocks from one
- * another.
+ * Used where the short-block analysis did not run, but short-block thresholds
+ * are still needed. The threshold is divided by a constant factor, and all
+ * three sub-blocks get the same value. So it is a placeholder, not an
+ * analysis: it cannot tell the sub-blocks apart.
  */
 static void
 convert_partition2scalefac_l_to_s(lame_internal_flags * gfc, FLOAT const *eb, FLOAT const *thr,
@@ -488,8 +485,8 @@ convert_partition2scalefac_l_to_s(lame_internal_flags * gfc, FLOAT const *eb, FL
  * \brief Geometric interpolation, \a x raised to \a r times \a y raised to
  *        1 - \a r.
  *
- * The two endpoints are shortcut, which is worth doing here: \a r is at or
- * above 1 in the overwhelming majority of calls.
+ * The two end points take a shortcut, because \a r is 1 or more in almost all
+ * calls.
  */
 static inline FLOAT
 NS_INTERP(FLOAT x, FLOAT y, FLOAT r)
@@ -509,10 +506,10 @@ NS_INTERP(FLOAT x, FLOAT y, FLOAT r)
 /**
  * \brief Perceptual entropy of a short-block granule.
  *
- * Sums a per-band weight times the logarithm of the energy-to-threshold ratio,
- * over the bands where the energy exceeds the threshold. The result estimates
- * how expensive the granule will be to code, and steers the bit reservoir and
- * the VBR bitrate.
+ * Sums, over the bands where the energy is above the threshold, a weight per
+ * band times the logarithm of the ratio of energy to threshold. The result
+ * estimates how many bits the granule will need. It controls the bit
+ * reservoir and the VBR bitrate.
  *
  * \note The band weights are tuned for 44.1 kHz only.
  */
@@ -564,8 +561,8 @@ pecalc_s(III_psy_ratio const *mr, FLOAT masking_lower)
 /**
  * \brief Perceptual entropy of a long-block granule.
  *
- * \see pecalc_s(), including the note about the sample rate the band weights
- *      were tuned at.
+ * \see pecalc_s(), also for the sample rate that the band weights are tuned
+ *      for.
  */
 static  FLOAT
 pecalc_l(III_psy_ratio const *mr, FLOAT masking_lower)
@@ -623,8 +620,8 @@ pecalc_l(III_psy_ratio const *mr, FLOAT masking_lower)
 /**
  * \brief Total, peak and mean FFT line energy for each partition band.
  *
- * The peak and the mean are what calc_mask_index_l() compares to decide how
- * tone-like the band is; the total is the masker strength.
+ * calc_mask_index_l() compares the peak and the mean to decide how tonal the
+ * band is. The total is the strength of the masker.
  */
 static void
 calc_energy(PsyConst_CB2SB_t const *l, FLOAT const *fftenergy, FLOAT * eb, FLOAT * max, FLOAT * avg)
@@ -656,13 +653,13 @@ calc_energy(PsyConst_CB2SB_t const *l, FLOAT const *fftenergy, FLOAT * eb, FLOAT
 /**
  * \brief Tonality index per partition band, for long blocks.
  *
- * Measured as the ratio of the peak line to the mean, taken over the band and
- * its two neighbours: a spectrum concentrated in few lines is tone-like, one
- * spread evenly is noise-like. The index selects an entry in the table that
- * decides how far below the signal the band's threshold is placed, because a
- * tone masks noise far less effectively than noise masks a tone.
+ * Measured as the ratio of the peak line to the mean, over the band and its
+ * two neighbors. A spectrum in few lines is tonal, an even spectrum is
+ * noise-like. The index selects an entry in the table that decides how far
+ * below the signal the threshold of the band is, because a tone masks noise
+ * much less than noise masks a tone.
  *
- * This is the only tonality estimator in the encoder.
+ * vbrpsy_calc_mask_index_s() does the same for short blocks.
  */
 static void
 calc_mask_index_l(lame_internal_flags const *gfc, FLOAT const *max,
@@ -831,8 +828,8 @@ vbrpsy_compute_fft_s(lame_internal_flags const *gfc, const sample_t * const buff
     * compute loudness approximation (used for ATH auto-level adjustment) 
     *********************************************************************/
 /**
- * \brief Record the granule's loudness for adjust_ATH(), when the absolute
- *        threshold is set to adapt.
+ * \brief Store the loudness of the granule for adjust_ATH(), when the
+ *        absolute threshold adapts.
  */
 static void
 vbrpsy_compute_loudness_approximation_l(lame_internal_flags * gfc, int gr_out, int chn,
@@ -853,25 +850,25 @@ vbrpsy_compute_loudness_approximation_l(lame_internal_flags * gfc, int gr_out, i
 /**
  * \brief Detect transients and choose long or short blocks.
  *
- * Quantisation noise is spread over the whole synthesis window, so a transient
- * inside a long block can be preceded by noise that the transient itself has
- * not yet arrived to mask - a pre-echo. Shortening the block shortens the
- * window, which is the only remedy the bitstream format offers.
+ * Quantization noise spreads over the whole synthesis window. So in a long
+ * block, noise can come before a transient that would mask it. This is a
+ * pre-echo. A short block has a shorter window, which is the only remedy the
+ * bitstream format offers.
  *
- * The granule is high-pass filtered at a quarter of the sample rate, since a
- * transient shows most clearly where the signal is least tonal, then split
- * into nine sub-blocks whose peak amplitudes are compared against the
- * sub-block two positions earlier. A ratio above the configured threshold is
- * an attack.
+ * The granule is high-pass filtered at a quarter of the sample rate, because a
+ * transient shows most clearly where the signal is least tonal. Then it is
+ * split into nine sub-blocks, and the peak amplitude of each is compared with
+ * the sub-block two positions earlier. A ratio above the configured threshold
+ * is an attack.
  *
- * Two refinements sit on top. A periodic signal would otherwise trip the
- * detector every period, so an attack is discarded where neighbouring
- * sub-blocks carry similar energy at a low absolute level. And a sub-block
- * whose energy arrives in a single spike yields an extra attenuation factor,
- * applied later to its threshold.
+ * Two refinements follow. A periodic signal would trigger the detector in
+ * every period, so an attack is ignored where neighboring sub-blocks have
+ * similar energy at a low level. And a sub-block whose energy comes in a
+ * single spike gets an extra attenuation factor, which is applied later to
+ * its threshold.
  *
- * This function also hands the caller the previous granule's maskings, which
- * is where the model's one-granule delay is realised.
+ * This function also returns the maskings of the previous granule to the
+ * caller. This is where the one-granule delay of the model happens.
  */
 static void
 vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer[2], int gr_out,
@@ -1058,8 +1055,8 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
 
 
 /**
- * \brief Age the short-block spreading state for a granule whose short-block
- *        masking was not computed.
+ * \brief Move the short-block spreading state on by one granule, when the
+ *        short-block masking of the granule was not computed.
  */
 static void
 vbrpsy_skip_masking_s(lame_internal_flags * gfc, int chn, int sblock)
@@ -1157,19 +1154,20 @@ vbrpsy_calc_mask_index_s(lame_internal_flags const *gfc, FLOAT const *max,
 /**
  * \brief Masking thresholds for one short sub-block.
  *
- * Spreads each partition's energy over its neighbours through the precomputed
- * spreading matrix, combines the contributions with vbrpsy_mask_add(), and
- * scales the result by the tonality of the bands that contributed.
+ * Spreads the energy of each partition over its neighbors through the
+ * precomputed spreading matrix, combines the contributions with
+ * vbrpsy_mask_add(), and scales the result by the tonality of the bands that
+ * contributed.
  *
- * The threshold is then bounded twice: it may not exceed a limit derived from
- * the band's peak line, which keeps a strongly tonal band from being handed a
- * threshold so high that the quantiser takes the difference out of other
- * bands, and it may not exceed the band's own energy. The caller's
- * masking_lower factor is applied around those bounds.
+ * Then two limits apply to the threshold. It may not be above a limit from the
+ * peak line of the band. This keeps a strongly tonal band from getting a
+ * threshold so high that the quantizer takes the difference from other bands.
+ * And it may not be above the energy of the band itself. The masking_lower
+ * factor of the caller is applied around these limits.
  *
- * Pre-echo control is not applied here; for short blocks it happens after the
- * mapping to scalefactor bands, in L3psycho_anal_vbr(), where the position of
- * the attack within the granule is known.
+ * Pre-echo control does not happen here. For short blocks it happens after
+ * the mapping to scalefactor bands, in L3psycho_anal_vbr(), where the
+ * position of the attack in the granule is known.
  */
 static void
 vbrpsy_compute_masking_s(lame_internal_flags * gfc, const FLOAT(*fftenergy_s)[HBLKSIZE_s],
@@ -1277,16 +1275,16 @@ vbrpsy_compute_masking_s(lame_internal_flags * gfc, const FLOAT(*fftenergy_s)[HB
 /**
  * \brief Masking thresholds for a long block, including pre-echo control.
  *
- * Spreading, non-linear addition and the two bounds are as in
- * vbrpsy_compute_masking_s(). What this path adds is pre-echo control against
- * time: the threshold may not rise far above what the preceding granule, and
- * the one before that, were allowed - so a quiet passage followed by a surge
- * cannot have its noise floor lifted before the surge arrives to mask it.
+ * Spreading, non-linear addition and the two limits are as in
+ * vbrpsy_compute_masking_s(). This path adds pre-echo control over time. The
+ * threshold may not rise much above the thresholds of the two granules
+ * before. So in a quiet passage before a sudden loud passage, the noise floor
+ * cannot rise before the loud passage arrives to mask it.
  *
- * Where the previous granule was short, only the nearer of the two limits is
- * used, and where no long-block analysis was made for it the limit is
- * estimated from the current band energy instead. The comment on that branch
- * is candid that this is a guess made for speed.
+ * If the previous granule used short blocks, only the limit from that granule
+ * is used. If no long-block analysis exists for that granule, the limit is
+ * estimated from the energy of the current band. This estimate is a guess
+ * that saves computing time.
  */
 static void
 vbrpsy_compute_masking_l(lame_internal_flags * gfc, const FLOAT fftenergy[HBLKSIZE],
@@ -1420,10 +1418,11 @@ vbrpsy_compute_masking_l(lame_internal_flags * gfc, const FLOAT fftenergy[HBLKSI
 
 
 /**
- * \brief Apply the configured short-block policy to the per-channel decision.
+ * \brief Apply the configured short-block setting to the decision of each
+ *        channel.
  *
- * Short blocks may be forced on, dispensed with entirely, or coupled so both
- * channels always agree.
+ * Short blocks can be forced on, turned off, or coupled, so that both
+ * channels always use the same block type.
  */
 static void
 vbrpsy_compute_block_type(SessionConfig_t const *cfg, int *uselongblock)
@@ -1450,13 +1449,14 @@ vbrpsy_compute_block_type(SessionConfig_t const *cfg, int *uselongblock)
 
 
 /**
- * \brief Settle the previous granule's block type and hand it to the caller.
+ * \brief Decide the block type of the previous granule and return it to the
+ *        caller.
  *
- * A block type cannot be chosen from its own granule alone: the window shape
- * has to transition, so the granule before a short one becomes a start block
- * and the granule after it a stop block. That is only knowable once the
- * following granule has been analysed, which is why the model's results lag
- * its input by one granule.
+ * A block type cannot be chosen from its own granule alone. The window shape
+ * needs a transition, so the granule before a short one becomes a start
+ * block, and the granule after it a stop block. This is known only after the
+ * next granule is analyzed. That is why the results of the model lag its
+ * input by one granule.
  */
 static void
 vbrpsy_apply_block_type(PsyStateVar_t * psv, int nch, int const *uselongblock, int *blocktype_d)
@@ -1498,16 +1498,16 @@ vbrpsy_apply_block_type(PsyStateVar_t * psv, int nch, int const *uselongblock, i
 /**
  * \brief Adjust mid and side thresholds for joint-stereo coding.
  *
- * Coding mid and side rather than left and right changes where the
- * quantisation noise ends up in the stereo image, and noise placed differently
- * from the signal that is supposed to mask it can become audible - the
- * binaural masking level difference. The correction is applied only where the
- * left and right thresholds are within about 2 dB of each other, which is the
- * case where the two channels are similar enough for the effect to matter.
+ * Coding mid and side instead of left and right changes where the
+ * quantization noise is in the stereo image. Noise at another place than the
+ * signal that should mask it can become audible. This effect is the binaural
+ * masking level difference. The correction applies only where the left and
+ * right thresholds are within about 2 dB of each other. In that case the two
+ * channels are similar enough for the effect to matter.
  *
- * Where the caller set an msfix value, the mid and side thresholds are
- * additionally held down relative to the smaller of the two monophonic
- * thresholds, both first floored at the absolute threshold of hearing.
+ * If the caller set an msfix value, the mid and side thresholds are also kept
+ * low relative to the smaller of the two mono thresholds. Both are first
+ * raised to at least the absolute threshold of hearing.
  *
  * After Johnston and Ferreira, ICASSP 1992; the msfix refinement is Naoki
  * Shibata, 2000.
@@ -1587,15 +1587,16 @@ vbrpsy_compute_MS_thresholds(const FLOAT eb[4][CBANDS], FLOAT thr[4][CBANDS],
  * \internal
  * \brief Run the psychoacoustic model over one granule.
  *
- * The single entry point, used by every encoding mode. See the file
- * description for what the model computes and in what order.
+ * The single entry point, used by every encoding mode. The file description
+ * says what the model computes and in which order.
  *
- * Results describe the **previous** granule, not the one in \a buffer: block
- * types cannot be settled until the following granule has been seen.
+ * The results describe the **previous** granule, not the one in \a buffer,
+ * because a block type is known only after the next granule.
  *
- * \param gfc               encoder state; the model reads its configuration
- *                          and per-channel history and updates the latter.
- * \param buffer            input samples per channel, centred on the granule.
+ * \param gfc               encoder state. The model reads its configuration
+ *                          and the history of each channel, and updates the
+ *                          history.
+ * \param buffer            input samples per channel, centered on the granule.
  * \param gr_out            index of the granule the results are returned for.
  * \param[out] masking_ratio      per-band energies and thresholds, L/R.
  * \param[out] masking_MS_ratio   the same for mid/side, in joint stereo.
@@ -1814,17 +1815,18 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
  *   The spreading function.  Values returned in units of energy
  */
 /**
- * \brief The spreading function: how strongly a masker at one bark offset
- *        raises the threshold at another.
+ * \brief The spreading function: how much a masker raises the threshold at a
+ *        given bark distance.
  *
- * Asymmetric, as hearing is - masking reaches further upwards in frequency
- * than downwards. The offset is scaled differently on the two sides before a
- * common curve is evaluated, and a shallow notch is subtracted just above the
+ * It is asymmetric, like hearing: masking reaches further up in frequency
+ * than down. The distance is scaled differently on the two sides before one
+ * common curve is computed, and a shallow notch is subtracted just above the
  * masker.
  *
- * The curve depends on frequency separation only. It carries no term for the
- * masker's level, so the same spread is assumed at every signal level; the
- * result is normalised so that spreading a flat spectrum returns it unchanged.
+ * The curve depends only on the distance in frequency. It has no term for the
+ * level of the masker, so the same spreading is used at every signal level.
+ * The result is normalized, so that spreading a flat spectrum does not change
+ * it.
  */
 static  FLOAT
 s3_func(FLOAT bark)
@@ -1912,11 +1914,11 @@ norm_s3_func(void)
 #endif
 
 /**
- * \brief Weight used by vbrpsy_compute_MS_thresholds() when transferring
- *        masking between the mid and side channels.
+ * \brief Weight that vbrpsy_compute_MS_thresholds() uses to move masking
+ *        between the mid and side channels.
  *
- * Rises with frequency to a plateau. The tree records its origin only as a
- * curve fitted to a published plot, without naming the source.
+ * It rises with frequency to a constant level. The source code says only that
+ * it is a curve fitted to a published plot, without naming the source.
  */
 static  FLOAT
 stereo_demask(double f)
@@ -1932,9 +1934,9 @@ stereo_demask(double f)
 /**
  * \brief Lay out the partition bands for one sample rate and transform size.
  *
- * Walks the FFT lines assigning each to a partition, so that a partition spans
- * approximately a fixed bark width, and records for each scalefactor band
- * which partition it ends in and how the straddling partition should be split.
+ * Assigns each FFT line to a partition, so that a partition has about a fixed
+ * bark width. For each scalefactor band it records in which partition the band
+ * ends, and how to split a partition that crosses the band boundary.
  */
 static void
 init_numline(PsyConst_CB2SB_t * gd, FLOAT sfreq, int fft_size,
@@ -2030,7 +2032,7 @@ init_numline(PsyConst_CB2SB_t * gd, FLOAT sfreq, int fft_size,
 }
 
 /**
- * \brief Centre bark value and bark width of each partition band.
+ * \brief Center bark value and bark width of each partition band.
  */
 static void
 compute_bark_values(PsyConst_CB2SB_t const *gd, FLOAT sfreq, int fft_size,
@@ -2057,10 +2059,10 @@ compute_bark_values(PsyConst_CB2SB_t const *gd, FLOAT sfreq, int fft_size,
 /**
  * \brief Precompute the spreading matrix from s3_func().
  *
- * Evaluating the spreading function per band pair on every granule would be
- * wasteful when the band layout is fixed for the session, so the non-negligible
- * values are computed once and stored with the index range they cover. Each
- * row is normalised so that spreading does not change total energy.
+ * The band layout is fixed for the whole encode. So the values that matter
+ * are computed once, not for each pair of bands in every granule, and stored
+ * with the index range they cover. Each row is normalized, so that spreading
+ * does not change the total energy.
  */
 static int
 init_s3_values(FLOAT ** p, int (*s3ind)[2], int npart,
@@ -2117,10 +2119,11 @@ init_s3_values(FLOAT ** p, int (*s3ind)[2], int npart,
  * \internal
  * \brief Build the per-session constant tables the model needs.
  *
- * Called once per encoder instance. Lays out the partition bands for both
- * transform sizes, precomputes the spreading matrices, the per-band minimum
- * masking values, the stereo demasking weights and the attack thresholds, and
- * initialises the per-channel history the model carries between granules.
+ * Called once per encoder instance. It lays out the partition bands for both
+ * transform sizes. It precomputes the spreading matrices, the minimum masking
+ * value of each band, the stereo demasking weights and the attack thresholds.
+ * It initializes the history of each channel, which the model keeps from
+ * granule to granule.
  *
  * \return 0 on success, non-zero if a table could not be allocated.
  */

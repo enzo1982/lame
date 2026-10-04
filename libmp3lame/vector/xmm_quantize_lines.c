@@ -19,6 +19,12 @@
  * Boston, MA 02111-1307, USA.
  */
 
+/**
+ * \file
+ * \internal
+ * \brief The SSE2 form of the quantization loop (quantize_lines_xrpow_sse2()).
+ */
+
 /*
  *  This loop is elementwise - a multiply, a truncation, a table lookup, an
  *  add and a second truncation, with no accumulator anywhere - so the vector

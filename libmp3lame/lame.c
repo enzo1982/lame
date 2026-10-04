@@ -30,10 +30,9 @@
   \file   lame.c
   \brief  The LAME MP3 encoding engine.
 
-  Holds the encoder lifecycle of the public API, described with the group
-  those functions belong to: \ref api_encoding. Most of this file is the
-  engine behind them and is not part of the interface, so the group is named
-  on each public function rather than opened over the file.
+  The group \ref api_encoding describes the public functions of this file.
+  Most of this file is the engine behind them and is not part of the
+  interface.
 */
 
 #ifdef HAVE_CONFIG_H

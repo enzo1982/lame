@@ -368,8 +368,8 @@ int hip_decode_exit(hip_t hip)
 
 /**
  * @internal
- * @brief The factor between libmpg123's normalised full scale of 1 and
- *        LAME's own sample_t scale, whose full scale is 32768.
+ * @brief The factor between the normalized full scale of libmpg123, which is
+ *        1, and the sample_t scale of LAME, whose full scale is 32768.
  */
 #define SAMPLE_T_FULL_SCALE 32768.0
 

@@ -156,8 +156,8 @@ extern  "C" {
 
     /**
      *  \internal
-     *  ATH related stuff, if something new ATH related has to be added,
-     *  please plugg it here into the ATH_t struct
+     *  \brief Settings and tables for the absolute threshold of hearing (ATH).
+     *         New ATH data belongs in this struct.
      */
     typedef struct {
         int     use_adjust;  /* method for the auto adjustment  */
@@ -179,7 +179,7 @@ extern  "C" {
 
     /**
      *  \internal
-     *  PSY Model related stuff
+     *  \brief Constant tables of the psychoacoustic model for one block type.
      */
 
     typedef struct {
@@ -202,7 +202,8 @@ extern  "C" {
 
     /**
      *  \internal
-     *  global data constants
+     *  \brief Constant tables of the psychoacoustic model, for long and short
+     *         blocks.
      */
     typedef struct {
         FLOAT window[BLKSIZE], window_s[BLKSIZE_s / 2];
