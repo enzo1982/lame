@@ -1,56 +1,57 @@
 # Distribution check {#maintainer_check_dist}
 
-`maintainer/check-dist.sh` answers one question about a finished tarball: if
-somebody downloads this, will it work? It takes the tarball and a scratch
-directory, unpacks it, builds it in every configuration the machine can build,
-runs the tests, and reports each step as a named check.
+`maintainer/check-dist.sh` checks one thing about a finished tarball: if someone
+downloads it, will it work? It takes the tarball and a scratch directory, unpacks
+the tarball, builds it in every configuration that the machine can build, runs
+the tests, and reports each step as a named check.
 
 ```
 sh maintainer/check-dist.sh lame-4.1.tar.gz /tmp/distcheck
 ```
 
-Nothing is read from the working tree the tarball was rolled from. Everything
-&mdash; the build harness, the ABI check, the man pages, the source &mdash;
-comes out of the tarball, because a file that is missing from it is exactly
-the defect this is looking for.
+The script reads nothing from the working tree that the tarball was made from.
+Everything, including the build harness, the ABI check, the man pages and the
+source, comes from the tarball. A file that is missing from the tarball is
+exactly the kind of error that this script looks for.
 
-The native Windows build is not reachable from a POSIX shell; use
-`maintainer/check-dist.ps1` for those cells. The two are separate scripts on
-purpose: most checks apply to one half only, and a merged script would spend
-its output explaining why.
+A POSIX shell cannot run the native Windows build. Use
+`maintainer/check-dist.ps1` for those cells. The two scripts are separate on
+purpose: most checks apply to only one of them.
 
-## What it is not
+## What it does not check
 
-It does not measure encoding quality. That is a different question with its
-own harness and its own corpus &mdash; see @ref maintainer_quality. A tarball
-can pass every check here and still encode badly; the two runs are both part
-of a release, and neither substitutes for the other.
+It does not measure encoding quality. That has its own harness and its own
+corpus, see @ref maintainer_quality. A tarball can pass every check here and
+still encode badly. A release needs both runs, and neither one replaces the
+other.
 
-It is also not a development-time check. Option gating and the `.op` bitstream
-comparison belong to the change that touches the encoder, not to the tarball
-that carries it.
+It is also not a check for development. Option checks and the `.op` bitstream
+comparison belong to the change to the encoder, not to the tarball that contains
+it.
 
 ## The checks
 
-Each prints its name, one line saying what it establishes, and then a verdict.
+Each check prints its name, one line that says what it checks, and then the
+result.
 
-| Check | What it establishes |
+| Check | What it checks |
 |---|---|
 | `extract` | the tarball unpacks, into exactly one top-level directory |
-| `version-consistency` | the tarball name, `configure`'s package version and `libmp3lame/version.h` all say the same thing |
-| `matrix-generate` | the build harness inside the tarball can lay out this machine's configurations (@ref maintainer_build_matrix) |
-| `build[cell]` | that configuration compiles and links &mdash; one check per cell |
-| `unit-tests[cell]` | the CMocka suite passes in that configuration &mdash; one check per cell |
-| `distcheck` | `make distcheck`: a VPATH build, install, installcheck, uninstall and re-dist |
-| `doxygen` | both documentation sets build, and contain parsed source rather than an empty theme |
-| `manpage` | the shipped man pages render without a formatting complaint |
-| `abi` | the built library's exported interface matches the committed contract (@ref maintainer_abi) |
+| `version-consistency` | the tarball name, the package version of `configure` and `libmp3lame/version.h` all agree |
+| `matrix-generate` | the build harness in the tarball can create the configurations for this machine (@ref maintainer_build_matrix) |
+| `build[cell]` | this configuration compiles and links; one check per cell |
+| `unit-tests[cell]` | the CMocka tests pass in this configuration; one check per cell |
+| `distcheck` | `make distcheck`: a VPATH build, install, installcheck, uninstall and a new dist |
+| `doxygen` | both documentation sets build, and contain parsed source, not only the empty theme |
+| `manpage` | the man pages in the tarball render without a formatting warning |
+| `abi` | the exported interface of the built library matches the list in the tree (@ref maintainer_abi) |
 
-The build and the unit tests are deliberately **two checks per cell**, not one.
-A configuration that builds but cannot run its tests is a different problem
-from one that does not build, and a summary that merged them would hide which.
+The build and the unit tests are **two checks per cell**, not one, on purpose. A
+configuration that builds but cannot run its tests is a different problem from
+one that does not build. A summary that combined them would hide which problem
+it is.
 
-Opt-in, off by default:
+Optional checks, off by default:
 
 | Flag | Adds |
 |---|---|
@@ -59,72 +60,69 @@ Opt-in, off by default:
 | `--coverage` | a coverage run (@ref maintainer_coverage) |
 | `--sanitizers` | an ASan/UBSan build, and its tests |
 
-`--maintainer-mode` is off by default for a specific reason: a warning that a
-newer compiler introduced is not a reason to reject a tarball that was correct
-when it was rolled. Turn it on when the question is "is the source clean",
-not "is this tarball releasable".
+`--maintainer-mode` is off by default because a warning from a newer compiler is
+no reason to reject a tarball that was correct when it was made. Use it when you
+want to know whether the source is clean, not whether the tarball can be
+released.
 
-`--quick` replaces the whole matrix with one default configuration. It is for
-iterating on a packaging problem; a release acceptance run wants the default.
+`--quick` replaces the whole matrix with one default configuration. Use it while
+you fix a packaging problem. For a release, use the default.
 
-## The four verdicts
+## The four results
 
-- **PASS** &mdash; the check was made and held.
-- **FAIL** &mdash; the check was made and did not hold. Any FAIL makes the run
-  exit non-zero.
-- **SKIP** &mdash; the check could not be made *on this machine*: a
-  prerequisite is missing. Installing it would turn the SKIP into a real
-  verdict.
-- **N/A** &mdash; the check does not apply to this path at all. Nothing
-  installable would change it: the native Windows build has no `configure`,
-  so `distcheck` there is N/A and not SKIP.
+- **PASS**: the check ran and found no problem.
+- **FAIL**: the check ran and found a problem. Any FAIL makes the run exit with
+  a non-zero status.
+- **SKIP**: the check could not run *on this machine*, because something it needs
+  is missing. After installing it, the check gives a real result.
+- **N/A**: the check does not apply here at all, and no installation would change
+  that. For example, the native Windows build has no `configure`, so `distcheck`
+  is N/A there, not SKIP.
 
-The distinction matters when reading a log from someone else's machine. A
-column of SKIPs means "this run proved less than it looks like"; a column of
-N/As means "this half was never in scope".
+This difference matters when you read a log from another machine. Many SKIPs
+mean that the run proved less than it seems. Many N/As mean that this part was
+never meant to be checked.
 
-**A configuration the harness could not lay out here reports SKIP too**, naming
-the reason from `matrix-info.txt` (@ref maintainer_build_matrix). Those cells
-have no directory, so they used to leave no trace in this report at all &mdash;
-the run simply had fewer checks in it, and nothing said which ones were gone. A
-configuration that quietly stops being checked is worse than one that says it is
-not being checked.
+**A configuration that the harness could not create on this machine also
+reports SKIP**, with the reason from `matrix-info.txt`
+(@ref maintainer_build_matrix). Such a cell has no build directory. The report
+lists it as SKIP, so you can see which configurations were not checked.
 
-Neither SKIP nor N/A affects the exit status. A run on a machine with nothing
-installed would therefore exit 0 having checked almost nothing &mdash; **read
-the summary counts, not just the exit status.**
+Neither SKIP nor N/A changes the exit status. So a run on a machine with nothing
+installed exits with 0, after checking almost nothing. **Read the counts in the
+summary, not only the exit status.**
 
 ## Prerequisites, and what is lost without each
 
 | Missing | Effect |
 |---|---|
-| CMocka (via `pkg-config`) | every `unit-tests[cell]` reports SKIP. The cells are *not* configured with `--enable-unit-tests` in that case, because `configure` fails outright when the option is given and the library is absent. |
-| `libmpg123` | the decoder-on cells are never generated by the harness &mdash; they cover most of the code base, so this is the largest single loss |
+| CMocka (via `pkg-config`) | every `unit-tests[cell]` reports SKIP. In this case the cells are *not* configured with `--enable-unit-tests`, because `configure` fails when the option is given and the library is missing. |
+| `libmpg123` | the harness does not generate the cells with the decoder. These cells cover most of the code, so this is the largest single loss. |
 | `libsndfile` | the `sndfile` cell is not generated |
-| the automake this tree was generated with | the `nodecstrict` cell is not generated, so nothing here checks the warnings-are-errors bar. That cell enables maintainer mode, which rebuilds with the version-suffixed tool the generated Makefiles name (@ref maintainer_build_matrix) |
+| the automake version that generated the tree | the `nodecstrict` cell is not generated, so no check here treats warnings as errors. This cell enables maintainer mode, which runs the tools with the version suffix that the generated Makefiles name (@ref maintainer_build_matrix) |
 | `doxygen` | the `doxygen` check reports SKIP |
 | `groff` | the `manpage` check reports SKIP |
-| `libabigail` | the ABI check's deepest sub-check reports SKIP inside a still-passing `abi` check |
+| `libabigail` | the deepest part of the ABI check reports SKIP, and the `abi` check still passes |
 
 ## Reading the result
 
-The run ends with the version, the total number of checks, and the counts. The
-full output is also written to
-`<target>/check-dist-<version>-<timestamp>.log`, and each failing check names
-the log file that holds the detail: a cell's `build.log` or `check.log`,
+At the end, the run prints the version, the total number of checks, and the
+counts. It also writes the full output to
+`<target>/check-dist-<version>-<timestamp>.log`. Each failing check names the
+log file with the details: the `build.log` or `check.log` of a cell,
 `distcheck.log`, `abicheck.log`, and so on.
 
-The version in the log name comes from the tarball, not from the tree the
-script was run out of, so logs from several candidates sort and read
-unambiguously. `check-dist.ps1` writes
-`<target>/check-dist-windows-<version>-<timestamp>.log`, the same name with the
-half it came from in it, so both runs can share a target directory.
+The version in the log name comes from the tarball, not from the tree that the
+script was run from. So the logs of several candidate tarballs sort correctly,
+and you can tell them apart. `check-dist.ps1` writes
+`<target>/check-dist-windows-<version>-<timestamp>.log`. This is the same name,
+with the platform in it, so both scripts can use the same target directory.
 
-## Known failures that are the tree's, not the tarball's
+## Known failures that come from the tree, not from the tarball
 
-Some cells fail their unit tests for reasons that predate any tarball, because
-the unit tests compile frontend translation units outside the configuration
-those files were written for. The `--disable-decoder` cell is the standing
-example. When `unit-tests[...]` fails for one particular cell while the same
-suite passes in the others, check whether that cell is one of these before
-treating it as a release blocker.
+Some cells fail their unit tests for reasons that have nothing to do with the
+tarball. The unit tests compile frontend source files in configurations that
+these files were not written for. The `--disable-decoder` cell is the usual
+example. When `unit-tests[...]` fails in one cell and the same tests pass in the
+other cells, check whether this cell is one of these before you treat it as a
+release blocker.

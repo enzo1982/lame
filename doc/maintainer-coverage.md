@@ -1,35 +1,33 @@
 # Code coverage harness {#maintainer_coverage}
 
-Maintainer tooling. Not needed to build or use LAME.
+A maintainer tool. You do not need it to build or use LAME.
 
-This measures which source lines the test material actually reaches, and
-answers two questions that look like one:
+The harness measures which source lines the test material runs. It helps with
+two questions that look like one:
 
-1. **Which build configurations are worth testing?** Conditional
-   compilation means a line can be absent from the binary entirely. No
-   invocation can reach `#ifdef HAVE_MPG123` code in a build configured
-   with `--disable-decoder`, so a configuration axis is part of coverage,
-   not separate from it.
-2. **Which invocations are worth running?** Of the lines a configuration
-   does compile, which does a given command line execute — and which
-   invocations add coverage that no other invocation already provides.
+1. **Which build configurations are worth testing?** Because of conditional
+   compilation, a line can be missing from the binary. No command line can run
+   `#ifdef HAVE_MPG123` code in a build configured with `--disable-decoder`. So
+   the configuration is part of the coverage, not a separate question.
+2. **Which command lines are worth running?** Of the lines that a configuration
+   compiles, which lines does a given command line run? And which command lines
+   add coverage that no other command line already gives?
 
-The second question is what makes this worth automating. Sanitizer runs
-(AddressSanitizer, UndefinedBehaviorSanitizer) only report on code that
-executes, and they are slow enough that running every option combination
-is not practical. The output here is a ranked, minimal set of invocations
-to run under them.
+The second question is the reason to automate this. Sanitizer runs
+(AddressSanitizer, UndefinedBehaviorSanitizer) only report problems in code that
+runs, and they are too slow to run every combination of options. So the harness
+produces a short, ranked list of command lines to run under the sanitizers.
 
 ## Prerequisites
 
-- **gcc.** Coverage data is gcov data, which lcov reads. Clang writes a
-  different profile format that lcov cannot consume; a clang coverage run
-  would need llvm-cov and a separate reader.
+- **gcc.** The coverage data is gcov data, which lcov reads. Clang writes a
+  different profile format that lcov cannot read. A coverage run with clang
+  would need llvm-cov and a different reader.
 - **lcov** (1.x or 2.x) and **genhtml** for the HTML report.
 - **python3** for the input generator and the analysis.
-- Optional, gating individual cells: **libmpg123**, **libsndfile**,
-  **cmocka** (unit tests), **GTK 4** (>= 4.10, the mp3x analyzer frontend,
-  found through pkg-config).
+- Optional, each needed for some cells: **libmpg123**, **libsndfile**,
+  **cmocka** (unit tests), **GTK 4** (>= 4.10, for the mp3x analyzer frontend,
+  found with pkg-config).
 
 ## Running it
 
@@ -43,73 +41,69 @@ sh maintainer/coverage-run.sh -c /tmp/cov/full
 sh maintainer/coverage-run.sh -c /tmp/cov/nodecoder
 # ... and so on for the cells of interest
 
-# 3. analyse
+# 3. analyze
 python3 maintainer/coverage-report.py \
         /tmp/cov/*/coverage-out -o /tmp/cov/report -r "$PWD"
 ```
 
-Optionally, `coverage-run.sh -m DIR` additionally runs the decode and
-re-encode entries over every MP3 in `DIR`. Real-world files carry tag
-layouts, bitrate switching and truncations that generated input does not
-reproduce. The directory is read only; nothing is written back to it.
+With `coverage-run.sh -m DIR`, the runner also decodes and re-encodes every MP3
+in `DIR`. Real files have tag layouts, bitrate changes and truncations that
+generated input does not have. The runner only reads the directory and writes
+nothing into it.
 
 ## What it runs
 
-Two sources, deliberately kept separate:
+The harness uses two sources, and keeps them separate on purpose:
 
-- **`test/*.op`** — the existing option lists, one encoder option line
-  each, already curated for the encoder settings axis. The runner reads
-  them directly, so they stay maintained in one place. Their exit status
-  is not asserted: they predate this harness and some lines are refused by
-  some builds, which is fine — a refused invocation still contributes the
-  coverage of the code that refused it.
-- **`maintainer/coverage-workload.txt`** — everything the `.op` format
-  cannot express, because an `.op` line is always an encode of one fixed
-  WAV: decoding, stdin/stdout, tagging, alternative input formats, the
-  usage and argument-error paths, and invocations that are *supposed* to
-  fail.
+- **`test/*.op`**: the existing option lists, with one encoder option line
+  each, already selected to cover the encoder settings. The runner reads them
+  directly, so they are maintained in one place only. Their exit status is not
+  checked. They are older than this harness, and some builds reject some lines.
+  This is fine: a rejected command line still covers the code that rejects it.
+- **`maintainer/coverage-workload.txt`**: everything that the `.op` format
+  cannot express, because an `.op` line always encodes one fixed WAV file:
+  decoding, stdin and stdout, tagging, other input formats, the usage and
+  argument error paths, and command lines that *must* fail.
 
-That last category matters more than it looks. The input-rejection paths —
-a truncated header, an inconsistent format chunk, an unreadable album-art
-file — are reachable only by an invocation that exits non-zero. A harness
-that treats a non-zero exit as its own failure silently drops exactly the
-error handling a sanitizer run most wants to exercise. Entries therefore
-declare an expected outcome, and a mismatch in either direction is
-reported.
+The last group is more important than it looks. The code that rejects bad input
+(a truncated header, an inconsistent format chunk, an album art file that cannot
+be read) runs only in a command line that exits with a non-zero status. A
+harness that counts a non-zero exit as its own failure misses exactly the error
+handling that a sanitizer run should test most. So each entry states the
+expected result, and the harness reports a mismatch in either direction.
 
-Input files are generated by `maintainer/coverage-mkinputs.py`: mono and
-stereo PCM, 32-bit float, AIFF, headerless PCM, `WAVE_FORMAT_EXTENSIBLE`
-both valid and invariant-violating, and headers truncated at the points
-where successive field reads fail. Each exists to reach a specific branch.
+`maintainer/coverage-mkinputs.py` generates the input files: mono and stereo
+PCM, 32-bit float, AIFF, raw PCM without a header, `WAVE_FORMAT_EXTENSIBLE`
+both valid and with inconsistent fields, and headers that end at each point
+where the next field read fails. Each file exists to run one specific branch.
 
 ## Reading the output
 
-- `summary.txt` — totals, plus **per-cell contribution**: what each
-  configuration reaches that no other configuration does. A cell with no
-  unique lines does not need its own sanitizer run, however different its
-  configure line looks.
-- `cover-set.txt` — the invocations ordered by how much *new* coverage
-  each adds, with a running total. This is the set to run under
-  sanitizers; the marginal-gain column is what justifies stopping.
-- `uncovered.txt` — lines compiled somewhere but executed by nothing,
-  grouped by file. Each is either a gap a new workload entry could close,
-  or genuinely unreachable code — which is worth knowing on its own.
+- `summary.txt`: the totals, and the **contribution of each cell**: the lines
+  that this configuration runs and no other configuration runs. A cell without
+  such lines does not need its own sanitizer run, even if its configure line
+  looks very different.
+- `cover-set.txt`: the command lines, sorted by how much *new* coverage each one
+  adds, with a running total. Run this set under the sanitizers. The column with
+  the added coverage shows where to stop.
+- `uncovered.txt`: the lines that some cell compiles but no command line runs,
+  grouped by file. Each is either a gap that a new workload entry could close,
+  or code that cannot run at all. Both are worth knowing.
 
-One limitation is worth stating plainly: a line inside a preprocessor
-conditional that **no** cell enables produces no gcov record anywhere and
-is therefore invisible to this report. Absence of a whole file is
-detectable and is listed; absence of a region inside a compiled file is
-not. Widening the cell list is the only thing that closes that gap.
+One limit: a line inside a preprocessor conditional that **no** cell enables
+has no gcov record anywhere, so this report cannot show it. The report lists a
+whole file that is missing, but not a missing region inside a compiled file.
+Only more cells can close this gap.
 
-## Why the cell list differs from the build matrix
+## Why the cells differ from the build matrix
 
-`maintainer/gen-build-matrix.sh` asks whether every configuration still
-builds, so its cells include ones that only change flags or linkage
-(static, library-only, hardening off). Those compile the same source and
-would only cost build time here.
+`maintainer/gen-build-matrix.sh` checks that every configuration still builds.
+So it has cells that only change flags or linking (static, library only,
+hardening off). They compile the same source, so here they would only cost
+build time.
 
-This matrix asks which lines can be reached at all, so its cells are the
-axes of conditional compilation: the decoder, the file-I/O backend, the
-analyzer hooks, the experimental optimizations, the IEEE754 fast path, and
-the frontends that are not built by default. Several of those have no
-equivalent in the build matrix and are otherwise never compiled at all.
+This matrix finds which lines can run at all. So its cells are the switches of
+conditional compilation: the decoder, the file I/O backend, the analyzer hooks,
+the experimental optimizations, the IEEE754 fast path, and the frontends that
+are not built by default. Several of these have no cell in the build matrix, and
+nothing else compiles them.

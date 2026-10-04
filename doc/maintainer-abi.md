@@ -1,13 +1,13 @@
 # ABI check {#maintainer_abi}
 
-`maintainer/abicheck.sh` answers one question about a change: can a program
-built against the previous libmp3lame still be linked, loaded and called
-against this one?
+`maintainer/abicheck.sh` checks one thing about a change: can a program built
+against the previous libmp3lame still link against this one, load it and call
+it?
 
 It reads a built library and two text files from the source tree. It encodes
-nothing, needs no audio input and no second build to compare against, so it
-runs anywhere the library has been built &mdash; including on a machine that
-has no reference release to hand.
+nothing. It needs no audio input and no second build for a comparison. So it
+runs wherever the library is built, also on a machine without a reference
+release.
 
 ```
 make && make abicheck
@@ -15,163 +15,159 @@ make && make abicheck
 
 ## What the contract is
 
-libmp3lame's exported interface is written down twice, once per platform, and
-both files are maintained by hand:
+The exported interface of libmp3lame is written down twice, once per platform.
+Both files are maintained by hand:
 
 | File                     | Platform | Used by                                            |
 |--------------------------|----------|----------------------------------------------------|
-| `include/libmp3lame.sym` | POSIX    | libtool `-export-symbols`; everything else is local |
-| `include/lame.def`       | Windows  | the module-definition file the DLL is linked with   |
+| `include/libmp3lame.sym` | POSIX    | libtool `-export-symbols`; all other symbols are local |
+| `include/lame.def`       | Windows  | the module-definition file for linking the DLL      |
 
-Because the linker is told to export exactly what these files list, they are
-not documentation of the ABI &mdash; they *are* the ABI. A symbol that stops
-being listed stops being callable, and a symbol quietly added to one file and
-not the other ships on one platform only.
+The linker exports exactly what these files list. So these files do not just
+document the ABI, they define it. A symbol that is removed from a list can no
+longer be called. A symbol that is added to one file and not to the other is
+exported on one platform only.
 
 ## The three checks
 
-They run in one pass, in increasing depth and decreasing availability. A check
-whose tool is missing reports `SKIP` and does not affect the exit status; a
-check that could be made and did not hold reports `FAIL` and the run exits
-non-zero.
+The three checks run in one pass. Each check looks deeper than the one before,
+and needs more tools. A check whose tool is missing reports `SKIP` and does not
+change the exit status. A check that runs and finds a problem reports `FAIL`,
+and the run exits with a non-zero status.
 
-### contract &mdash; the two lists against each other
+### contract: the two lists against each other
 
-Needs nothing but the source tree, so it runs even before anything is built.
+This check needs only the source tree, so it runs even before anything is
+built.
 
-Anything `lame.def` exports that `libmp3lame.sym` does not is a failure with no
-exceptions: the Windows DLL must not offer an entry point the library does not
-have.
+If `lame.def` exports a name that `libmp3lame.sym` does not list, the check
+always fails. The Windows DLL must not offer an entry point that the library
+does not have.
 
-The other direction is held to the same standard, because of what the lists
-are:
+The check also fails if `libmp3lame.sym` lists a name that `lame.def` does not.
+The reason is how the lists are defined:
 
-> There is **one list per operating system, not one per build**. Each is the
-> logical OR over every configuration we ship, since the same file is used for
-> all of them. A symbol belongs in it when the code is compiled in and is part
-> of the exported interface &mdash; deprecated code that is still built is
-> still exported and still belongs. Only what is not compiled in at all, or is
-> not part of the exported interface, stays out.
+> There is **one list per operating system, not one per build**. Each list is
+> the union of all configurations that we ship, because the same file is used
+> for all of them. A symbol belongs in the list when its code is compiled in
+> and it is part of the exported interface. Deprecated code that is still built
+> is still exported, so it also belongs in the list. Only code that is not
+> compiled in at all, or that is not part of the exported interface, stays out.
 
-Two things follow. A configure option that compiles code out does **not** mean
-the symbol should leave the list: `--disable-decoder` builds the decoding entry
-points as stubs and still exports every name, so the list is the same either
-way. And anything our own frontends call across the library boundary must be in
-the list, or a dynamically linked build of what we ship does not link at all.
+This has two consequences. First, a configure option that compiles code out
+does **not** remove the symbol from the list. `--disable-decoder` builds the
+decoding entry points as stubs and still exports every name, so the list is the
+same with and without it. Second, every library function that our own
+frontends call must be in the list. Otherwise a dynamically linked build of our
+programs does not link.
 
-So the comparison is exact in both directions: a name in one list and not in
-the other fails the check, whichever side it sits on. The only thing that could
-justify a difference is a symbol that genuinely exists on one operating system
-and not on the other, and there is nothing like that today. Should one ever
-arise, it is a decision to be taken here, in this document and in the script &mdash;
-not by quietly editing one list on its own.
+So the comparison is exact in both directions. A name in one list and not in
+the other fails the check, whichever list it is in. Only a symbol that exists on
+one operating system and not on the other could justify a difference, and there
+is no such symbol today. If one is ever needed, decide it here, in this document
+and in the script. Do not just edit one list.
 
-### exports &mdash; the built library against the contract
+### exports: the built library against the contract
 
-Reads the export table back out of the library that was just built and compares
-it to the list for that platform: `nm -D` on ELF, `nm -gU` on Mach-O,
-`dumpbin /exports` or `objdump -p` on a DLL. Linker-generated names
-(`_init`, `_end`, `DllMain`, ...) are not part of anyone's interface and are
-dropped before the comparison.
+This check reads the export table of the library that was just built, and
+compares it with the list for this platform. It uses `nm -D` on ELF, `nm -gU`
+on Mach-O, and `dumpbin /exports` or `objdump -p` on a DLL. Names that the
+linker generates (`_init`, `_end`, `DllMain`, ...) are not part of the
+interface, so the check removes them before the comparison.
 
-This catches the case the first check cannot see: the contract and the library
-disagreeing because a function was renamed, made static, or compiled out by a
+This check finds what the first check cannot see: the list and the library
+differ because a function was renamed, made static, or compiled out by a
 configure option.
 
-A **static-only build** (`--disable-shared`) is the one case where the exported
-set cannot be observed at all &mdash; an archive keeps every non-static symbol,
-so there is no export table to read. The check degrades rather than lying about
-it: it confirms every promised symbol is present and says in the same line that
-extra exports cannot be detected in this configuration.
+In a **static-only build** (`--disable-shared`), the exported set cannot be
+read at all. An archive keeps every non-static symbol, so it has no export
+table. In this case the check does less, and says so: it checks that every
+listed symbol is present, and reports on the same line that extra exports
+cannot be found in this configuration.
 
-### abi &mdash; inside the symbols
+### abi: inside the symbols
 
-Two libraries can export the same names and still be incompatible: a parameter
-that grew from `int` to `long`, a struct that gained a member ahead of an
-existing one, an enum whose values shifted. `abidiff` compares the DWARF of the
-build against a baseline committed at `maintainer/abi/libmp3lame.abi` and
-reports those.
+Two libraries can export the same names and still be incompatible. For example,
+a parameter changed from `int` to `long`, a struct got a new member before an
+existing one, or the values of an enum changed. `abidiff` compares the DWARF
+information of the build with a baseline in `maintainer/abi/libmp3lame.abi`,
+and reports such changes.
 
-It needs two things that are not always there, and skips cleanly when they are
-missing:
+It needs two things that are not always available. Without them, it reports
+SKIP:
 
-- **libabigail.** Packaged on Linux (`apt install abigail-tools`) and on
-  FreeBSD (`devel/libabigail`); not available on native Windows, where WSL is
-  the practical host for this check.
-- **Debug information in the build.** Without DWARF the comparison collapses
-  to the symbol set the previous check already covers, while reporting every
-  type as removed &mdash; a long report that means nothing. The script detects
-  this and skips instead.
+- **libabigail.** Linux has a package (`apt install abigail-tools`), and so has
+  FreeBSD (`devel/libabigail`). It is not available on native Windows. There,
+  use WSL for this check.
+- **Debug information in the build.** Without DWARF information, the comparison
+  only sees the symbol set, which the previous check already compares, and it
+  reports every type as removed. This long report means nothing. The script
+  detects this case and reports SKIP instead.
 
 ```
 ../configure CFLAGS='-g' && make && make abicheck
 ```
 
-`CFLAGS` on the configure line adds to the build's own flags rather than
-replacing them, so that asks for debug information and nothing else: the
-optimization stays where the project put it, and the resulting tree still
-builds and tests like any other. Nothing else about the build needs pinning
-&mdash; not the compiler, not the optimization level &mdash; for the reasons in
-"The baseline" below. A **shared** build is required, though: a static-only one
-has no dynamic symbol table, and the second check says so rather than guessing.
+`CFLAGS` on the configure line is added to the flags of the build. It does not
+replace them. So this command only adds debug information: the optimization
+level of the project stays the same, and the build tree builds and tests like
+any other. You do not need to fix anything else, not the compiler and not the
+optimization level. The section "The baseline" below explains why. The build
+must be **shared**, though. A static-only build has no dynamic symbol table,
+and the second check reports this.
 
 ## What it does not check
 
-A green run is a narrow statement, and reading it as a broad one is the way to
-be caught out by it.
+A passing run proves less than it seems. The check does not test the following:
 
-**It does not know which configuration you built.** The export lists are the
-logical OR over every configuration we ship &mdash; one file per operating
-system, not one per build &mdash; so the check compares against the union and
-cannot tell you what *this* build contains. Today that costs nothing:
-`--disable-decoder` still defines the decoding entry points, as stubs, and
-still exports all of them, so every configuration exports the same set and the
-comparison can be exact. **If a symbol is ever made genuinely conditional, that
-stops being true**, and the second check has to be relaxed from "the same set"
-to "no more than the contract", with the conditional names written down
-somewhere. Until then, a promised symbol that is missing is a real failure and
-is reported as one.
+**Which configuration you built.** The export lists are the union of all
+configurations that we ship, with one file per operating system, not one per
+build. So the check compares with the union, and cannot tell what *this* build
+contains. Today this does not matter: `--disable-decoder` still defines the
+decoding entry points as stubs and still exports all of them, so every
+configuration exports the same set and the comparison can be exact. **This
+changes if a symbol is ever really conditional.** Then the second
+check must accept "no more than the list" instead of "the same set", and the
+conditional names must be written down somewhere. Until then, a listed symbol
+that is missing is a real failure, and the check reports it.
 
-**It does not check behaviour.** A symbol that exists, links, and does nothing
-passes. The decoding entry points in a build without mpg123 are exactly that.
-The check is about whether a program still *links and loads*, not whether it
-still works.
+**Behavior.** A symbol that exists, links and does nothing passes. The decoding
+entry points in a build without mpg123 are such symbols. The check tests
+whether a program still *links and loads*, not whether it still works.
 
-**It does not check the other platform's library.** Only the first check is
-cross-platform, and only because it compares two text files. The second and
-third read the library built here, so on a POSIX host nothing has looked at a
-DLL at all: an error in `lame.def` that the first check cannot see &mdash; a
-wrong ordinal, a name that no longer exists &mdash; surfaces only in a Windows
-build.
+**The library of the other platform.** Only the first check works across
+platforms, because it compares two text files. The second and third checks read
+the library built here. So on a POSIX host, no check reads a DLL. An error in
+`lame.def` that the first check cannot see, for example a wrong ordinal or the
+name of a removed function, shows only in a Windows build.
 
-**It does not check that what we ship still links.** It inspects the library's
-exports, not the frontends. A symbol the frontend imports can be removed from
-the list and all three checks still pass, because the failure lands in the
-frontend's link step instead. That is not hypothetical: it is how the analysis
-hooks were nearly dropped.
+**That our own programs still link.** The check reads the exports of the
+library, not the frontends. A symbol that a frontend imports can be removed from
+the list, and all three checks still pass, because the link of the frontend
+fails instead.
 
-**It does not cover the C++ components.** The ACM codec and the DirectShow
-filter have their own interfaces, and neither export list describes them.
+**The C++ components.** The ACM codec and the DirectShow filter have their own
+interfaces, and neither export list describes them.
 
-**And the third check is only as honest as its baseline.** Regenerating the
-baseline makes any ABI change go green, so the file is a record of what was
-*accepted*, not evidence that nothing changed. That is why it is regenerated
-deliberately, in the commit that changes the ABI, and not in response to a red
-run.
+**A wrong baseline.** The third check is only as good as its baseline. After a
+regeneration, every ABI change passes. So the file records what was
+*accepted*. It does not prove that nothing changed. For this reason, regenerate
+it on purpose, in the commit that changes the ABI, and never because a run
+failed.
 
 ## The baseline
 
-`maintainer/abi/libmp3lame.abi` is an `abidw` dump of the exported interface,
-committed to the tree and shipped in the distribution so that a build from the
-tarball can run the check too. It records the interface as of the last
-intentional ABI change, and every release since is measured against that same
-state &mdash; so the baseline outliving several versions is the normal case,
-not a sign that it is stale.
+`maintainer/abi/libmp3lame.abi` is an `abidw` dump of the exported interface.
+It is committed to the tree and included in the distribution, so that a build
+from the tarball can run the check too. It records the interface at the last
+intentional ABI change. Every release after that is compared with this state.
+So it is normal that the baseline stays the same for several versions. This
+does not mean that it is out of date.
 
-It is regenerated **only at an intentional ABI change**. Whether a given change
-is one is the maintainer's decision, not the script's and not the reviewer's:
-a red run is a question to answer, never a licence to refresh the baseline. The
-command is, from the top of a build tree:
+Regenerate it **only at an intentional ABI change**. The maintainer decides
+whether a change is one, not the script and not the reviewer. When a run fails,
+find out why. A failed run is never a reason to regenerate the baseline. The
+command, from the top of a build tree:
 
 ```
 abidw --no-corpus-path --no-show-locs --no-comp-dir-path --short-locs \
@@ -180,69 +176,61 @@ abidw --no-corpus-path --no-show-locs --no-comp-dir-path --short-locs \
       libmp3lame/.libs/libmp3lame.so > maintainer/abi/libmp3lame.abi
 ```
 
-None of the options is cosmetic, and they answer two different problems.
+Each option is needed. They solve two different problems.
 
-**Four of them keep the build tree out of the file.** `abidw` otherwise writes
-the absolute path of the library it read, the compilation directory, and a
-source path on each of some 1500 type definitions, so a dump captured in one
-build tree would differ from the same ABI captured in another in every one of
-those places.
+**Four options keep the build tree out of the file.** Without them, `abidw`
+writes the absolute path of the library, the compilation directory, and a
+source path for each of about 1500 type definitions. So a dump from one build
+tree would differ from a dump of the same ABI from another build tree in all of
+these places.
 
-**Four of them keep the *machine* out of it**, which matters because this file
-ships in the release tarball and is meant to be checkable wherever LAME builds.
-Without them the baseline records a `DT_NEEDED` list &mdash; on a glibc host
-built with the project's own `-ffast-math` that includes `libmvec`, which does
-not exist on FreeBSD &mdash; along with declarations of libc functions the
-library merely calls, and types that only reached the dump through some other
-library's headers. `--no-elf-needed` drops the dependency list,
-`--drop-undefined-syms` drops what we do not define, and
-`--exported-interfaces-only` with `--headers-dir` keeps only what is reachable
-from LAME's own public headers. What is left describes the libmp3lame API and
-nothing else.
+**Four options keep the *machine* out of the file.** This matters because the
+file is in the release tarball, and the check should work wherever LAME builds.
+Without these options, the baseline records a `DT_NEEDED` list. On a glibc host
+with the `-ffast-math` of the project, this list includes `libmvec`, which does
+not exist on FreeBSD. It also records declarations of libc functions that the
+library only calls, and types that come from the headers of other libraries.
+`--no-elf-needed` removes the dependency list. `--drop-undefined-syms` removes
+what we do not define. `--exported-interfaces-only` with `--headers-dir` keeps
+only what the public headers of LAME can reach. The rest describes the
+libmp3lame API and nothing else.
 
-Because of those, **the compilation flags no longer matter**. They used to: the
-baseline predating this was generated when a user's `CFLAGS` still *replaced*
-the project's own, so it was built without `-ffast-math`; once `CFLAGS` began
-adding instead, the documented command started producing an 81-line diff for a
-tree whose ABI had not moved. Regenerating today with or without `-ffast-math`
-gives byte-identical output.
+Because of these options, **the compiler flags do not matter**. Regenerating
+with or without `-ffast-math` gives byte-identical output.
 
-Regenerating it is how an ABI change is *accepted*, so it belongs in the same
-commit as the change and should be visible in review. Reaching for it because
-the check went red is the failure mode this file is meant to prevent.
+Regenerating the baseline accepts an ABI change. So the regeneration belongs in
+the same commit as the change, where reviewers can see it. Do not regenerate it
+because the check failed: that is the mistake this file exists to prevent.
 
-### Read a regeneration with `abidiff`, never with `diff`
+### Compare a regeneration with `abidiff`, never with `diff`
 
-The baseline is XML, so it is tempting to look at what `diff` says about two
-dumps and treat that as the answer. **It is not an answer.** `abidiff` compares
-the two corpora *semantically*: it is free to consider renumbered type ids,
-reordered records and types that reach the dump by a different route as the
-same interface, and it routinely does. Two dumps thousands of lines apart can
-describe an identical ABI, and a one-line difference can be a real break.
+The baseline is XML. So it is tempting to compare two dumps with `diff`.
+**`diff` does not tell you whether the ABI changed.** `abidiff` compares the two
+dumps by meaning. It treats renumbered type ids, reordered records, and types
+that come into the dump by a different route as the same interface, and this
+happens often. Two dumps that differ in thousands of lines can describe the same
+ABI, and a difference of one line can be a real break.
 
-So when a regeneration produces a large diff, the question to ask is not "what
-are all these lines" but "what does `abidiff` say", and the answer is the
-`abicheck` run itself. `abidiff` prints **nothing at all** when the two sides
-agree, so an empty report with a zero exit status is the clean result, not a
-failed invocation.
+So when a regeneration gives a large diff, do not ask "what are all these
+lines". Ask "what does `abidiff` report". The `abicheck` run shows this.
+`abidiff` prints **nothing at all** when the two sides agree. So an empty report
+with exit status zero is the clean result, not a failed run.
 
-### One baseline, many compilers &mdash; but one architecture
+### One baseline for all compilers, but for one architecture
 
-**The compiler does not need to be pinned.** A baseline generated from a GCC
-build accepts a Clang-built library of the same source with no changes
-reported, although the two dumps differ by well over a thousand lines as text.
-Neither a second baseline nor a fixed compiler is needed; the previous section
-is why.
+**The compiler does not matter.** A baseline from a GCC build accepts a Clang
+build of the same source without any reported change, even though the two dumps
+differ in more than a thousand lines of text. You need neither a second baseline
+nor a fixed compiler. The previous section explains why.
 
-**The architecture does.** The baseline records type sizes and layouts, so a
-build for another architecture is a different ABI and is reported as one,
-starting with `architecture changed from 'elf-amd-x86_64' to 'elf-intel-80386'`
-and continuing through every structure whose layout depends on the word size.
-The committed baseline is **x86-64**, so on any other architecture the third
-check is answering a question about the word size rather than about LAME, and
-its result should be disregarded &mdash; the first two checks, which are the
-ones that catch a mistake in the export lists, are unaffected and remain
-meaningful everywhere.
+**The architecture does matter.** The baseline records type sizes and layouts.
+So a build for another architecture is a different ABI, and the check reports
+it as one. The report starts with
+`architecture changed from 'elf-amd-x86_64' to 'elf-intel-80386'` and then lists
+every structure whose layout depends on the word size. The committed baseline is
+for **x86-64**. On any other architecture, the third check compares word sizes,
+not LAME, so ignore its result. The first two checks find the mistakes in the
+export lists, and they work on every architecture.
 
 ## Reading the result
 
@@ -263,8 +251,8 @@ baseline: maintainer/abi/libmp3lame.abi
 Summary: 3 checks - 3 PASS, 0 FAIL, 0 SKIP
 ```
 
-A failure names the symbols rather than only counting them, on the side they
-were found:
+A failure names the symbols, not only their number, and says in which list they
+are:
 
 ```
 [1/3] contract: the committed export lists (libmp3lame.sym, lame.def) name the same symbols
@@ -272,24 +260,25 @@ were found:
         exported on POSIX but not on Windows: lame_new_function
 ```
 
-Three `SKIP`s and a zero exit is a real possibility on a host with no
-libabigail and nothing built &mdash; it means the run proved nothing, not that
-the ABI is fine. The summary line says how many checks actually concluded, and
-that is the number to read first.
+On a host without libabigail and without a build, the run can report three
+`SKIP`s and exit with zero. This means that the run proved nothing, not that the
+ABI is fine. The summary line says how many checks had a result. Read this
+number first.
 
-## When the check goes red
+## When the check fails
 
-The verdict is about the *contract*, never about whether the change was a good
-one. Two questions in order:
+The result is about the *contract*. It does not say whether the change was good.
+Ask two questions, in this order:
 
 1. **Was the ABI meant to change?** Adding a function is compatible: add it to
-   both export lists and regenerate the baseline. Changing or removing one that
-   already shipped is not, and needs a soname bump rather than a new baseline.
-2. **If it was not meant to change, what moved?** A configure option that
-   compiled a function out, a rename that reached one export list and not the
-   other, a struct in a public header that grew a member.
+   both export lists and regenerate the baseline. Changing or removing a
+   function that was already released is not compatible. It needs a new soname,
+   not a new baseline.
+2. **If it was not meant to change, what changed?** For example, a configure
+   option compiled a function out, a rename reached one export list and not the
+   other, or a struct in a public header got a new member.
 
-The check is deliberately not part of `make check` or `make all`: it wants a
-built shared library, and on most hosts it can only give a partial answer. It
-is a step in validating a release, and a thing to run by hand after touching a
-public header or either export list.
+On purpose, the check is not part of `make check` or `make all`. It needs a
+built shared library, and on most hosts it can only run some of its checks. Run
+it when you validate a release, and by hand after you change a public header or
+an export list.

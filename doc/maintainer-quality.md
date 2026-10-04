@@ -1,22 +1,21 @@
 # Perceptual-quality comparison {#maintainer_quality}
 
-Most changes must not alter the encoded bitstream at all, and comparing the two
-files is then the whole test. Some changes are *meant* to alter it: a
-psychoacoustic tweak, a quantization fix, a change to a preset. For those the
-bitstream check says only that something moved, not whether the result sounds
-better or worse.
+Most changes must not change the encoded bitstream at all. For them, comparing
+the two files is the whole test. Some changes are *meant* to change it: a change
+to the psychoacoustic model, a quantization fix, a change to a preset. For these,
+the bitstream comparison only shows that something changed. It does not show
+whether the result sounds better or worse.
 
-Two scripts answer that question:
+Two scripts measure this:
 
-- `maintainer/setup-quality-corpus.sh` &mdash; lay out the reference audio,
-  once.
-- `maintainer/quality-compare.py` &mdash; encode that audio with a baseline and
-  a candidate build, and score both against the original.
+- `maintainer/setup-quality-corpus.sh`: prepares the reference audio, once.
+- `maintainer/quality-compare.py`: encodes this audio with a baseline build and a
+  candidate build, and compares both with the original.
 
 ## What the score is, and what it is not
 
-The scorer implements PEAQ (ITU-R BS.1387), which returns an Objective
-Difference Grade per track:
+The scorer implements PEAQ (ITU-R BS.1387). It returns an Objective Difference
+Grade (ODG) for each track:
 
 | ODG | Meaning                      |
 |-----|------------------------------|
@@ -26,69 +25,69 @@ Difference Grade per track:
 | -3  | annoying                     |
 | -4  | very annoying                |
 
-**Only the difference between the two builds is meaningful here.** No free PEAQ
-implementation meets the ITU conformance requirements, the one used here
-included, so an absolute ODG from it is not a measurement of quality. The same
-implementation scoring the same audio twice does compare the two encoders
-fairly, which is all that is asked of it.
+**Only the difference between the two builds means something here.** No free
+PEAQ implementation meets the ITU conformance requirements, and the one used
+here does not either. So an absolute ODG from it does not measure quality. But
+the same implementation, scoring the same audio twice, compares the two encoders
+fairly, and that is all that this harness needs.
 
-PEAQ is also not a listening test. It is a filter: it finds the tracks worth
-listening to, on a corpus far larger than anyone will sit through.
+PEAQ is also not a listening test. It is a filter: it finds the tracks that are
+worth listening to, in a corpus much larger than anyone would listen to.
 
 ## The corpus
 
-The reference audio is the EBU SQAM CD (Tech 3253), which the EBU publishes as
-one zip of FLAC tracks at <https://qc.ebu.io/testmaterials/523/>.
+The reference audio is the EBU SQAM CD (Tech 3253). The EBU publishes it as one
+zip file of FLAC tracks at <https://qc.ebu.io/testmaterials/523/>.
 
-**The audio is not part of this distribution.** Its licence permits testing and
-evaluation but does not clearly permit redistribution, so it is downloaded by
-hand once and pointed at.
+**The audio is not part of this distribution.** Its license allows testing and
+evaluation, but does not clearly allow redistribution. So you download it by
+hand once, and give the script its location.
 
-The tracks are numbered rather than named, and only some are worth scoring an
-encoder against. The default selection is 20 of the 70: single instruments that
-isolate one psychoacoustic behaviour each, weighted towards the transient and
-high-frequency cases that drive block switching (castanets, claves, triangle,
-glockenspiel, cymbal), plus speech, solo voices, and a few real musical
-excerpts. `setup-quality-corpus.sh` writes a `tracks.txt` recording what each
-number is and why it was picked.
+The tracks have numbers, not names, and only some of them are useful for scoring
+an encoder. The default selection is 20 of the 70 tracks: single instruments
+that each show one psychoacoustic behavior, with more weight on the transient
+and high-frequency cases that cause block switching (castanets, claves,
+triangle, glockenspiel, cymbal), and also speech, solo voices, and a few real
+music excerpts. `setup-quality-corpus.sh` writes a `tracks.txt` that says what
+each track number is and why it was selected.
 
 ### What SQAM does not cover, and what to use instead
 
-SQAM is deliberately made of **isolated sources**: one instrument at a time,
-cleanly recorded, with very little going on to mask anything. That is what makes
-it good at finding where an encoder breaks &mdash; an artefact has nowhere to
-hide. It also makes it unrepresentative of most of what LAME actually encodes.
-Dense commercial music at a low bitrate is the opposite case: many simultaneous
-sources, heavy masking, and a psychoacoustic model making quite different
-decisions. A change can be neutral on one of these and clearly not on the other,
-so **a quality claim is only as broad as the corpus it was measured on** &mdash;
-name the corpus whenever a number is reported.
+SQAM consists of **isolated sources** on purpose: one instrument at a time,
+recorded cleanly, with very little that could mask anything. This makes it good
+at finding where an encoder fails, because no artifact is hidden. But it also
+makes it different from most of what LAME encodes. Dense commercial music at a
+low bitrate is the opposite case: many sources at the same time, a lot of
+masking, and a psychoacoustic model that makes very different decisions. A
+change can be neutral on one of these and clearly not neutral on the other. So
+**a quality result is only valid for the corpus it was measured on**. Name the
+corpus whenever you report a number.
 
-The counterweight used here is the sample set from the HydrogenAudio community's
-2011 public multiformat listening test at 64 kbps, published at
-<https://listening-tests.hydrogenaudio.org/igorc/>. Thirty excerpts of real
-commercial music, 8&ndash;25 seconds each, 44.1 kHz stereo. What makes it usable
-where most real music is not: **it ships the uncompressed FLAC originals**, so
-there is a genuine reference to score against rather than someone else's lossy
-output. The archive also contains that test's codec results at 64 kbps; those
-are other encoders' output and must never be used as a reference.
+The second corpus used here is the sample set of the HydrogenAudio community's
+public multiformat listening test at 64 kbps from 2011, published at
+<https://listening-tests.hydrogenaudio.org/igorc/>. It has thirty excerpts of
+real commercial music, 8 to 25 seconds each, 44.1 kHz stereo. Unlike most real
+music, it can be used here, because **it includes the uncompressed FLAC
+originals**. So there is a real reference to score against, not the lossy output
+of another encoder. The archive also contains the codec results of that test at
+64 kbps. These are the output of other encoders. Never use them as a reference.
 
-How the two compare in practice:
+How the two compare:
 
 | | EBU SQAM | HydrogenAudio multiformat |
 |---|---|---|
 | content | single instruments, voices, speech, test signals | real commercial music, all of it dense |
-| masking | minimal &mdash; artefacts are exposed | heavy &mdash; the normal operating case |
-| answers | *where does the encoder break?* | *would a listener notice?* |
-| bitrates it speaks to | the whole range | low, which is where the reports come from |
-| licence | testing and evaluation, redistribution unclear | **none stated at all** |
+| masking | very little: artifacts are exposed | a lot: the normal case |
+| shows | *where does the encoder fail?* | *would a listener notice?* |
+| useful for bitrates | the whole range | low, where the reports come from |
+| license | testing and evaluation, redistribution unclear | **none stated at all** |
 
-**The setup script does not fetch this set, and will not.** It fetches SQAM
-because SQAM's licence at least permits evaluation; the HydrogenAudio page
-states no licence, no terms and no provenance for the audio. Treat it as local
-evaluation material: do not redistribute it, do not commit it, and do not
-publish audio derived from it. Aggregate scores computed from it are fine to
-report, which is all the harness produces anyway.
+**The setup script does not download this set.** It downloads SQAM, because the
+SQAM license at least allows evaluation. The HydrogenAudio page states no
+license, no terms and no source for the audio. Use it only for local
+evaluation: do not redistribute it, do not commit it, and do not publish audio
+made from it. You can report summary scores computed from it, and these are the
+only results that the harness produces.
 
 ### Setup usage
 
@@ -104,29 +103,30 @@ sh maintainer/setup-quality-corpus.sh -z ZIP [-d DIR] [-a] [-t LIST] [-r RATE]
 | `-t LIST` | decode these track numbers instead, comma-separated                 |
 | `-r RATE` | sample rate of the decoded reference, in Hz (default: 48000)        |
 
-The result is `DIR/ref/NN.wav` plus `DIR/tracks.txt`.
+The result is `DIR/ref/NN.wav` and `DIR/tracks.txt`.
 
 ```
 sh maintainer/setup-quality-corpus.sh -z ~/Downloads/TECH3253_SQAM_FLAC.zip \
    -d ~/quality-corpus
 ```
 
-Score against the two hardest cases alone while iterating on a change, which is
-minutes rather than an hour:
+While you work on a change, score only the two hardest cases. This takes
+minutes instead of an hour:
 
 ```
 sh maintainer/setup-quality-corpus.sh -z ~/Downloads/TECH3253_SQAM_FLAC.zip \
    -d ~/quality-corpus-fast -t 27,35
 ```
 
-The reference is decoded to 48 kHz because the scorer resamples anything else
-internally; matching it up front keeps that out of the measurement.
+The reference is decoded to 48 kHz because the scorer resamples any other rate
+internally. With 48 kHz from the start, the resampling does not affect the
+measurement.
 
 ## Comparison usage
 
-Like the speed comparison (see @ref maintainer_perf), this compares one cell of
-a baseline build matrix against the same cell of a candidate one, so that the
-compiler and the configure options stay out of the difference.
+Like the speed comparison (see @ref maintainer_perf), this script compares one
+cell of a baseline build matrix with the same cell of a candidate matrix. So the
+compiler and the configure options are the same on both sides.
 
 ```
 python3 maintainer/quality-compare.py -o DIR -n DIR -d DIR
@@ -143,19 +143,18 @@ python3 maintainer/quality-compare.py -o DIR -n DIR -d DIR
 | `-f`, `--options-file`| score every option line of this file instead            |
 | `-t`, `--tolerance`   | flag a track whose ODG drops by more than this (default: 0.05) |
 
-`-e` takes all the encoder options as its single value, so more than one goes in
-one quoted argument. Every LAME option starts with a dash, so the script
-attaches the value to the flag itself before it parses the command line. A
-value separated by a space works as well as an attached one:
+`-e` takes all encoder options as one value, so put more than one option into
+one quoted value. Every LAME option starts with a dash, so the script attaches
+the value to the flag before it parses the command line. A value after a space
+works as well as an attached value:
 
 ```
 python3 maintainer/quality-compare.py -o ../base-matrix -n ../cand-matrix \
         -d ~/quality-corpus -e "-V0 -m j"
 ```
 
-`-f` scores a whole option set instead of one setting, one line at a time. The
-files under `test/` are written in exactly that format and can be passed
-straight in:
+`-f` scores a whole set of options instead of one setting, one line at a time.
+The files in `test/` use exactly this format, and you can pass them directly:
 
 ```
 python3 maintainer/quality-compare.py -o ../base-matrix -n ../cand-matrix \
@@ -169,24 +168,26 @@ python3 maintainer/quality-compare.py -o ../base-matrix -n ../cand-matrix \
 | `test/CBRABR.op`   | the CBR and ABR settings                            |
 | `test/misc.op`     | the ATH, filter, block and preset options           |
 | `test/nores.op`    | `--nores`                                           |
-| `test/short*.op`   | a short subset of each, for iterating               |
+| `test/short*.op`   | a short subset of each, for quick runs              |
 
-A full `.op` file against the full corpus is an overnight run: it is
-*tracks &times; option lines &times; 2 builds* encodes, each followed by a
-decode and two PEAQ passes. Use a `short*.op` and a `-t`-narrowed corpus while
-working, and the full product once before submitting.
+A full `.op` file on the full corpus runs overnight. It needs
+*tracks &times; option lines &times; 2 builds* encodes, and each encode is
+followed by a decode and two PEAQ passes. While you work, use a `short*.op` file
+and a corpus with fewer tracks (`-t`). Run the full set once before you submit
+the change.
 
 ## Prerequisites
 
-**ffmpeg** decodes the FLAC references and the encoded MP3s back to WAV.
-**unzip** unpacks the corpus. Both are packaged everywhere:
+**ffmpeg** decodes the FLAC references, and decodes the encoded MP3 files back
+to WAV. **unzip** unpacks the corpus. Both have packages on every system:
 
 ```
 apt install ffmpeg unzip            # Debian/Ubuntu
 pkg install ffmpeg unzip            # FreeBSD
 ```
 
-**GstPEAQ** is the scorer, and is not packaged anywhere. Build it from source:
+**GstPEAQ** is the scorer. It has no package on any system, so build it from
+source:
 
 ```
 apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
@@ -196,38 +197,37 @@ touch ChangeLog && autoreconf -fi && ./configure --disable-gtk-doc
 make -C src && sudo make -C src install && sudo ldconfig
 ```
 
-Three things about that recipe are not optional:
+Three steps in these commands are required:
 
-- `gtk-doc-tools` has to be installed **before** `autoreconf`, or `configure`
-  fails with a syntax error at an unexpanded `GTK_DOC_CHECK` macro.
-- `touch ChangeLog` satisfies automake's GNU strictness, which refuses to
-  generate a `Makefile.in` without one.
-- `make -C src`, not a top-level `make`: `doc/` wants a generated man page and
-  does not build. Only `src/` is needed.
+- Install `gtk-doc-tools` **before** `autoreconf`. Otherwise `configure` fails
+  with a syntax error at an unexpanded `GTK_DOC_CHECK` macro.
+- `touch ChangeLog` is needed because automake in GNU mode does not generate a
+  `Makefile.in` without this file.
+- Use `make -C src`, not `make` at the top. `doc/` needs a generated man page
+  and does not build. Only `src/` is needed.
 
-The plugin installs under `/usr/local/lib/gstreamer-1.0`, which is not on
-GStreamer's default search path, and the element then fails to instantiate at
-run time rather than at install time. `quality-compare.py` adds that directory
-to `GST_PLUGIN_PATH` itself.
+The plugin is installed in `/usr/local/lib/gstreamer-1.0`. This directory is not
+in the default search path of GStreamer, so the element fails when it is used,
+not when it is installed. `quality-compare.py` adds this directory to
+`GST_PLUGIN_PATH` itself.
 
-`quality-compare.py` checks for all of this up front and prints the recipe
-above if the scorer is missing; it never installs anything.
+`quality-compare.py` checks all of this before it starts, and prints the
+commands above if the scorer is missing. It never installs anything.
 
-## A worked example: what a native build does to the audio
+## An example: what a native build does to the audio
 
-`--enable-native` is worth scoring, because it is a change that alters the
-output without meaning to. It adds `-march=native`, which on a machine with FMA
-lets the compiler contract a multiply and an add into a single instruction that
-rounds once instead of twice. The arithmetic feeding the psychoacoustic model is
-then no longer bit-identical, and the encoder makes different decisions from
-there on: encoding four minutes of music at `-V2` with each build produces files
-that differ in nearly every byte and are not even the same length.
+`--enable-native` is worth scoring, because it changes the output without
+meaning to. It adds `-march=native`. On a machine with FMA, this lets the
+compiler combine a multiply and an add into one instruction that rounds once
+instead of twice. Then the arithmetic in the psychoacoustic model gives slightly
+different results, and the encoder makes different decisions from there on. If
+you encode four minutes of music at `-V2` with each build, the two files differ
+in almost every byte, and do not even have the same length.
 
-The speed comparison (see @ref maintainer_perf) reports exactly that and fails
-on it, because it cannot tell an intended output change from an accidental one.
-It is the wrong question to ask here. What one wants to know about a native
-build is not whether the bits moved &mdash; they did &mdash; but whether any of
-it is audible:
+The speed comparison (see @ref maintainer_perf) reports this and fails, because
+it cannot tell an intended output change from an accidental one. But that is the
+wrong question here. For a native build, the question is not whether the bits
+changed (they did), but whether any of this is audible:
 
 ```
 python3 maintainer/quality-compare.py -o ~/base-matrix -n ~/native-matrix \
@@ -267,61 +267,61 @@ scorer   : /usr/local/bin/peaq
 No track dropped by more than 0.050.
 ```
 
-Nothing moved. The largest delta on any of the twenty tracks is 0.006, in both
-directions, on a scale where 1.0 is the step from "imperceptible" to
-"perceptible but not annoying". A bitstream that differs almost everywhere and
-audio that is the same audio: that is the whole reason the two harnesses exist
-side by side, and it is why a bitstream comparison must not be read as a quality
-verdict.
+Nothing changed. The largest difference on any of the twenty tracks is 0.006, in
+both directions, on a scale where 1.0 is the step from "imperceptible" to
+"perceptible, not annoying". The bitstream differs almost everywhere, and the
+audio is the same. This is why both harnesses exist, and why a bitstream
+comparison must never be read as a quality result.
 
-The absolute column is worth a second look for what it says about the corpus
-rather than about the builds. The harpsichord (track 40) scores worst by a
-distance at -0.461 &mdash; dense transients smearing in time is the hardest
-thing here for the encoder, and the selection is picked to contain such cases.
-Tracks that score near zero are not evidence that the encoder is perfect on
-them; they are cases where this scorer has nothing to say.
+The absolute column says something about the corpus, not about the builds. The
+harpsichord (track 40) has by far the worst score, -0.461. Dense transients that
+smear in time are the hardest case here for the encoder, and the selection
+contains such cases on purpose. A track with a score near zero does not prove
+that the encoder is perfect on it. It only means that this scorer finds nothing
+there.
 
-Note the positive scores on tracks 23, 35, 49 and 50. An ODG cannot exceed 0:
-the scale stops at "imperceptible". Those values are the implementation being
-non-conformant, out in the open, on the one run this page shows. They are
-another reason to read only the delta column and to distrust any absolute number
-this tool produces.
+Tracks 23, 35, 49 and 50 have positive scores. An ODG cannot be above 0, because
+the scale ends at "imperceptible". These values show that the implementation is
+not conformant, in the one run that this page shows. They are one more reason to
+read only the delta column, and to distrust every absolute number from this
+tool.
 
 ## Reading the result
 
-Every track is reported, with the baseline ODG, the candidate ODG, and the
-delta. A negative delta means the candidate sounds worse. The mean follows the
-per-track lines, and a summary line says whether anything exceeded the
-tolerance.
+The report lists every track, with the baseline ODG, the candidate ODG and the
+difference. A negative difference means that the candidate sounds worse. The
+mean follows the lines of the tracks, and a summary line says whether any track
+exceeded the tolerance.
 
-**Read the per-track numbers, not the mean.** A regression in one hard case
-averages away across twenty tracks; that one case is the result. The run above
-means what it says only because every individual line is at zero, not because
-the mean is.
+**Read the numbers of each track, not the mean.** A regression in one hard case
+disappears in the mean of twenty tracks, but this one case is the result. The
+run above is a clean result because every single line is zero, not because the
+mean is zero.
 
-The tolerance exists because the harness has noise of its own. Calibrate it
-rather than trusting the default: run the comparison with the *same* matrix on
-both sides and see what it reports. Two identical builds should come back at
-`+0.000` everywhere, and anything they do not agree on is the floor below which
-a delta means nothing.
+The harness has some noise of its own, so there is a tolerance. Do not trust the
+default. Calibrate it: run the comparison with the *same* matrix on both sides,
+and look at the report. Two identical builds should give `+0.000` everywhere.
+Any difference between them is the noise floor, and a difference below it means
+nothing.
 
-Some deltas are real and still not regressions. A change that trades one
-artefact for another can score worse at one bitrate and better at another, and
-PEAQ has no opinion about which a listener would rather have. A flagged track is
-a track to listen to, not a verdict.
+Some differences are real and still not regressions. A change that replaces one
+artifact with another can score worse at one bitrate and better at another, and
+PEAQ cannot say which one a listener would prefer. A flagged track is a track to
+listen to, not a verdict.
 
-PEAQ returns `nan` on degenerate input &mdash; a pure tone encoded
-transparently, for instance. That is the scorer declining to grade, not a
-failure of the encoder.
+PEAQ returns `nan` for some inputs, for example a pure tone that is encoded
+transparently. This means that the scorer does not grade this input. It is not
+an encoder failure.
 
-## Using it to validate a patchset
+## Using it to validate a patch set
 
-1. Build a matrix from the unpatched source, and one from the patched source.
-2. Score the two against each other with the same cell, corpus, and options.
-3. If the change was not meant to alter the output, every delta should be
-   `+0.000`. One that is not means the bitstream moved and the change did more
-   than it claims.
-4. If the change *was* meant to alter the output, look at every flagged track,
-   at more than one bitrate, and listen to the ones that moved.
-5. Report the per-track table, the options, and the corpus selection. A mean
-   ODG on its own is not a result anyone can check.
+1. Build a matrix from the source without the patch, and one from the source
+   with the patch.
+2. Compare the two, with the same cell, corpus and options.
+3. If the change was not meant to change the output, every difference should be
+   `+0.000`. If one is not, the bitstream changed, and the change does more than
+   it claims.
+4. If the change *was* meant to change the output, look at every flagged track,
+   at more than one bitrate, and listen to the tracks that changed.
+5. Report the table of the tracks, the options and the corpus selection. A mean
+   ODG alone is not a result that anyone can check.

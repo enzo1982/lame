@@ -1,77 +1,75 @@
 # Publishing the API documentation {#maintainer_gen_api_docs}
 
-`maintainer/gen-api-docs.sh` builds both documentation sets and copies them
-into the website working tree, ready for the maintainer to review and publish.
+`maintainer/gen-api-docs.sh` builds both documentation sets and copies them into
+the working tree of the website. The maintainer then reviews and publishes
+them.
 
 ```
 sh maintainer/gen-api-docs.sh
 ```
 
-With no arguments it configures a build directory beside the website
-checkout, runs `make doxygen` and `make doxygen-internal`, and clean-copies
-the result to `webpages/API/public` and `webpages/API/internal`.
+Without arguments, the script configures a build directory next to the website
+checkout, runs `make doxygen` and `make doxygen-internal`, and copies the result
+to `webpages/API/public` and `webpages/API/internal`, after removing the old
+content.
 
-It stops there. **Committing and uploading the website is the maintainer's
-step**, the same as committing to SVN &mdash; the script writes into a working
-tree and says what it wrote, and nothing leaves the machine.
+Then it stops. **The maintainer commits and uploads the website**, as with the
+commits to SVN. The script writes into a working tree and says what it wrote.
+Nothing leaves the machine.
 
 ## Options
 
 | Option | Meaning |
 |---|---|
-| `-b DIR` | build directory to generate in. An already-configured one is reused; otherwise `configure` runs in it first. |
+| `-b DIR` | build directory to generate in. A directory that is already configured is reused; otherwise `configure` runs in it first. |
 | `-s SRCDIR` | the LAME source tree (default: the parent of `maintainer/`). |
-| `-w WEBDIR` | the website working tree (default: the `webpages` checkout beside the source tree). |
-| `-n` | generate but do not copy &mdash; for looking at the result first. |
+| `-w WEBDIR` | the working tree of the website (default: the `webpages` checkout next to the source tree). |
+| `-n` | generate, but do not copy, so you can look at the result first. |
 
 ## Why both sets are published
 
-The **public** set is the API reference for someone writing a program against
-libmp3lame. It is the one the website surfaces prominently.
+The **public** set is the API reference for people who write a program that
+uses libmp3lame. The website shows it prominently.
 
-The **internal** set documents LAME's own structures and functions, for
-someone working on the encoder. Publishing it is a deliberate decision, not a
-default: it exposes internals that carry no stability promise whatsoever. It
-is therefore linked asymmetrically &mdash; only from the developer-facing
-pages, and never without the caveat.
+The **internal** set documents the structures and functions inside LAME, for
+people who work on the encoder. It is published on purpose. It shows internals
+that have no stability promise at all. So only the pages for developers link to
+it, and always with this warning.
 
 Links into a published set are **relative** (`API/public/index.html`), so the
-site works the same from a local checkout as from the server.
+site works the same from a local checkout and from the server.
 
-## Latest only
+## Only the latest version
 
-The copy overwrites: there is one published set, and it describes the current
-source. Versioned trees (`API/<version>/`) were considered and deliberately
-not done &mdash; the alternative is a growing archive of documentation for
-releases nobody is running, and the documentation for an old release is in
-that release's tarball anyway.
+The copy overwrites the old one. There is one published set, and it describes
+the current source. The documentation for an older release is in the tarball of
+that release.
 
-The copy is a **clean** copy: `API/public` and `API/internal` are removed
-before writing, so a page that no longer exists does not survive on the
-website as a stale link target.
+The copy is a **clean** copy: the script removes `API/public` and `API/internal`
+before it writes. So a page that the new set does not have does not stay on the
+website as an old link target.
 
-## What it refuses to do
+## What it does not publish
 
-A Doxygen run that reads no input still writes a complete set of stylesheets,
-scripts and images, and exits 0. The result is a directory that looks entirely
-healthy and contains no documentation at all &mdash; and copying it over the
-website would silently replace a working reference with an empty shell.
+A Doxygen run that reads no input still writes a complete set of style sheets,
+scripts and images, and exits with 0. The result looks like a healthy
+directory, but it contains no documentation. Copying it over the website would
+replace a working reference with an empty one, without any error.
 
-So before copying anything, the script requires each set to actually document
-a function from the installed header. If either does not, it says so and
+So before it copies anything, the script checks that each set documents a
+function from the installed header. If a set does not, the script says so and
 publishes nothing.
 
-The test deliberately asks for documented *content* rather than for a
-particular generated page: which pages Doxygen emits depends on the render
-settings, so a page-name test also fails whenever those settings change for a
-good reason, and it did.
+The check looks for documented *content*, not for a specific generated page.
+Which pages Doxygen writes depends on the settings, so a check for a page name
+would also fail when the settings change for a good reason.
 
-It also warns if `index.html` is absent from either half after the copy, since
-that is exactly the file every website link points at.
+After the copy, the script also warns if `index.html` is missing from either
+set, because every link on the website points to this file.
 
 ## The generated HTML is not in the tarball
 
-`make dist` does not ship the generated documentation. It is reproducible from
-the tarball with `make doxygen`, and shipping a second copy would go stale
-against the source it was generated from. The website is where the built
-version lives; the tarball carries what builds it.
+`make dist` does not include the generated documentation. `make doxygen` can
+create it from the tarball, and a second copy in the tarball would get out of
+date with its source. The website has the built documentation. The tarball has
+what builds it.
