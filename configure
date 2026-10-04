@@ -18905,14 +18905,15 @@ fi
 done
 
 
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for cos in -lm" >&5
-printf %s "checking for cos in -lm... " >&6; }
-if test ${ac_cv_lib_m_cos+y}
+USE_LIBM=
+lame_libm_save_LIBS="${LIBS}"
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for library containing cos" >&5
+printf %s "checking for library containing cos... " >&6; }
+if test ${ac_cv_search_cos+y}
 then :
   printf %s "(cached) " >&6
 else case e in #(
-  e) ac_check_lib_save_LIBS=$LIBS
-LIBS="-lm  $LIBS"
+  e) ac_func_search_save_LIBS=$LIBS
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -18934,25 +18935,46 @@ return cos ();
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_link "$LINENO"
+for ac_lib in '' m
+do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"
 then :
-  ac_cv_lib_m_cos=yes
-else case e in #(
-  e) ac_cv_lib_m_cos=no ;;
-esac
+  ac_cv_search_cos=$ac_res
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS ;;
+    conftest$ac_exeext
+  if test ${ac_cv_search_cos+y}
+then :
+  break
+fi
+done
+if test ${ac_cv_search_cos+y}
+then :
+
+else case e in #(
+  e) ac_cv_search_cos=no ;;
 esac
 fi
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_m_cos" >&5
-printf '%s\n' "$ac_cv_lib_m_cos" >&6; }
-if test "x$ac_cv_lib_m_cos" = xyes
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS ;;
+esac
+fi
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_cos" >&5
+printf '%s\n' "$ac_cv_search_cos" >&6; }
+ac_res=$ac_cv_search_cos
+if test "$ac_res" != no
 then :
-  USE_LIBM="-lm"
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+  test "x${ac_cv_search_cos}" = "xnone required" || USE_LIBM="${ac_cv_search_cos}"
 fi
 
+LIBS="${lame_libm_save_LIBS}"
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for cos in -lffm" >&5
 printf %s "checking for cos in -lffm... " >&6; }
 if test ${ac_cv_lib_ffm_cos+y}

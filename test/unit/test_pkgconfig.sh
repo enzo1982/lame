@@ -61,16 +61,22 @@ else
 fi
 
 # ----------------------------------------------------------------- the oracle
+#
+# A dependency_libs line that lists no library is an answer: libmp3lame then
+# links nothing else, as a build without the decoder can. Only a missing line
+# means there is no record to compare against.
+grep -q "^dependency_libs='" "$LA" \
+	|| die "libmp3lame.la has no dependency_libs line, so there is no record of
+      the link to compare lame.pc against."
 deps_raw=$(sed -n "s/^dependency_libs='\(.*\)'$/\1/p" "$LA")
 lists() { printf '%s\n' "$1" | tr ' \t' '\n\n' | grep '^-l' | sort -u; }
 
 DEP=$(lists "$deps_raw")
 if test -z "$DEP"; then
-	die "libmp3lame.la records no libraries at all (dependency_libs='$deps_raw').
-      Every assertion below would then hold vacuously, so this is a failure of
-      the test's own premise rather than a result."
+	ok "libtool recorded no libraries for libmp3lame"
+else
+	ok "libtool recorded $(printf '%s\n' "$DEP" | wc -l | tr -d ' ') librar(y/ies) for libmp3lame"
 fi
-ok "libtool recorded $(printf '%s\n' "$DEP" | wc -l | tr -d ' ') librar(y/ies) for libmp3lame"
 
 STATIC=$(lists "$($PKG_CONFIG --static --libs "$UUT")")
 SHARED=$(lists "$($PKG_CONFIG --libs "$UUT")")
@@ -79,7 +85,7 @@ SHARED=$(lists "$($PKG_CONFIG --libs "$UUT")")
 #
 # Through files rather than process substitution, which is not in POSIX sh and
 # would leave this comparing nothing on a shell that lacks it.
-printf '%s\n' "$DEP" >"$WORK/dep"
+lists "$deps_raw" >"$WORK/dep"
 printf '%s\n' "$STATIC" >"$WORK/static"
 missing=$(comm -23 "$WORK/dep" "$WORK/static")
 if test -z "$missing"; then
@@ -98,7 +104,7 @@ fi
 allowed=$WORK/allowed
 {
 	echo "-lmp3lame"
-	printf '%s\n' "$DEP"
+	lists "$deps_raw"
 	for pkg in $(sed -n 's/^Requires\.private: *//p' "$PC" | tr ',' ' '); do
 		case $pkg in
 		[0-9]* | '<'* | '>'* | '='* | '!'*) continue ;;   # version operands

@@ -732,8 +732,14 @@ dnl AM_ICONV runs further down, once the optional libraries have been located.
 dnl It has to see the same header and library search paths the frontend is
 dnl built with, and here it would run before any of them exist.
 
-dnl math lib
-AC_CHECK_LIB(m, cos, USE_LIBM="-lm")
+dnl Math library, only where the link needs it. AC_SEARCH_LIBS tries the link
+dnl without a library first. It adds what it finds to LIBS; the math library
+dnl goes in CONFIG_MATH_LIB instead, so LIBS is restored.
+USE_LIBM=
+lame_libm_save_LIBS="${LIBS}"
+AC_SEARCH_LIBS([cos], [m],
+  [test "x${ac_cv_search_cos}" = "xnone required" || USE_LIBM="${ac_cv_search_cos}"])
+LIBS="${lame_libm_save_LIBS}"
 dnl free fast math library
 AC_CHECK_LIB(ffm, cos, USE_LIBM="-lffm -lm")
 dnl Compaq fast math library.
