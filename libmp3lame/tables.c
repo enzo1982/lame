@@ -557,22 +557,22 @@ const int samplerate_table[3][4] = {
     {11025, 12000, 8000, -1}, /* MPEG 2.5 */
 };
 
-/*! The bitrate an MP3 frame header's bitrate index stands for. */
+/*! The bitrate of a bitrate index in an MP3 frame header. */
 /*!
   \ingroup api_statistics
-  Reads the standard's bitrate table, so a caller looking at frame headers -
-  its own or another encoder's - can turn the 4-bit field into kbps without
-  carrying a copy of the table.
+  Reads the bitrate table of the standard. So a caller that reads frame
+  headers, of its own or of another encoder, can turn the 4-bit field into
+  kbps without its own copy of the table.
 
-  This is the raw header index, not a slot of the statistics arrays: index 0 is
-  free format and the 14 slots of \c lame_bitrate_hist() are indices 1 to 14.
-  For the bitrates of the current encode, \c lame_bitrate_kbps() answers
-  directly.
+  This is the index from the frame header, not a slot of the statistics
+  arrays. Index 0 is free format, and the 14 slots of \c lame_bitrate_hist()
+  are the indices 1 to 14. For the bitrates of the current encode, use
+  \c lame_bitrate_kbps().
 
   \param mpeg_version  0 for MPEG-2, 1 for MPEG-1, 2 for MPEG-2.5.
   \param table_index   a bitrate index, 0 to 15.
-  \return the bitrate in kbps; 0 for free format; -1 for an index the version
-          does not define, and for an argument outside those ranges.
+  \return the bitrate in kbps. 0 for free format. -1 for an index that the
+          version does not define, and for an argument outside these ranges.
 */
 int
 lame_get_bitrate(int mpeg_version, int table_index)
@@ -585,17 +585,17 @@ lame_get_bitrate(int mpeg_version, int table_index)
     return -1;
 }
 
-/*! The sample rate an MP3 frame header's sampling-frequency index stands for. */
+/*! The sample rate of a sampling-frequency index in an MP3 frame header. */
 /*!
   \ingroup api_statistics
-  The companion of \c lame_get_bitrate() for the other rate in the frame
-  header: it reads the standard's sampling-frequency table, so a caller
-  inspecting frame headers does not have to carry one.
+  The same as \c lame_get_bitrate(), for the sample rate in the frame header.
+  It reads the sampling-frequency table of the standard, so a caller that
+  reads frame headers does not need its own copy.
 
   \param mpeg_version  0 for MPEG-2, 1 for MPEG-1, 2 for MPEG-2.5.
   \param table_index   a sampling-frequency index, 0 to 3.
-  \return the sample rate in Hz; -1 for index 3, which the standard reserves,
-          and for an argument outside those ranges.
+  \return the sample rate in Hz. -1 for index 3, which the standard reserves,
+          and for an argument outside these ranges.
 */
 int
 lame_get_samplerate(int mpeg_version, int table_index)

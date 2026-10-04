@@ -614,29 +614,29 @@ lowest_usable_free_format_bitrate(SessionConfig_t const *const cfg)
 /*! Validate the settings and prepare the encoder for use. */
 /*!
   \ingroup api_encoding
-  Called once, after \c lame_init() and after every parameter the caller wants
-  to change, and before the first \c lame_encode_buffer(). It checks what was
-  set, derives everything that was left at its default from it, allocates the
-  encoding buffers and writes the leading tags into the bitstream (through
+  Call it once: after \c lame_init() and after all the settings the caller
+  wants to change, and before the first \c lame_encode_buffer(). It checks the
+  settings and computes everything that was left at its default. It allocates
+  the encoding buffers and writes the tags at the start of the stream (through
   \c lame_init_bitstream()).
 
-  This is where a bad combination of settings is reported, not where it was
-  set: the setters accept a value in range without knowing what it will be
-  combined with. Every parameter has a default, so an instance straight from
-  \c lame_init() initializes successfully - as CD-format stereo input at
-  44.1 kHz - which means a caller that forgets to describe its input gets a
-  wrong encode rather than an error.
+  Each setter checks only its own value. This function reports a bad
+  combination of settings. Every parameter has a default. So an instance
+  straight from \c lame_init() initializes without an error, as 44.1 kHz
+  stereo input in CD format. A caller that forgets to describe its input gets
+  a wrong encode, not an error.
 
-  Calling it a second time on the same instance is refused rather than
-  ignored, so parameters cannot be changed once encoding has been prepared.
-  A caller that needs different settings starts a new instance.
+  A second call on the same instance fails and returns -1. So the parameters
+  cannot be changed after this call. For different settings, create a new
+  instance.
 
   \param gfp the encoder instance from \c lame_init().
-  \return 0 on success; -1 if the settings could not be used - the input
-          sample rate, output sample rate or channel count makes no sense, a
-          buffer could not be allocated, or the instance was already
-          initialized. The instance stays valid after a failure and must still
-          be released with \c lame_close().
+  \retval 0  success.
+  \retval -1 the settings cannot be used: the input sample rate, the output
+             sample rate or the number of channels makes no sense, a buffer
+             could not be allocated, or the instance was already initialized.
+             The instance stays valid after a failure. Release it with
+             \c lame_close().
 */
 int
 lame_init_params(lame_global_flags * gfp)
@@ -1464,16 +1464,16 @@ lame_init_params(lame_global_flags * gfp)
 /*! Report the encoding parameters that were settled on. */
 /*!
   \ingroup api_encoding
-  Writes a short human-readable summary - version, CPU features in use, input
-  and output sample rate and any resampling between them, the encoding mode -
-  through the message callback (\c lame_set_msgf()), which by default prints
-  to \c stderr. This is what the \c lame command line prints at the start of
-  an encode.
+  Writes a short summary for people: the version, the CPU features in use, the
+  input and output sample rates and any resampling between them, and the
+  encoding mode. It writes through the message function (\c lame_set_msgf()),
+  which prints to \c stderr by default. The \c lame tool prints this at the
+  start of an encode.
 
-  Meant to be called after \c lame_init_params(), because most of what it
-  reports is derived there rather than set by the caller. The text is for
-  people, not for parsing: it changes between versions, and a program that
-  wants a value should ask for it with the corresponding getter.
+  Call it after \c lame_init_params(), because that function computes most of
+  the values it reports. The text is for people, not for programs. It changes
+  between versions. A program that needs a value should call the getter for
+  it.
 
   \param gfp an initialized encoder instance.
 */
@@ -1550,20 +1550,19 @@ lame_print_config(const lame_global_flags * gfp)
 /*! Report the full internal encoder configuration. */
 /*!
   \ingroup api_encoding
-  A far more detailed counterpart to \c lame_print_config(): dozens of lines
-  covering the psychoacoustic settings, the filters, the quantization
-  parameters and the VBR configuration, again through the message callback
-  (\c lame_set_msgf()). This is what the \c lame command line prints under
-  \c --verbose.
+  A much more detailed form of \c lame_print_config(). It writes many lines
+  about the psychoacoustic settings, the filters, the quantization parameters
+  and the VBR configuration, also through the message function
+  (\c lame_set_msgf()). The \c lame tool prints this with \c --verbose.
 
-  Meant for diagnosing an encode, so it is only meaningful after
-  \c lame_init_params(). The layout is not stable across versions and is not
-  meant to be parsed.
+  It is meant for diagnosing an encode, so call it after
+  \c lame_init_params(). The layout can change between versions. Do not parse
+  it.
 
   \param gfp an initialized encoder instance.
 
-  \todo The output is a dense dump of settings. Friendlier formatting would
-        help, and any part of the configuration it does not yet print should
+  \todo The output lists the settings densely. A clearer layout would help,
+        and the parts of the configuration that it does not print yet should
         be added.
 */
 void
@@ -2193,19 +2192,18 @@ lame_encode_buffer_interleaved_ieee_double(lame_t gfp,
 /*! Encode PCM given as \c int, using the full range of the type. */
 /*!
   \ingroup api_encoding
-  As \c lame_encode_buffer(), but the samples are \c int and full scale is the
-  whole range of that type, +/- 2^(8*sizeof(int)-1), rather than the +/- 32768
-  the \c short entry point takes. Keeping the family's scaling here would throw
-  away the precision the wider type is being used for, so this entry point
-  differs in what it expects and not only in the type it accepts.
+  As \c lame_encode_buffer(), but the samples are \c int. Full scale is the
+  whole range of \c int, +/- 2^(8*sizeof(int)-1). The \c short entry point
+  uses +/- 32768. So this function differs in the expected range, not only in
+  the type.
 
   \param gfp          the encoder instance.
   \param pcm_l        PCM data for the left channel.
   \param pcm_r        PCM data for the right channel.
   \param nsamples     number of samples per channel.
   \param mp3buf       receives the encoded MP3 stream.
-  \param mp3buf_size  size of \a mp3buf in bytes, or 0 to declare the buffer
-                      large enough and skip the check.
+  \param mp3buf_size  size of \a mp3buf in bytes. 0 means that LAME does not
+                      check the size.
   \return As \c lame_encode_buffer().
 */
 int
@@ -2222,11 +2220,11 @@ lame_encode_buffer_int(lame_global_flags * gfp,
 /*! Encode PCM given as \c long, using the full range of the type. */
 /*!
   \ingroup api_encoding
-  As \c lame_encode_buffer(), but the samples are \c long and full scale is the
-  whole range of that type, +/- 2^(8*sizeof(long)-1).
+  As \c lame_encode_buffer(), but the samples are \c long, and full scale is
+  the whole range of \c long, +/- 2^(8*sizeof(long)-1).
 
-  This is the \c long entry point to use for data that fills a \c long;
-  \c lame_encode_buffer_long() takes the same type but expects the range of a
+  Use this function for data that fills a \c long.
+  \c lame_encode_buffer_long() takes the same type, but expects the range of a
   \c short.
 
   \param gfp          the encoder instance.
@@ -2234,8 +2232,8 @@ lame_encode_buffer_int(lame_global_flags * gfp,
   \param pcm_r        PCM data for the right channel.
   \param nsamples     number of samples per channel.
   \param mp3buf       receives the encoded MP3 stream.
-  \param mp3buf_size  size of \a mp3buf in bytes, or 0 to declare the buffer
-                      large enough and skip the check.
+  \param mp3buf_size  size of \a mp3buf in bytes. 0 means that LAME does not
+                      check the size.
   \return As \c lame_encode_buffer().
 */
 int
@@ -2252,20 +2250,20 @@ lame_encode_buffer_long2(lame_global_flags * gfp,
 /*! Encode PCM given as \c long, scaled as if it were \c short. */
 /*!
   \ingroup api_encoding
-  As \c lame_encode_buffer(), but the samples are \c long. They are still
-  expected in the range of a \c short, +/- 32768, so the wider type carries no
-  more precision than a \c short would.
+  As \c lame_encode_buffer(), but the samples are \c long. The range is still
+  that of a \c short, +/- 32768, so the wider type gives no more precision
+  than a \c short.
 
-  \c lame_encode_buffer_long2() takes the same type with the range that type
-  implies, and is the one to use for data that fills a \c long.
+  \c lame_encode_buffer_long2() takes the same type with the range of \c long.
+  Use it for data that fills a \c long.
 
   \param gfp          the encoder instance.
   \param pcm_l        PCM data for the left channel.
   \param pcm_r        PCM data for the right channel.
   \param nsamples     number of samples per channel.
   \param mp3buf       receives the encoded MP3 stream.
-  \param mp3buf_size  size of \a mp3buf in bytes, or 0 to declare the buffer
-                      large enough and skip the check.
+  \param mp3buf_size  size of \a mp3buf in bytes. 0 means that LAME does not
+                      check the size.
   \return As \c lame_encode_buffer().
 */
 int
@@ -2282,22 +2280,22 @@ lame_encode_buffer_long(lame_global_flags * gfp,
 /*! Encode interleaved PCM given as \c short. */
 /*!
   \ingroup api_encoding
-  As \c lame_encode_buffer(), but both channels arrive in one buffer, their
-  samples alternating, left channel first.
+  As \c lame_encode_buffer(), but both channels are in one buffer. The samples
+  alternate, left channel first.
 
-  A session set to one input channel (\c lame_set_num_channels()) is refused
-  with #LAME_BADINPUTDATA. An interleaved buffer is read as two channels with a
-  stride of two, and a buffer holding one channel has no second channel to
-  read; single-channel input goes through the non-interleaved entry points.
-  Encoding two input channels down to a mono output is not affected.
+  If the instance is set to one input channel (\c lame_set_num_channels()),
+  the call fails with #LAME_BADINPUTDATA. This function always reads two
+  channels from the buffer. For one input channel, use a non-interleaved entry
+  point such as \c lame_encode_buffer(). Encoding two input channels to a mono
+  output works as usual.
 
   \param gfp          the encoder instance.
   \param pcm          PCM data for both channels, interleaved.
   \param nsamples     number of samples in one channel, which is half the
                       number of values in \a pcm.
   \param mp3buf       receives the encoded MP3 stream.
-  \param mp3buf_size  size of \a mp3buf in bytes, or 0 to declare the buffer
-                      large enough and skip the check.
+  \param mp3buf_size  size of \a mp3buf in bytes. 0 means that LAME does not
+                      check the size.
   \return As \c lame_encode_buffer().
 */
 int
@@ -2313,20 +2311,20 @@ lame_encode_buffer_interleaved(lame_global_flags * gfp,
 /*! Encode interleaved PCM given as \c int, using the full range of the type. */
 /*!
   \ingroup api_encoding
-  As \c lame_encode_buffer_interleaved(), but the samples are \c int and full
-  scale is the whole range of that type, +/- 2^(8*sizeof(int)-1), as for
+  As \c lame_encode_buffer_interleaved(), but the samples are \c int, and full
+  scale is the whole range of \c int, +/- 2^(8*sizeof(int)-1), as for
   \c lame_encode_buffer_int().
 
-  A session set to one input channel is refused with #LAME_BADINPUTDATA, for
-  the reason given at \c lame_encode_buffer_interleaved().
+  If the instance is set to one input channel, the call fails with
+  #LAME_BADINPUTDATA, as for \c lame_encode_buffer_interleaved().
 
   \param gfp          the encoder instance.
   \param pcm          PCM data for both channels, interleaved.
   \param nsamples     number of samples in one channel, which is half the
                       number of values in \a pcm.
   \param mp3buf       receives the encoded MP3 stream.
-  \param mp3buf_size  size of \a mp3buf in bytes, or 0 to declare the buffer
-                      large enough and skip the check.
+  \param mp3buf_size  size of \a mp3buf in bytes. 0 means that LAME does not
+                      check the size.
   \return As \c lame_encode_buffer().
 */
 int
@@ -2342,38 +2340,29 @@ lame_encode_buffer_interleaved_int(lame_t gfp,
 
 
 
-/*****************************************************************
- Flush mp3 buffer, pad with ancillary data so last frame is complete.
- Reset reservoir size to 0
- but keep all PCM samples and MDCT data in memory
- This option is used to break a large file into several mp3 files
- that when concatenated together will decode with no gaps
- Because we set the reservoir=0, they will also decode seperately
- with no errors.
-*********************************************************************/
 /*! Finish one MP3 of a gapless series, keeping the encoder running. */
 /*!
   \ingroup api_encoding
-  Completes the current frame with ancillary data and empties the MP3 buffer,
-  but keeps the buffered PCM and the encoder state, so encoding continues into
-  the next output file. It also resets the bit reservoir, which is what lets
-  the resulting files decode both separately and concatenated without a gap.
+  Fills the current frame with ancillary data and returns the MP3 data in the
+  buffer. It keeps the buffered PCM and the encoder state, so the encode
+  continues into the next output file. It also resets the bit reservoir. So
+  the files can be decoded separately, and joined without a gap.
 
-  Unlike \c lame_encode_flush() this writes no ID3v1 tag. Call
-  \c lame_init_bitstream() before writing the next file if it needs its own
-  leading tags.
+  Unlike \c lame_encode_flush(), this function writes no ID3v1 tag. If the
+  next file needs its own tags at the start, call \c lame_init_bitstream()
+  before you write it.
 
-  This is the "no gap" half of the encoder's split-file support; the caller
-  still has to tell the encoder how many files there are and which one this is
+  This is the "no gap" part of the support for split files. The caller must
+  also tell the encoder how many files there are and which one this is
   (\c lame_set_nogap_total(), \c lame_set_nogap_currentindex()).
 
   \param gfp             the encoder instance.
-  \param mp3buffer       where the remaining MP3 data is written; at least
-                         7200 bytes to hold everything a flush can emit.
-  \param mp3buffer_size  size of \a mp3buffer in bytes, or 0 to declare the
-                         buffer large enough and skip the check.
-  \return the number of bytes written to \a mp3buffer, which may be 0; a
-          negative value on failure, -3 if the instance is not usable.
+  \param mp3buffer       where the remaining MP3 data is written. At least
+                         7200 bytes, which holds everything a flush can write.
+  \param mp3buffer_size  size of \a mp3buffer in bytes. 0 means that LAME
+                         does not check the size.
+  \return the number of bytes written to \a mp3buffer, which can be 0. A
+          negative value on failure. -3 if the instance is not usable.
 */
 int
 lame_encode_flush_nogap(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buffer_size)
@@ -2397,18 +2386,19 @@ lame_encode_flush_nogap(lame_global_flags * gfp, unsigned char *mp3buffer, int m
 /*! Start a new bitstream: write the leading tags and reset the counters. */
 /*!
   \ingroup api_encoding
-  Writes the ID3v2 tag (unless the caller has taken that over with
-  \c lame_set_write_id3tag_automatic()) and the Xing/LAME header to the front
-  of the stream, and zeroes the frame number, the histograms and the peak
-  sample.
+  Writes the ID3v2 tag (unless the caller writes it, see
+  \c lame_set_write_id3tag_automatic()) and the LAME tag frame at the start of
+  the stream. It sets the frame number, the histograms and the peak sample to
+  0.
 
-  \c lame_init_params() already does this, so a caller encoding one file never
-  needs it. It exists for the file after that: call it following
-  \c lame_encode_flush_nogap() to give the next output file its own leading
-  tags and its own statistics.
+  \c lame_init_params() already does this, so a caller that encodes one file
+  never needs it. It is for the next file: call it after
+  \c lame_encode_flush_nogap() to give the next output file its own tags and
+  its own statistics.
 
   \param gfp the encoder instance.
-  \return 0 on success, -3 if the instance is not usable.
+  \retval 0  success.
+  \retval -3 the instance is not usable.
 */
 int
 lame_init_bitstream(lame_global_flags * gfp)
@@ -2464,35 +2454,30 @@ calc_mp3buffer_size_remaining( int mp3buffer_size, int mp3count)
     }
 }
 
-/*****************************************************************/
-/* flush internal PCM sample buffers, then mp3 buffers           */
-/* then write id3 v1 tags into bitstream.                        */
-/*****************************************************************/
-
-/*! Finish the stream: encode what is still buffered and emit the last frames. */
+/*! Finish the stream: encode what is still buffered and write the last frames. */
 /*!
   \ingroup api_encoding
-  The last encoding call for a file. It pads the buffered PCM with silence so
-  the final frame is complete, encodes it, empties the MP3 buffer and - if the
-  library is writing tags itself, see \c lame_set_write_id3tag_automatic() -
-  appends the ID3v1 tag. The amount of padding it added is recorded in the
-  LAME header, so a decoder that reads that header does not play it back.
+  The last encoding call for a file. It fills the buffered PCM with silence so
+  that the last frame is complete, encodes it, and returns the rest of the MP3
+  data. If the library writes the tags itself (see
+  \c lame_set_write_id3tag_automatic()), it also adds the ID3v1 tag. The LAME
+  tag records how much padding was added, so a decoder that reads the tag does
+  not play it.
 
-  Calling it twice is harmless: the second call finds nothing buffered and
-  returns 0.
+  A second call does no harm. It finds nothing in the buffer and returns 0.
 
-  This does not release the instance. \c lame_close() still has to be called,
-  and the statistics and tag calls (\c lame_get_lametag_frame(),
-  \c lame_mp3_tags_fid(), the histograms) are meant to be used between the
-  two, while the encoder state still exists.
+  This function does not release the instance. Call \c lame_close() after it.
+  Use the statistics and tag functions (\c lame_get_lametag_frame(),
+  \c lame_mp3_tags_fid(), the histograms) between the two, while the encoder
+  state still exists.
 
   \param gfp             the encoder instance.
-  \param mp3buffer       where the final MP3 data is written; at least 7200
-                         bytes to hold everything a flush can emit.
-  \param mp3buffer_size  size of \a mp3buffer in bytes, or 0 to declare the
-                         buffer large enough and skip the check.
-  \return the number of bytes written to \a mp3buffer, which may be 0; a
-          negative value on failure, -3 if the instance is not usable.
+  \param mp3buffer       where the last MP3 data is written. At least 7200
+                         bytes, which holds everything a flush can write.
+  \param mp3buffer_size  size of \a mp3buffer in bytes. 0 means that LAME
+                         does not check the size.
+  \return the number of bytes written to \a mp3buffer, which can be 0. A
+          negative value on failure. -3 if the instance is not usable.
 */
 int
 lame_encode_flush(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buffer_size)
@@ -2632,30 +2617,23 @@ lame_encode_flush(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buff
     return mp3count;
 }
 
-/***********************************************************************
- *
- *      lame_close ()
- *
- *  frees internal buffers
- *
- ***********************************************************************/
-
 /*! Release an encoder instance and everything it allocated. */
 /*!
   \ingroup api_encoding
-  The last call for an instance. It frees the internal buffers and, for an
-  instance that came from \c lame_init(), the instance itself, so the pointer
-  must not be used again afterwards.
+  The last call for an instance. It frees the internal buffers. For an
+  instance from \c lame_init(), it also frees the instance itself, so do not
+  use the pointer after this call.
 
-  Call it on any instance \c lame_init() returned, including one whose
-  \c lame_init_params() failed - a failed initialization still leaves buffers
-  to release. It is not a substitute for \c lame_encode_flush(): closing
-  without flushing first discards whatever PCM was still buffered and leaves
-  the file without its final frames and ID3v1 tag.
+  Call it for every instance that \c lame_init() returned, also when
+  \c lame_init_params() failed, because a failed initialization still leaves
+  buffers to free. It does not replace \c lame_encode_flush(). Closing without
+  flushing first discards the PCM still in the buffer, and the file then has
+  no last frames and no ID3v1 tag.
 
   \param gfp the encoder instance, or \c NULL, which does nothing.
-  \return 0 on success; -3 if the instance had already lost its internal
-          state, in which case everything that could still be freed was.
+  \retval 0  success.
+  \retval -3 the instance had already lost its internal state. Everything
+             that could be freed was freed.
 */
 int
 lame_close(lame_global_flags * gfp)
@@ -2682,9 +2660,6 @@ lame_close(lame_global_flags * gfp)
     return ret;
 }
 
-/*****************************************************************/
-/* flush internal mp3 buffers, and free internal buffers         */
-/*****************************************************************/
 #if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
 int CDECL
 lame_encode_finish(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buffer_size);
@@ -2694,23 +2669,23 @@ lame_encode_finish(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buf
 /*! Flush the stream and release the instance in one call. */
 /*!
   \ingroup api_encoding
-  \deprecated Obsolete. Its declaration is compiled out of the installed
-  \c lame.h, so no new program can call it; the definition is still built and
-  exported only so that programs linked against an older release keep working.
-  New code calls \c lame_encode_flush() and then \c lame_close().
+  \deprecated \c lame.h does not declare this function, so no new program can
+  call it. The library still builds and exports it, so that programs built
+  against an older release still work. New code calls \c lame_encode_flush()
+  and then \c lame_close().
 
-  Combining the two loses the window between them: once this returns, the
-  encoder state is gone, so the statistics calls and \c lame_mp3_tags_fid()
-  can no longer be used to complete the VBR header.
+  This function does both at once, so nothing can run between them. After it
+  returns, the encoder state is gone. The statistics functions and
+  \c lame_mp3_tags_fid() then cannot complete the LAME tag.
 
   \param gfp             the encoder instance.
-  \param mp3buffer       where the final MP3 data is written; at least 7200
+  \param mp3buffer       where the last MP3 data is written. At least 7200
                          bytes.
-  \param mp3buffer_size  size of \a mp3buffer in bytes, or 0 to skip the
-                         check.
-  \return what \c lame_encode_flush() returned - the number of bytes written,
-          or a negative value on failure. The instance is released either way,
-          and any error from the release itself is not reported.
+  \param mp3buffer_size  size of \a mp3buffer in bytes. 0 means that LAME
+                         does not check the size.
+  \return the result of \c lame_encode_flush(): the number of bytes written,
+          or a negative value on failure. The instance is released in both
+          cases. An error from the release is not reported.
 */
 int
 lame_encode_finish(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buffer_size)
@@ -2722,31 +2697,25 @@ lame_encode_finish(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buf
     return ret;
 }
 
-/*****************************************************************/
-/* write VBR Xing header, and ID3 version 1 tag, if asked for    */
-/*****************************************************************/
 void    lame_mp3_tags_fid(lame_global_flags * gfp, FILE * fpStream);
 
 /*! Write the finished LAME tag into an already written MP3 file. */
 /*!
   \ingroup api_tags
-  The LAME tag - the leading frame carrying the Xing/Info header, the seek
-  table and the encoder's own fields - can only be completed once the encode
-  is, because it counts what the encode produced. LAME reserves a frame for it
-  at the front of the stream and this call fills that frame in.
+  The LAME tag is the first frame of the stream. It contains the Xing/Info
+  header, the seek table and LAME's own fields. It counts what the encode
+  produced, so it can only be completed at the end. LAME reserves a frame for
+  it at the start of the stream, and this call fills in that frame.
 
-  So it comes last: after \c lame_encode_flush(), and after every byte of MP3
-  data has been written to \a fpStream. It seeks to the end of the file, reads
-  the front of it to step over an ID3v2 tag if one is there, and writes the
-  frame at the position that leaves - so the stream has to be a real file,
-  opened for reading as well as writing. A stream that cannot seek is not
-  usable here.
+  Call it last: after \c lame_encode_flush(), and after all MP3 data is written
+  to \a fpStream. The function skips an ID3v2 tag at the start of the file, if
+  there is one, and writes the frame after it. So \a fpStream must be a file
+  that can seek and is open for reading and writing.
 
-  Nothing is written, and nothing is reported, if the encode is not producing a
-  LAME tag at all (\c lame_set_bWriteVbrTag()).
+  The function writes nothing and reports nothing if the encode does not
+  produce a LAME tag (\c lame_set_bWriteVbrTag()).
 
-  \c lame_get_lametag_frame() is the alternative for a caller that would rather
-  place the frame itself.
+  To place the frame yourself, use \c lame_get_lametag_frame() instead.
 
   \param gfp       the encoder instance.
   \param fpStream  the MP3 file, positioned anywhere, open for update.
@@ -2933,13 +2902,13 @@ lame_init_old(lame_global_flags * gfp)
 /*! Create an encoder instance and fill it with the default settings. */
 /*!
   \ingroup api_encoding
-  The first call of the encoding API. It allocates the context every other
-  \c lame_* function takes, and sets every parameter to its default, so a
-  caller only has to set what it wants to differ from the default.
+  The first call of the encoding API. It creates the encoder instance that
+  every other \c lame_* function takes, and sets every parameter to its
+  default. So a caller only sets what it wants to change.
 
-  Nothing is validated and no encoding state exists yet - that happens in
-  \c lame_init_params(), which must be called once all parameters have been
-  set. The usual sequence is:
+  This function checks nothing, and no encoding state exists yet.
+  \c lame_init_params() does that, after all parameters are set. The usual
+  order is:
 
   \code
   lame_global_flags *gfp = lame_init();
@@ -2948,26 +2917,25 @@ lame_init_old(lame_global_flags * gfp)
   lame_set_in_samplerate(gfp, 44100);
   lame_set_num_channels(gfp, 2);
   lame_set_VBR(gfp, vbr_default);
-  if (lame_init_params(gfp) < 0) {     // validates and locks the settings
+  if (lame_init_params(gfp) < 0) {     // checks the settings, prepares the encoder
       lame_close(gfp);
-      return -1;                       // the settings were not usable
+      return -1;                       // the settings cannot be used
   }
   // ... lame_encode_buffer() per block of PCM ...
   lame_encode_flush(gfp, mp3buf, sizeof mp3buf);
   lame_close(gfp);
   \endcode
 
-  Every instance obtained here must be released with \c lame_close(), which
-  is also the right call after a failed \c lame_init_params().
+  Release every instance from this function with \c lame_close(), also after a
+  failed \c lame_init_params().
 
-  All encoder state lives in the returned instance, so two encoders need one
-  instance each. That is a statement about where the state is kept, not a
-  concurrency guarantee: **LAME promises no thread safety at all**, and a
-  caller that uses it from more than one thread is responsible for its own
-  serialization.
+  All encoder state is in the returned instance. Two encoders need one
+  instance each. This does not make LAME thread-safe: **LAME gives no
+  thread-safety guarantee**. A caller that uses LAME from more than one thread
+  must do its own locking.
 
-  \return a pointer to a new encoder instance, owned by the caller, or
-          \c NULL if memory could not be allocated.
+  \return a new encoder instance, owned by the caller, or \c NULL if memory
+          allocation fails.
 */
 lame_global_flags *
 lame_init(void)
@@ -3021,12 +2989,12 @@ lame_init(void)
 /*! The bitrate each slot of the histograms stands for. */
 /*!
   \ingroup api_statistics
-  Fills \a bitrate_kbps with the 14 bitrates of the MPEG version this instance
-  is encoding to, in the same order as the slots of \c lame_bitrate_hist() -
-  so the two are read side by side to turn a count into a bitrate.
+  Fills \a bitrate_kbps with the 14 bitrates of the MPEG version that this
+  instance encodes, in the order of the slots of \c lame_bitrate_hist(). Read
+  the two together to turn a count into a bitrate.
 
-  A free-format encode has one bitrate rather than a choice of 14: slot 0 then
-  holds it and the other 13 are set to -1.
+  A free-format encode has one bitrate, not 14. Slot 0 then holds it, and the
+  other 13 are -1.
 
   \param gfp           the encoder instance.
   \param bitrate_kbps  receives 14 bitrates in kbps.
@@ -3057,9 +3025,9 @@ lame_bitrate_kbps(const lame_global_flags * gfp, int bitrate_kbps[14])
 /*!
   \ingroup api_statistics
   Fills \a bitrate_count with the number of frames written at each of the 14
-  bitrates, which is what a VBR encode's bitrate distribution is made of. A CBR
-  encode puts every frame in one slot. \c lame_bitrate_kbps() says which
-  bitrate each slot is.
+  bitrates. For a VBR encode this is the bitrate distribution. A CBR encode
+  puts every frame into one slot. \c lame_bitrate_kbps() returns the bitrate
+  of each slot.
 
   \param gfp            the encoder instance.
   \param bitrate_count  receives 14 frame counts.
@@ -3094,8 +3062,8 @@ lame_bitrate_hist(const lame_global_flags * gfp, int bitrate_count[14])
 /*!
   \ingroup api_statistics
   Fills \a stmode_count with the number of frames written in each of the four
-  stereo modes, over all bitrates. This is the figure that says how much of a
-  joint-stereo encode actually came out mid/side.
+  stereo modes, over all bitrates. It shows how much of a joint stereo encode
+  used mid/side.
 
   \param gfp           the encoder instance.
   \param stmode_count  receives 4 frame counts.
@@ -3122,9 +3090,9 @@ lame_stereo_mode_hist(const lame_global_flags * gfp, int stmode_count[4])
 /*!
   \ingroup api_statistics
   Fills \a bitrate_stmode_count with the frame counts of
-  \c lame_stereo_mode_hist() split by bitrate slot, so
-  <tt>[bitrate][stereo mode]</tt>. Summing a column gives what
-  \c lame_stereo_mode_hist() reports.
+  \c lame_stereo_mode_hist(), split by bitrate slot:
+  <tt>[bitrate][stereo mode]</tt>. The sum of a column is the value of
+  \c lame_stereo_mode_hist().
 
   \param gfp                   the encoder instance.
   \param bitrate_stmode_count  receives 14 by 4 frame counts.
@@ -3166,12 +3134,12 @@ lame_bitrate_stereo_mode_hist(const lame_global_flags * gfp, int bitrate_stmode_
   \ingroup api_statistics
   Fills \a btype_count with the number of times each block type was used, over
   all bitrates. The slots are 0 normal, 1 start, 2 short, 3 stop, 4 mixed, and
-  slot 5 the total of the other five.
+  5 the total of the other five.
 
-  These are not frame counts. The block type is chosen per granule and per
-  channel, so one frame contributes as many counts as it has granules times
-  channels - four for a stereo MPEG-1 frame - and slot 5 is what to divide by
-  to get a proportion.
+  These are not frame counts. The block type is chosen for each granule and
+  channel. So one frame adds its number of granules times its number of
+  channels: four for an MPEG-1 stereo frame. Divide by slot 5 to get a
+  proportion.
 
   \param gfp          the encoder instance.
   \param btype_count  receives 5 counts and their total.
@@ -3197,10 +3165,10 @@ lame_block_type_hist(const lame_global_flags * gfp, int btype_count[6])
 /*! Block types broken down by bitrate. */
 /*!
   \ingroup api_statistics
-  Fills \a bitrate_btype_count with the counts of \c lame_block_type_hist()
-  split by bitrate slot, so <tt>[bitrate][block type]</tt>, including the
-  per-bitrate total in column 5. Summing a column gives what
-  \c lame_block_type_hist() reports.
+  Fills \a bitrate_btype_count with the counts of \c lame_block_type_hist(),
+  split by bitrate slot: <tt>[bitrate][block type]</tt>, with the total for
+  each bitrate in column 5. The sum of a column is the value of
+  \c lame_block_type_hist().
 
   \param gfp                  the encoder instance.
   \param bitrate_btype_count  receives 14 by 6 counts.

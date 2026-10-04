@@ -879,32 +879,32 @@ skipId3v2(FILE * fpStream)
 
 
 
-/*! Hand the finished LAME tag frame to the caller instead of writing it. */
+/*! Return the finished LAME tag frame to the caller instead of writing it. */
 /*!
   \ingroup api_tags
-  Builds the same frame \c lame_mp3_tags_fid() would write - the Xing/Info
-  header, the seek table and the encoder's own fields - and copies it into
-  \a buffer, leaving it to the caller to put it in the right place. That is the
-  call to use when the output is not a file this library can seek in, or when
-  the caller is assembling the stream itself.
+  Builds the same frame that \c lame_mp3_tags_fid() would write: the Xing/Info
+  header, the seek table and LAME's own fields. It copies the frame into
+  \a buffer, and the caller puts it in the right place. Use this function when
+  the output is not a file that this library can seek in, or when the caller
+  builds the stream itself.
 
-  Like the writing form it comes last, after \c lame_encode_flush(): the frame
-  reports what the encode produced.
+  Like \c lame_mp3_tags_fid(), call it last, after \c lame_encode_flush(),
+  because the frame describes what the encode produced.
 
-  Where it goes is not a free choice. LAME reserved an empty frame for the tag
-  at the front of the audio data, and this frame replaces that one. Unless the
-  caller wrote something of its own ahead of the audio, that is the start of
-  the file, or the first thing after an ID3v2 tag; a caller that writes its own
-  leading data has to remember where the reserved frame ended up.
+  The place of the frame is fixed. LAME reserved an empty frame for the tag at
+  the start of the audio data, and this frame replaces it. Unless the caller
+  wrote its own data before the audio, that is the start of the file, or the
+  first thing after an ID3v2 tag. A caller that writes its own data first must
+  remember where the reserved frame is.
 
   \param gfp     the encoder instance.
   \param buffer  receives the frame.
   \param size    the size of \a buffer in bytes.
-  \return the number of bytes written to \a buffer; 0 if this encode has no
-          LAME tag to hand over. If \a buffer is too small, the return value is
-          the size the frame needs, which is larger than \a size - so a result
-          greater than \a size means nothing was written and the call should be
-          repeated with a buffer that big.
+  \return the number of bytes written to \a buffer. 0 if this encode has no
+          LAME tag. If \a buffer is too small, the return value is the size
+          that the frame needs, which is larger than \a size. So a result
+          larger than \a size means that nothing was written. Call the
+          function again with a buffer of that size.
 */
 size_t
 lame_get_lametag_frame(lame_global_flags const *gfp, unsigned char *buffer, size_t size)

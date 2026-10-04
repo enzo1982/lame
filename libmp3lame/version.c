@@ -23,8 +23,8 @@
   \file   version.c
   \brief  Version numbering for LAME.
 
-  Contains functions which describe the version of LAME. What each form is
-  for is described with the group: \ref api_version.
+  Contains functions that describe the version of LAME. The group
+  \ref api_version describes what each form is for.
 
   \author A.L. Faber
   \version \$Id$
@@ -64,18 +64,18 @@
 
 /*! Get the LAME version string. */
 /*!
-  The full form, meant for a screen report: for an alpha or beta build it
-  carries the build date, and for an alpha the build time as well, so two
-  builds of identical sources do not necessarily produce the same string. An
-  alpha or beta build made from a Subversion or git working copy also names
-  that working copy's revision.
-  Nothing about the layout is guaranteed - to compare versions, use
-  \c get_lame_version_numerical(); to put a version into an encoded stream,
-  use \c get_lame_short_version(), which never varies between builds.
+  The full form, for display. For an alpha or beta build it contains the build
+  date, and for an alpha also the build time. So two builds of the same source
+  can give different strings. An alpha or beta build from a Subversion or git
+  working copy also names the revision of that working copy.
 
-  \return a pointer to a static, never-NULL string describing the version of
-          LAME. It belongs to the library and must not be freed or modified;
-          it stays valid for the lifetime of the process.
+  The layout is not guaranteed. To compare versions, use
+  \c get_lame_version_numerical(). To write a version into an encoded stream,
+  use \c get_lame_short_version(), which is the same for every build.
+
+  \return a static string that describes the version of LAME, never NULL. It
+          belongs to the library, so do not free or change it. It is valid as
+          long as the process runs.
 */
 const char *
 get_lame_version(void)
@@ -106,14 +106,14 @@ get_lame_version(void)
 
 /*! Get the short LAME version string. */
 /*!
-  The same version as \c get_lame_version() with the build date and time left
-  out, so two builds of identical sources produce identical output. That is
-  what makes it the form to embed in an encoded stream, and what makes an
-  encoder's output reproducible.
+  The same version as \c get_lame_version(), without the build date and time.
+  So two builds of the same source give the same string. This makes it the
+  form to write into an encoded stream, and keeps the output of the encoder
+  reproducible.
 
-  \return a pointer to a static, never-NULL string holding the version of
-          LAME. It belongs to the library and must not be freed or modified;
-          it stays valid for the lifetime of the process.
+  \return a static string that holds the version of LAME, never NULL. It
+          belongs to the library, so do not free or change it. It is valid as
+          long as the process runs.
 */
 const char *
 get_lame_short_version(void)
@@ -140,20 +140,20 @@ get_lame_short_version(void)
 
 /*! Get the _very_ short LAME version string. */
 /*!
-  The most compact form: `"LAME"` followed by the major and minor version, a
-  one-character build type (`'a'` alpha, `'b'` beta, `'r'` a patched release,
-  `' '` otherwise) and, for a patched release, the patch level. Provided for a
-  caller that has very little room; the library itself does not use it, and
-  the encoder writes its own version into the LAME tag through a separate
-  internal function whose width is fixed for binary compatibility.
+  The shortest form: `"LAME"`, the major and minor version, a one-character
+  build type (`'a'` alpha, `'b'` beta, `'r'` a patched release, `' '`
+  otherwise), and for a patched release the patch level. It is for a caller
+  with very little room. The library does not use it. The encoder writes its
+  version into the LAME tag with a separate internal function, whose width is
+  fixed for binary compatibility.
 
-  Unlike that one, this string has **no guaranteed maximum length** - it grows
-  with the version numbers - so a caller copying it into a fixed-size field
-  must bound the copy itself.
+  This string has **no guaranteed maximum length**. It grows with the version
+  numbers. So a caller that copies it into a field of fixed size must limit
+  the copy itself.
 
-  \return a pointer to a static, never-NULL string holding the version of
-          LAME. It belongs to the library and must not be freed or modified;
-          it stays valid for the lifetime of the process.
+  \return a static string that holds the version of LAME, never NULL. It
+          belongs to the library, so do not free or change it. It is valid as
+          long as the process runs.
 */
 const char *
 get_lame_very_short_version(void)
@@ -235,15 +235,15 @@ compiletime_assert(sizeof("LAME" STR(LAME_MAJOR_VERSION) "." STR(LAME_MINOR_VERS
 
 /*! Get the version string for GPSYCHO. */
 /*!
-  GPSYCHO is the psychoacoustic model LAME encodes with; it carries its own
-  version, which moves independently of LAME's. As with
-  \c get_lame_version(), an alpha or beta build embeds the build date, so the
-  string is not a comparable value - \c get_lame_version_numerical() reports
-  the same numbers in comparable form.
+  GPSYCHO is the psychoacoustic model that LAME uses. It has its own version,
+  which changes separately from the version of LAME. As with
+  \c get_lame_version(), an alpha or beta build contains the build date, so
+  the string cannot be compared. \c get_lame_version_numerical() returns the
+  same numbers in a form that can be compared.
 
-  \return a pointer to a static, never-NULL string describing the version of
-          GPSYCHO. It belongs to the library and must not be freed or
-          modified; it stays valid for the lifetime of the process.
+  \return a static string that describes the version of GPSYCHO, never NULL.
+          It belongs to the library, so do not free or change it. It is valid
+          as long as the process runs.
 */
 const char *
 get_psy_version(void)
@@ -267,12 +267,13 @@ get_psy_version(void)
 
 /*! Get the URL for the LAME website. */
 /*!
-  Fixed at compile time. Offered so a program reporting the encoder can point
-  its users at the project without hard-coding an address that may move.
+  Fixed when the library is built. A program that reports the encoder can
+  point its users to the project, without writing an address into its own
+  code that may change.
 
-  \return a pointer to a static, never-NULL string holding the project's URL.
-          It belongs to the library and must not be freed or modified; it
-          stays valid for the lifetime of the process.
+  \return a static string that holds the URL of the project, never NULL. It
+          belongs to the library, so do not free or change it. It is valid as
+          long as the process runs.
 */
 const char *
 get_lame_url(void)
@@ -285,14 +286,15 @@ get_lame_url(void)
 
 /*! Get the numerical representation of the version. */
 /*!
-  The comparable form of everything the version strings report: LAME's own
-  version and the psychoacoustic model's, each as separate integers, so a
-  caller can test for a minimum version instead of parsing text.
+  Everything that the version strings contain, as integers that can be
+  compared: the version of LAME and the version of the psychoacoustic model,
+  each as separate numbers. So a caller can test for a minimum version
+  without parsing text.
 
-  \c alpha and \c beta hold the patch level of an alpha or beta build and are
-  0 otherwise; at most one of them is ever non-zero. \c features is retained
-  for compatibility and is always the empty string - make no assumptions about
-  its contents.
+  \c alpha and \c beta hold the patch level of an alpha or beta build, and
+  are 0 otherwise. At most one of them is non-zero. \c features stays for
+  compatibility and is always the empty string. Make no assumptions about its
+  content.
 
   \code
       lame_version_t v;
@@ -302,9 +304,9 @@ get_lame_url(void)
       }
   \endcode
 
-  \param lvp  the structure to fill in. Must not be NULL - it is written
-              unconditionally, and every field is assigned, so it need not be
-              initialised first.
+  \param lvp  the structure to fill in. It must not be NULL. The function
+              always writes it and sets every field, so it does not need to
+              be initialized first.
 */
 void
 get_lame_version_numerical(lame_version_t * lvp)
@@ -340,14 +342,13 @@ get_lame_version_numerical(lame_version_t * lvp)
 
 /*! Get the pointer width the library was built for. */
 /*!
-  Reports the build, not the operating system: it is derived from the size of
-  a pointer in this translation unit, so a 32-bit library on a 64-bit system
-  reports 32 bits. Intended for a version banner alongside
-  \c get_lame_version().
+  Describes the build, not the operating system. It comes from the size of a
+  pointer in the library, so a 32-bit library on a 64-bit system returns 32
+  bits. It is meant for a version line next to \c get_lame_version().
 
   \return \c "32bits" or \c "64bits", or the empty string on a target whose
-          pointers are neither 4 nor 8 bytes wide - never NULL. The string
-          belongs to the library and must not be freed or modified.
+          pointers are neither 4 nor 8 bytes wide. Never NULL. The string
+          belongs to the library, so do not free or change it.
 */
 const char *
 get_lame_os_bitness(void)
