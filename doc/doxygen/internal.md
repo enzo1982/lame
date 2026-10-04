@@ -19,11 +19,11 @@ guarantee; do not rely on them from outside the library.
 
 Longer-form notes on how a subsystem is built and why it is built that way:
 
-- @ref vector_dispatch - the run-time SIMD dispatch ladder for the hot
-  quantization loops, and why it stops where it does: no SSE4.1/SSE4.2 rung,
-  no AVX2 tier for the variable-bitrate noise estimate, and an AVX-512 tier
-  above AVX2 that carries one constant-bitrate kernel, the quantization loop.
-  Its variable-bitrate half was built, measured on two machines and rejected.
+- @ref vector_dispatch - the tiers of SIMD routines that LAME selects at run
+  time, and why each tier has the routines it has. There is no SSE4.1 or
+  SSE4.2 tier, the VBR noise estimate has an SSE2 version only, and the
+  AVX-512 tier has one routine, the quantization loop of `count_bits()`.
+  @ref vector_dispatch_record has the measurements behind these decisions.
 
 ## Maintainer guides
 

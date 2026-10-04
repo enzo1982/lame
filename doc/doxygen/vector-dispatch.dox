@@ -1,494 +1,501 @@
 /**
-@page vector_dispatch Vector dispatch and the capability ladder
+@page vector_dispatch Vector dispatch and the tiers
 
 @tableofcontents
 
-LAME's hottest quantization loops carry hand-written SIMD implementations that
-are chosen at run time from the instruction sets the executing CPU reports. This
-page records the shape of that dispatch ladder and, in particular, the
-decisions that are easy to second-guess later: why the ladder has no SSE4.1 or
-SSE4.2 rung, why the variable-bitrate noise routine is SSE2-only with no AVX2
-tier, why the AVX-512 rung covers the quantization loop and not the table
-search, and why the ARM rung carries one routine where the x86 one carries
-seven. Every one of them is counter-intuitive, so the reasoning is kept here
-rather than only in the commit history &mdash; several of them because the code
-was written and the answer still turned out to be no, or not yet, which is
-exactly the kind of result that gets repeated if it is not written down.
+LAME has hand-written SIMD versions of its most time-critical quantization
+loops. At run time, LAME selects them from the instruction sets that the CPU
+reports. This page describes the tiers, how a dispatch site selects a routine,
+and four decisions:
 
-@section vector_dispatch_ladder The ladder
+- There is no SSE4.1 or SSE4.2 tier.
+- @c calc_sfb_noise_x34() has an SSE2 version only.
+- The AVX-512 tier has the quantization loop, but not the table search.
+- The ARM tier has one routine. The x86 tiers have seven.
 
-@c vector_implementation() returns a @c vector_impl_t naming the tier this
-instance runs. Every dispatch site tests <em>">= the tier my routine
-needs"</em>, so a routine that exists only at a lower tier is still selected on a
-machine that offers a higher one. There is exactly one selector and one
-enumerator; adding a tier is one branch in the selector and one row in the table
-in @c util.c that answers every question about vector routines.
+Each decision is based on measurements. The page @ref vector_dispatch_record
+records them.
 
-The rungs are per architecture, because they are instruction sets and those do
-not cross:
+@section vector_dispatch_ladder The tiers
+
+@c vector_implementation() returns a @c vector_impl_t. It names the tier of
+this encoder instance. Each dispatch site tests whether this tier is at least
+the tier that its routine needs. So a routine that exists only in a lower tier
+is also used on a machine with a higher tier. There is one selector and one
+enumeration. To add a tier, add one branch in the selector and one row in the
+table in @c util.c. That table is the only place that lists the vector routines
+of a build.
+
+The tiers depend on the architecture:
 
 <ul>
-<li><b>x86: scalar &rarr; SSE2 &rarr; AVX2 &rarr; AVX-512</b>, with nothing
-between SSE2 and AVX2. On x86-64 the SSE2 tier needs no feature probe at all:
-every x86-64 CPU has SSE2, and so do most 32-bit x86 CPUs made since 2001, so the SSE2
-win is unconditional. The two rungs above it are gated on run-time feature
-bits.</li>
-<li><b>ARM: scalar &rarr; NEON</b>, one rung and one routine on it. Advanced
-SIMD is architectural on AArch64, so the compile-time question answers itself
-there; on 32-bit ARM it is optional and the run-time probe decides.</li>
+<li><b>x86: scalar, SSE2, AVX2, AVX-512.</b> There is no tier between SSE2 and
+AVX2. Every x86-64 CPU has SSE2, so on x86-64 the SSE2 tier needs no run-time
+check. Most 32-bit x86 CPUs made since 2001 also have SSE2. On 32-bit x86, a
+run-time check decides, unless the build already targets SSE2. AVX2 and
+AVX-512 are always checked at run time, unless the build already targets
+them.</li>
+<li><b>ARM: scalar, NEON.</b> The NEON tier has one routine. Every AArch64 CPU
+has Advanced SIMD, so on AArch64 no check is needed. On 32-bit ARM it is
+optional, and a run-time check decides.</li>
 </ul>
 
-The lever is @c --vector, which names the set to run rather than the sets to
-avoid: @c --vector @c none for the scalar code, @c --vector followed by a set's
-name to pin an encode to it even where the processor offers a wider one. The
-deprecated @c --noasm maps onto it and says so.
+The option @c --vector names the set to use: @c --vector @c none selects the
+scalar code, and @c --vector with the name of a set selects that set, even if
+the CPU offers a wider one. The old option @c --noasm still works. It selects
+the same thing, and it prints a warning that it is deprecated.
 
-@subsection vector_dispatch_reach How a tier actually reaches a routine
+@subsection vector_dispatch_reach How a dispatch site gets the tier
 
-Worth stating explicitly, because getting it wrong is invisible. Two different
-routes carry the tier to a dispatch site, and only one of them follows
+A mistake here is invisible, so this section states it in full. The tier gets
+to a dispatch site in one of two ways. Only the first way follows
 @c vector_implementation() automatically:
 
 <ul>
-<li><b>Straight from the instance.</b> @c quantize_xrpow() is handed
-@c vector_implementation(gfc) at the call site, so a new tier is reached there as
-soon as the selector can return it.</li>
-<li><b>Through a function pointer.</b> The table search is not called directly:
-@c huffman_init() installs one of @c choose_table_c / @c choose_table_sse2 /
-@c choose_table_avx2 in @c gfc->choose_table, and <em>that wrapper</em> is what
-passes a fixed @c vector_impl_t into @c choose_table_x(), which in turn hands it
-to @c ix_max_v() and the counting routines. A tier with no wrapper of its own
-therefore never reaches any of them, no matter what the processor reports or
-what the user asked for.</li>
+<li><b>Directly from the instance.</b> The call site of @c quantize_xrpow()
+passes @c vector_implementation(gfc). When the selector returns a new tier,
+@c quantize_xrpow() gets it at once.</li>
+<li><b>Through a function pointer.</b> The table search is not called directly.
+@c huffman_init() stores one of @c choose_table_c, @c choose_table_sse2,
+@c choose_table_avx2 or @c choose_table_neon in @c gfc->choose_table. Each of
+these wrappers passes a fixed @c vector_impl_t to @c choose_table_x(), and
+@c choose_table_x() passes it to @c ix_max_v() and to the counting routines.
+A tier without its own wrapper never gets to these routines, whatever the CPU
+reports and whatever the user selects.</li>
 </ul>
 
-The second route is why an AVX-512 tier can look complete &mdash; probe, table
-row, enumerator, compiled kernels, exported symbols, passing unit tests &mdash;
-and still never execute a single one of its table-search instructions inside an
-encode. It also means a bitstream comparison between two tiers cannot tell you
-the higher one ran: identical output is exactly what an unreachable kernel
-produces. Any new rung wants a check that <em>fails</em> if its routines are
-absent, not one that passes when nothing changes.
+Because of the second way, a tier can look complete and still never run its
+table search in an encode. The CPU check, the table row, the enumeration value,
+the compiled routines, the exported symbols and passing unit tests are all not
+enough. A bitstream comparison between two tiers also cannot show that the
+higher tier ran, because a routine that never runs gives identical output. A new
+tier needs a check that <em>fails</em> if its routines are missing, not a check
+that passes when nothing changes.
 
-@section vector_dispatch_no_sse4 Why there is no SSE4.1 / SSE4.2 tier
+@section vector_dispatch_no_sse4 No SSE4.1 or SSE4.2 tier
 
-For every routine vectorized here, an SSE4.1 or SSE4.2 implementation is no
-faster than &mdash; and usually slower than &mdash; the SSE2 one. This inverts
-the usual "a newer instruction set is faster" intuition, and the reason is
-specific and measurable.
+For every routine on this page, an SSE4.1 or SSE4.2 version is not faster than
+the SSE2 version, and is usually slower.
 
-The largest win is the Huffman table search (@c ix_max(), @c choose_table()):
-find a region's maximum quantized coefficient and sum code lengths over table
-lookups. Every value it touches is bounded by @c IXMAX_VAL @c = @c 8206, which is
-below 2<sup>15</sup> = 32768, so all of it fits in signed 16-bit lanes. That one
-fact inverts the instruction-set ranking:
+The reason is the data. The table search (@c ix_max(), @c choose_table()) finds
+the largest quantized value of a region and adds up code lengths from tables.
+Every value it reads is at most @c IXMAX_VAL @c = @c 8206, which is below
+2<sup>15</sup> = 32768. So all values fit into signed 16-bit lanes:
 
-- <b>SSE2</b> has the packed 16-bit integer operations this needs &mdash;
-  @c pmaxsw (max), @c pminsw (clamp), @c packssdw (pack two 32-bit vectors into
-  one 16-bit vector) and @c pmaddwd (the lookup's index arithmetic in one
-  instruction) &mdash; and processes <b>eight lanes per instruction</b>.
-- <b>SSE4.1</b>'s relevant additions (@c pmaxsd, @c pminsd, @c pmulld,
-  @c pextrd) work on 32-bit lanes: <b>four lanes per instruction</b>. For data
-  that fits in 16 bits, that is half the width for no benefit.
+- <b>SSE2</b> has the 16-bit integer instructions that this needs:
+  @c pmaxsw (maximum), @c pminsw (clamp), @c packssdw (packs two 32-bit vectors
+  into one 16-bit vector) and @c pmaddwd (computes the table index in one
+  instruction). Each instruction works on <b>eight lanes</b>.
+- <b>SSE4.1</b> adds @c pmaxsd, @c pminsd, @c pmulld and @c pextrd. These work
+  on 32-bit lanes, so each instruction works on only <b>four lanes</b>. For
+  values that fit into 16 bits, this is half the width for no gain.
 
-Measured on a Core i7-10700 (GCC 16.1, ns per element at region length 576):
-the region maximum is about a quarter faster in the 8-lane SSE2 form than in
-SSE4.1's @c pmaxsd (0.058 vs 0.082 ns), and the table lookup's manual gather is
-roughly 3.0&times; scalar under SSE2 versus only about 1.8&times; under SSE4.1.
-SSE4.1 loses on both primitives.
+SSE4.2 adds only string and CRC instructions. None of them helps the encoder,
+so for this work SSE4.2 is the same as SSE4.1.
 
-SSE4.2 adds only string and CRC instructions (@c pcmpestri, @c pcmpistri,
-@c crc32) over SSE4.1 &mdash; none of them a numeric SIMD operation an audio
-encoder's inner loops can use &mdash; so for this work SSE4.2 is identical to
-SSE4.1, i.e. "nothing over SSE2". This is not academic: the project's FreeBSD
-validation host is a Westmere Xeon (SSE4.2, no AVX at all), and it receives the
-entire table-search win because that win lives at the SSE2 baseline and needs
-nothing above it.
+The float routines (@c quantize_lines_xrpow(), @c calc_sfb_noise_x34()) also
+gain nothing from SSE4.x. SSE2 already has all single-precision float
+instructions they use. The float instructions of SSE4.1 (@c dpps, @c blendps,
+@c roundps, @c insertps) do things these routines do not do.
 
-The float routines (@c quantize_lines_xrpow(), @c calc_sfb_noise_x34()) do not
-need SSE4.x either: SSE2 already has the full single-precision float instruction
-set (@c mulps, @c addps, @c subps, @c cvttps2dq), and SSE4.1's float additions
-(@c dpps, @c blendps, @c roundps, @c insertps) buy nothing here &mdash; there is
-no dot product, no blend, and the truncation is @c cvttps (SSE2), not a
-rounding-mode @c roundps.
+So a CPU with SSE4.2 and no AVX gets the full table-search gain from the SSE2
+tier. The FreeBSD test host of the project is such a CPU (a Westmere Xeon).
 
-@subsection vector_dispatch_saturation The 16-bit correctness constraint
+@subsection vector_dispatch_saturation The 16-bit limit
 
-@c packssdw saturates at 32767, so the 16-bit maximum is a drop-in for
-@c ix_max() only <em>as @c choose_table() uses it</em>: the result is only ever
-tested against @c IXMAX_VAL and a @c linbits bucket, and @c IXMAX_VAL @c = @c 8206
-is far below the saturation point. Values that matter are therefore exact, and
-anything larger clamps to 32767, which still lands in the "> @c IXMAX_VAL, give
-up" branch. A compile-time assertion beside @c ix_max_sse2() (in @c takehiro.c)
-fails the build if @c IXMAX_VAL is ever raised past the saturation point. The
-trick is correct for this one caller, not in general.
+@c packssdw saturates at 32767. So the 16-bit maximum can replace @c ix_max()
+only for the way @c choose_table() uses the result. @c choose_table() only
+compares the result with @c IXMAX_VAL and with the @c linbits limits.
+@c IXMAX_VAL @c = @c 8206 is far below 32767. So every value that matters is
+exact, and every larger value becomes 32767, which is also above
+@c IXMAX_VAL. A compile-time assertion in @c takehiro.c stops the build if
+@c IXMAX_VAL is ever raised to 32767 or more. This works for this one caller,
+not in general.
 
-@section vector_dispatch_no_vbr_avx2 Why calc_sfb_noise_x34() has no AVX2 tier
+The ARM routine uses 32-bit lanes and does not narrow the values, so this limit
+applies to the x86 tiers only.
 
-@c calc_sfb_noise_x34() estimates per-scalefactor-band quantization noise; it is
-a variable-bitrate routine (the constant-bitrate path never calls it). An AVX2
-version was written, measured, and dropped: on a Core i7-10700 it ran at
-1.00&times; &plusmn; 0.01 over the SSE2 tier for a whole VBR encode on both GCC
-and MSVC &mdash; inside the measurement noise, against a real 6&ndash;8% the same
-AVX2 tier delivers on the constant-bitrate routines. Three reasons compound:
+@section vector_dispatch_no_vbr_avx2 calc_sfb_noise_x34() has SSE2 only
 
-1. <b>Gather-bound.</b> Each four-element block does two data-dependent table
-   lookups (@c adj43[] in the quantizer step, @c pow43[] in the noise step). AVX2
-   would do them as one eight-wide @c vgatherdps, but on Skylake-family and older
-   cores @c vgatherdps is microcoded &mdash; roughly one element loaded per cycle
-   internally, i.e. the same scalar loads wearing one opcode. It removes the
-   reassembly shuffles, which were never the cost.
+@c calc_sfb_noise_x34() estimates the quantization noise of a scalefactor band.
+Only the VBR code in @c vbrquantize.c calls it. This is the default VBR mode.
+AVX2 and AVX-512 versions were written and measured.
+Neither was faster, so neither is in the tree:
 
-2. <b>The reduction is pinned to a four-block.</b> To keep every CPU of an
-   architecture bit-identical, the sum of squares is reduced as
-   (x0&sup2;+x2&sup2;)+(x1&sup2;+x3&sup2;) per four elements into a running
-   scalar. An AVX2 tier processing eight at a time must still reduce its two
-   halves separately, in that order &mdash; it cannot carry an eight-wide
-   accumulator without reassociating the sum and moving the output per-CPU. So
-   width helps only the cheap multiply / subtract / square around the two
-   expensive gathers.
+- Each block of four values needs two table lookups that depend on the data.
+  A wider vector does not make these lookups faster.
+- The sum of squares is computed in a fixed order, so that every CPU of an
+  architecture gives the same bits. A wider vector must keep this order, so it
+  speeds up only the cheap arithmetic around the lookups.
+- VBR encodes spend most of their time in the psychoacoustic model, not in
+  this routine.
 
-3. <b>Amdahl, twice.</b> The SSE2 vectorization of this routine already moves a
-   whole VBR encode by only about 6% on MSVC and about 0% on GCC (whose compiler
-   auto-vectorizes the scalar loop competently), because VBR spends most of its
-   time in the psychoacoustic model, not here. AVX2's increment is a fraction of
-   that already-small share.
+The details and the numbers are in @ref vector_dispatch_record_vbr_avx2 and
+@ref vector_dispatch_record_experiment.
 
-The capability ladder explicitly permits a routine to live at one tier only.
-@c calc_sfb_noise_x34() is the converse of an AVX2-only routine: an SSE2 routine
-with no AVX2 version, because AVX2 has nothing to offer it. Carrying a second
-tier that cannot be shown to do anything is pure cost &mdash; a translation unit,
-a build entry, a dispatch branch and a test path &mdash; so it is not carried.
+@section vector_dispatch_avx512 The AVX-512 tier
 
-@section vector_dispatch_no_avx512 The AVX-512 tier, and why it stops at constant bitrate
+The AVX-512 tier has one routine: the quantization loop
+@c quantize_lines_xrpow(). Only @c count_bits() calls it, and only
+@c quantize.c calls @c count_bits(). So CBR, ABR and the old VBR mode
+(@c --vbr-old) use the AVX-512 tier. The default VBR mode does not use it.
 
-An AVX-512 tier above AVX2 was written in two stages, taken to hardware that has
-the instruction set, and measured end to end on three machines from two vendors.
-The constant-bitrate stage is in the ladder. The variable-bitrate stage is not,
-and was deleted: it failed a bit-exactness test against the tier below it *and*
-it was slower than that tier on the very mode it was written for.
+Measured on three CPUs, the tier gives about 6.5% at 320&nbsp;kbit/s on Ice
+Lake, nothing on Zen 5, and costs about 1% on Zen 4. It is enabled on all of
+them. The dispatch tests only what the CPU can run. It never tests the vendor
+or the model, so the selected routine always follows from the instruction sets
+alone.
 
-The SSE4.x decision above rests on microbenchmarks and an instruction-count
-argument. This one rests on timed encodes of the finished code, taken by three
-members of the lame-dev list on machines the project does not own, because no
-machine here has the instruction set.
+The tier has no table search and no @c calc_sfb_noise_x34(). Both were written
+and measured, and then removed:
+
+- The AVX-512 @c calc_sfb_noise_x34() did not give the same result as the SSE2
+  version, and it was 6.6% slower at @c -V2 on Ice Lake.
+- The AVX-512 table search was faster on Intel at @c -b @c 320 and slower on
+  Zen 4. No setting enables it correctly for every CPU. VBR also uses the table
+  search, so enabling it for one mode only would need a mode test in the
+  dispatch.
+
+The numbers are in @ref vector_dispatch_record_avx512 and
+@ref vector_dispatch_record_experiment.
+
+@section vector_dispatch_arm The ARM tier
+
+The x86 tiers have seven hand-written routines. The ARM tier has one:
+@c count_bit_esc_neon(), the counting loop for the escape tables. It gives
+about 3.5% on a 320&nbsp;kbit/s encode and about 1% on VBR.
+
+Each of the seven x86 routines was checked for ARM:
+
+- For three of them, clang already produces equivalent vector code from the
+  plain C on AArch64, so no NEON version was written.
+- For two of them (the FFT and the counting loop without escape), a NEON
+  version was written and measured. Both were slower than the code clang
+  produces from the plain C, so both were removed.
+
+The details are in @ref vector_dispatch_record_arm.
+
+@section vector_dispatch_gaps Why each routine is missing
+
+The tiers miss routines for four different reasons:
+
+- <b>SSE4.1 and SSE4.2:</b> no version was written, because the instructions
+  give nothing over SSE2 for this data.
+- <b>AVX-512 @c calc_sfb_noise_x34():</b> written twice and measured. It lost
+  both times.
+- <b>AVX-512 table search:</b> written and measured. The result depends on the
+  vendor, so no setting is correct for every CPU.
+- <b>Most ARM routines:</b> the compiler already produces vector code that is
+  as fast or faster.
+
+Only the first reason is a lack of measurement. The other three are measured
+results. The code is gone, and @ref vector_dispatch_record keeps the results.
+*/
+
+/**
+@page vector_dispatch_record Vector dispatch: the measurement record
+
+@tableofcontents
+
+This page records the measurements behind the decisions on
+@ref vector_dispatch. It is a record: it says what was measured, on which
+machines, and what the result was. The current state is on
+@ref vector_dispatch.
+
+@section vector_dispatch_record_sse4 SSE4.1 against SSE2
+
+Measured on a Core i7-10700 with GCC 16.1, in ns per value at a region length of
+576:
+
+- The region maximum is about a quarter faster as 8-lane SSE2 than with the
+  SSE4.1 instruction @c pmaxsd (0.058 against 0.082 ns).
+- The table lookup is about 3.0 times as fast as scalar with SSE2, and only
+  about 1.8 times as fast with SSE4.1.
+
+SSE4.1 is slower in both parts.
+
+@section vector_dispatch_record_vbr_avx2 AVX2 for calc_sfb_noise_x34()
+
+An AVX2 version was written and measured on a Core i7-10700. For a whole VBR
+encode it ran at 1.00&times; &plusmn; 0.01 against the SSE2 tier, with both GCC
+and MSVC. This is inside the measurement noise. The same AVX2 tier gives a real
+6&ndash;8% on the CBR routines. Three causes add up:
+
+1. <b>Table lookups.</b> Each block of four values needs two table lookups
+   that depend on the data: @c adj43[] in the quantization step and @c pow43[]
+   in the noise step. AVX2 can do each as one eight-wide @c vgatherdps. On
+   Skylake and older cores, @c vgatherdps is microcoded and loads about one
+   value per cycle, so it is no faster than scalar loads. It only removes the
+   shuffles that put the values back together, and those were never the cost.
+
+2. <b>The order of the sum is fixed.</b> So that every CPU of an architecture
+   gives the same bits, the sum of squares is computed as
+   (x0&sup2;+x2&sup2;)+(x1&sup2;+x3&sup2;) for each four values, and added to a
+   running scalar sum. An AVX2 version that works on eight values must still
+   add its two halves separately, in this order. An eight-wide accumulator
+   would change the order of the additions, and the output would then depend on
+   the CPU. So the wider vector helps only the cheap multiply, subtract and
+   square around the two expensive lookups.
+
+3. <b>Small share.</b> The SSE2 version of this routine changes a whole VBR
+   encode by only about 6% with MSVC and by about 0% with GCC. GCC already
+   vectorizes the scalar loop well. VBR spends most of its time in the
+   psychoacoustic model, not here. The gain from AVX2 is a part of that small
+   share.
+
+A routine may exist in one tier only. Each extra tier costs a source file, a
+build entry, a dispatch branch and a test. A tier that shows no gain is not
+worth that cost.
+
+@section vector_dispatch_record_avx512 The AVX-512 tier
+
+No machine of the project has AVX-512, and QEMU's TCG does not emulate it. So
+the code was compiled with four toolchains, the disassembly was read
+instruction by instruction, and unit tests were written. Then a test kit went to
+the lame-dev list. Three members ran it on their own machines and timed whole
+encodes.
 
 @subsection vector_dispatch_avx512_built What was built
 
-Two stages, separate because they carried different risks:
+The tier was built in two stages, because the stages had different risks:
 
-- <b>Stage 1</b> &mdash; the run-time rung, plus AVX-512 forms of the Huffman
-  table search (@c ix_max(), @c choose_table()) and the quantization loop
-  (@c quantize_lines_xrpow()). These are elementwise, or reduce with an
-  order-independent maximum, so widening them cannot move the output. This is
-  the stage where the extra width was free of any correctness tax.
-- <b>Stage 2</b> &mdash; @c calc_sfb_noise_x34(), in two reduction orders: one
-  reproducing the narrower tier's pinned per-four-block association exactly, and
-  an opt-in freely-reducing form built only to price what that pinning costs.
+- <b>Stage 1:</b> the run-time check, and AVX-512 versions of the table search
+  (@c ix_max(), @c choose_table()) and of the quantization loop
+  (@c quantize_lines_xrpow()). These routines work value by value, or compute a
+  maximum, which does not depend on the order. So a wider vector cannot change
+  the output.
+- <b>Stage 2:</b> @c calc_sfb_noise_x34(), in two versions. One kept the fixed
+  order of the narrower tier exactly. The other added up freely, and was built
+  only to measure what the fixed order costs.
 
-Only the quantization loop survives. The table search and stage 2 were removed
-after the measurements below. @c quantize_lines_xrpow() is reached only from
-@c count_bits(), which only @c quantize.c calls, so the AVX-512 tier is used
-only by constant-bitrate encodes. Stage 2's kernel was the one piece of AVX-512
-that a variable-bitrate encode would have spent real time in.
+Only the quantization loop is in the tree now. The table search and stage 2 were
+removed after the measurements below.
 
-While the question was open the tier was confined to alpha builds. That gate is
-gone: the measurement settled it, so the tier is now built wherever the compiler
-can build it and selected wherever the processor can run it, exactly like SSE2
-and AVX2, with no configure switch and no version test.
-
-No machine in the project has AVX-512 and QEMU's TCG does not emulate it, so
-none of it could be executed here. It was compiled by four toolchains,
-disassembled and read instruction by instruction, and covered by unit tests
-&mdash; and then sent to lame-dev as a test kit, because what was left genuinely
-needed the hardware.
+While the measurements were open, the tier was built only in alpha versions.
+Since the measurements, the tier is built wherever the compiler can build it,
+and selected wherever the CPU can run it, like SSE2 and AVX2. It needs no
+configure option and no version test.
 
 @subsection vector_dispatch_avx512_tested What was tested, and where
 
-Three machines ran the kit, on Linux, encoding 16-bit stereo 44.1&nbsp;kHz
-music &mdash; between them the first execution of these instructions anywhere:
+Three machines ran the kit on Linux. They encoded 16-bit stereo 44.1&nbsp;kHz
+music. This was the first time these instructions ran anywhere:
 
 | CPU | microarchitecture | compiler | what it ran |
 | :--- | :--- | :--- | :--- |
 | AMD Ryzen 9 7950X3D | Zen 4 | GCC 13.3 | both stages, tests and timings |
-| Intel Core i5-1035G1 | Ice Lake, client | GCC 14.2 | both stages, tests and timings, then a controlled re-run under a harness |
+| Intel Core i5-1035G1 | Ice Lake, client | GCC 14.2 | both stages, tests and timings, then a second run under a benchmark harness |
 | AMD Ryzen 9 9950X3D | Zen 5 | GCC 15 | stage 1, timings only, under a harness |
 
-- <b>Unit tests, stage 1: pass</b> on both machines that ran them. The kernels
-  agree with the scalar reference across every region length, threshold and
-  clamp boundary, index extreme and odd-length tail.
-- <b>Encoder output, stage 1: bit-identical</b> on both machines that ran it, at
-  @c -V2 and at @c -b @c 320. A full encode with the tier active matched the
-  same build pinned to the tier below it, which is the check that covers the seams
-  unit tests do not &mdash; notably @c count_bit_ESC()'s clamped-count
-  accounting. Stage 1 is correct.
-- <b>Unit tests, stage 2: the same single failure</b> on both, across two
-  vendors and two compilers. @c calc_sfb_noise_x34() does not reproduce the
-  narrower tier's result exactly. This is the routine whose sum chooses a
-  scalefactor, so its test asserts bit-exactness against that tier rather than a
-  tolerance, and the reduction is where the two part company: the pinned
-  per-four-block association did not survive widening to sixteen lanes. A tier
-  that cannot reproduce the existing output is not a candidate, independently of
-  its speed.
+- <b>Unit tests, stage 1: passed</b> on both machines that ran them. The
+  routines give the same results as the scalar code for every region length,
+  every limit and clamp value, the largest and smallest index, and odd tails.
+- <b>Encoder output, stage 1: bit-identical</b> on both machines that ran it,
+  at @c -V2 and at @c -b @c 320. A full encode with the tier gave the same
+  bytes as the same build limited to the tier below. This also tests the parts
+  that the unit tests do not test, for example the count of clamped values in
+  @c count_bit_ESC(). Stage 1 is correct.
+- <b>Unit tests, stage 2: the same single failure</b> on both machines, with
+  two vendors and two compilers. @c calc_sfb_noise_x34() did not give exactly
+  the result of the narrower tier. Its sum selects a scalefactor, so its test
+  requires the exact result, not a result within a tolerance. The difference
+  came from the sum: the fixed order of the four-value blocks did not survive
+  the change to sixteen lanes. A tier that changes the existing output is not a
+  candidate, whatever its speed.
 
-Stage 2's <em>encoder</em> output was bit-identical anyway, on both machines.
-That belongs here as a caution rather than as reassurance. The unit test drives
-the routine across inputs an encode does not happen to produce, so it is the
-more sensitive instrument; identical output on one clip is not evidence that two
-tiers agree, and the exact-match test is the one to believe. Its companion test
-&mdash; the one that asserts the harness <em>can</em> report a disagreement
-&mdash; passed on both machines, so the failure is the code and not the
-scaffolding.
+The <em>encoder</em> output of stage 2 was bit-identical anyway, on both
+machines. This is a warning, not a reassurance. The unit test runs the routine
+with inputs that an encode does not happen to produce, so the unit test finds
+more. Identical output on one clip does not prove that two tiers agree. The
+exact test is the one to trust. A second test checks that the test harness
+<em>can</em> report a difference. It passed on both machines, so the failure is
+in the routine, not in the test.
 
 @subsection vector_dispatch_avx512_speed The measurement
 
-A whole encode after a warm-up, comparing the tier against the AVX2 tier
-selected explicitly &mdash; @c --vector @c avx2 against @c --vector @c avx512,
-which is what that option exists for.
+Each run is a whole encode after a warm-up. It compares the AVX-512 tier with
+the AVX2 tier, selected with @c --vector @c avx512 and @c --vector @c avx2.
 
 | CPU | stage | @c -V2 | @c -b @c 320 | runs per arm |
 | :--- | :--- | :--- | :--- | ---: |
-| Zen 4 7950X3D | 1 | wash | <b>1.0% slower</b> | 3 |
+| Zen 4 7950X3D | 1 | within the spread | <b>1.0% slower</b> | 3 |
 | Zen 5 9950X3D | 1 | <b>neutral</b> | <b>no difference</b> | 10 / 25 |
-| Ice Lake i5-1035G1 | 1 | wash | <b>7.6% faster</b> | 3 |
-| Ice Lake i5-1035G1 | 2 | <b>6.6% slower</b> | <b>6.5% faster</b> | 25 &times; 2 orderings |
+| Ice Lake i5-1035G1 | 1 | within the spread | <b>7.6% faster</b> | 3 |
+| Ice Lake i5-1035G1 | 2 | <b>6.6% slower</b> | <b>6.5% faster</b> | 25 &times; 2 orders |
 
-The last row is the one that decided both halves of this, and it is worth being
-precise about why it carries more than the others. It was taken under a
-benchmarking harness reporting a spread, 25 runs per arm, on 16-bit stereo
-44.1&nbsp;kHz music, on mains power &mdash; and then <em>repeated with the two
-arms in the opposite order</em>. The same arm measured in both positions drifts
-between 0.00% and 0.25%, so the ordering of the arms is excluded and that
-machine's noise floor under a harness is a quarter of a percent. All four
-comparisons separate their means by 24 to 40 standard errors.
+The last row decided both questions, and it has the best method of all rows.
+It ran under a benchmark harness that reports the spread, with 25 runs per arm,
+on 16-bit stereo 44.1&nbsp;kHz music, on mains power. Then it ran again with
+the two arms in the opposite order. The same arm in both positions differs by
+0.00% to 0.25%. So the order of the arms does not matter, and the noise floor of
+that machine under a harness is a quarter of a percent. In all four comparisons,
+the means are 24 to 40 standard errors apart.
 
-Two results follow, in opposite directions:
+The two results go in opposite directions:
 
-- <b>Constant bitrate: the tier wins, ~6.5% at 320&nbsp;kbit/s.</b> The row is
-  stage 2, but the number is a stage-1 number: stage 2's only kernel is
-  @c calc_sfb_noise_x34(), reachable solely from inside @c vbrquantize.c, so it
-  cannot execute in a constant-bitrate encode. The two builds run the same
-  instructions here. The earlier three-run figure on the same machine, 7.6%,
-  agrees in sign and roughly in size.
-- <b>Variable bitrate: stage 2 loses, ~6.6% at @c -V2.</b> Nobody had measured
-  variable bitrate under a harness before, on any machine; every "wash" above
-  is three sequential runs. The regression belongs to stage 2's kernel rather
-  than to stage 1: Zen 5 ran stage 1 alone under a harness and returned
-  1.004&nbsp;s against 1.006&nbsp;s at @c -V2, and stage 2's kernel is the
-  variable-bitrate inner loop while stage 1's shared @c choose_table() is three
-  calls per granule.
+- <b>CBR: the tier wins, about 6.5% at 320&nbsp;kbit/s.</b> The row is a stage 2
+  build, but this number measures stage 1. The only routine of stage 2 is
+  @c calc_sfb_noise_x34(), and only @c vbrquantize.c calls it, so it cannot run
+  in a CBR encode. Both builds run the same instructions here. The earlier
+  figure from three runs on the same machine, 7.6%, has the same sign and about
+  the same size.
+- <b>VBR: stage 2 loses, about 6.6% at @c -V2.</b> This was the first VBR
+  measurement under a harness on any machine. Every "within the spread" above
+  comes from three runs one after the other. The loss comes from the routine of
+  stage 2, not from stage 1: Zen 5 ran stage 1 alone under a harness, and
+  measured 1.004&nbsp;s against 1.006&nbsp;s at @c -V2. The routine of stage 2
+  is the inner loop of VBR, while the table search of stage 1 runs three times
+  per granule.
 
-The two AMD numbers are unchanged by all of this. On Zen 4 the arms do not
-overlap &mdash; every AVX-512 run slower than every AVX2 run, reproduced on a
-second input file, so it is not a property of the clip. On Zen 5 the harness
-returned 1.655&nbsp;s against 1.655&nbsp;s at &sigma;&nbsp;0.005&nbsp;s: not
-close, equal.
+The two AMD results stay the same. On Zen 4, every AVX-512 run was slower than
+every AVX2 run. This was repeated with a second input file, so it does not
+depend on the clip. On Zen 5 the harness measured 1.655&nbsp;s against
+1.655&nbsp;s, at &sigma;&nbsp;0.005&nbsp;s. The two arms were equal, not just
+close.
 
-So the ladder gains a rung that pays on one microarchitecture, does nothing on
-one, and costs about 1% on a third. It is enabled on all of them. The dispatch
-ladder tests what the processor can execute and nothing else &mdash; no vendor
-and no model enters the decision &mdash; and a percent at one setting on one
-microarchitecture does not buy back the cost of a dispatcher whose behaviour
-cannot be predicted from the hardware alone.
+Stage 1 at @c -V2 on Intel was later measured directly on the Ice Lake machine,
+with 25 runs per arm in both orders. The AVX-512 tier against AVX2 at @c -V @c 2
+gave <b>-0.17% and +0.17%</b>, against a noise floor of 0.32%: neutral.
 
-@subsection vector_dispatch_avx512_why Why the width buys so little, and where it buys anything
+@subsection vector_dispatch_avx512_why Why the wider vector gains so little
 
-The obvious explanation for the AMD numbers is the datapath: Zen 4 executes
-512-bit operations as two 256-bit halves, so a sixteen-wide instruction does no
-more per cycle than the eight-wide one it replaces. That is true of Zen 4, and it
-is not the reason. Zen 5 is not narrower &mdash; its desktop parts are reported
-to have widened that path &mdash; and Zen 5 measured at zero, not at some
-fraction of a win. If width were the binding constraint, relieving it would have
-shown something.
+The obvious explanation for the AMD results is the datapath. Zen 4 runs a
+512-bit operation as two 256-bit halves, so a sixteen-wide instruction does no
+more work per cycle than the eight-wide one it replaces. This is true for Zen 4,
+but it is not the reason. Zen 5 is reported to have a wider datapath in its
+desktop parts, and Zen 5 measured zero, not a small gain. If the width were the
+limit, a wider path would have shown a gain.
 
-What remains is a property of the loops rather than of any CPU:
+What remains are properties of the loops, not of a CPU:
 
-1. <b>The same two constraints as the AVX2 analysis above, unchanged.</b> The
-   table-search kernels are bounded by @c IXMAX_VAL and already run eight 16-bit
-   lanes at the SSE2 baseline; the band-noise kernel is gather-bound and its
-   reduction is pinned to the narrower tier's association. Doubling the register
-   width relieves none of that. Stage 2 is the demonstration: unpinning the
-   reduction is what widening actually requires, and doing so cost the tier its
-   correctness.
+1. <b>The same two limits as for AVX2 above.</b> The table search is limited by
+   @c IXMAX_VAL, and the SSE2 tier already runs it on eight 16-bit lanes. The
+   band noise routine is limited by its table lookups, and its sum must keep the
+   order of the narrower tier. A wider register does not change any of this.
+   Stage 2 shows it: a wider vector only helps if the order of the sum changes,
+   and changing the order made the result wrong.
 
-2. <b>Amdahl.</b> What was left to win after AVX2 is a small share of the encode,
-   and a fraction of a small share is not measurable against run-to-run spread.
+2. <b>Small share.</b> After AVX2, only a small share of the encode time is
+   left to gain. A part of a small share is smaller than the spread between
+   runs.
 
-Zen 4's halved datapath is then a third-order detail. It explains why Zen 4
-landed slightly on the wrong side of zero rather than exactly on it.
+The halved datapath of Zen 4 is a minor detail. It explains why Zen 4 is slightly
+slower and not exactly equal.
 
-None of that explains the Ice Lake gain, and the honest position is that the
-mechanism there is not established. The plausible reading is that a narrow-issue
-mobile core benefits from halving the instruction count even where the datapath
-is not the constraint, while Zen 5's much wider front end gets nothing from
-fewer uops. That is consistent with every number above &mdash; which is exactly
-what the datapath story was, for three days, before Zen 5 refuted it. Treat it
-as a hypothesis. What would discriminate is per-kernel counter data on an Ice
-Lake part showing whether the gain tracks uop count rather than memory
-behaviour; nothing has produced that yet.
+None of this explains the gain on Ice Lake. Its cause is not known. One
+possible cause: a mobile core that issues few instructions per cycle gains from
+half the instruction count, even when the datapath is not the limit, while the
+much wider front end of Zen 5 gains nothing from fewer micro-operations. This
+fits every number above, but so did the datapath explanation, until the Zen 5
+result disproved it. So it is only a hypothesis. Hardware counter data per
+routine on an Ice Lake CPU could decide it, by showing whether the gain follows
+the micro-operation count or the memory behavior. Nobody has measured this yet.
+The question does not block anything. It matters more for the next
+microarchitecture than for this tier.
 
-@subsection vector_dispatch_avx512_open What is still open
+Intel client CPUs have AVX-512 only for a few generations: from Ice Lake to
+Tiger Lake and Rocket Lake. Alder Lake and later client CPUs do not have it,
+until AVX10. So the CPU with the gain is not typical of current client
+hardware. Zen 4 and Zen 5 are most of the CPUs that use this tier, and there it
+gains nothing or costs about one percent. The tier costs nothing to keep, so it
+stays, but it is not expected to matter often.
 
-One thing, and it is not blocking.
+@section vector_dispatch_record_experiment The removed AVX-512 table search and band noise
 
-<b>The mechanism of the Intel gain</b>, above. It matters less for whether to
-carry the tier than for predicting the next microarchitecture, and it is the sort
-of question that gets answered by hardware counters rather than by more encodes.
-
-<b>Stage 1 at @c -V2 on Intel is no longer open.</b> It used to be, for a
-specific reason: the one variable-bitrate figure taken under a harness on that
-machine was a stage-2 build, so it priced the rejected kernel rather than the
-shipped one. It has since been measured directly on the Ice Lake part, 25 runs
-per arm in both orderings &mdash; the shipped tier against AVX2 at @c -V @c 2
-comes out at <b>-0.17 % and +0.17 %</b> against a 0.32 % floor. Neutral, as the
-indirect evidence had said, and now stated as measured.
-
-One note on scope, because it bounds how much any of this matters. Intel's client
-parts have carried AVX-512 only within a window &mdash; Ice Lake through Tiger
-Lake and Rocket Lake, withdrawn from Alder Lake onwards, and not returning until
-AVX10 &mdash; so the machine that produced the gain is from that window rather
-than representative of current client hardware. Zen 4 and Zen 5 are most of the
-population this rung reaches, and on them it is worth nothing or costs a percent.
-The rung is carried because it is free to carry, not because it is expected to
-matter often.
-
-@section vector_dispatch_arm The ARM rung, and why it carries one routine
-
-The x86 tier hand-writes seven routines. The ARM tier ships <b>one</b>, and the
-difference is a result rather than an omission: each of the seven was taken in
-turn and asked whether a hand-written NEON version beat what the compiler
-already produces on AArch64. Three never needed writing &mdash; clang emits the
-equivalent unprompted, including a native 32-bit signed maximum, which is the
-only reason the SSE2 sibling of the region maximum exists at all, since SSE2 has
-no such instruction and has to fake it. Two more were written, measured and
-retired: the FFT and the no-escape counting loop both came out slower than the
-scalar code clang produces from the plain C.
-
-What is left is @c count_bit_esc_neon(), the escape-coded counting loop, worth
-about 3.5% on a 320&nbsp;kbit/s encode and about 1% on variable bitrate.
-
-The kernel is shaped by one instruction that Advanced SIMD does not have. The
-routine builds a table index from a pair of values, <em>x * 16 + y</em>; the x86
-form narrows the region to sixteen bits so that a single @c pmaddwd turns four
-pairs into four indices. There is no multiply-add-adjacent-pairs at any width on
-ARM, so the same thing is spelt as a multiply by <em>(xlen, 1)</em> per lane
-followed by a pairwise add. That needs no narrowing &mdash; and therefore none
-of the saturation reasoning the x86 file carries comes with it, which is why the
-16-bit range assertion in @c takehiro.c is scoped to the x86 tier alone.
-
-@c vpadd_s32 over the register halves, rather than the @c vpaddq_s32 or
-@c vuzp1q / @c vuzp2q spellings: those are AArch64-only, while this one is in
-the ACLE for both A32 and A64. 32-bit ARM is the whole reason the tier is probed
-for at run time rather than assumed, so the routine is written to build there.
-
-@section vector_dispatch_consequence Consequence
-
-There is no @c VECTOR_IMPL_SSE41 / @c VECTOR_IMPL_SSE42 enumerator, no configure
-probe and no dispatch branch for them. Every x86-64 CPU, and every 32-bit x86 CPU
-with SSE2, receives the full table-search and quantization win at the SSE2
-baseline the build already guarantees; AVX2 adds a further 6&ndash;8% on constant
-bitrate and nothing measurable on variable bitrate.
-
-There <em>is</em> a @c VECTOR_IMPL_AVX512 enumerator, and it is the top of the
-ladder &mdash; but a partial rung. What it carries in an ordinary build is the
-constant-bitrate <b>quantization loop</b>, where a controlled measurement on Ice
-Lake gives about 6.5% at 320&nbsp;kbit/s, Zen 5 gives nothing and Zen 4 costs
-about 1%. It does not carry @c calc_sfb_noise_x34(): that version was written,
-and it both failed to reproduce the narrower tier's output exactly and ran 6.6%
-slower at @c -V2 on the one machine where AVX-512 is worth anything at all.
-
-There <em>is</em> a @c VECTOR_IMPL_NEON enumerator, and on ARM it is the whole
-ladder above scalar. It is a partial rung too, and for its own reason, below.
-
-@section vector_dispatch_avx512_experiment Why there is no AVX-512 table search, and no AVX-512 band noise
-
-Both routines existed. Both were written, unit-tested, kept behind an
-environment switch until they could be measured on silicon that has AVX-512, and
-then <b>removed once they had been</b>. This section is the record of that, and
-of why a third attempt should not start without new grounds.
+Both routines existed. They were written, unit-tested, and kept behind an
+environment variable until testers could measure them on CPUs with AVX-512.
+Then they were removed. This section records why, and why a third attempt needs
+new reasons.
 
 @subsection vector_dispatch_avx512_experiment_what What was measured
 
-The two kernels were carried in a shape designed to make exactly one question
-answerable: each behind its own environment variable, on an alpha build only, so
-a run could switch one on and leave the other off. That turns the question into
-two subtractions <em>within a single run on a single binary</em>, which carry no
-cross-run confound:
+Each routine had its own environment variable, in alpha builds only. So a run
+could enable one routine and leave the other off. Then each routine is measured
+by a difference <em>within one run of one binary</em>, without any effect from
+a second run:
 
 <ul>
-<li><b>arm 3 &minus; arm 2</b> = the Huffman table search on its own;</li>
-<li><b>arm 4 &minus; arm 3</b> = the band-noise estimate on its own.</li>
+<li><b>arm 3 &minus; arm 2</b> = the table search alone</li>
+<li><b>arm 4 &minus; arm 3</b> = the band noise routine alone</li>
 </ul>
 
-Both were run on two microarchitectures, 25 runs per arm, both orderings, on a
-build of the same revision, by testers who own the hardware &mdash; the project
-has none. Positive time means the kernel <em>costs</em>.
+Testers who own the hardware ran this on two microarchitectures, with 25 runs
+per arm, in both orders, on builds of the same revision. A positive time means
+that the routine <em>costs</em> time.
 
 <table>
 <tr><th></th><th>Ice Lake (i5-1035G1)</th><th>Zen 4 (7950X3D)</th></tr>
 <tr><td>table search, @c -V @c 2</td><td>+0.99 / +0.92 %</td><td>+0.86 / +0.76 %</td></tr>
-<tr><td>band noise, @c -V @c 2</td><td><b>+5.63 / +5.57 %</b></td><td>-0.85 / -0.40 %, at that machine's floor</td></tr>
+<tr><td>band noise, @c -V @c 2</td><td><b>+5.63 / +5.57 %</b></td><td>-0.85 / -0.40 %, at the noise floor of that machine</td></tr>
 <tr><td>table search, @c -b @c 320</td><td>-1.5 %, a gain</td><td>+2.5 %</td></tr>
 </table>
 
-@subsection vector_dispatch_avx512_experiment_why Why they are gone
+@subsection vector_dispatch_avx512_experiment_why Why they were removed
 
-<b>The band-noise routine costs time where it can run at all.</b> On Ice Lake it
-is seventeen times the machine's measured floor, and on Zen 4 it cannot be
-distinguished from zero. Nothing here is a gain on any machine, at any setting.
-The reason is the one the SSE2 tier's own note gives: the reduction is pinned to
-a four-block association so every CPU of an architecture produces the same bits,
-so doubling the register width doubles nothing in the fold &mdash; the extra
-lanes buy the cost of entering them and nothing else. That is a property of the
-routine's contract, not of a microarchitecture, which is why the third attempt
-would need a different contract rather than newer hardware.
+<b>The band noise routine costs time.</b> On Ice Lake the cost is seventeen
+times the measured noise floor of the machine. On Zen 4 it cannot be told apart
+from zero. It is not a gain on any machine at any setting. The reason is the
+one given for AVX2: the sum keeps a fixed order of four-value blocks, so that
+every CPU of an architecture gives the same bits. So a wider register does not
+speed up the sum. The extra lanes only add the cost of filling them. This comes
+from the contract of the routine, not from a microarchitecture. A third attempt
+needs a different contract, not newer hardware.
 
-<b>The table search cannot ride along.</b> It is not VBR-only: it is reached
-through @c noquant_count_bits(), which the variable-bitrate path calls too, so
-enabling it "for VBR" would need a mode test in the dispatch &mdash; exactly what
-the ladder decided against. And its own evidence splits by vendor, a gain at
-@c -b @c 320 on Intel and a cost on Zen 4, so there is no setting at which it can
-be switched on for everybody. Note the careful form of that: it is not "the
-kernel is slow", it is "there is no rule that turns it on correctly".
+<b>The table search cannot be enabled on its own.</b> It is not used by VBR
+only: @c noquant_count_bits() calls it, and VBR calls that function too. So
+enabling it "for VBR" would need a mode test in the dispatch, and the dispatch
+has no mode tests. Its own results also depend on the vendor: a gain at
+@c -b @c 320 on Intel, and a cost on Zen 4. So no setting enables it correctly
+for every CPU. The routine is not slow. There is just no rule that enables it
+correctly.
 
-@subsection vector_dispatch_avx512_experiment_lesson What the exercise is worth keeping for
+@subsection vector_dispatch_avx512_experiment_lesson What the experiment taught
 
-Three things outlived the code.
+Three lessons remain after the code is gone.
 
-<b>An experiment that cannot be measured must still be dispatchable.</b> The
-kernels sat in the tree for weeks with no wrapper installing them, so they were
-unreachable from any encode on any machine &mdash; and the field numbers taken in
-that period were quietly numbers about the quantization loop alone. A routine
-nothing can call is not "not yet measured", it is a routine whose measurements
-are about something else.
+<b>An experiment must be reachable from an encode, even before it can be
+measured.</b> For weeks the routines were in the tree, but no wrapper installed
+them. So no encode on any machine ran them, and the field results of that time
+measured only the quantization loop. A routine that nothing calls is not "not
+yet measured": its measurements are about something else.
 
-<b>The switch must announce itself.</b> Each arm printed which experiment it had
-taken in the @c --verbose header, so a report from a run that did not take the
-path could be told apart from one that did. Without that, the failure mode is a
-result rather than a gap.
+<b>The switch must report itself.</b> Each arm printed in the @c --verbose
+header which experiment it ran. So a report from a run that did not take the
+path could be told apart from a run that did. Without this, a missing path
+gives a wrong result instead of a visible gap.
 
-<b>The scaffolding is software too.</b> The first round of @c -V @c 2 numbers
-from both testers turned out to be measuring an uncached @c getenv() in the
-gate's own inner loop &mdash; 5.9 million lookups per encode &mdash; and read as
-a 10 % AVX-512 regression on two vendors. The defect was ours, in the machinery
-built to run the experiment, and it was found on a machine with no AVX-512 at
-all. When a measurement of an experiment surprises you, suspect the experiment's
-plumbing before the silicon.
+<b>The test setup is code too.</b> The first @c -V @c 2 results from both
+testers measured an uncached @c getenv() in the inner loop of the switch:
+5.9 million calls per encode. They looked like a 10% AVX-512 loss on two
+vendors. The bug was in our test code, and it was found on a machine without
+AVX-512. When a measurement of an experiment is surprising, check the setup of
+the experiment before the CPU.
 
-@section vector_dispatch_gaps The shapes of the gaps
+@section vector_dispatch_record_arm The ARM routines
 
-The ladder has four kinds of hole in it, for four different reasons, and keeping
-them apart is the point of this page. SSE4 is missing because the case was never
-made. AVX-512's variable-bitrate half is missing because the case was made,
-built, and measured &mdash; twice, the second time on hardware that could
-actually run it &mdash; and lost both times. AVX-512's table search is missing
-for a different reason again: its evidence splits by vendor, so there is no
-setting at which it can be switched on for everybody, and a rung that needs a
-mode test is the thing this ladder exists to avoid. And most of the ARM tier is
-missing because the compiler had already made the case for itself, which is the
-cheapest way there is for a routine not to exist.
+Each of the seven x86 routines was checked: does a hand-written NEON version
+beat the code that the compiler already produces on AArch64?
 
-Only the first of those is an absence of evidence. The other three are results,
-and the code that produced them is gone precisely because the result is
-recorded here.
+- Three routines needed no NEON version. clang produces equivalent vector code
+  from the plain C. This includes a 32-bit signed maximum. AArch64 has this
+  instruction. SSE2 does not, and that is the only reason the SSE2 region
+  maximum narrows to 16 bits.
+- Two routines were written, measured and removed: the FFT and the counting loop
+  without escape. Both were slower than the code clang produces from the plain
+  C.
+- @c count_bit_esc_neon(), the counting loop for the escape tables, is in the
+  tree. It gives about 3.5% on a 320&nbsp;kbit/s encode and about 1% on VBR.
+
+One missing instruction shapes this routine. The routine builds a table index
+from a pair of values, <em>x * 16 + y</em>. The x86 version narrows the region
+to 16 bits, so that one @c pmaddwd turns four pairs into four indices. ARM has
+no instruction that multiplies and adds adjacent pairs, at any width. So the
+NEON version multiplies by <em>(xlen, 1)</em> per lane and then adds pairs. This
+needs no narrowing, so the 16-bit limit does not apply. For this reason, the
+16-bit assertion in @c takehiro.c is for the x86 tiers only.
+
+The routine adds the register halves with @c vpadd_s32, not with
+@c vpaddq_s32, @c vuzp1q or @c vuzp2q. Those are AArch64 only, while
+@c vpadd_s32 is in the ACLE for both A32 and A64. 32-bit ARM is the reason that
+the tier is checked at run time, so the routine must build there.
 */

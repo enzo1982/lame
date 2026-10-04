@@ -1599,8 +1599,8 @@ fi
 dnl There is deliberately no --enable-avx512, for the same reason there is none
 dnl for SSE2 or AVX2: what the compiler can build is built, and the CPU decides
 dnl at run time, so one binary runs correctly everywhere and no build is
-dnl half-enabled.  The top rung carries only the constant-bitrate kernels; the
-dnl variable-bitrate one was measured and rejected - see @ref vector_dispatch.
+dnl half-enabled.  The AVX-512 tier has only the quantization loop of
+dnl count_bits().  See @ref vector_dispatch for the other routines.
 VECTOR_AVX512_FLAGS=
 if test "x${WITH_XMM}" = xyes; then
 	AC_MSG_CHECKING(working AVX-512 intrinsics)
