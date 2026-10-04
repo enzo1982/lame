@@ -2,14 +2,14 @@
  * @file
  * @brief Reading MPEG audio frame headers, for the Windows client tests.
  *
- * Both client tests ask the same question about what their component produced:
+ * The client tests ask the same question about what their component produced:
  * is this a run of MPEG frames, how many are there, and at how many distinct
  * bitrates. A byte total cannot answer it - a total that comes out low may be a
  * tail that was never flushed, a bitrate that was silently substituted, or a
  * variable rate, and the three are indistinguishable by size. The frame headers
  * tell them apart.
  *
- * The fields are the same fields for both tests, so they are named once here
+ * The fields are the same fields for every test, so they are named once here
  * rather than written twice as shifts and masks over a byte index.
  */
 
@@ -65,7 +65,7 @@ static const int mp3_bitrate_kbps[MP3_BITRATE_INVALID] = {
 };
 
 /** @brief Whether @a h begins with a frame sync. */
-static int
+static inline int
 mp3_is_frame_sync(const unsigned char *h)
 {
     return h[0] == MP3_SYNC_BYTE0
@@ -73,7 +73,7 @@ mp3_is_frame_sync(const unsigned char *h)
 }
 
 /** @brief The bitrate index of the frame at @a h. */
-static int
+static inline int
 mp3_bitrate_index(const unsigned char *h)
 {
     return (h[MP3_HEADER_BITRATE_BYTE] >> MP3_BITRATE_INDEX_SHIFT)
@@ -81,7 +81,7 @@ mp3_bitrate_index(const unsigned char *h)
 }
 
 /** @brief The padding bit of the frame at @a h, in bytes. */
-static int
+static inline int
 mp3_padding_bytes(const unsigned char *h)
 {
     return (h[MP3_HEADER_BITRATE_BYTE] >> MP3_PADDING_SHIFT) & MP3_PADDING_MASK;
@@ -94,7 +94,7 @@ mp3_padding_bytes(const unsigned char *h)
  * frame's sample count divided by the bits in a byte; spelling it that way
  * leaves nothing to look up.
  */
-static int
+static inline int
 mp3_frame_bytes(int index, int padding, unsigned long rate)
 {
     return (MP3_SAMPLES_PER_FRAME / MP3_BITS_PER_BYTE)
@@ -102,7 +102,7 @@ mp3_frame_bytes(int index, int padding, unsigned long rate)
 }
 
 /** @brief Frames one second of audio at @a rate is carried in. */
-static double
+static inline double
 mp3_frames_per_second(unsigned long rate)
 {
     return (double) rate / (double) MP3_SAMPLES_PER_FRAME;
@@ -141,7 +141,7 @@ mp3_frames_per_second(unsigned long rate)
  * @return the lowpass in Hz, 0 for no filter, or @c MP3_TAG_ABSENT when the
  *         first frame carries no LAME tag.
  */
-static int
+static inline int
 mp3_lame_tag_lowpass_hz(const unsigned char *buf, long frame)
 {
     long off;

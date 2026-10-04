@@ -58,6 +58,9 @@
  */
 #define KNOWN_TIME ((time_t) 981173106L)
 
+/** @brief 2002-03-04 05:06:07 UTC, the second known time the source is moved to. */
+#define DISTURBED_TIME ((time_t) 1015218367L)
+
 
 /**
  * @brief Creates a file with known contents.
@@ -70,21 +73,6 @@ write_file(char const *name, char const *text)
     FILE   *fp = fopen(name, "wb");
     assert_non_null(fp);
     assert_true(fputs(text, fp) >= 0);
-    assert_int_equal(0, fclose(fp));
-}
-
-
-/**
- * @brief Reads a file, for the sake of what reading does to its access time.
- * @param name  the file to read.
- */
-static void
-read_file(char const *name)
-{
-    FILE   *fp = fopen(name, "rb");
-    char    buf[16];
-    assert_non_null(fp);
-    (void) fread(buf, 1, sizeof(buf), fp);
     assert_int_equal(0, fclose(fp));
 }
 
@@ -175,22 +163,30 @@ test_read_then_write(LAME_UNUSED void **state)
  * @param state cmocka fixture state (unused).
  *
  * The reason the copy is two calls rather than one. Between capturing the
- * source's times and applying them the source is read, which moves its access
- * time; a single call at the end would preserve the moment of the encode. A
- * test that never disturbs the source passes either way.
+ * source's times and applying them the encode reads the source, which moves
+ * its access time; a single call at the end would preserve the moment of the
+ * encode. The test moves both of the source's times to @c DISTURBED_TIME
+ * between the two calls and checks that they moved.
  */
 static void
 test_read_then_disturb_then_write(LAME_UNUSED void **state)
 {
     lame_file_times times;
-    struct stat before, after;
+    lame_file_times disturbed;
+    struct stat before, moved, after;
 
     assert_int_equal(0, stat(SRC_NAME, &before));
     if (lame_read_file_times(SRC_NAME, &times) != 0) {
         skip();         /* nothing to preserve on this build */
     }
 
-    read_file(SRC_NAME);
+    disturbed.valid = 1;
+    disturbed.actime = DISTURBED_TIME;
+    disturbed.modtime = DISTURBED_TIME;
+    assert_int_equal(0, lame_write_file_times(SRC_NAME, &disturbed));
+    assert_int_equal(0, stat(SRC_NAME, &moved));
+    assert_true(moved.st_mtime == DISTURBED_TIME);
+    assert_true(moved.st_atime == DISTURBED_TIME);
 
     assert_int_equal(0, lame_write_file_times(DST_NAME, &times));
     assert_int_equal(0, stat(DST_NAME, &after));
