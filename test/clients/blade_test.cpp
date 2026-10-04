@@ -2,23 +2,25 @@
  * @file
  * @brief Tests for the Blade-compatible encoder DLL, lame_enc.dll.
  *
- * The smoke test asks whether the DLL loads and exports the Blade entry
- * points. This asks whether they encode: a stream is opened, fed a known
- * sine, drained and closed through the same calls a Blade host makes, and
- * the bytes that come out are walked frame by frame against the rate the
- * configuration asked for.
+ * The smoke test checks that the DLL loads and exports the Blade entry
+ * points. This test checks that they encode. It opens a stream, feeds it a
+ * known sine, drains it and closes it. It uses the same calls as a Blade
+ * host. Then it walks the output frame by frame and compares each frame with
+ * the bitrate that the configuration asks for.
  *
- * The DLL is loaded at run time from beside this executable, the way the
- * DirectShow test loads lame.ax, so no import library is involved and the
- * exports are reached by the undecorated names the .def file publishes -
- * which is the surface a Blade host actually binds to. The DLL is built by
- * the main solution rather than this one, so a missing lame_enc.dll is a
- * skip here and a failure under --require, mirroring lame_dshow_test.
+ * The test loads the DLL at run time from the directory of this executable.
+ * The DirectShow test loads lame.ax the same way. No import library is
+ * involved. The test gets the exports by the undecorated names that the .def
+ * file publishes. A Blade host binds to the DLL through the same names. The
+ * main solution builds the DLL, and a different solution builds this test.
+ * So a missing lame_enc.dll is a skip here, and a failure under --require.
+ * lame_dshow_test follows the same rule.
  *
- * What stays uncovered, deliberately: the entry points' behaviour on null
- * arguments is not part of the Blade contract and the DLL does not promise
- * it, and beWriteInfoTag's failure arms raise a message box, which no
- * unattended test can walk through.
+ * Two things are deliberately not covered:
+ * - The behavior of the entry points on null arguments. It is not part of
+ *   the Blade contract, and the DLL does not promise it.
+ * - The failure paths of beWriteInfoTag. They show a message box, and no
+ *   unattended test can click through one.
  */
 
 #define WIN32_LEAN_AND_MEAN
@@ -34,36 +36,39 @@
 #include "BladeMP3EncDLL.h"
 
 /**
- * @brief Entry-point type for beFlushNoGap, which the header does not name.
+ * @brief Entry-point type for beFlushNoGap, which the header does not declare.
  *
- * BladeMP3EncDLL.h declares a pointer typedef for every other export and
- * TEXT_BEFLUSHNOGAP for this one's name, but no BEFLUSHNOGAP - an upstream
- * omission this file works around rather than edits into an interface header
- * that Blade hosts carry their own copies of. The signature is the export's.
+ * BladeMP3EncDLL.h declares a pointer typedef for every other export. For
+ * this export it defines only the name, TEXT_BEFLUSHNOGAP. It has no
+ * BEFLUSHNOGAP. This is an upstream omission. This file declares the type
+ * itself and does not edit the interface header, because Blade hosts keep
+ * their own copies of that header. The signature is the signature of the
+ * export.
  */
 typedef BE_ERR (*BLADE_TEST_BEFLUSHNOGAP) (HBE_STREAM, PBYTE, PDWORD);
 
-/** @brief Sample rate every stream in this file encodes at. */
+/** @brief Sample rate of every stream in this file. */
 #define RATE        44100
-/** @brief The constant bit rate asked for, in kbit/s. */
+/** @brief The constant bitrate that the tests ask for, in kbit/s. */
 #define KBPS        128
-/** @brief Channels; every stream here is stereo. */
+/** @brief Channel count. Every stream here is stereo. */
 #define CHANNELS    2
 /** @brief Frequency of the test tone, in Hz. */
 #define TONE_HZ     1000.0
-/** @brief Amplitude of the test tone - loud, but nowhere near clipping. */
+/** @brief Amplitude of the test tone. It is loud, but far from clipping. */
 #define TONE_PEAK   12000.0
 /** @brief Seconds of audio each stream encodes. */
 #define SECONDS     1
-/** @brief Room for one returned chunk; beInitStream reports less. */
+/** @brief Buffer size for one returned chunk. beInitStream reports a smaller size. */
 #define OUT_ROOM    65536
-/** @brief Room for a whole encoded stream at these settings. */
+/** @brief Buffer size for a whole encoded stream at these settings. */
 #define STREAM_ROOM (KBPS * MP3_BITS_PER_KBIT / MP3_BITS_PER_BYTE * (SECONDS + 1))
 
 /**
  * @brief Every Blade entry point, resolved from the loaded DLL.
  *
- * The typedefs and the export names are the DLL's own header's.
+ * The typedefs and the export names come from the header of the DLL. The
+ * one exception is the typedef for beFlushNoGap, which this file declares.
  */
 typedef struct {
     BEINITSTREAM             init;
@@ -78,10 +83,10 @@ typedef struct {
 } blade_exports;
 
 /**
- * @brief Resolves the nine exports, checking each one by name.
+ * @brief Resolves the nine exports and checks each one by name.
  * @param mod  the loaded lame_enc.dll.
  * @param be   receives the entry points.
- * @return 1 when everything the tests below call resolved, else 0.
+ * @return 1 when all nine entry points resolve, else 0.
  */
 static int
 load_exports(HMODULE mod, blade_exports *be)
@@ -112,9 +117,9 @@ load_exports(HMODULE mod, blade_exports *be)
 }
 
 /**
- * @brief The Blade configuration every stream here starts from.
- * @param cfg              filled in.
- * @param write_vbr_header whether the stream reserves a LAME-tag frame.
+ * @brief Fills in the Blade configuration that every stream here starts from.
+ * @param cfg              receives the configuration.
+ * @param write_vbr_header whether the stream reserves a frame for the LAME tag.
  */
 static void
 make_config(BE_CONFIG *cfg, int write_vbr_header)
@@ -131,7 +136,7 @@ make_config(BE_CONFIG *cfg, int write_vbr_header)
 }
 
 /**
- * @brief One interleaved stereo sample pair of the test tone.
+ * @brief Returns the value of one stereo sample pair of the test tone.
  * @param n  index of the sample pair from the start of the stream.
  * @return the sample value, identical on both channels.
  */
@@ -146,17 +151,17 @@ tone_sample(DWORD n)
 /**
  * @brief Encodes the test tone through the given chunk entry point.
  *
- * Opens a stream, feeds it exactly the chunk size beInitStream reported,
- * drains the encoder and closes the stream - the sequence a Blade host
- * performs. Both chunk entry points carry samples valued alike, so either
- * one can drive the same stream shape.
+ * Opens a stream and feeds it exactly the chunk size that beInitStream
+ * reports. Then drains the encoder and closes the stream. A Blade host
+ * performs the same sequence. Both chunk entry points take samples on the
+ * same 16-bit scale. So either one can produce the same stream.
  *
  * @param be         the resolved entry points.
  * @param use_float  feed beEncodeChunkFloatS16NI instead of beEncodeChunk.
  * @param out        receives the encoded stream.
- * @param out_room   how much @a out can hold.
- * @param what       names the arm in each check's description.
- * @return bytes of encoded stream, or 0 when a call failed.
+ * @param out_room   the size of @a out, in bytes.
+ * @param what       names the case in the description of each check.
+ * @return bytes of encoded stream, or 0 when beInitStream fails.
  */
 static DWORD
 encode_tone(const blade_exports *be, int use_float,
@@ -223,9 +228,10 @@ encode_tone(const blade_exports *be, int use_float,
 }
 
 /**
- * @brief The bitrate index the frame header carries for a rate in kbit/s.
- * @param kbps  the rate to look up.
- * @return its index, or #MP3_BITRATE_INVALID when the table lacks it.
+ * @brief Returns the bitrate index that a frame header uses for a bitrate in
+ *        kbit/s.
+ * @param kbps  the bitrate to look up.
+ * @return its index, or #MP3_BITRATE_INVALID when the table does not have it.
  */
 static int
 bitrate_index_of(int kbps)
@@ -243,15 +249,15 @@ bitrate_index_of(int kbps)
 /**
  * @brief Walks an encoded stream frame by frame and counts the frames.
  *
- * Every frame must begin with a sync and carry the expected bitrate index,
- * and each frame's own header decides where the next one starts - so one
- * wrong rate, or a sample rate other than the one the walk assumes,
- * desynchronises the walk and fails the count. That makes the walk a joint
- * check on the sync, the bitrate and the sample rate at once.
+ * Every frame must begin with a sync and have the expected bitrate index.
+ * The header of each frame sets where the next frame starts. So one wrong
+ * bitrate, or a sample rate other than the one the walk assumes, loses the
+ * sync and fails the check. The walk checks the sync, the bitrate and the
+ * sample rate together.
  *
  * @param buf   the stream.
  * @param len   its length in bytes.
- * @param what  names the stream in each check's description.
+ * @param what  names the stream in the description of each check.
  * @return frames walked before the first mismatch or the end of the data.
  */
 static int
@@ -282,22 +288,23 @@ walk_frames(const unsigned char *buf, DWORD len, const char *what)
     return frames;
 }
 
-/** @brief Bytes of ID3v2 tag the tagged arm writes: header plus padding. */
+/** @brief Bytes in the header of the synthetic ID3v2 tag. */
 #define ID3V2_HEADER_BYTES 10
-/** @brief Padding inside the synthetic tag; fits in one seven-bit size byte. */
+/** @brief Padding inside the synthetic tag. It fits in one seven-bit size byte. */
 #define ID3V2_PADDING      0x20
 
 /**
- * @brief Writes @a len stream bytes to @a path, optionally behind an ID3v2 tag.
+ * @brief Writes @a len stream bytes to @a path, optionally after an ID3v2 tag.
  *
- * The tag is the smallest shape the DLL's reader understands: the identifier
- * and version, then the size in four seven-bit bytes, then padding.
+ * The tag is the smallest shape that the reader in the DLL accepts. It has
+ * the identifier, the version and the flags, then the size in four seven-bit
+ * bytes, then the padding.
  *
  * @param path        the file to create.
  * @param buf         the encoded stream.
  * @param len         its length in bytes.
  * @param with_id3v2  put the synthetic tag in front of the audio.
- * @return 1 when the file was written whole, else 0.
+ * @return 1 when the whole file was written, else 0.
  */
 static int
 write_stream(const char *path, const unsigned char *buf, DWORD len,
@@ -324,13 +331,15 @@ write_stream(const char *path, const unsigned char *buf, DWORD len,
 }
 
 /**
- * @brief Encodes with a reserved LAME-tag frame and has the DLL fill it in.
+ * @brief Encodes with a reserved frame for the LAME tag, and has the DLL fill
+ *        it in.
  *
- * This is the beWriteInfoTag path: the stream is written to a file, the tag
- * write reopens it, skips whatever ID3v2 tag sits in front of the audio and
- * overwrites the reserved first frame in place. Both arms are run - a bare
- * file, and one with a tag in front - because a file with no tag takes the
- * other branch of the skip, and only the pair shows the skip skips.
+ * This tests the beWriteInfoTag path. The test writes the stream to a file.
+ * The tag write opens the file again and skips any ID3v2 tag in front of the
+ * audio. Then it overwrites the reserved first frame in place. The test runs
+ * two cases: a bare file, and a file with an ID3v2 tag in front. A file
+ * without a tag takes the other branch of the skip. Only the pair shows that
+ * the skip works.
  *
  * @param be    the resolved entry points.
  * @param dir   directory for the scratch files, with a trailing separator.
@@ -439,13 +448,14 @@ test_info_tag(const blade_exports *be, const char *dir)
 }
 
 /**
- * @brief Upsampled output stays inside the buffer beInitStream() advised.
+ * @brief Checks that upsampled output stays inside the buffer size that
+ *        beInitStream() returns.
  *
- * A 4 kHz stream resampled to 48 kHz returns twelve times the frames per
- * chunk of an unresampled one. The output buffer is exactly the size
- * beInitStream() reported, followed by guard bytes the DLL is not told about;
- * after every chunk and after the final flush each call must have succeeded
- * within the buffer and every guard byte must be as it was.
+ * A 4 kHz stream resampled to 48 kHz returns twelve times as many frames per
+ * chunk as a stream that is not resampled. The output buffer is exactly the
+ * size that beInitStream() reports. Guard bytes follow it, and the DLL does
+ * not know about them. After every chunk and after the final flush, each call
+ * must succeed within the buffer. Every guard byte must be unchanged.
  *
  * @param be the resolved entry points.
  */
@@ -518,9 +528,9 @@ test_upsampled_chunks_fit(const blade_exports *be)
 }
 
 /**
- * @brief Encodes a short tone into a file, leaving the stream open.
+ * @brief Encodes a short tone into a file, and leaves the stream open.
  * @param be          the resolved entry points.
- * @param with_tag    whether the stream reserves a LAME-tag frame.
+ * @param with_tag    whether the stream reserves a frame for the LAME tag.
  * @param path        the file to write.
  * @param hbe         receives the open stream.
  * @return 1 when the stream was opened and the file written, else 0.
@@ -558,12 +568,14 @@ encode_short_file(const blade_exports *be, int with_tag, const char *path, HBE_S
 }
 
 /**
- * @brief A stream the DLL has released is answered for, never touched.
+ * @brief Checks the calls on a stream that the DLL has released. The DLL
+ *        returns an error and never uses the stream.
  *
- * beWriteInfoTag() releases the stream it wrote the tag for, and
- * beCloseStream() releases a stream without a tag. The legacy
- * beWriteVBRHeader() then has no stream left to write, and beWriteInfoTag()
- * on a stream beCloseStream() released answers BE_ERR_INVALID_HANDLE.
+ * beWriteInfoTag() releases the stream that it writes the tag for.
+ * beCloseStream() releases a stream without a tag. After the tag write, the
+ * legacy beWriteVBRHeader() has no stream left to write.
+ * beWriteInfoTag() on a stream that beCloseStream() released returns
+ * BE_ERR_INVALID_HANDLE.
  *
  * @param be    the resolved entry points.
  * @param dir   directory for the scratch file, with a trailing separator.
@@ -596,8 +608,8 @@ test_released_stream(const blade_exports *be, const char *dir)
 }
 
 /**
- * @brief A VBR stream asking for a VBR method the DLL does not have is
- *        refused; one asking for a method it has is accepted.
+ * @brief Checks that the DLL rejects a VBR stream with a VBR method that it
+ *        does not have. A stream with a method that it has is accepted.
  *
  * @param be the resolved entry points.
  */
@@ -630,8 +642,8 @@ test_unknown_vbr_method_refused(const blade_exports *be)
 /**
  * @brief Runs the Blade encoder DLL tests.
  * @param argc  argument count.
- * @param argv  an optional path to lame_enc.dll, and --require to turn a
- *              missing DLL from a skip into a failure.
+ * @param argv  an optional path to lame_enc.dll, and an optional --require.
+ *              With --require, a missing DLL is a failure, not a skip.
  * @return 0 on success or skip, non-zero when any check failed.
  */
 int

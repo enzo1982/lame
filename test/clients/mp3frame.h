@@ -1,16 +1,16 @@
 /**
  * @file
- * @brief Reading MPEG audio frame headers, for the Windows client tests.
+ * @brief Reads MPEG audio frame headers for the Windows client tests.
  *
- * The client tests ask the same question about what their component produced:
- * is this a run of MPEG frames, how many are there, and at how many distinct
- * bitrates. A byte total cannot answer it - a total that comes out low may be a
- * tail that was never flushed, a bitrate that was silently substituted, or a
- * variable rate, and the three are indistinguishable by size. The frame headers
+ * Each client test asks the same questions about the output of its
+ * component. Is it a run of MPEG frames? How many frames are there? How many
+ * distinct bitrates do they use? A byte total cannot tell. A low total can
+ * mean a tail that was never flushed, a bitrate that was silently replaced,
+ * or a variable bitrate. All three look the same by size. The frame headers
  * tell them apart.
  *
- * The fields are the same fields for every test, so they are named once here
- * rather than written twice as shifts and masks over a byte index.
+ * Every test reads the same fields. This file names them once, so the tests
+ * do not repeat the shifts and masks over a byte index.
  */
 
 #ifndef LAME_TEST_CLIENTS_MP3FRAME_H
@@ -18,38 +18,38 @@
 
 #include <string.h>
 
-/** @brief Bytes of header the fields below are read from. */
+/** @brief Number of header bytes that the fields below are read from. */
 #define MP3_HEADER_BYTES            4
 
-/** @brief Header byte carrying the low sync bits, the version and the layer. */
+/** @brief Header byte with the low sync bits, the version and the layer. */
 #define MP3_HEADER_SYNC_BYTE        1
-/** @brief Header byte carrying the bitrate index and the padding bit. */
+/** @brief Header byte with the bitrate index and the padding bit. */
 #define MP3_HEADER_BITRATE_BYTE     2
 
-/** @brief A frame sync is eleven set bits: all eight of byte 0 ... */
+/** @brief A frame sync is eleven set bits: all eight bits of byte 0 ... */
 #define MP3_SYNC_BYTE0              0xFF
-/** @brief ... and the top three of byte 1. */
+/** @brief ... and the top three bits of byte 1. */
 #define MP3_SYNC_MASK1              0xE0
 
-/** @brief The bitrate index occupies the top four bits of its byte. */
+/** @brief The bitrate index is in the top four bits of its byte. */
 #define MP3_BITRATE_INDEX_SHIFT     4
-/** @brief Mask for the four-bit bitrate index, once shifted down. */
+/** @brief Mask for the four-bit bitrate index, after the shift. */
 #define MP3_BITRATE_INDEX_MASK      0x0F
-/** @brief The padding bit sits one place above the private bit. */
+/** @brief The padding bit is one place above the private bit. */
 #define MP3_PADDING_SHIFT           1
-/** @brief Mask for the one-bit padding flag, once shifted down. */
+/** @brief Mask for the one-bit padding flag, after the shift. */
 #define MP3_PADDING_MASK            1
 
-/** @brief Bitrate index 0 means the rate is not in the table (free format). */
+/** @brief Bitrate index 0 means free format. The bitrate is not in the table. */
 #define MP3_BITRATE_FREE_FORMAT     0
-/** @brief Bitrate index 15 is reserved and never valid in a frame. */
+/** @brief Bitrate index 15 is reserved. It is never valid in a frame. */
 #define MP3_BITRATE_INVALID         15
-/** @brief One entry per value the four-bit index can take. */
+/** @brief One entry for each value of the four-bit index. */
 #define MP3_BITRATE_INDEX_COUNT     16
 
-/** @brief Samples one MPEG-1 Layer III frame carries. */
+/** @brief Samples per channel in one MPEG-1 Layer III frame. */
 #define MP3_SAMPLES_PER_FRAME       1152
-/** @brief The frame length is bytes; the bitrate is bits. */
+/** @brief The frame length is in bytes, and the bitrate is in bits. */
 #define MP3_BITS_PER_BYTE           8
 /** @brief The bitrate table is in kbit/s. */
 #define MP3_BITS_PER_KBIT           1000
@@ -57,14 +57,15 @@
 /**
  * @brief Bitrates in kbit/s by index, MPEG-1 Layer III.
  *
- * Index 0 is free format and carries no rate, which is why the entry is zero
- * rather than absent; index 15 is reserved and has no entry at all.
+ * Index 0 is free format and has no bitrate. Its entry is zero, so that each
+ * index is also the position of its entry. Index 15 is reserved and has no
+ * entry.
  */
 static const int mp3_bitrate_kbps[MP3_BITRATE_INVALID] = {
     0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320
 };
 
-/** @brief Whether @a h begins with a frame sync. */
+/** @brief Returns non-zero when @a h begins with a frame sync. */
 static inline int
 mp3_is_frame_sync(const unsigned char *h)
 {
@@ -72,7 +73,7 @@ mp3_is_frame_sync(const unsigned char *h)
         && (h[MP3_HEADER_SYNC_BYTE] & MP3_SYNC_MASK1) == MP3_SYNC_MASK1;
 }
 
-/** @brief The bitrate index of the frame at @a h. */
+/** @brief Returns the bitrate index of the frame at @a h. */
 static inline int
 mp3_bitrate_index(const unsigned char *h)
 {
@@ -80,7 +81,7 @@ mp3_bitrate_index(const unsigned char *h)
         & MP3_BITRATE_INDEX_MASK;
 }
 
-/** @brief The padding bit of the frame at @a h, in bytes. */
+/** @brief Returns the padding of the frame at @a h, in bytes. */
 static inline int
 mp3_padding_bytes(const unsigned char *h)
 {
@@ -88,11 +89,12 @@ mp3_padding_bytes(const unsigned char *h)
 }
 
 /**
- * @brief Length in bytes of a frame at @a index and @a rate, padding included.
+ * @brief Returns the length in bytes of a frame, padding included.
  *
- * The usual form of this writes the leading coefficient as 144, which is the
- * frame's sample count divided by the bits in a byte; spelling it that way
- * leaves nothing to look up.
+ * @a index is the bitrate index, and @a rate is the sample rate in Hz. The
+ * usual form of this formula writes the leading coefficient as 144. That is
+ * the sample count of a frame divided by the bits in a byte. The code writes
+ * it in that form, so the reader has nothing to look up.
  */
 static inline int
 mp3_frame_bytes(int index, int padding, unsigned long rate)
@@ -101,45 +103,47 @@ mp3_frame_bytes(int index, int padding, unsigned long rate)
         * mp3_bitrate_kbps[index] * MP3_BITS_PER_KBIT / (int) rate + padding;
 }
 
-/** @brief Frames one second of audio at @a rate is carried in. */
+/** @brief Returns the number of frames in one second of audio at @a rate. */
 static inline double
 mp3_frames_per_second(unsigned long rate)
 {
     return (double) rate / (double) MP3_SAMPLES_PER_FRAME;
 }
 
-/** @brief The Xing or Info marker that opens a LAME tag frame is four bytes. */
+/** @brief The Xing or Info marker at the start of the Xing frame is four bytes. */
 #define MP3_TAG_MARKER_BYTES        4
 /**
- * @brief Offset of the LAME extension from the marker: the marker, the flags,
- * the frame and byte counts, the 100-entry TOC and the quality word.
+ * @brief Offset of the LAME tag from the marker. The offset skips the marker,
+ * the flags, the frame count, the byte count, the 100-entry TOC and the
+ * quality word.
  */
 #define MP3_TAG_LAME_OFFSET         (MP3_TAG_MARKER_BYTES + 4 + 4 + 4 + 100 + 4)
-/** @brief The extension opens with a nine-byte encoder string. */
+/** @brief The LAME tag starts with a nine-byte encoder string. */
 #define MP3_TAG_ENCODER_BYTES       9
-/** @brief One byte of tag revision and VBR method follows the encoder string. */
+/** @brief The encoder string is followed by one byte: tag revision and VBR method. */
 #define MP3_TAG_REVISION_BYTES      1
 /** @brief Offset of the lowpass byte from the marker. */
 #define MP3_TAG_LOWPASS_OFFSET \
     (MP3_TAG_LAME_OFFSET + MP3_TAG_ENCODER_BYTES + MP3_TAG_REVISION_BYTES)
-/** @brief The lowpass byte is in units of 100 Hz; zero means no filter. */
+/** @brief The lowpass byte counts in units of 100 Hz. Zero means no filter. */
 #define MP3_TAG_LOWPASS_UNIT_HZ     100
-/** @brief What mp3_lame_tag_lowpass_hz() answers when there is no tag. */
+/** @brief What mp3_lame_tag_lowpass_hz() returns when there is no tag. */
 #define MP3_TAG_ABSENT              (-1)
 
 /**
- * @brief The lowpass frequency the LAME tag of a stream records, in Hz.
+ * @brief Returns the lowpass frequency that the LAME tag of a stream records, in Hz.
  *
- * The tag sits in the stream's first frame, opened by an Xing or Info marker
- * after the header and side information; the LAME extension follows the TOC
- * and the encoder writes the lowpass it applied into it, in units of 100 Hz,
- * with zero for none. The marker is searched for within the first frame rather
- * than computed, so the side information size need not be known here.
+ * The LAME tag is in the first frame of the stream, the Xing frame. An Xing
+ * or Info marker follows the header and the side information. The LAME tag
+ * follows the TOC. The encoder writes the lowpass it applied into the LAME
+ * tag, in units of 100 Hz, with zero for no filter. This function searches
+ * the first frame for the marker. So it does not need to know the size of the
+ * side information.
  *
  * @param buf    the stream.
  * @param frame  the length of its first frame, in bytes.
  * @return the lowpass in Hz, 0 for no filter, or @c MP3_TAG_ABSENT when the
- *         first frame carries no LAME tag.
+ *         first frame has no LAME tag.
  */
 static inline int
 mp3_lame_tag_lowpass_hz(const unsigned char *buf, long frame)

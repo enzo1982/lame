@@ -2,22 +2,23 @@
  * @file
  * @brief Assertions for the Windows client component tests.
  *
- * The ACM codec and the DirectShow filter are built by MSBuild and by nothing
- * else, so the CMocka suite under @c test/unit cannot reach them: both
- * components are @c EXTRA_DIST only and are never compiled by the autotools
- * build. These tests therefore stand on their own, and this header is what they
- * stand on instead of a framework.
+ * The autotools build lists the ACM codec, the DirectShow filter and the
+ * Blade encoder DLL as @c EXTRA_DIST only. It never compiles them. MSBuild is
+ * the only build that compiles the ACM codec and the DirectShow filter. So the
+ * CMocka suite under @c test/unit cannot test these components. The tests here
+ * stand on their own, and this header takes the place of a test framework.
  *
- * That is a deliberate choice rather than a gap. A test that ships in the
- * distribution has to run for whoever unpacks it, and requiring a test library
- * to be fetched and built first would make these the one part of the tree that
- * does not work out of the box. Nothing here needs more than counting: both
- * components are reached through their own entry points - a @c DriverProc the
- * test loads, a class factory it calls - so there is nothing to mock.
+ * This is a deliberate choice. A test that ships in the distribution must run
+ * for anyone who unpacks it. If it needs a test library that must be fetched
+ * and built first, these tests are the one part of the tree that does not
+ * work out of the box. The tests need nothing more than counting. Each
+ * component is called through its own entry points, for example a
+ * @c DriverProc that the test loads or a class factory that it calls. So
+ * nothing needs a mock.
  *
- * Each test program prints one line per check and returns non-zero if any of
- * them failed, which is the contract @c maintainer/smoke-clients.ps1 already
- * uses and the one a build cell can read.
+ * Each test program prints one line per check. It returns non-zero if any
+ * check failed. @c maintainer/smoke-clients.ps1 uses the same convention, and
+ * a build cell can read it.
  */
 
 #ifndef LAME_TEST_CLIENTS_CTEST_H
@@ -27,27 +28,27 @@
 #include <math.h>
 
 /**
- * @brief Room for one check's detail line.
+ * @brief Buffer size for the detail line of one check.
  *
- * The longest of them is two numbers and a few words of prose, so this is
- * generous rather than calculated - the point of the name is that the four
- * macros below cannot drift apart.
+ * The longest detail line has two numbers and a few words. This size is
+ * generous, not calculated. The name makes sure that the four macros below
+ * always use the same size.
  */
 #define CTEST_DETAIL_CHARS 128
 
-/** @brief Checks attempted so far. A run that attempts none is a failure. */
+/** @brief Number of checks attempted so far. A run that attempts none fails. */
 static int ctest_checks = 0;
-/** @brief Checks that failed. */
+/** @brief Number of checks that failed. */
 static int ctest_failures = 0;
 
 /**
- * @brief Starts a run: prints its name and stops buffering the output.
+ * @brief Starts a run: prints its name and turns off output buffering.
  *
- * These tests drive code that can take the process down - a driver that
- * mishandles a message, a configuration file the codec reads without checking
- * its shape. When that happens with the output buffered, the buffer dies with
- * the process and the transcript is empty, which says nothing about how far the
- * run got. Unbuffered, the last line printed is the last thing that ran.
+ * These tests drive code that can crash the process. Examples are a driver
+ * that mishandles a message, or a configuration file with an unexpected
+ * shape. If the output is buffered when that happens, the buffer is lost with
+ * the process. The transcript is then empty and does not show how far the run
+ * got. Without buffering, the last line printed is the last thing that ran.
  */
 static void
 ctest_start(const char *name)
@@ -56,7 +57,7 @@ ctest_start(const char *name)
     printf("%s\n", name);
 }
 
-/** @brief Records one check and prints its outcome with a detail line. */
+/** @brief Records one check and prints its result and a detail line. */
 static void
 ctest_record(int ok, const char *what, const char *detail)
 {
@@ -74,7 +75,7 @@ ctest_record(int ok, const char *what, const char *detail)
 #define CHECK(cond, what) \
     ctest_record((cond) ? 1 : 0, (what), "")
 
-/** @brief Asserts an unsigned equality, reporting both values when it fails. */
+/** @brief Asserts that two unsigned values are equal. The detail line shows both. */
 #define CHECK_EQ_U(got, want, what)                                      \
     do {                                                                 \
         unsigned long ctest_g_ = (unsigned long) (got);                  \
@@ -85,11 +86,11 @@ ctest_record(int ok, const char *what, const char *detail)
     } while (0)
 
 /**
- * @brief Asserts a double equality within @a tol.
+ * @brief Asserts that two doubles are equal within @a tol.
  *
- * The smart output ratio is a configured decimal that survives a round trip
- * through XML, so what matters is that the fractional part is still there -
- * not that the bits are identical.
+ * The smart output ratio is a configured decimal number. It goes through a
+ * round trip in an XML file. The check is that the fractional part survives.
+ * The bits do not need to be identical.
  */
 #define CHECK_EQ_D(got, want, tol, what)                                 \
     do {                                                                 \
@@ -101,11 +102,11 @@ ctest_record(int ok, const char *what, const char *detail)
     } while (0)
 
 /**
- * @brief Asserts two values differ - the shape most controls here need.
+ * @brief Asserts that two values differ. Most controls in these tests need this.
  *
- * The detail line names both values whatever the outcome. A message that only
- * describes the failure has to be written as though the check failed, and then
- * says something false on every run that passed.
+ * The detail line shows both values, whatever the result. A message that only
+ * describes the failure must be worded as if the check failed. It then says
+ * something false on every run that passes.
  */
 #define CHECK_NE_U(a, b, what)                                           \
     do {                                                                 \
@@ -116,7 +117,7 @@ ctest_record(int ok, const char *what, const char *detail)
         ctest_record(ctest_a_ != ctest_b_, (what), ctest_d_);            \
     } while (0)
 
-/** @brief Asserts an HRESULT succeeded, reporting the code when it did not. */
+/** @brief Asserts that an HRESULT is a success code. The detail line shows the code. */
 #define REQUIRE_HR(hr, what)                                             \
     do {                                                                 \
         HRESULT ctest_hr_ = (hr);                                        \
@@ -128,10 +129,10 @@ ctest_record(int ok, const char *what, const char *detail)
 /**
  * @brief Prints the summary and returns the program's exit status.
  *
- * A run of zero checks reports failure. A test that stopped early - a component
- * that would not load, a stream that would not open - otherwise exits 0 having
- * asserted nothing, which reads as a pass in every caller that only looks at
- * the status.
+ * A run of zero checks fails. Without this rule, a test that stopped early
+ * exits 0 having checked nothing. Examples are a component that does not load
+ * or a stream that does not open. Any caller that reads only the exit status
+ * then sees a pass.
  */
 static int
 ctest_summary(const char *name)

@@ -2,22 +2,25 @@
  * @file
  * @brief Tests for the LAME DirectShow filter.
  *
- * The smoke test asks whether @c lame.ax loads and exports the COM entry
- * points. This asks whether it works as a filter: the graph manager builds the
- * graph, inserts whatever parser the source needs, negotiates media types
- * across both pin connections and streams a WAV file through the encoder into
- * a file - all of it DirectShow's code driving the filter's.
+ * The smoke test checks that @c lame.ax loads and exports the COM entry
+ * points. This test checks that it works as a filter. The graph manager
+ * builds the graph and inserts the parser that the source needs. It
+ * negotiates media types across both pin connections. Then it streams a WAV
+ * file through the encoder into a file. All of this is DirectShow code that
+ * drives the code of the filter.
  *
- * No registry and no administrator are involved. The only thing a registration
- * would add is the CLSID lookup, so instead of @c CoCreateInstance the filter
- * comes from the DLL's own class factory through @c DllGetClassObject - the
- * same object by the same code path inside the filter, minus the registry
- * step. What this therefore cannot cover is that @c DllRegisterServer writes
- * correct entries and that the filter is discoverable by category and merit;
- * both need a machine-wide registration and are out of scope.
+ * The test needs no registry change and no administrator. A registration
+ * adds only the CLSID lookup. So the test does not call @c CoCreateInstance.
+ * It gets the filter from the class factory of the DLL, through
+ * @c DllGetClassObject. That is the same object through the same code path
+ * inside the filter, without the registry step. So this test cannot check
+ * that @c DllRegisterServer writes correct entries. It also cannot check that
+ * the filter can be found by category and merit. Both need a machine-wide
+ * registration and are out of scope.
  *
- * The filter is built only where the DirectShow base class sources are laid
- * out, so this test is built under the same condition.
+ * The filter is built only where the DirectShow base class sources are
+ * installed. This test does not need them and is always built. When the
+ * filter is missing, the test skips, or fails under --require.
  */
 
 #define WIN32_LEAN_AND_MEAN
@@ -55,13 +58,13 @@ typedef HRESULT (STDAPICALLTYPE *PFN_DllGetClassObject)(REFCLSID, REFIID, void *
 #include "iaudioprops.h"
 
 /**
- * @brief Releases a media type the filter allocated for the caller.
+ * @brief Releases a media type that the filter allocated for the caller.
  *
- * The base classes' DeleteMediaType() does this, but it lives in the filter's
- * own library rather than in anything a client links, so a client frees the
- * two allocations itself.
+ * The DeleteMediaType() function of the base classes does this. But it is in
+ * the library of the filter, not in anything a client links. So a client
+ * frees the two allocations itself.
  *
- * @param pmt  the media type to release; a null is passed over.
+ * @param pmt  the media type to release. A null pointer is ignored.
  */
 static void
 free_media_type(AM_MEDIA_TYPE *pmt)
@@ -78,7 +81,7 @@ free_media_type(AM_MEDIA_TYPE *pmt)
     CoTaskMemFree(pmt);
 }
 
-/** @brief The first pin of the given direction, or NULL. */
+/** @brief Returns the first pin of the given direction, or NULL. */
 static IPin *
 find_pin(IBaseFilter *f, PIN_DIRECTION want)
 {
@@ -102,7 +105,7 @@ find_pin(IBaseFilter *f, PIN_DIRECTION want)
     return NULL;
 }
 
-/** @brief Bytes of the canonical WAV header this test writes. */
+/** @brief Bytes in the canonical WAV header that this test writes. */
 #define WAV_HEADER_BYTES        44
 /** @brief Bytes in a four-character chunk identifier. */
 #define WAV_CHUNK_ID_BYTES      4
@@ -123,50 +126,54 @@ find_pin(IBaseFilter *f, PIN_DIRECTION want)
 #define WAV_OFF_DATA_SIZE       40
 /**@}*/
 
-/** @brief The RIFF size counts the file past its own field - id and size. */
+/** @brief The RIFF size does not count the chunk ID and the size field itself. */
 #define WAV_RIFF_SIZE_EXCLUDES  8
-/** @brief Size of a PCM format chunk, which carries no extension. */
+/** @brief Size of a PCM format chunk. It has no extension. */
 #define WAV_PCM_FMT_BYTES       16
 /** @brief The format tag for uncompressed PCM. */
 #define WAV_FORMAT_PCM          1
 /** @brief The sample width this test writes. */
 #define WAV_BITS_PER_SAMPLE     16
-/** @brief The same width in bytes, which several fields are counted in. */
+/** @brief The same width in bytes. Several fields count in bytes. */
 #define WAV_BYTES_PER_SAMPLE    (WAV_BITS_PER_SAMPLE / 8)
 
 /**
- * @brief How long the graph is given to run a second of audio through.
+ * @brief How long the graph may take to run the test audio through.
  *
- * Generous rather than tight: this is the bound that turns a filter which never
- * completes into a failed check instead of a test that never returns.
+ * The limit is generous. It turns a filter that never completes into a
+ * failed check, so the test does not hang.
  */
 #define GRAPH_TIMEOUT_MS        60000
 
-/** @brief Concert A, the test tone the file is filled with. */
+/** @brief Concert A, the frequency of the test tone in the file. */
 #define TONE_HZ                 440.0
-/** @brief Its amplitude, comfortably below full scale, so nothing clips. */
+/** @brief The amplitude of the tone. It is well below full scale, so nothing clips. */
 #define TONE_AMPLITUDE          16000.0
-/** @brief One turn of the circle, for the sine's argument. */
+/** @brief One full turn of the circle, for the argument of the sine. */
 #define TWO_PI                  6.283185307179586
 
-/** @brief The first bitrate the property test sets, read back and replaced. */
+/**
+ * @brief The first bitrate that the property test sets. The test reads it
+ *        back and then replaces it.
+ */
 #define FIRST_BITRATE_KBPS      128
 /**
- * @brief The bitrate the property test leaves set, so the one the graph runs
- *        with - the stream that comes out has to carry it.
+ * @brief The bitrate that the property test leaves set. The graph runs with
+ *        this bitrate, so the output stream must use it.
  */
 #define SECOND_BITRATE_KBPS     192
-/** @brief The interface's flag properties take a DWORD; this is the set value. */
+/** @brief Flag properties of the interface take a DWORD. This is the "on" value. */
 #define SWITCH_ON               1
 /** @brief What the LAME tag reports for the lowpass when there is no filter. */
 #define NO_LOWPASS_HZ           0
 
 /**
- * @brief Writes a WAV file holding a sine, which is what the graph reads.
+ * @brief Writes a WAV file with a sine. The graph reads this file.
  *
- * The header is the canonical 44-byte one: a RIFF chunk, a PCM format chunk of
- * the minimum size, and a data chunk. Every field is written at the offset the
- * format fixes it at, so the offsets are named rather than counted.
+ * The header is the canonical 44-byte header: a RIFF chunk, a PCM format
+ * chunk of the minimum size, and a data chunk. Each field is at an offset
+ * that the format fixes. So the offsets have names, and the code does not
+ * count them.
  */
 static int
 write_wav(const char *path, DWORD rate, WORD channels, DWORD frames)
@@ -207,18 +214,18 @@ write_wav(const char *path, DWORD rate, WORD channels, DWORD frames)
 }
 
 /**
- * @brief Reads the produced file back as MPEG frames.
+ * @brief Reads the output file back as MPEG frames.
  *
- * Same reasoning as the ACM test: a byte count cannot tell a truncated stream
- * from a variable-rate one, and the frame headers can. And as there, a stream
- * that came out at one rate has to have come out at the rate that was set:
- * without that check a filter that stores a bitrate, reads it back and then
- * encodes at whatever it likes passes everything here.
+ * The reason is the same as in the ACM test. A byte count cannot tell a
+ * truncated stream from a variable-bitrate stream, and the frame headers can.
+ * Also as in the ACM test, a stream at one bitrate must be at the bitrate
+ * that was set. Without that check, a filter that stores a bitrate, reads it
+ * back and then encodes at any bitrate passes every check here.
  *
  * @param path         the file the graph wrote.
  * @param seconds      how much audio went in.
  * @param rate         its sample rate.
- * @param nominal_kbps the bitrate the property interface was left holding.
+ * @param nominal_kbps the bitrate that the property interface was left set to.
  */
 static void
 inspect_mp3(const char *path, double seconds, DWORD rate, int nominal_kbps)
@@ -317,18 +324,19 @@ inspect_mp3(const char *path, double seconds, DWORD rate, int nominal_kbps)
 }
 
 /**
- * @brief The filter's own property interface answers and holds what it is told.
+ * @brief Checks that the property interface of the filter works and keeps the
+ *        values it is given.
  *
  * @c iaudioprops.h says to configure the encoder with its input pin already
- * connected, since before that the parameters are overridden by the defaults
- * for the input media type. This is therefore called between the two
- * connections rather than before either.
+ * connected. Before that, the defaults for the input media type override the
+ * parameters. So the test calls this function between the two connections,
+ * not before either one.
  *
- * Two of the switches it leaves set are read back off the stream afterwards:
- * the LAME tag, so that the first frame carries one, and keep-all-frequencies,
- * which that tag then has to report as no lowpass filter. A switch that is
- * stored and read back but never reaches the encoder passes the round trip
- * here and fails there.
+ * Afterwards the test reads two of the switches back from the stream. With
+ * the LAME tag switch, the first frame must have a LAME tag. With
+ * keep-all-frequencies, that tag must report no lowpass filter. A switch that
+ * is stored and read back, but never gets to the encoder, passes the round
+ * trip here. It fails the check on the stream.
  */
 static void
 test_encoder_properties(IBaseFilter *lame)
@@ -367,11 +375,11 @@ test_encoder_properties(IBaseFilter *lame)
 }
 
 /**
- * @brief IPin::QueryAccept(), with a fault inside the filter answered as its
- *        exception code.
+ * @brief Calls IPin::QueryAccept(), and returns the exception code when the
+ *        filter faults.
  * @param pin  the pin to ask.
  * @param mt   the media type to propose.
- * @return what the call returned, or the exception code if it faulted.
+ * @return the result of the call, or the exception code if it faults.
  */
 static HRESULT
 query_accept_catching_faults(IPin *pin, const AM_MEDIA_TYPE *mt)
@@ -385,12 +393,12 @@ query_accept_catching_faults(IPin *pin, const AM_MEDIA_TYPE *mt)
 }
 
 /**
- * @brief Walks a pin's media types, under the same guard as
+ * @brief Walks the media types of a pin, with the same fault guard as
  *        query_accept_catching_faults().
  * @param pin    the pin to ask.
- * @param count  receives how many types the walk returned.
- * @return S_OK once the walk ended, the enumeration's failure, or the exception
- *         code if it faulted.
+ * @param count  receives the number of types that the walk returned.
+ * @return S_OK when the walk ends, the failure code of the enumeration, or
+ *         the exception code if it faults.
  */
 static HRESULT
 enum_types_catching_faults(IPin *pin, ULONG *count)
@@ -422,12 +430,13 @@ enum_types_catching_faults(IPin *pin, ULONG *count)
 }
 
 /**
- * @brief An output sample rate of 0 set through the property interface leaves
- *        the output pin answering for an audio media type.
+ * @brief Checks that the output pin still accepts an audio media type and
+ *        lists its types when the output sample rate is set to 0.
  *
- * The output pin checks a proposed audio type against the configured output
- * rate. Run last: a fault inside the filter can leave its lock held. The rate
- * set before is put back afterwards.
+ * The test sets the rate through the property interface. The output pin
+ * checks a proposed audio type against the configured output rate. The test
+ * runs after the main encode, because a fault inside the filter can leave the
+ * filter locked. The test puts the earlier rate back afterwards.
  *
  * @param lame      the filter, its input connected.
  * @param lame_out  its output pin.
@@ -478,12 +487,13 @@ test_zero_output_rate(IBaseFilter *lame, IPin *lame_out)
 }
 
 /**
- * @brief A setting the encoder refuses makes the graph refuse to run.
+ * @brief Checks that the graph does not run with a setting that the encoder
+ *        rejects.
  *
- * A variable bitrate range whose minimum is above its maximum is stored by the
- * property interface and refused by the library when the stream starts. The
- * graph is the one the main test ran to completion; the settings are put back
- * afterwards.
+ * The property interface stores a variable bitrate range whose minimum is
+ * above its maximum. The library rejects that range when the stream starts.
+ * The graph is the one that the main test ran to completion. The test puts
+ * the settings back afterwards.
  *
  * @param lame  the filter, both pins connected.
  * @param mc    the graph's media control.
@@ -517,20 +527,21 @@ test_refused_setting_fails_run(IBaseFilter *lame, IMediaControl *mc)
 }
 
 /**
- * @brief Seeking reaches through the encoder to whatever is upstream of it.
+ * @brief Checks that seeking passes through the encoder to the filter
+ *        upstream of it.
  *
  * A transform filter is expected to pass @c IMediaSeeking and
- * @c IMediaPosition from its output pin back to the pin feeding its input, so
- * that an application asking the graph how long the stream is, or where it is,
- * gets an answer from the source rather than nothing. The base class the output
- * pin derives from does that; the one below it does not, and answers
+ * @c IMediaPosition from its output pin back to the pin that feeds its input.
+ * Then an application that asks the graph for the length or the position of
+ * the stream gets a value from the source. The base class of the output pin
+ * does this. The class below that base class does not, and returns
  * E_NOINTERFACE.
  *
- * So this is a question about which parent the pin's interface query goes to,
- * and it can only be asked once the input pin is connected - there is nothing
- * to pass through to before that. Asking for the duration as well as for the
- * interface is deliberate: an object that answers the query and then knows
- * nothing would satisfy the first half on its own.
+ * So this checks which parent class gets the interface query of the pin. The
+ * check works only after the input pin is connected. Before that, there is
+ * nothing to pass through to. The test deliberately asks for the duration as
+ * well as for the interface. An object that returns the interface and then
+ * knows nothing passes the first half alone.
  *
  * @param lame_out  the filter's output pin, its input already connected.
  */
@@ -563,20 +574,24 @@ test_seeking_passes_through(IPin *lame_out)
 }
 
 /**
- * @brief The encoder's capability list, which a caller reads before connecting.
+ * @brief Checks the capability list of the encoder, which a caller reads
+ *        before it connects.
  *
- * @c IAMStreamConfig::GetStreamCaps() describes what the encoder can produce,
- * so it has to answer whatever the pin is currently connected as - including
- * not at all, which is the state an application enumerating formats is in, and
- * as a stream, which is what a file writer downstream negotiates. Neither
- * state carries an audio format block, and building the answer out of one used
- * to write through a null pointer (SF bug #424).
+ * @c IAMStreamConfig::GetStreamCaps() describes what the encoder can produce.
+ * So it must work in every connection state of the pin:
+ * - not connected at all, as an application that lists the formats finds it,
+ * - connected as a stream, as a file writer downstream negotiates it.
  *
- * The index range is asked about here too: the entry one past the end is the
- * other half of the same report, and its zeroed sample rate reaches a division.
+ * Neither state has an audio format block. A result built from the media type
+ * of the pin follows a null pointer (SF bug #424).
  *
- * @param lame_out  the filter's output pin.
- * @param when      names the pin state, spliced into each check's description.
+ * The test also checks the index range. The entry one past the end is not in
+ * the table. If the code read that entry, it would divide by a zero sample
+ * rate.
+ *
+ * @param lame_out  the output pin of the filter.
+ * @param when      names the pin state. It is inserted into the description
+ *                  of each check.
  */
 static void
 test_stream_caps(IPin *lame_out, const char *when)
@@ -640,30 +655,33 @@ test_stream_caps(IPin *lame_out, const char *when)
 /**
  * @brief A stream sink whose input pin asks for an allocator alignment.
  *
- * The stock File Writer asks for none, so a graph built from stock filters
+ * The stock File Writer asks for no alignment. So a graph of stock filters
  * never shows how the encoder pads a stream to an alignment. This pin accepts
- * a byte stream, requests @c cbAlign bytes, and appends what it receives to
- * one buffer. It lives on the stack of the test that uses it; reference
- * counting is not needed and not done.
+ * a byte stream, asks for @c cbAlign bytes, and appends what it receives to
+ * one buffer. It lives on the stack of the test that uses it. It does not
+ * need reference counting and does not do it.
  */
 class AlignedSinkPin : public IPin, public IMemInputPin {
 public:
     long    align;          /**< the alignment the pin asks for */
     IPin   *peer;           /**< the connected output pin */
     IBaseFilter *owner;     /**< the filter the pin reports as its own */
-    HANDLE  eos;            /**< signalled by EndOfStream() */
+    HANDLE  eos;            /**< signaled by EndOfStream() */
     BYTE   *stream;         /**< everything received, in order */
     long    length;         /**< bytes in #stream */
     long    capacity;       /**< bytes allocated for #stream */
-    int     deliveries;     /**< samples received */
+    int     deliveries;     /**< number of samples received */
 
-    /** @brief A pin asking for @p a bytes of alignment. @param a the alignment. */
+    /**
+     * @brief Creates a pin that asks for @p a bytes of alignment.
+     * @param a the alignment.
+     */
     AlignedSinkPin(long a) : align(a), peer(NULL), owner(NULL), stream(NULL),
         length(0), capacity(0), deliveries(0)
     {
         eos = CreateEvent(NULL, TRUE, FALSE, NULL);
     }
-    /** @brief Frees the received stream and the event. */
+    /** @brief Releases the peer pin, and frees the received stream and the event. */
     ~AlignedSinkPin()
     {
         if (peer)
@@ -790,18 +808,18 @@ public:
 /**
  * @brief The filter that owns an #AlignedSinkPin: one pin and a state.
  *
- * The graph manager asks every connected pin for its filter, so the pin needs
- * one to be part of a running graph.
+ * The graph manager asks every connected pin for its filter. So the pin
+ * needs a filter to be part of a running graph.
  */
 class AlignedSinkFilter : public IBaseFilter, public IEnumPins {
 public:
     AlignedSinkPin &pin;    /**< the only pin */
     FILTER_STATE state;     /**< as set by Stop(), Pause() and Run() */
     IFilterGraph *graph;    /**< the graph the filter joined */
-    IReferenceClock *clock; /**< the clock the graph handed over */
+    IReferenceClock *clock; /**< the clock that the graph set */
     ULONG   next;           /**< the enumeration position */
 
-    /** @brief The filter owning @p p. @param p the pin. */
+    /** @brief Creates the filter that owns @p p. @param p the pin. */
     AlignedSinkFilter(AlignedSinkPin &p) : pin(p), state(State_Stopped), graph(NULL),
         clock(NULL), next(0)
     {
@@ -877,7 +895,7 @@ public:
  * @brief Encodes the test WAV into an #AlignedSinkPin.
  * @param cf    the filter DLL's class factory.
  * @param wav   the input file.
- * @param sink  the pin to deliver to; it asks for its own alignment.
+ * @param sink  the pin to deliver to. It asks for its own alignment.
  * @param connected receives whether the encoder accepted the sink.
  * @return Non-zero when the stream ended within the graph timeout.
  */
@@ -946,13 +964,14 @@ out:
 }
 
 /**
- * @brief A sink asking for an alignment gets the stream, padded with zeros.
+ * @brief Checks that a sink that asks for an alignment gets the stream,
+ *        padded with zeros.
  *
- * The stream encoded without alignment is the reference. With an alignment
- * the encoder rounds the last block up; the bytes after the reference must be
- * zero, not what the reused sample buffer held before. An alignment above
- * what the encoder buffers could never fill a block, and has to be refused at
- * connection rather than end in an empty stream.
+ * The stream encoded without alignment is the reference. With an alignment,
+ * the encoder rounds the last block up. The bytes after the reference must be
+ * zero. They must not be old data from the reused sample buffer. An alignment
+ * larger than the encoder buffer can never fill a block. The encoder must
+ * reject it at connection, so that the stream does not end up empty.
  *
  * @param cf   the filter DLL's class factory.
  * @param wav  the input file.

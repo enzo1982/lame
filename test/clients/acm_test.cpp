@@ -2,20 +2,27 @@
  * @file
  * @brief Tests for the Windows ACM codec.
  *
- * The codec's sources are compiled into this program rather than loaded from
- * the built @c lameACM.acm, because what is under test here is arithmetic and
- * configuration handling that the driver interface does not expose. The
- * @c DriverProc export lives in @c main.cpp, which stays out, so nothing here
- * pulls in the driver entry point.
+ * The program tests the codec in two ways.
  *
- * Two things are covered:
+ * First, the codec sources are compiled into this program. These tests call
+ * the codec classes directly. They check arithmetic and configuration
+ * handling that the driver interface does not expose. The @c DriverProc
+ * export is in @c main.cpp, which is not compiled in. So the program does not
+ * contain the driver entry point. These tests cover:
  *
- * - @c ACMStream::GetOutputSampleRate(), which decides what sample rate smart
- *   output mode offers. Each case is paired with the integer-arithmetic form
- *   the function used to have, which has to disagree - otherwise a build in
- *   which the call had been stubbed out would pass this file unchanged.
- * - the smart output ratio's round trip through the configuration file, read
- *   and written through public methods only.
+ * - @c ACMStream::GetOutputSampleRate(), which selects the sample rate that
+ *   smart output mode offers. Each case is paired with the integer-arithmetic
+ *   form of the function, and the two must disagree. Without that pairing, a
+ *   build in which the call is stubbed out passes this file unchanged.
+ * - The round trip of the smart output ratio through the configuration file.
+ *   The tests read and write it through public methods only.
+ * - Configuration files that parse but have an unexpected shape, ABR ranges
+ *   that are not valid, and a save with no file to start from.
+ *
+ * Second, the program loads the built @c lameACM.acm and drives it through
+ * the Audio Compression Manager. These tests cover the driver details, the
+ * format list, the suggested format and its name, a conversion, and a
+ * destination buffer that is too small.
  */
 
 #include <windows.h>
@@ -35,15 +42,20 @@
 /** @brief LAME's version in the ACM's driver-version layout (major, minor, build). */
 #define DRIVER_VERSION (((DWORD) LAME_MAJOR_VERSION << 24) | ((DWORD) LAME_MINOR_VERSION << 16)                         | (DWORD) LAME_PATCH_VERSION)
 
-/** @brief The configuration file an AEncodeProperties built with no module uses. */
+/**
+ * @brief The configuration file of an AEncodeProperties created with no
+ *        module. It is in the current directory.
+ */
 static const char CONFIG_NAME[] = "lame_acm.xml";
 
 /**
- * @brief The MP3 sample-rate ladder, duplicated for the control below.
+ * @brief Maps a frequency to the MP3 sample-rate ladder. A copy for the
+ *        control below.
  *
- * @c map2MP3Frequency() is static inside @c ACMStream.cpp and cannot be called
- * from here. These are the eight rates MPEG-1 and MPEG-2 define, so this copy
- * has nothing to drift with.
+ * @c map2MP3Frequency() is static inside @c ACMStream.cpp, so this file
+ * cannot call it. These are the nine sample rates of MPEG-1, MPEG-2 and
+ * MPEG-2.5. The standards fix them, so this copy cannot drift from the
+ * original.
  */
 static int
 ladder(int freq)
@@ -60,16 +72,17 @@ ladder(int freq)
 }
 
 /**
- * @brief The rate the function returned before the ratio was computed on
- *        doubles - the control, not a second implementation.
+ * @brief Returns the rate that the integer-arithmetic form of
+ *        ACMStream::GetOutputSampleRate() gives.
  *
- * Its only job is to answer differently where the fix matters. A case where
- * the two agree is asserted as well, so "they differ" is a property of the
- * inputs and not of this function always saying something else.
+ * This is the control, not a second implementation. Its only job is to give
+ * a different result where the ratio on doubles matters. The tests also check
+ * a case where the two agree. So "they differ" is a property of the inputs.
+ * It does not come from this function always returning something else.
  *
- * The numbers below are deliberately written as the shipped code wrote them,
- * unnamed and unexplained. A control that has been tidied is no longer a copy
- * of what it stands for.
+ * The numbers below are deliberately the same as in the integer form, without
+ * names or explanation. A tidied control is not a copy of the code it stands
+ * for.
  */
 static unsigned int
 legacy_output_sample_rate(int samples_per_sec, int bitrate, int channels)
@@ -87,10 +100,11 @@ legacy_output_sample_rate(int samples_per_sec, int bitrate, int channels)
 }
 
 /**
- * @brief Writes a configuration file carrying one smart output ratio.
+ * @brief Writes a configuration file with one smart output ratio.
  *
- * The shape is the one @c ACM/lame_acm.xml ships: a named config under
- * @c encodings, with the ratio on the @c Smart element.
+ * The shape is the shape of the shipped @c ACM/lame_acm.xml: a named config
+ * under @c encodings, with a @c Smart element. The ratio is an attribute of
+ * the @c Smart element.
  */
 static int
 write_config(double ratio)
@@ -114,11 +128,12 @@ write_config(double ratio)
 }
 
 /**
- * @brief The rate smart output mode offers for a given source and bitrate.
+ * @brief Checks the rate that smart output mode offers for a given source and
+ *        bitrate.
  *
- * The three named cases are the ones whose result the fix changed; each is
- * asserted against the rate the mode intends and against the rate the integer
- * form produced.
+ * In the three named cases, the ratio on doubles gives a different result
+ * from the integer form. Each case is checked against the rate that the mode
+ * intends. Each is also checked against the rate that the integer form gives.
  */
 static void
 test_output_sample_rate(void)
@@ -162,12 +177,13 @@ test_output_sample_rate(void)
 }
 
 /**
- * @brief Fields far beyond any stream give the rate their values call for.
+ * @brief Checks that field values far outside any real stream give the rate
+ *        that the values call for.
  *
- * The bitrate and the channel count come from the application's formats. A
- * bitrate of 2^30 bytes per second is so high that the source rate stands; 40000
- * channels without a bitrate stand for 64 kbps each, which is again far above
- * what the source needs.
+ * The bitrate and the channel count come from the formats of the
+ * application. A bitrate of 2^30 bytes per second is so high that the source
+ * rate stays. 40000 channels without a bitrate count as 64 kbps each. That is
+ * again far above what the source needs.
  */
 static void
 test_output_sample_rate_extremes(void)
@@ -180,12 +196,13 @@ test_output_sample_rate_extremes(void)
 }
 
 /**
- * @brief The smart output ratio survives being written and read back.
+ * @brief Checks that the smart output ratio survives a write and a read.
  *
- * A ratio with a fractional part is what the fix preserved, so the value is
- * checked after the read, then written out by the object itself and checked
- * again from a second instance - which is the half that reads the file the
- * codec wrote rather than the one this test wrote.
+ * The ratio has a fractional part, because this test checks that the
+ * fractional part is kept. The test checks the value after the read. Then the
+ * object writes the file itself, and a second instance reads it back. This
+ * second half reads the file that the codec wrote, not the file that the test
+ * wrote.
  */
 static void
 test_smart_ratio_round_trip(void)
@@ -243,17 +260,18 @@ write_raw_config(const char *content)
 }
 
 /**
- * @brief A configuration file that parses but is not one of ours is survived.
+ * @brief Checks that the codec survives a configuration file that parses but
+ *        is not one of ours.
  *
- * Both structural lookups can come back empty, and this class runs inside a
- * driver the ACM has loaded into some application's process, so following an
- * empty one takes that application down rather than the codec. The file is
- * hand-editable and sits beside the codec, so the shapes below are the ones a
- * failed write or an edit produce.
+ * Both structural lookups can return nothing. This class runs inside a driver
+ * that the ACM loads into the process of some application. If the code
+ * follows an empty lookup, it crashes that application. The file is beside
+ * the codec, and users can edit it by hand. So the shapes below are the ones
+ * that a failed write or an edit produces.
  *
- * Reaching this at all is the point: each case has to be *read*, which is why
- * the ratio is checked afterwards. A build that stopped opening the file would
- * pass a test that only asserted "did not crash".
+ * The codec must actually *read* each file. That is why the test checks the
+ * ratio afterwards. A build that does not open the file at all passes a test
+ * that only checks "did not crash".
  */
 static void
 test_malformed_config(void)
@@ -297,12 +315,13 @@ test_malformed_config(void)
 }
 
 /**
- * @brief An ABR range the codec cannot walk keeps the defaults.
+ * @brief Checks that the codec keeps its defaults for an ABR range that it
+ *        cannot step through.
  *
- * The codec lists its ABR formats by stepping down from the maximum to the
- * minimum, when the driver is opened. Each case is one attribute set wrong;
- * the last is a valid range, read back as written, which says the element is
- * read at all.
+ * When the driver is opened, the codec lists its ABR formats. It steps down
+ * from the maximum to the minimum. Each case sets one attribute wrong. The
+ * last case is a valid range, and it reads back as written. That shows that
+ * the codec reads the element at all.
  */
 static void
 test_abr_range_config(void)
@@ -354,15 +373,15 @@ test_abr_range_config(void)
 }
 
 /**
- * @brief Saving works with no configuration file to start from.
+ * @brief Checks that saving works with no configuration file to start from.
  *
- * The installer lays one down beside the codec, so the writer used to be able
- * to assume the document was there - and returned having written nothing when
- * it was not, which is what a lost or emptied file looks like. From then on the
- * user's settings silently stopped being kept.
+ * The installer puts a configuration file beside the codec. The file can
+ * still be lost or emptied. The save then creates the elements it needs.
+ * Without that, the save returns having written nothing. The settings of the
+ * user are then silently not kept.
  *
- * The round trip is what is asserted, not the file's existence: a save that
- * produced a file the codec cannot read back would pass the weaker check.
+ * The test checks the round trip, not that the file exists. A save that
+ * writes a file the codec cannot read back passes the weaker check.
  */
 static void
 test_save_without_a_file(void)
@@ -403,7 +422,10 @@ test_save_without_a_file(void)
     ::DeleteFileA(CONFIG_NAME);
 }
 
-/** @brief Asserts a multimedia call succeeded, reporting the code when not. */
+/**
+ * @brief Asserts that a multimedia call returned MMSYSERR_NOERROR. The detail
+ *        line shows the result.
+ */
 #define CHECK_MM(mr, what)                                               \
     do {                                                                 \
         MMRESULT ctest_mr_ = (mr);                                       \
@@ -412,14 +434,14 @@ test_save_without_a_file(void)
         ctest_record(ctest_mr_ == MMSYSERR_NOERROR, (what), ctest_d_);   \
     } while (0)
 
-/** @brief Concert A, the test tone the source buffer is filled with. */
+/** @brief Concert A, the frequency of the test tone in the source buffer. */
 #define TONE_HZ         440.0
-/** @brief Its amplitude, comfortably below full scale, so nothing clips. */
+/** @brief The amplitude of the tone. It is well below full scale, so nothing clips. */
 #define TONE_AMPLITUDE  16000.0
-/** @brief One turn of the circle, for the sine's argument. */
+/** @brief One full turn of the circle, for the argument of the sine. */
 #define TWO_PI          6.283185307179586
 
-/** @brief The MPEG Layer-3 descriptor an application hands to the ACM. */
+/** @brief Fills in the MPEG Layer-3 format that an application passes to the ACM. */
 static void
 fill_mp3_format(MPEGLAYER3WAVEFORMAT *mp3, DWORD rate, WORD channels, DWORD bps)
 {
@@ -438,7 +460,7 @@ fill_mp3_format(MPEGLAYER3WAVEFORMAT *mp3, DWORD rate, WORD channels, DWORD bps)
     mp3->nCodecDelay = 0;
 }
 
-/** @brief The PCM descriptor for the source side of the conversion. */
+/** @brief Fills in the PCM format for the source side of the conversion. */
 static void
 fill_pcm_format(WAVEFORMATEX *pcm, DWORD rate, WORD channels)
 {
@@ -466,7 +488,7 @@ fill_pcm_format(WAVEFORMATEX *pcm, DWORD rate, WORD channels)
  * the macros to decide gives a wide structure to a narrow function.
  */
 
-/** @brief Counts the formats the codec offers, printing the first few. */
+/** @brief Counts the formats that the codec offers, and prints the first three. */
 static BOOL CALLBACK
 format_cb(HACMDRIVERID hadid, LPACMFORMATDETAILSA pafd, DWORD_PTR user, DWORD fdw)
 {
@@ -481,30 +503,31 @@ format_cb(HACMDRIVERID hadid, LPACMFORMATDETAILSA pafd, DWORD_PTR user, DWORD fd
     return TRUE;
 }
 
-/** @brief A format the enumeration is asked to look for, and what it was called. */
+/** @brief A format to look for in the enumeration, and the name the codec gives it. */
 typedef struct {
     int match_any;                          /**< take the first format offered */
     DWORD rate;                             /**< sample rate to match */
     DWORD bytes_per_sec;                    /**< byte rate to match */
     WORD channels;                          /**< channel count to match */
     DWORD flags;                            /**< Layer-3 tail flags to match */
-    int found;                              /**< set once a format matched */
-    MPEGLAYER3WAVEFORMAT format;            /**< the structure it was given */
-    char name[ACMFORMATDETAILS_FORMAT_CHARS]; /**< the name the codec gave it */
+    int found;                              /**< set when a format matches */
+    MPEGLAYER3WAVEFORMAT format;            /**< the format that matched */
+    char name[ACMFORMATDETAILS_FORMAT_CHARS]; /**< the name the codec gives it */
 } format_search;
 
 /**
- * @brief Keeps the first enumerated format matching the search, and its name.
+ * @brief Keeps the first enumerated format that matches the search, and its
+ *        name.
  *
- * The tail flags are part of the key: the codec offers a constant-rate and an
- * average-rate format at each rate, bitrate and channel count, and the two are
- * named differently. A search that left them out would match whichever came
- * first and compare two different formats' names - which is what it did, until
- * a run showed the list naming the same numbers ABR and the suggestion CBR.
+ * The tail flags are part of the key. The codec can offer a constant-rate and
+ * an average-rate format with the same sample rate, bitrate and channel
+ * count. The two formats have different names. A search without the flags
+ * matches whichever format comes first. It then compares the names of two
+ * different formats.
  *
  * @param hadid the driver being enumerated, unused
  * @param pafd one format the driver offers, and the name it gives it
- * @param user the @c format_search this pass is filling in
+ * @param user the @c format_search that this call fills in
  * @param fdw the enumeration flags, unused
  * @return TRUE, so the enumeration runs to the end
  */
@@ -533,10 +556,10 @@ find_format_cb(HACMDRIVERID hadid, LPACMFORMATDETAILSA pafd, DWORD_PTR user, DWO
 }
 
 /**
- * @brief Walks the codec's MPEG Layer-3 format list, filling in a search.
+ * @brief Walks the MPEG Layer-3 format list of the codec and fills in a search.
  * @param had the opened driver
- * @param want what to look for, and where the match is left
- * @return what the enumeration call returned
+ * @param want what to look for. It receives the match.
+ * @return the result of the enumeration call
  */
 static MMRESULT
 enumerate_formats(HACMDRIVER had, format_search *want)
@@ -554,17 +577,19 @@ enumerate_formats(HACMDRIVER had, format_search *want)
 }
 
 /**
- * @brief The format the codec suggests for a PCM source, and how it names it.
+ * @brief Checks the format that the codec suggests for a PCM source, and the
+ *        name it gives that format.
  *
- * These are the calls an application's compression chooser makes before it can
- * list this codec: ask what the PCM stream should be encoded to, then ask for a
- * description of the answer to show in the list. A suggestion filled in as
- * though the destination were PCM gets listed under whatever wording the ACM
- * generates from those fields, and encodes to a file whose header the player
- * then has to correct.
+ * The compression chooser of an application makes these calls before it can
+ * list this codec. First it asks which format to encode the PCM stream to.
+ * Then it asks for a description of that format to show in the list. Suppose
+ * the codec fills in the suggestion as if the destination were PCM. The ACM
+ * then lists it under a wording that the ACM generates from those fields. The
+ * encoded file then has a header that the player must correct.
  *
- * The description is compared against the codec's own format list rather than
- * against a literal, so rewording the format string cannot fail this.
+ * The test compares the description with the format list of the codec, not
+ * with a fixed string. So a change to the wording of the format string does
+ * not fail this test.
  *
  * @param had the opened driver
  */
@@ -708,17 +733,18 @@ test_format_negotiation(HACMDRIVER had)
     }
 }
 
-/** @brief What the wrapper below answers when the codec faulted. */
+/** @brief What the wrapper below returns when the codec faults. */
 static const MMRESULT CALL_FAULTED = (MMRESULT) -1;
 
 /**
- * @brief acmFormatSuggest(), with a fault inside the codec answered as a result.
+ * @brief Calls acmFormatSuggest(), and returns CALL_FAULTED when the codec
+ *        faults.
  * @param had the opened driver
  * @param src the source format
  * @param dst receives the suggestion
  * @param cb the size of @a dst
  * @param flags which fields of @a dst are fixed
- * @return what the call returned, or CALL_FAULTED
+ * @return the result of the call, or CALL_FAULTED
  */
 static MMRESULT
 suggest_catching_faults(HACMDRIVER had, WAVEFORMATEX *src, WAVEFORMATEX *dst,
@@ -733,12 +759,14 @@ suggest_catching_faults(HACMDRIVER had, WAVEFORMATEX *src, WAVEFORMATEX *dst,
 }
 
 /**
- * @brief A PCM source at a rate no MPEG Layer-3 stream has gets no suggestion.
+ * @brief Checks that a PCM source at a sample rate that no MPEG Layer-3
+ *        stream has gets no suggestion.
  *
- * The codec does not resample, so the rate it would suggest is the source's
- * own. Zero is no rate at all and 96000 Hz is one no MPEG Layer-3 stream has;
- * 44100 Hz is the control: the same call, answered. A fault inside the codec
- * is answered as CALL_FAULTED, so it fails the check rather than the program.
+ * The codec does not resample, so the rate it suggests is the rate of the
+ * source. Zero is no rate at all. No MPEG Layer-3 stream has a rate of
+ * 96000 Hz. 44100 Hz is the control: the same call, which succeeds. A fault
+ * inside the codec returns CALL_FAULTED. So a fault fails the check and does
+ * not end the program.
  *
  * @param had the opened driver
  */
@@ -771,11 +799,15 @@ test_suggest_unencodable_rate(HACMDRIVER had)
 }
 
 /**
- * @brief Counts MPEG frames in an encoded buffer and the distinct bitrates.
+ * @brief Counts the MPEG frames in an encoded buffer, and the distinct
+ *        bitrates.
  *
- * A byte total that comes out low has three possible causes - a tail the codec
- * never flushed, a bitrate it silently substituted, or a variable rate - and
- * the total cannot tell them apart. The frame headers can.
+ * A low byte total has three possible causes:
+ * - the codec did not flush a tail,
+ * - the codec silently replaced the bitrate,
+ * - the codec used a variable bitrate.
+ *
+ * The total cannot tell them apart. The frame headers can.
  */
 static int
 count_frames(const BYTE *buf, DWORD len, DWORD rate, int *distinct, int *sole_kbps)
@@ -823,15 +855,15 @@ count_frames(const BYTE *buf, DWORD len, DWORD rate, int *distinct, int *sole_kb
 }
 
 /**
- * @brief A destination buffer smaller than what the codec has to hand back is
- *        answered with an error, never written past.
+ * @brief Checks that the codec returns an error for a destination buffer that
+ *        is too small for its output, and never writes past the buffer.
  *
- * The codec flushes the encoder when the header is unprepared, into the same
- * destination buffer. The buffer here is the application's own choice - far
- * below what acmStreamSize() recommends - with guard bytes behind it that the
- * codec is not told about; every one must be as it was after the conversion
- * and the unprepare. A conversion that fails must not report a byte count
- * larger than the buffer either.
+ * When the header is unprepared, the codec flushes the encoder into the same
+ * destination buffer. Here the application chooses the buffer size. It is far
+ * below what acmStreamSize() recommends. Guard bytes follow the buffer, and
+ * the codec does not know about them. Every guard byte must be unchanged
+ * after the conversion and the unprepare. A conversion that fails must also
+ * not report more bytes than the buffer has.
  *
  * @param had the opened driver.
  */
@@ -905,16 +937,16 @@ out:
 /**
  * @brief Drives the built codec through the Audio Compression Manager.
  *
- * The smoke test asks whether the DLL loads and exports what it should. This
- * asks whether the codec works when Windows drives it: msacm does the driver
- * message dispatch, the format negotiation and the buffer handling, exactly as
- * an application calling acmStreamConvert() would.
+ * The smoke test checks that the DLL loads and exports what it should. This
+ * test checks that the codec works when Windows drives it. msacm does the
+ * driver message dispatch, the format negotiation and the buffer handling,
+ * exactly as for an application that calls acmStreamConvert().
  *
- * No registry and no administrator are involved. acmDriverAdd() with
- * ACM_DRIVERADDF_FUNCTION registers a driver with the real framework for the
- * calling process only, given a DriverProc, and everything past that point is
- * the framework rather than a stand-in. What it cannot cover is the
- * machine-wide registration itself, which needs a registry change.
+ * The test needs no registry change and no administrator. acmDriverAdd()
+ * with ACM_DRIVERADDF_FUNCTION registers a DriverProc with the real
+ * framework, for the calling process only. Everything after that point is
+ * the real framework, not a stand-in. The test cannot cover the machine-wide
+ * registration, because that needs a registry change.
  */
 static void
 test_under_the_acm(const char *driver)
@@ -1102,8 +1134,9 @@ out:
 }
 
 /**
- * @brief Finds the codec beside this executable, where the build puts both.
- * @return 1 and fills @a out, or 0 if it is not there.
+ * @brief Looks for the codec in the directory of this executable. The build
+ *        writes both files there.
+ * @return 1 and fills in @a out, or 0 if the codec is not there.
  */
 static int
 driver_beside_us(char *out, size_t n)
