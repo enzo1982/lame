@@ -12,7 +12,7 @@ int     long_help(const lame_global_flags * gfp, FILE * const fp, const char *Pr
 int     display_bitrates(FILE * const fp);
 
 int     parse_args(lame_global_flags * gfp, int argc, char **argv, char *const inPath,
-                   char *const outPath, char **nogap_inPath, int *num_nogap);
+                   char *const outPath, char *const outDir, char **nogap_inPath, int *num_nogap);
 
 int     generateOutPath(char const* inPath, char const* outDir, char const* s_ext, char* outPath);
 

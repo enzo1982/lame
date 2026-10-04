@@ -814,10 +814,9 @@ lame_main(lame_t gf, int argc, char **argv)
 {
     char    inPath[PATH_MAX + 1];
     char    outPath[PATH_MAX + 1];
-    char    nogapdir[PATH_MAX + 1];
+    char    outDir[PATH_MAX + 1];
     /* support for "nogap" encoding of up to 200 .wav files */
 #define MAX_NOGAP 200
-    int     nogapout = 0;
     int     max_nogap = MAX_NOGAP;
     char    nogap_inPath_[MAX_NOGAP][PATH_MAX + 1];
     char   *nogap_inPath[MAX_NOGAP];
@@ -852,18 +851,12 @@ lame_main(lame_t gf, int argc, char **argv)
      * skip this call and set the values of interest in the gf struct.
      * (see the file API and lame.h for documentation about these parameters)
      */
-    ret = parse_args(gf, argc, argv, inPath, outPath, nogap_inPath, &max_nogap);
+    ret = parse_args(gf, argc, argv, inPath, outPath, outDir, nogap_inPath, &max_nogap);
     if (ret < 0) {
         return ret == -2 ? 0 : 1;
     }
     if (global_ui_config.update_interval < 0.)
         global_ui_config.update_interval = 2.;
-
-    if (outPath[0] != '\0' && max_nogap > 0) {
-        strncpy(nogapdir, outPath, PATH_MAX + 1);
-        nogapdir[PATH_MAX] = '\0';
-        nogapout = 1;
-    }
 
     /* initialize input file.  This also sets samplerate and as much
        other data on the input file as available in the headers */
@@ -871,8 +864,7 @@ lame_main(lame_t gf, int argc, char **argv)
           /* for nogap encoding of multiple input files, it is not possible to
            * specify the output file name, only an optional output directory. */
           for (i = 0; i < max_nogap; ++i) {
-              char const* outdir = nogapout ? nogapdir : "";
-              if (generateOutPath(nogap_inPath[i], outdir, ".mp3", nogap_outPath[i]) != 0) {
+              if (generateOutPath(nogap_inPath[i], outDir, ".mp3", nogap_outPath[i]) != 0) {
                   error_printf("processing nogap file %d: %s\n", i+1, nogap_inPath[i]);
                   return -1;
               }

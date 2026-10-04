@@ -169,6 +169,7 @@ lame_main(lame_t gf, int argc, char **argv)
     unsigned char mp3buffer[LAME_MAXMP3BUFFER];
     char    inPath[PATH_MAX + 1];
     char    outPath[PATH_MAX + 1];
+    char    outDir[PATH_MAX + 1];
     int     Buffer[2][1152];
     float   BufferF[2][1152];
     int     floats;
@@ -245,7 +246,7 @@ lame_main(lame_t gf, int argc, char **argv)
         for (i = 2+arg; i < argc; ++i) { /* leaving out argument number 1, parsed above */
             argv_mod[i-arg-1] = argv[i];
         }
-        parse_args(gf, argc_mod, argv_mod, inPath, outPath, NULL, NULL);
+        parse_args(gf, argc_mod, argv_mod, inPath, outPath, outDir, NULL, NULL);
         free(argv_mod);
     }
 

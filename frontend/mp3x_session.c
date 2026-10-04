@@ -518,6 +518,7 @@ mp3x_session_open_cli_initial(Mp3xSession *s, Mp3xDriver *d,
 {
     char  in_path[PATH_MAX + 1]  = {0};
     char  out_path[PATH_MAX + 1] = {0};
+    char  out_dir[PATH_MAX + 1]  = {0};
     int   pa_ret;
     GFile *gfile = NULL;
     Mp3xPrevalidateResult pre = {0};
@@ -544,7 +545,7 @@ mp3x_session_open_cli_initial(Mp3xSession *s, Mp3xDriver *d,
        (raw forcing, format forcing, byte swap), and copies the first
        positional argument to in_path and the second to out_path.
        parse_args' own error reporting is preserved. */
-    pa_ret = parse_args(s->gf, argc, argv, in_path, out_path, NULL, NULL);
+    pa_ret = parse_args(s->gf, argc, argv, in_path, out_path, out_dir, NULL, NULL);
     if (pa_ret == -2) {
         lame_close(s->gf);
         s->gf = NULL;

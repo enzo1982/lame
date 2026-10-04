@@ -1788,9 +1788,9 @@ set_path_arg(char const *const src, char *const dst)
 
 static int
 parse_args_(lame_global_flags * gfp, int argc, char **argv,
-           char *const inPath, char *const outPath, char **nogap_inPath, int *num_nogap)
+           char *const inPath, char *const outPath, char *const outDir,
+           char **nogap_inPath, int *num_nogap)
 {
-    char    outDir[PATH_MAX+1] = "";
     int     input_file = 0;  /* set to 1 if we parse an input file name  */
     int     i;
     int     autoconvert = 0;
@@ -1814,6 +1814,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 #endif
     inPath[0] = '\0';
     outPath[0] = '\0';
+    outDir[0] = '\0';
     /* turn on display options. user settings may turn them off below */
     global_ui_config.silent = 0; /* default */
     global_ui_config.brhist = 1;
@@ -2333,8 +2334,8 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         error_printf("%s: %s argument length (%d) exceeds limit (%d)\n", ProgramName, token, arg_n, PATH_MAX);
                         return -1;
                     }
-                    strncpy(outPath, nextArg, PATH_MAX);
-                    outPath[PATH_MAX] = '\0';
+                    strncpy(outDir, nextArg, PATH_MAX);
+                    outDir[PATH_MAX] = '\0';
                     argUsed = 1;
 
                 T_ELIF("out-dir")
@@ -2811,12 +2812,9 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
         dosToLongFileName(inPath);
 #endif
 
-    if (outPath[0] == '\0') { /* no explicit output dir or file */
-        if (count_nogap > 0) { /* in case of nogap encode */
-            strncpy(outPath, outDir, PATH_MAX);
-            outPath[PATH_MAX] = '\0'; /* whatever someone set via --out-dir <path> argument */
-        }
-        else if (inPath[0] == '-') {
+    /* With nogap the caller names each output file from outDir. */
+    if (outPath[0] == '\0' && count_nogap == 0) { /* no explicit output file */
+        if (inPath[0] == '-') {
             /* if input is stdin, default output is stdout */
             strcpy(outPath, "-");
         }
@@ -2954,7 +2952,8 @@ dump_argv(int argc, char** argv)
 #endif
 
 
-int parse_args(lame_t gfp, int argc, char **argv, char *const inPath, char *const outPath, char **nogap_inPath, int *num_nogap)
+int parse_args(lame_t gfp, int argc, char **argv, char *const inPath, char *const outPath,
+               char *const outDir, char **nogap_inPath, int *num_nogap)
 {
     char  **str_argv, *str;
     int     str_argc, ret;
@@ -2981,7 +2980,7 @@ int parse_args(lame_t gfp, int argc, char **argv, char *const inPath, char *cons
 #ifdef DEBUG
     dump_argv(str_argc, str_argv);
 #endif
-    ret = parse_args_(gfp, str_argc, str_argv, inPath, outPath, nogap_inPath, num_nogap);
+    ret = parse_args_(gfp, str_argc, str_argv, inPath, outPath, outDir, nogap_inPath, num_nogap);
     free(str_argv);
     free(str);
     return ret;

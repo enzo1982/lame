@@ -63,12 +63,12 @@ get_termcap_string(char const* id, char* dest, size_t n)
     /*  tgetstr takes no length for the area it fills, so a fixed local buffer
      *  here is overrun by any capability string longer than it. Pass a null
      *  area so the terminal library returns the string from its own storage
-     *  instead, and copy from there under a bound.
+     *  instead, and copy from there only a string that fits whole; dest keeps
+     *  what it had otherwise.
      */
     char const *tp = tgetstr(id, NULL);
-    if (tp != NULL && dest != NULL && n > 0) {
-        strncpy(dest, tp, n);
-        dest[n-1] = '\0';
+    if (tp != NULL && dest != NULL && n > 0 && lame_strnlen(tp, n) < n) {
+        snprintf(dest, n, "%s", tp);
     }
 }
 
@@ -93,8 +93,6 @@ apply_termcap_settings(Console_IO_t * const mfp)
             get_termcap_number("co", &mfp->disp_width, 40, 512);
             get_termcap_number("li", &mfp->disp_height, 16, 256);
             get_termcap_string("up", mfp->str_up, sizeof(mfp->str_up));
-            get_termcap_string("md", mfp->str_emph, sizeof(mfp->str_emph));
-            get_termcap_string("me", mfp->str_norm, sizeof(mfp->str_norm));
             get_termcap_string("ce", mfp->str_clreoln, sizeof(mfp->str_clreoln));
         }
     }

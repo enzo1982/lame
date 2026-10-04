@@ -78,10 +78,11 @@ parse(lame_t gfp, int argc, char **argv)
 {
     char    inPath[PATH_MAX + 1];
     char    outPath[PATH_MAX + 1];
+    char    outDir[PATH_MAX + 1];
 
     inPath[0] = '\0';
     outPath[0] = '\0';
-    return parse_args(gfp, argc, argv, inPath, outPath, NULL, NULL);
+    return parse_args(gfp, argc, argv, inPath, outPath, outDir, NULL, NULL);
 }
 
 /**

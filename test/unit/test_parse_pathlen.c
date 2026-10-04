@@ -121,7 +121,7 @@ test_unusable_numbers_refused(LAME_UNUSED void **state)
         { "-b", "4294967424", -1 },
         { "-s", "44.1", 0 },
     };
-    static char in_path[PATH_MAX + 1], out_path[PATH_MAX + 1];
+    static char in_path[PATH_MAX + 1], out_path[PATH_MAX + 1], out_dir[PATH_MAX + 1];
     size_t  c;
     for (c = 0; c < sizeof cases / sizeof cases[0]; ++c) {
         char    prog[] = "lame", in[] = "in.wav", out[] = "out.mp3";
@@ -133,7 +133,7 @@ test_unusable_numbers_refused(LAME_UNUSED void **state)
         snprintf(opt, sizeof opt, "%s", cases[c].opt);
         snprintf(val, sizeof val, "%s", cases[c].val);
         argv[0] = prog; argv[1] = opt; argv[2] = val; argv[3] = in; argv[4] = out; argv[5] = NULL;
-        r = parse_args(gf, 5, argv, in_path, out_path, NULL, NULL);
+        r = parse_args(gf, 5, argv, in_path, out_path, out_dir, NULL, NULL);
         if (r != cases[c].ret)
             fail_msg("%s %s: parse_args() answered %d", cases[c].opt, cases[c].val, r);
         lame_close(gf);

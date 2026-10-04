@@ -26,6 +26,9 @@
 extern "C" {
 #endif
 
+/** @brief Bytes for one terminal control string, its terminator included. */
+#define CONSOLE_CAP_SIZE 16
+
 typedef struct console_io_struct {
     unsigned long ClassID;
     unsigned long ClassProt;
@@ -37,10 +40,8 @@ typedef struct console_io_struct {
 #endif
     int     disp_width;
     int     disp_height;
-    char    str_up[10];
-    char    str_clreoln[10];
-    char    str_emph[10];
-    char    str_norm[10];
+    char    str_up[CONSOLE_CAP_SIZE];
+    char    str_clreoln[CONSOLE_CAP_SIZE];
     char    Console_buff[2048];
     int     Console_file_type;
 } Console_IO_t;
