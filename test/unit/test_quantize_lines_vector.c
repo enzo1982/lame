@@ -1,33 +1,33 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit tests for the vectorised quantization of xr^(3/4).
+ * @brief Unit tests for the vectorized quantization of xr^(3/4).
  *
- * The bitstream check answers "does a real encode still produce the same
- * bits", which is the gate that matters, but it only ever exercises the run
- * lengths and value ranges the music happens to produce. Two things it cannot
- * be relied on to reach are tested here directly.
+ * The bitstream check tests whether a real encode still produces the same
+ * bits. That is the check that matters. But it only tests the run lengths and
+ * value ranges that the music happens to produce. The bitstream check may
+ * never test two cases, so this file tests them directly.
  *
- * The first is the tail. The loop consumes its length in fours and then an
- * optional pair, so an odd length leaves its last value untouched - existing
- * behaviour the callers depend on, and exactly the kind of off-by-one a vector
- * rewrite introduces. Every case below therefore checks not only the values
- * written but that nothing past them was.
+ * The first case is the tail. The loop consumes its length in blocks of four
+ * and then an optional pair. So an odd length leaves its last value
+ * untouched. The callers depend on this behavior. A vector version can easily
+ * get it wrong by one. So every case below checks the values written. It also
+ * checks that nothing past them was written.
  *
- * The second is the ends of the table index range. The index is a truncated
- * float, and the truncating convert answers out-of-range input with INT_MIN
- * where C leaves it undefined, so the two forms agree only inside the range
- * the caller guarantees. The extremes of that range are checked explicitly.
- * What feeds them has to stay inside it too: the SSE form of xr^(3/4) is
- * checked for coefficients far below audibility.
+ * The second case is the ends of the table index range. The index is a
+ * truncated float. For input out of range, the truncating convert instruction
+ * returns INT_MIN, and C leaves the result undefined. So the two forms agree
+ * only inside the range that the caller guarantees. The tests check the ends
+ * of that range explicitly. The input to the index must also stay inside the
+ * range. So one test checks the SSE form of xr^(3/4) with coefficients far
+ * below audibility.
  *
- * The reference is written here rather than taken from LAME's own loop, and
- * deliberately in a different shape - flat over the element count instead of
- * blocked - so that the two cannot share a misunderstanding of how many
- * elements a length implies. The table is synthetic for the same reason: the
- * routines take it as an argument, so an index computed one place off shows
- * up as a wrong value rather than being masked by a neighbour that happens to
- * be equal.
+ * The reference is written in this file. It does not reuse LAME's own loop.
+ * It also has a different shape: one flat loop over the element count, with
+ * no blocks. So the two cannot share a mistake about how many elements a
+ * length implies. The table is synthetic for the same reason. The routines
+ * take the table as an argument. So an index that is off by one gives a wrong
+ * value. A neighbor entry with the same value cannot hide the mistake.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -59,7 +59,7 @@
 # define MXCSR_DENORMALS_ARE_ZERO 0x0040u
 #endif
 
-/** Longest run the encoder ever asks about. */
+/** Longest run that the encoder passes to the routines. */
 #define MAX_LEN 576
 
 /** Value written into the output before each call, to catch stray writes. */
@@ -78,7 +78,7 @@ tables_init(void)
         adj_t[i] = (FLOAT) (0.4054 + 0.001 * (double) (i % 97));
 }
 
-/** @brief Does the running CPU offer AVX2? */
+/** @brief Checks whether the running CPU has AVX2. */
 static int
 have_avx2(void)
 {
@@ -96,10 +96,10 @@ have_avx2(void)
 }
 
 /**
- * @brief The AVX2 form, or a stand-in where it was not compiled.
+ * @brief Calls the AVX2 form, or does nothing if the build does not have it.
  *
- * Never called in the stand-in case: have_avx2() answers no wherever the
- * routine does not exist.
+ * The empty case is never called. have_avx2() returns 0 wherever the routine
+ * does not exist.
  */
 static void
 avx2_quantize(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix, const FLOAT * adj)
@@ -112,10 +112,11 @@ avx2_quantize(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix, const FLOA
 }
 
 /**
- * @brief Does the running CPU offer the AVX-512 subsets the tier needs?
+ * @brief Checks whether the running CPU has the AVX-512 subsets that the tier
+ *        needs.
  *
- * All four are asked for, because the kernels use all four and a CPU carrying
- * only the foundation would fault on the rest.
+ * The check requires all four subsets, because the kernels use all four. A
+ * CPU with only the foundation subset would fault on the others.
  */
 static int
 have_avx512(void)
@@ -137,7 +138,7 @@ have_avx512(void)
 #endif
 }
 
-/** @brief The AVX-512 form, or a stand-in where it was not compiled. */
+/** @brief Calls the AVX-512 form, or does nothing if the build does not have it. */
 static void
 avx512_quantize(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix, const FLOAT * adj)
 {
@@ -152,7 +153,7 @@ avx512_quantize(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix, const FL
 /* reference                                                           */
 /* ------------------------------------------------------------------ */
 
-/** @brief How many values a run of @a l actually consumes. */
+/** @brief Returns the number of values that a run of length @a l consumes. */
 static unsigned int
 ref_count(unsigned int l)
 {
@@ -160,7 +161,7 @@ ref_count(unsigned int l)
     return 4u * (h >> 1) + 2u * (h & 1u);
 }
 
-/** @brief The same arithmetic, flat rather than blocked. */
+/** @brief Computes the same arithmetic in one flat loop, without blocks. */
 static void
 ref_quantize(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix, const FLOAT * adj)
 {
@@ -180,14 +181,15 @@ ref_quantize(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix, const FLOAT
 /* helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-/** @brief Which implementation check_one() should exercise. */
+/** @brief Selects the tier that check_one() tests. */
 enum { TIER_SSE2 = 0, TIER_AVX2 = 1, TIER_AVX512 = 2 };
 
 /**
- * @brief Run one length through a tier and its reference and compare.
+ * @brief Runs one length through a tier and through the reference, and
+ *        compares the results.
  *
- * Checks the values written, and that everything past them still holds the
- * sentinel - the tail case is the whole reason these tests exist.
+ * Checks the values written. Also checks that every element past them still
+ * contains the sentinel. The tail case is the main reason for these tests.
  */
 static void
 check_one(unsigned int l, FLOAT istep, const FLOAT * xr, const FLOAT * adj, int tier)
@@ -223,11 +225,12 @@ check_one(unsigned int l, FLOAT istep, const FLOAT * xr, const FLOAT * adj, int 
 /* ------------------------------------------------------------------ */
 
 /**
- * @brief Every length from 0 to 72 and the last four up to a full run, on
- *        each tier this processor can run.
+ * @brief Checks every length from 0 to 72 and the last four lengths up to a
+ *        full run, on each tier that this CPU can run.
  *
- * Covers both sides of the two vector thresholds and of the block size, and
- * every odd length in between - which is where the untouched last value is.
+ * The range covers both sides of each dispatch threshold in takehiro.c (8, 16
+ * and 32 values) and of each block size. It also covers every odd length in
+ * between. The untouched last value occurs at the odd lengths.
  */
 static void
 test_lengths(LAME_UNUSED void **state)
@@ -256,10 +259,10 @@ test_lengths(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The ends of the index range the caller guarantees.
+ * @brief Checks the ends of the index range that the caller guarantees.
  *
- * count_bits() rejects a granule before any value here could exceed
- * IXMAX_VAL, so 0 and IXMAX_VAL are the extremes that can actually occur.
+ * count_bits() rejects a granule before any value here can exceed IXMAX_VAL.
+ * So 0 and IXMAX_VAL are the extremes that can occur.
  */
 static void
 test_index_boundaries(LAME_UNUSED void **state)
@@ -293,7 +296,7 @@ test_index_boundaries(LAME_UNUSED void **state)
         check_one(64, 0.25f, xr, adj_t, TIER_AVX512);
 }
 
-/** @brief All zero - the case a silent passage produces. */
+/** @brief Checks input that is all zero. A silent passage produces this case. */
 static void
 test_all_zero(LAME_UNUSED void **state)
 {
@@ -313,7 +316,7 @@ test_all_zero(LAME_UNUSED void **state)
             check_one((unsigned int) i, 1.0f, xr, adj_t, TIER_AVX512);
 }
 
-/** @brief The tiers must agree with each other, not merely each with C. */
+/** @brief Checks that the AVX2 and AVX-512 tiers agree with the SSE2 tier directly. */
 static void
 test_tiers_agree(LAME_UNUSED void **state)
 {
@@ -347,12 +350,12 @@ test_tiers_agree(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Guard: the element count must really depend on the length.
+ * @brief Guard: checks that the element count really depends on the length.
  *
- * ref_count() is the one piece of understanding the reference and the routines
- * share, so a mistake in it would be invisible to every test above - both
- * sides would write the same wrong number of values and agree. This pins it
- * against the property it exists to express.
+ * ref_count() is the one assumption that the reference and the routines
+ * share. A mistake in it would be invisible to every test above. Both sides
+ * would write the same wrong number of values and agree. This test checks
+ * ref_count() against the property that it expresses.
  */
 static void
 test_odd_length_drops_last(LAME_UNUSED void **state)
@@ -369,14 +372,13 @@ test_odd_length_drops_last(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Guard: a reference that agreed with everything would prove nothing.
+ * @brief Guard: checks that the reference can disagree with the routine.
  *
- * Each perturbation below has to be large enough to survive the truncation.
- * The first attempt at this test shifted the table by one entry, which moves
- * the summand by a thousandth - far too little to change an integer result,
- * so the "must disagree" assertion failed and the guard turned out to be
- * incapable of detecting anything. Perturbations here are chosen to cross an
- * integer boundary outright.
+ * A reference that agrees with everything proves nothing. Each change to the
+ * input below must be large enough to survive the truncation. Adjacent entries
+ * of the synthetic table differ by only 0.001. So a table that is shifted by
+ * one entry does not change an integer result. The assertion that the results
+ * differ would then fail. So each change here crosses an integer boundary.
  */
 static void
 test_reference_can_disagree(LAME_UNUSED void **state)
@@ -416,7 +418,8 @@ test_reference_can_disagree(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The exponent field of the float at @p p is all ones (NaN or infinity).
+ * @brief Checks whether the exponent field of the float at @p p is all ones
+ *        (NaN or infinity).
  *
  * @param p a float in memory.
  * @return nonzero for a NaN or an infinity.
@@ -430,20 +433,24 @@ float_bits_nonfinite(const void *p)
 }
 
 /**
- * @brief The SSE form of xr^(3/4) stays finite for coefficients far below
- *        audibility.
+ * @brief Checks that the SSE form of xr^(3/4) stays finite for coefficients
+ *        far below audibility.
  *
- * From 2^-84 down, x * sqrt(x) is a denormal, and square roots evaluated
- * from a reciprocal estimate - clang does so under the -ffast-math the library
- * is built with - make a NaN of it. The quantizer's range check lets a NaN
- * through, and the vector quantizers then use it as a table index. Magnitudes
- * from 2^-60 down to 2^-139, both signs, denormals included, at every tail
- * length: every result has to be finite, match |x|^0.75 above the cut-off,
- * and be zero or no larger than that below it.
+ * From 2^-84 down, x * sqrt(x) is a denormal. A square root that is computed
+ * from a reciprocal estimate turns a denormal into a NaN. clang computes
+ * square roots this way under -ffast-math, and the library is built with
+ * -ffast-math. The quantizer's range check lets a NaN through. The vector
+ * quantizers then use the NaN as a table index.
  *
- * Run with denormals as they are. A program linked with -ffast-math starts
- * with them flushed to zero, which hides the fault - this test is such a
- * program - but an application that only loads the library does not.
+ * The test uses magnitudes from 2^-60 down to 2^-139, with both signs and
+ * with denormals. It runs every tail length. Every result must be finite.
+ * Above the cut-off of 2^-80, each result must match |x|^0.75. Below the
+ * cut-off, each result must be zero or no larger than |x|^0.75.
+ *
+ * The test runs with denormals enabled. A program linked with -ffast-math
+ * starts with denormals flushed to zero, and that hides the fault. This test
+ * is such a program. But an application that only loads the library does not
+ * flush denormals.
  *
  * @param state cmocka fixture state (unused).
  */

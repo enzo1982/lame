@@ -3,16 +3,15 @@
  * @ingroup unit_tests
  * @brief Unit tests for the vector-routines API.
  *
- * Unlike the tests for the routines themselves, nothing here is gated on an
- * architecture: that is the point of the API. It reports what this build
- * carries, whatever that is, so the same assertions hold on a build with two
- * sets, one set, or none - and a build with none is a real configuration, not
- * a degenerate one.
+ * The tests for the routines themselves depend on the architecture. Nothing
+ * here does, and that is the purpose of the API. It reports what this build
+ * has, whatever that is. So the same assertions are true on a build with two
+ * sets, one set or none. A build with no set is a real configuration, not a
+ * broken one.
  *
- * The assertions are therefore written against the *contract* rather than
- * against a known list of names. A test that expected "sse2" at index 0 would
- * fail on ARM for no reason, and would say nothing about whether the contract
- * holds.
+ * So the assertions test the *contract*, not a known list of names. A test
+ * that expects "sse2" at index 0 fails on ARM for no reason. It also says
+ * nothing about whether the contract is met.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -39,7 +38,7 @@
  */
 #define VECTOR_NAME_MAX 32
 
-/** @brief A fresh encoder context per test. */
+/** @brief Creates a fresh encoder instance for each test. */
 static int
 gfp_setup(void **state)
 {
@@ -58,7 +57,7 @@ gfp_teardown(void **state)
     return 0;
 }
 
-/** @brief An instance taken all the way through lame_init_params(). */
+/** @brief Creates an encoder instance and runs lame_init_params() on it. */
 static int
 inited_setup(void **state)
 {
@@ -77,11 +76,12 @@ inited_setup(void **state)
 }
 
 /**
- * @brief The count is never negative, and the names it promises are all there.
+ * @brief Checks that the count is never negative and that every promised
+ *        name exists.
  *
- * The function takes no arguments and no instance, so it has nothing to fail
- * on; the contract says so explicitly and this pins it. Zero is a legitimate
- * answer, so the test must not require any sets to exist.
+ * The function takes no arguments and no encoder instance. So it has nothing
+ * to fail on. The contract says so explicitly, and this test checks it. Zero
+ * is a valid count, so the test must not require any set to exist.
  */
 static void
 test_count_and_names(LAME_UNUSED void **state)
@@ -105,7 +105,7 @@ test_count_and_names(LAME_UNUSED void **state)
     }
 }
 
-/** @brief Out of range is the only reason the name lookup returns NULL. */
+/** @brief Checks that the name lookup returns NULL only for an index out of range. */
 static void
 test_name_bounds(LAME_UNUSED void **state)
 {
@@ -118,7 +118,7 @@ test_name_bounds(LAME_UNUSED void **state)
         assert_non_null(lame_get_vector_routines_name(n - 1));
 }
 
-/** @brief No two sets share a name, or an index would be ambiguous. */
+/** @brief Checks that no two sets have the same name. Otherwise one name could refer to two sets. */
 static void
 test_names_are_distinct(LAME_UNUSED void **state)
 {
@@ -132,14 +132,12 @@ test_names_are_distinct(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Every enumerated name is one the setter knows.
+ * @brief Checks that the setter accepts every enumerated name.
  *
- * This is the guard on the two lists in util.c drifting apart: the table of
- * sets this build compiled, and the list of names the project knows at all.
- * If a set were added to the first and not the second, its own name would come
- * back "unknown" (-2) - the enumeration would be advertising something the
- * setter rejects. -4 is allowed, because a processor that cannot run a set is
- * a fact about the machine, not about the name.
+ * lame_get_vector_routines_name() promises this. For a name that the
+ * enumeration returns, the setter must never return "unknown" (-2) or "not in
+ * this build" (-3). The test accepts -4, because a CPU that cannot run a set
+ * is a fact about the machine, not about the name.
  */
 static void
 test_enumerated_names_round_trip(void **state)
@@ -157,7 +155,7 @@ test_enumerated_names_round_trip(void **state)
     }
 }
 
-/** @brief The two reserved names are always accepted, even with no sets. */
+/** @brief Checks that the setter always accepts the two reserved names, even in a build with no sets. */
 static void
 test_reserved_names(void **state)
 {
@@ -168,10 +166,12 @@ test_reserved_names(void **state)
 }
 
 /**
- * @brief An unknown name returns -2, and a NULL instance returns -1.
+ * @brief Checks that an unknown name returns -2 and a NULL instance returns
+ *        -1.
  *
- * The function also returns -3 for a set this build does not include and -4
- * for a set this processor cannot run. This test does not check those two.
+ * The function also returns -3 for a set that this build does not include.
+ * It returns -4 for a set that this CPU cannot run. This test does not check
+ * those two codes.
  */
 static void
 test_rejections(void **state)
@@ -199,7 +199,7 @@ test_rejections(void **state)
     assert_int_equal(lame_set_vector_routines(NULL, "nosuchthing"), -1);
 }
 
-/** @brief Before lame_init_params() there is no outcome to report. */
+/** @brief Checks that lame_get_vector_routines() returns NULL before lame_init_params(). */
 static void
 test_outcome_unavailable_before_init(void **state)
 {
@@ -210,10 +210,11 @@ test_outcome_unavailable_before_init(void **state)
 }
 
 /**
- * @brief After init the outcome is a real name, and never the request word.
+ * @brief Checks that after lame_init_params() the result is a real name,
+ *        never the request word.
  *
- * "auto" is a request, not an answer; reporting it back would tell a caller
- * nothing about what is running.
+ * "auto" is a request, not a result. If the function returned it, a caller
+ * would learn nothing about the routines that run.
  */
 static void
 test_outcome_after_init(void **state)
@@ -236,11 +237,12 @@ test_outcome_after_init(void **state)
 }
 
 /**
- * @brief A selection is honoured, which is the whole purpose of the API.
+ * @brief Checks that the encoder uses the selected set. That is the purpose of
+ *        the API.
  *
- * "none" is the case every build can run, so it is asserted unconditionally;
- * a named set is asserted only where the processor can execute it, since -4 is
- * a legitimate answer on a machine that cannot.
+ * Every build can run "none", so the test always checks it. The test checks a
+ * named set only where the CPU can run it. On a machine that cannot, -4 is a
+ * valid result.
  */
 static void
 test_selection_is_honoured(LAME_UNUSED void **state)

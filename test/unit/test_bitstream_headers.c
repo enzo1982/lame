@@ -1,31 +1,32 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit tests for the frame headers the encoder buffers before writing
- *        them (libmp3lame/bitstream.c).
+ * @brief Unit tests for the frame headers that the encoder buffers before it
+ *        writes them (libmp3lame/bitstream.c).
  *
- * A frame's header is produced when the frame is encoded but written when the
- * stream reaches the header's own position, so headers wait in between. How
- * many wait at once is the bit reservoir divided by what a frame has room for
- * beyond its own side info - a quantity that stays at one or two for ordinary
- * settings and reaches the hundreds at the format's low end, where an MPEG-2
- * frame at 8 kbit/s and 24 kHz is 24 bytes carrying 23 bytes of side info for
- * two channels with CRC. Silence spends none of the remaining byte, so a
- * silent lead-in fills the reservoir and leaves a header waiting for every
- * eight bits of it.
+ * The encoder produces the header of a frame when it encodes the frame. It
+ * writes the header when the output gets to the position of that header. In
+ * between, the header waits in a buffer. The number of waiting headers is the
+ * bit reservoir divided by the room that a frame has beyond its own side
+ * info. For ordinary settings this number is one or two. At the low end of
+ * the format it is in the hundreds. An MPEG-2 frame at 8 kbit/s and 24 kHz is
+ * 24 bytes. With two channels and CRC, 23 of these bytes are side info.
+ * Silence uses none of the remaining byte. So a silent lead-in fills the
+ * reservoir, and one header waits for every eight bits of it.
  *
- * That is ordinary input - a recording that starts with a gap - and the first
- * test encodes it. The second is an everyday encode, which must be unaffected
- * and which is what says the first one's result is about the settings rather
- * than about the test having encoded nothing.
+ * This is ordinary input: a recording that starts with a gap. The first test
+ * encodes it. The second test is an everyday encode, which must not be
+ * affected. The second test also shows that the result of the first test
+ * comes from its settings. It does not come from a test that encoded nothing.
  *
- * Both ask the same two things: that the encoder reports no error, and that
- * every byte it produced belongs to a frame. The second matters because the
- * failure this guards against is silent - the encoder reports once and carries
- * on writing a stream whose framing it has lost, so a test that only watched
- * for a return code would see a clean encode.
+ * Both tests check the same two things. The encoder reports no error. And
+ * every byte that it produced belongs to a frame. The second check matters
+ * because the failure is silent. The encoder reports once and then continues
+ * to write a stream that has lost its framing. A test that only checks a
+ * return code sees a clean encode.
  *
- * Library-level tests: they link libmp3lame and call the exported API directly.
+ * These are library-level tests. They link libmp3lame and call the exported
+ * API directly.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -47,26 +48,26 @@
 
 /** Samples in an MPEG-2 layer III frame. */
 #define SAMPLES_PER_FRAME 576
-/** Frames of digital silence before the audio starts. One more than the
- *  headers that can be waiting at once, which is where the demand peaks. */
+/** Frames of digital silence before the audio starts. The value is above 256,
+ *  the peak number of header slots that the low-bitrate setting needs. */
 #define SILENT_FRAMES     260
-/** Frames of ordinary audio after it, which is what spends the reservoir. */
+/** Frames of ordinary audio after the silence. These frames spend the reservoir. */
 #define SIGNAL_FRAMES     40
 #define MP3BUF_SIZE       (5 * SAMPLES_PER_FRAME / 4 + 7200)
-/** Room for the whole encode, generously: the loud control is the large one. */
+/** Buffer size for the whole encode, with a large margin. The 128 kbit/s control produces the largest stream. */
 #define STREAM_SIZE       (256 * 1024)
 
 /** Messages the encoder reported through its error callback. */
 static int error_messages;
-/** The first of them, for a failure that says what happened. */
+/** The first message. A failing test prints it. */
 static char first_message[200];
 
 /**
  * @brief Records that the encoder reported something.
  *
- * The format string carries the whole text in this library - the messages
- * under test take no arguments - so it is kept as it stands rather than
- * formatted, which keeps the callback free of varargs handling.
+ * The messages under test take no arguments. So the format string is the
+ * whole text. The callback stores the format string as it is and does not
+ * format it. So the callback needs no varargs handling.
  */
 static void
 count_error_message(const char *format, LAME_UNUSED va_list ap)
@@ -78,7 +79,7 @@ count_error_message(const char *format, LAME_UNUSED va_list ap)
     error_messages++;
 }
 
-/** The layer III bitrates, in kbit/s, indexed as the header holds them. */
+/** The layer III bitrates in kbit/s, in the order of the bitrate index in the header. */
 static int const bitrate_mpeg1[15] = {
     0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320
 };
@@ -94,8 +95,8 @@ static long const samplerates[4][3] = {
 };
 
 /**
- * @brief Length in bytes of the frame whose header starts at @p h, or 0 if
- *        that is not a layer III header.
+ * @brief Returns the length in bytes of the frame whose header starts at
+ *        @p h. Returns 0 if that is not a layer III header.
  */
 static int
 frame_length(unsigned char const *h)
@@ -124,8 +125,8 @@ frame_length(unsigned char const *h)
 }
 
 /**
- * @brief Follows the frame chain from the first byte, the way a stream parser
- *        does: each frame's length says where the next header must be.
+ * @brief Follows the frame chain from the first byte, as a stream parser
+ *        does. The length of each frame says where the next header must be.
  * @param mp3,len the encoded stream.
  * @param frames set to the number of frames the chain covers.
  * @return the offset of the first byte that is not where a frame header was
@@ -149,9 +150,9 @@ walk_frames(unsigned char const *mp3, int len, int *frames)
 }
 
 /**
- * @brief Encodes @p silent frames of digital silence followed by @p loud
- *        frames of a tone, with the settings the caller has already made.
- * @return the number of bytes collected in @p mp3.
+ * @brief Encodes @p silent frames of digital silence and then @p loud frames
+ *        of a sawtooth tone. Uses the settings that the caller has made.
+ * @return the number of bytes stored in @p mp3.
  */
 static int
 encode(lame_t gfp, int silent, int loud, unsigned char *mp3, int mp3_size)
@@ -190,7 +191,8 @@ encode(lame_t gfp, int silent, int loud, unsigned char *mp3, int mp3_size)
 }
 
 /**
- * @brief Prepares an encoder that reports through #count_error_message.
+ * @brief Creates an encoder instance that reports errors through
+ *        #count_error_message.
  */
 static lame_t
 new_encoder(void)
@@ -210,13 +212,15 @@ new_encoder(void)
 }
 
 /**
- * @brief A silent lead-in does not cost the file its framing.
+ * @brief Checks that a silent lead-in keeps the framing of the file.
  *
- * MPEG-2 at 8 kbit/s and 24 kHz, two channels, CRC on: one byte of room per
- * frame beyond the side info, so 260 silent frames leave more headers waiting
- * than a ring of 256 slots can hold while also taking the next one. What that
- * used to produce was an encoder that reported once, returned success, and
- * wrote a further 255 frames' worth of audio with no frame headers in it.
+ * The settings are MPEG-2 at 8 kbit/s and 24 kHz, two channels, CRC on. A
+ * frame then has one byte of room beyond the side info. So up to 255 headers
+ * wait at once. The frame that is being encoded needs one more slot. So the
+ * 260 silent frames need 256 slots at the peak. A ring of 256 slots is one
+ * slot short. With a ring that is too small, the encoder reports an error
+ * once and returns success. It then writes about 255 frames of audio with no
+ * frame headers.
  */
 static void
 test_silent_lead_in_keeps_the_framing(LAME_UNUSED void **state)
@@ -246,11 +250,11 @@ test_silent_lead_in_keeps_the_framing(LAME_UNUSED void **state)
 }
 
 /**
- * @brief An everyday encode is unaffected.
+ * @brief Checks that an everyday encode keeps its framing.
  *
- * The control: it shows the two checks above pass on a stream that was really
- * produced, so the first test's result belongs to its settings rather than to
- * a walk over an empty buffer.
+ * This test is the control. It shows that the two checks above pass on a
+ * stream that the encoder really produced. So the result of the first test
+ * comes from its settings, not from a walk over an empty buffer.
  */
 static void
 test_ordinary_encode_keeps_the_framing(LAME_UNUSED void **state)

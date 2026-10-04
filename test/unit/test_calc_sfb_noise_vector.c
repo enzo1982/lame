@@ -1,28 +1,27 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit tests for the vectorised VBR scalefactor-band noise.
+ * @brief Unit tests for the vectorized VBR scalefactor-band noise.
  *
- * calc_sfb_noise_x34 returns one number - a sum of squared quantization errors -
- * so unlike the quantize_lines test there is no output array to diff, and the
- * sum is a floating-point reduction whose exact last bit depends on association.
- * There is a single vector tier here (SSE2).  Both wider ones were written and
- * measured rather than reasoned away: AVX2 added nothing on the variable-bitrate
- * workload, and AVX-512 cost about 5 % of a -V 2 encode on the one machine that
- * could run it, so neither is carried - see @ref vector_dispatch.  The test
- * checks:
+ * calc_sfb_noise_x34 returns one number: a sum of squared quantization
+ * errors. So there is no output array to compare, as in the quantize_lines
+ * test. The sum is a floating-point reduction. Its last bit depends on the
+ * order of the additions. This routine has a single vector tier (SSE2). The
+ * wider tiers give no gain here. See @ref vector_dispatch.
  *
- *   - The SSE2 tier must match a reference to within float rounding.  The
- *     reference accumulates in double, so it is association-independent and
- *     near-exact; comparing the float result to it catches a wrong index, a
- *     wrong formula or a mishandled tail without depending on which association
- *     the compiler gave the reference.  A bit-exact scalar reference would be
- *     reassociated by -ffast-math and could not be trusted here.
+ * The SSE2 tier must match a reference to within float rounding. The
+ * reference sums in double. So the order of its additions hardly matters,
+ * and its result is close to exact. A comparison of the float result with
+ * this reference catches a wrong index, a wrong formula or a wrong tail. It
+ * does not depend on the order of additions that the compiler chose for the
+ * reference. A bit-exact scalar reference does not work here, because
+ * -ffast-math reorders its additions.
  *
- * The tail is the off-by-one a vector rewrite invites: the loop consumes fours
- * then an optional 1-3, and the scalar routine squares zeros for the padding, so
- * an odd bw is exercised at every length.  The table is synthetic and varies per
- * index so a subscript computed one off changes the answer.
+ * The tail is where a vector version is easily off by one. The loop consumes
+ * blocks of four and then an optional 1 to 3 values. The scalar routine
+ * squares zeros for the padding. So the test runs every bw from 0 to 80,
+ * which covers every remainder. The table is synthetic. Its values change
+ * with each index, so an index that is off by one changes the result.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -62,7 +61,7 @@ tables_init(void)
     }
 }
 
-/** Association-independent reference: accumulate the squares in double. */
+/** Computes the reference. It sums the squares in double, so the order of the additions hardly matters. */
 static double
 ref_noise(const FLOAT * xr, const FLOAT * xr34, unsigned int bw, FLOAT sfpow, FLOAT sfpow34)
 {
@@ -116,7 +115,7 @@ fill(FLOAT * xr, FLOAT * xr34)
     }
 }
 
-/** Every length from 0 to 80 and the last four up to a full band (the tail). */
+/** Checks every length from 0 to 80 and the last four lengths up to a full band. These lengths cover the tail. */
 static void
 test_lengths(LAME_UNUSED void **state)
 {
@@ -130,7 +129,7 @@ test_lengths(LAME_UNUSED void **state)
         check_one(bw, 0.85f, 1.9f, xr, xr34);
 }
 
-/** The ends of the index range the caller guarantees (0 .. IXMAX_VAL). */
+/** Checks the ends of the index range that the caller guarantees (0 .. IXMAX_VAL). */
 static void
 test_index_boundaries(LAME_UNUSED void **state)
 {
@@ -148,7 +147,7 @@ test_index_boundaries(LAME_UNUSED void **state)
     check_one(67, 1.0f, 1.0f, xr, xr34);
 }
 
-/** All zero - a silent band. */
+/** Checks input that is all zero. A silent band produces this case. */
 static void
 test_all_zero(LAME_UNUSED void **state)
 {
@@ -161,7 +160,7 @@ test_all_zero(LAME_UNUSED void **state)
         check_one(bw, 0.85f, 1.9f, xr, xr34);
 }
 
-/** Guard: the reference must be able to disagree, or the checks prove nothing. */
+/** Guard: checks that the reference can disagree. Otherwise the checks prove nothing. */
 static void
 test_reference_can_disagree(LAME_UNUSED void **state)
 {

@@ -3,24 +3,29 @@
  * @ingroup unit_tests
  * @brief Unit tests for the NEON Huffman escape-counting primitive.
  *
- * The ARM tier carries one routine, and this is it. The x86 file next door
- * tests four, because x86 has four; the difference is not an omission but the
- * result of measuring which of them a compiler does not already write, and
- * then which of those actually pay; see @ref vector_dispatch.
+ * The ARM tier has one routine, and this file tests it. The x86 file
+ * test_choose_table_vector.c tests four routines, because x86 has four. The
+ * difference comes from measurements. They showed which routines a compiler
+ * does not already vectorize, and which of those give a gain. See
+ * @ref vector_dispatch.
  *
- * A separate program rather than an arm of test_choose_table_vector.c: that
- * one is built only `if WITH_XMM` and calls the SSE2 and AVX2 routines by
- * name throughout, so the two have no overlapping body. What they do share is
- * the method, deliberately - the cases that are awkward by construction
- * rather than by luck: every length either side of the vector threshold and
- * the block size, both sides of the clamp boundary, and values far above it.
+ * This is a separate program, not a part of test_choose_table_vector.c. That
+ * program is built only `if WITH_XMM`, and it calls the SSE2 and AVX2
+ * routines by name throughout. So the two programs share no code. They share
+ * the method on purpose. They test the cases that are difficult by design,
+ * not by chance:
  *
- * The scalar reference is written here rather than taken from LAME's own, for
- * the reason the x86 file gives: two spellings of the same loop would agree
- * about a shared misunderstanding. The table is synthetic for the same reason
- * - the routine takes it as an argument, so nothing here depends on the
- * contents of LAME's, and an index computed one place off shows up as a wrong
- * sum instead of being masked by neighbouring entries that happen to be equal.
+ *   - every even length on both sides of the vector threshold and of the
+ *     block size,
+ *   - both sides of the clamp boundary,
+ *   - values far above the clamp boundary.
+ *
+ * The scalar reference is written in this file. It is not LAME's own loop,
+ * for the reason that the x86 file gives. Two versions of the same loop can
+ * share a mistake and still agree. The table is synthetic for the same
+ * reason. The routine takes the table as an argument. So nothing here depends
+ * on the contents of LAME's table. An index that is off by one gives a wrong
+ * sum. Neighbor entries with the same value cannot hide the mistake.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -43,10 +48,10 @@
 #include "vector/lame_intrin.h"
 #include "test_unused.h"
 
-/** Longest region the encoder ever asks about. */
+/** Longest region that the encoder passes to the routine. */
 #define MAX_LEN 576
 
-/** @brief A 256-entry table whose every entry is distinct. */
+/** @brief A 256-entry table in which every entry is different. */
 static uint32_t largetbl_t[16 * 16];
 
 static void
@@ -58,7 +63,7 @@ tables_init(void)
         largetbl_t[i] = i * 7u + 1u;
 }
 
-/** @brief Fill with a spread that crosses the clamp in both directions. */
+/** @brief Fills @p ix with pseudo-random values in [0, hi). The values fall on both sides of the clamp. */
 static void
 fill(int *ix, int n, int hi, unsigned int seed)
 {
@@ -72,10 +77,10 @@ fill(int *ix, int n, int hi, unsigned int seed)
 }
 
 /**
- * @brief The scalar answer, written independently of LAME's.
+ * @brief Computes the scalar result, independently of LAME's code.
  *
- * Reads pairs, clamps each value at 15, counts how many were clamped, and
- * sums the table at x * 16 + y.
+ * Reads pairs and clamps each value at 15. Counts the clamped values. Sums
+ * the table entries at x * 16 + y.
  */
 static unsigned int
 ref_esc(const int *ix, int n, unsigned int *nclamped)
@@ -103,11 +108,12 @@ ref_esc(const int *ix, int n, unsigned int *nclamped)
 }
 
 /**
- * @brief Sum and clamp count agree with the reference at every length.
+ * @brief Checks that the sum and the clamp count agree with the reference at
+ *        every length.
  *
- * Every even length from 2 to 80 - so the vector block (eight values), the
- * threshold its caller applies, and every possible remainder are all crossed,
- * rather than trusting one convenient size.
+ * The test runs every even length from 2 to 80. So it crosses the vector
+ * block (eight values), the threshold that the caller applies, and every
+ * possible remainder. It does not depend on one convenient size.
  */
 static void
 test_esc_lengths(LAME_UNUSED void **state)
@@ -128,12 +134,14 @@ test_esc_lengths(LAME_UNUSED void **state)
 }
 
 /**
- * @brief 15 is clamped and 14 is not - the boundary escape coding turns on.
+ * @brief Checks that 15 is clamped and 14 is not. Escape coding starts at
+ *        this boundary.
  *
- * Whole regions of one value, so a count that is off by one per block, per
- * lane or per remainder cannot hide in a mixed sample. The expected count is
- * asserted as an exact number, not merely as agreement with the reference:
- * both could be wrong the same way, and 64 is the only right answer here.
+ * Each region has the same value in every position. So a count that is off
+ * by one per block, per lane or per remainder cannot hide in a mixed sample.
+ * The test also checks the expected count as an exact number, not only as
+ * agreement with the reference. Both could be wrong in the same way. For a
+ * value of 15 or more, 64 is the only correct count.
  */
 static void
 test_esc_clamp_boundary(LAME_UNUSED void **state)
@@ -157,14 +165,15 @@ test_esc_clamp_boundary(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Values far above the clamp still count once each, not more.
+ * @brief Checks that values far above the clamp still count once each, not
+ *        more.
  *
- * The x86 kernel narrows to sixteen bits here and has to argue that the
- * saturation is harmless. The ARM one works in 32-bit lanes and never
- * narrows, so there is no saturation to reason about - which is exactly why
- * this case is worth keeping: it is the one where the two implementations
- * differ most, and a future rewrite that reintroduces narrowing would fail
- * here rather than silently in an encode.
+ * The x86 kernel narrows to sixteen bits here. Its narrowing saturates, and
+ * that makes it harmless. The ARM kernel works in 32-bit lanes and does not
+ * narrow. So there is no saturation to consider. The two implementations
+ * differ most in this case, so the test is worth keeping. A rewrite that
+ * narrows without saturation fails here, before an encode writes wrong
+ * output.
  */
 static void
 test_esc_large_values(LAME_UNUSED void **state)
@@ -184,12 +193,12 @@ test_esc_large_values(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The reference can disagree - otherwise the tests above prove nothing.
+ * @brief Checks that the reference can disagree. Without this check, the
+ *        tests above prove nothing.
  *
- * Every assertion here compares the routine against ref_esc(). If the two
- * could not differ, that comparison would be untestable by construction. So
- * one case feeds the reference deliberately wrong data and requires the
- * answers to part company.
+ * Every test above compares the routine with ref_esc(). If the two could
+ * never differ, that comparison would test nothing. So this test gives the
+ * reference wrong data on purpose. It requires the two results to differ.
  */
 static void
 test_reference_can_disagree(LAME_UNUSED void **state)

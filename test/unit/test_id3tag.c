@@ -3,34 +3,38 @@
  * @ingroup unit_tests
  * @brief Unit tests for the public id3tag_* tagging API (libmp3lame/id3tag.c).
  *
- * Exercises the ID3v1 and ID3v2 tag setters across the Latin-1, UTF-16 and
- * UTF-8 encodings and reads the result back with lame_get_id3v1_tag() /
- * lame_get_id3v2_tag(). Each case asserts the expected frame id is present,
- * and the stored text where it can be recovered by a byte search: Latin-1 and
- * UTF-8 verbatim, UTF-16 as its 2-byte code units. Genre is stored as a numeric
- * reference rather than the literal string, so only its frame is checked. The
- * id3tag_set_fieldvalue_utf8() setter and its malformed-input handling are
- * covered too.
+ * The first group tests the ID3v1 tag and ID3v2 tag setters with Latin-1,
+ * UTF-16 and UTF-8 text. It reads the result back with lame_get_id3v1_tag()
+ * and lame_get_id3v2_tag(). Each case checks that the expected frame ID is
+ * present. Where a byte search can find the stored text, the case also checks
+ * the text. Latin-1 and UTF-8 text is searched byte for byte. UTF-16 text is
+ * searched as 2-byte code units. For the genre, the test checks only that the
+ * TCON frame is present. The group also tests id3tag_set_fieldvalue_utf8() and
+ * how it handles malformed input.
  *
- * The second group covers what the first left out: the calls that select a tag
- * version or an encoding rather than set a field, the ones that reset or pad,
- * the genre enumeration, the track number, and the three deprecated UCS-2
- * setters. Those three are documented as aliases, so each is checked by
- * building the same tag through the alias and through its target and comparing
- * the two byte for byte - a test that only looked for the frame would pass on
- * an alias wired to the wrong function.
+ * The second group tests the rest of the API:
+ * - the calls that select a tag version or an encoding, not a field,
+ * - the calls that reset the tag or add padding,
+ * - the genre list,
+ * - the track number,
+ * - the three deprecated UCS-2 setters.
  *
- * The third group covers the descriptions that TXXX, WXXX and COMM frames are
- * keyed by, in both encodings. Frames are counted there rather than looked for,
- * because what is at stake is one of them being folded into another, and the
- * surviving frame answers a search for its own text either way.
+ * The UCS-2 setters are documented as aliases. So each test builds the same
+ * tag through the alias and through its target, and compares the two byte for
+ * byte. A test that only looks for the frame also passes when an alias calls
+ * the wrong function.
  *
- * The last group reads the tag the way a player does, walking the frames by the
- * sizes their headers declare, and checks what that walk reaches - a byte
- * search finds text a reader never gets to.
+ * The third group tests the descriptions that identify TXXX, WXXX and COMM
+ * frames, in both encodings. These tests count the frames. A search is not
+ * enough: the risk is that one frame replaces another, and the remaining frame
+ * still matches a search for its own text.
  *
- * These are library-level tests: they link libmp3lame and call the exported
- * API directly, so no frontend translation unit is compiled in.
+ * The last group reads the tag as a player does. It walks the frames by the
+ * sizes in their headers, and checks which frames the walk finds. A byte
+ * search can find text that a reader never gets to.
+ *
+ * These are library-level tests. They link libmp3lame and call the exported
+ * API directly. No frontend translation unit is compiled in.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -65,10 +69,10 @@ extern int id3tag_set_comment_ucs2(lame_t gfp, char const *lang,
                                    unsigned short const *text);
 extern int id3tag_set_fieldvalue_ucs2(lame_t gfp, const unsigned short *fieldvalue);
 
-/** Scratch buffer for an assembled tag; larger than any tag these tests make. */
+/** Scratch buffer for a built tag. It is larger than any tag these tests make. */
 static unsigned char tagbuf[8192];
 
-/** @brief True if the byte string @p needle occurs verbatim in @p hay. */
+/** @brief Returns true if the byte string @p needle occurs in @p hay. */
 static int
 mem_contains(const unsigned char *hay, size_t hn, const char *needle)
 {
@@ -83,7 +87,7 @@ mem_contains(const unsigned char *hay, size_t hn, const char *needle)
     return 0;
 }
 
-/** @brief How many times the byte string @p needle occurs in @p hay. */
+/** @brief Returns how many times the byte string @p needle occurs in @p hay. */
 static size_t
 mem_count(const unsigned char *hay, size_t hn, const char *needle)
 {
@@ -99,11 +103,13 @@ mem_count(const unsigned char *hay, size_t hn, const char *needle)
 }
 
 /**
- * @brief True if the ASCII @p needle occurs in @p hay as UTF-16 code units.
+ * @brief Returns true if the ASCII @p needle occurs in @p hay as UTF-16 code
+ *        units.
  *
- * UTF-16 text is stored two bytes per character, so an ASCII needle never
- * appears as contiguous bytes; search for its little- or big-endian wide form
- * (each character paired with a zero byte) instead.
+ * UTF-16 text uses two bytes per character. So an ASCII needle never appears
+ * as one run of bytes. The function searches for its wide form instead, in
+ * little-endian or big-endian order: each character together with a zero
+ * byte.
  */
 static int
 mem_contains_wide(const unsigned char *hay, size_t hn, const char *needle)
@@ -126,7 +132,7 @@ mem_contains_wide(const unsigned char *hay, size_t hn, const char *needle)
     return 0;
 }
 
-/** @brief Assemble the ID3v2 tag into ::tagbuf, returning its size. */
+/** @brief Builds the ID3v2 tag in ::tagbuf and returns its size. */
 static size_t
 get_v2(lame_t gfp)
 {
@@ -134,18 +140,19 @@ get_v2(lame_t gfp)
 }
 
 /**
- * @brief Walks the frames of the ID3v2 tag in ::tagbuf as a reader does.
+ * @brief Walks the frames of the ID3v2 tag in ::tagbuf, as a reader does.
  *
- * Each frame's size is read as the tag's version defines it: a plain 32-bit
- * integer in ID3v2.3, a synchsafe one in ID3v2.4. The walk stops at the first
- * zero byte where a frame would start, which a reader takes for padding.
+ * The function reads each frame size as the tag version defines it. In
+ * ID3v2.3 the size is a plain 32-bit integer. In ID3v2.4 it is a synchsafe
+ * integer. The walk stops at the first zero byte where a frame would start. A
+ * reader takes this byte as the start of the padding.
  *
- * @param sz   the tag's size.
- * @param id   a four-character frame id to look for, or NULL.
- * @param len  receives the data size of the frame found; may be NULL.
- * @return with @p id, the offset of that frame's data, 0 if a reader does not
- *         reach it; without, the offset where the frames end, 0 if a frame
- *         size cannot be read or runs past the tag.
+ * @param sz   the size of the tag.
+ * @param id   a four-character frame ID to look for, or NULL.
+ * @param len  gets the data size of the frame found. It may be NULL.
+ * @return With @p id: the offset of the frame data, or 0 if a reader does not
+ *         get to the frame. Without @p id: the offset where the frames end, or
+ *         0 if a frame size is invalid or goes past the end of the tag.
  */
 static size_t
 walk_v2(size_t sz, const char *id, size_t *len)
@@ -177,7 +184,7 @@ walk_v2(size_t sz, const char *id, size_t *len)
 
 /* --- ID3v2 text frames ------------------------------------------------- */
 
-/** @brief Latin-1 title -> a TIT2 frame containing the text. */
+/** @brief Checks that a Latin-1 title gives a TIT2 frame with the text. */
 static void
 test_v2_title_latin1(void **state)
 {
@@ -191,7 +198,7 @@ test_v2_title_latin1(void **state)
     assert_true(mem_contains(tagbuf, sz, "MyTitle"));
 }
 
-/** @brief UTF-8 textinfo -> the named frame with the (ASCII-transparent) text. */
+/** @brief Checks that UTF-8 textinfo gives the named frame with the ASCII text. */
 static void
 test_v2_textinfo_utf8(void **state)
 {
@@ -204,7 +211,7 @@ test_v2_textinfo_utf8(void **state)
     assert_true(mem_contains(tagbuf, sz, "MyArtist"));
 }
 
-/** @brief UTF-16 textinfo -> the named frame (text stored as UTF-16). */
+/** @brief Checks that UTF-16 textinfo gives the named frame with UTF-16 text. */
 static void
 test_v2_textinfo_utf16(void **state)
 {
@@ -220,7 +227,7 @@ test_v2_textinfo_utf16(void **state)
 
 /* --- ID3v2 comment frames ---------------------------------------------- */
 
-/** @brief UTF-8 comment -> a COMM frame containing the text. */
+/** @brief Checks that a UTF-8 comment gives a COMM frame with the text. */
 static void
 test_v2_comment_utf8(void **state)
 {
@@ -233,7 +240,7 @@ test_v2_comment_utf8(void **state)
     assert_true(mem_contains(tagbuf, sz, "HelloComment"));
 }
 
-/** @brief UTF-16 comment -> a COMM frame. */
+/** @brief Checks that a UTF-16 comment gives a COMM frame with the text. */
 static void
 test_v2_comment_utf16(void **state)
 {
@@ -249,7 +256,7 @@ test_v2_comment_utf16(void **state)
 
 /* --- ID3v2 field-value (arbitrary frame) ------------------------------- */
 
-/** @brief Latin-1 field value "ID=text" -> that frame. */
+/** @brief Checks that a Latin-1 field value "ID=text" gives that frame. */
 static void
 test_v2_fieldvalue_latin1(void **state)
 {
@@ -262,7 +269,7 @@ test_v2_fieldvalue_latin1(void **state)
     assert_true(mem_contains(tagbuf, sz, "FieldTitle"));
 }
 
-/** @brief UTF-16 field value "ID=text" -> that frame. */
+/** @brief Checks that a UTF-16 field value "ID=text" gives that frame. */
 static void
 test_v2_fieldvalue_utf16(void **state)
 {
@@ -278,7 +285,7 @@ test_v2_fieldvalue_utf16(void **state)
     assert_true(mem_contains_wide(tagbuf, sz, "FV16"));   /* UTF-16 text */
 }
 
-/** @brief UTF-8 field value "ID=text" -> that frame (SF #524's new setter). */
+/** @brief Checks that a UTF-8 field value "ID=text" gives that frame (SF #524). */
 static void
 test_v2_fieldvalue_utf8(void **state)
 {
@@ -291,7 +298,10 @@ test_v2_fieldvalue_utf8(void **state)
     assert_true(mem_contains(tagbuf, sz, "FieldUtf8"));
 }
 
-/** @brief id3tag_set_fieldvalue_utf8() rejects malformed "ID=..." input. */
+/**
+ * @brief Checks that id3tag_set_fieldvalue_utf8() rejects malformed "ID=..."
+ *        input. Empty and NULL input return 0 and do nothing.
+ */
 static void
 test_v2_fieldvalue_utf8_malformed(void **state)
 {
@@ -306,12 +316,13 @@ test_v2_fieldvalue_utf8_malformed(void **state)
 /* --- ID3v2 descriptors ------------------------------------------------- */
 
 /**
- * @brief Descriptions where one begins the other name two frames, not one.
+ * @brief Checks that two descriptions, where one starts with the other, give
+ *        two frames.
  *
- * A TXXX frame is keyed by its description, so "foo" and "foobar" are two
- * frames and both texts have to survive. This is the route the --tv option
- * takes: id3tag_set_fieldvalue() splits "TXXX=foo=alpha" into the frame id,
- * the description and the text.
+ * The description identifies a TXXX frame. So "foo" and "foobar" are two
+ * frames, and both texts must stay. The --tv option uses this path:
+ * id3tag_set_fieldvalue() splits "TXXX=foo=alpha" into the frame ID, the
+ * description and the text.
  */
 static void
 test_v2_prefix_descriptions_stay_apart(void **state)
@@ -328,11 +339,11 @@ test_v2_prefix_descriptions_stay_apart(void **state)
 }
 
 /**
- * @brief The same description twice still replaces the frame.
+ * @brief Checks that the same description twice still replaces the frame.
  *
- * The control for the case above: descriptions are compared so that a repeated
- * one updates its frame, and a test that only counted frames would pass just as
- * well against a comparison that never matched anything.
+ * This is the control for the test above. The setter compares descriptions,
+ * so a repeated description updates its frame. A test that only counts frames
+ * also passes when the comparison never finds a match.
  */
 static void
 test_v2_same_description_replaces_frame(void **state)
@@ -349,11 +360,12 @@ test_v2_same_description_replaces_frame(void **state)
 }
 
 /**
- * @brief An undescribed comment is not replaced by a described one.
+ * @brief Checks that a comment with a description does not replace a comment
+ *        without one.
  *
- * The empty description is the limit case of the one above, since it begins
- * every other description. A COMM frame is keyed by language and description
- * together, so these are two frames.
+ * The empty description is the extreme case of the test above, because every
+ * description starts with it. The language and the description together
+ * identify a COMM frame. So these are two frames.
  */
 static void
 test_v2_empty_description_keeps_its_comment(void **state)
@@ -370,12 +382,15 @@ test_v2_empty_description_keeps_its_comment(void **state)
 }
 
 /**
- * @brief UTF-16 descriptions are compared the same way.
+ * @brief Checks that UTF-16 descriptions are compared in the same way.
  *
- * The UTF-16 descriptions go through a comparison of their own, which rejects a
- * Latin-1 frame outright, so it needs its own case rather than the Latin-1 one
- * taken on trust. The byte order marker each string carries becomes part of the
- * stored description and is common to both, leaving the prefix relation intact.
+ * UTF-16 descriptions use a separate comparison. It never matches a frame that
+ * has a non-empty description in another encoding. So this comparison needs
+ * its own test, and the Latin-1 test does not cover it.
+ *
+ * Each string starts with a byte order mark. The mark becomes part of the
+ * stored description. Both strings have the same mark, so one description
+ * still starts with the other.
  */
 static void
 test_v2_prefix_descriptions_utf16(void **state)
@@ -398,12 +413,13 @@ test_v2_prefix_descriptions_utf16(void **state)
 }
 
 /**
- * @brief A UTF-16 comment with no description at all keeps its own frame.
+ * @brief Checks that a UTF-16 comment without any description keeps its own
+ *        frame.
  *
- * The UTF-16 setters accept an absent description, which is the one way the
- * comparison is reached with nothing to compare against. Two undescribed
- * comments are the same frame and the second replaces the first; a described
- * one is a frame of its own.
+ * The UTF-16 setters accept an absent description. Only in this way does the
+ * UTF-16 comparison run with nothing to compare. Two comments without a
+ * description are the same frame, so the second replaces the first. A comment
+ * with a description is a separate frame.
  */
 static void
 test_v2_utf16_absent_description(void **state)
@@ -431,7 +447,7 @@ test_v2_utf16_absent_description(void **state)
 
 /* --- genre ------------------------------------------------------------- */
 
-/** @brief A named genre -> a TCON frame in the v2 tag. */
+/** @brief Checks that a named genre gives a TCON frame in the ID3v2 tag. */
 static void
 test_v2_genre(void **state)
 {
@@ -440,14 +456,17 @@ test_v2_genre(void **state)
     id3tag_add_v2(gfp);
     assert_int_equal(id3tag_set_genre(gfp, "Rock"), 0);
     sz = get_v2(gfp);
-    /* "Rock" is a standard genre, stored as a numeric reference rather than the
-       literal string, so only the frame's presence is checked, not the text. */
+    /* The TCON frame stores the genre name as text. This test only checks
+       that the frame is present. */
     assert_true(mem_contains(tagbuf, sz, "TCON"));
 }
 
 /* --- ID3v1 ------------------------------------------------------------- */
 
-/** @brief Short fields produce a 128-byte "TAG..." ID3v1 block. */
+/**
+ * @brief Checks that short fields give a 128-byte ID3v1 tag that starts with
+ *        "TAG".
+ */
 static void
 test_v1_basic(void **state)
 {
@@ -466,7 +485,7 @@ test_v1_basic(void **state)
 
 /* --- v1-only / v2-only gating ------------------------------------------ */
 
-/** @brief id3tag_v1_only() suppresses the ID3v2 tag. */
+/** @brief Checks that id3tag_v1_only() turns off the ID3v2 tag. */
 static void
 test_v1_only_suppresses_v2(void **state)
 {
@@ -476,7 +495,7 @@ test_v1_only_suppresses_v2(void **state)
     assert_int_equal(get_v2(gfp), 0);
 }
 
-/** @brief id3tag_v2_only() suppresses the ID3v1 tag. */
+/** @brief Checks that id3tag_v2_only() turns off the ID3v1 tag. */
 static void
 test_v2_only_suppresses_v1(void **state)
 {
@@ -489,12 +508,13 @@ test_v2_only_suppresses_v1(void **state)
 /* --- ID3v2 28-bit size-field limit ------------------------------------- */
 
 /**
- * @brief A tag whose size exceeds the 28-bit synchsafe field is refused.
+ * @brief Checks that a tag too large for the 28-bit synchsafe size field is
+ *        rejected.
  *
- * The tag length is stored in four synchsafe bytes, 28 bits in all, so a tag
- * larger than that cannot state its own size and must not be written. This
- * drives the size over the limit with a padding request, which needs no large
- * allocation, and asserts no tag is produced.
+ * The tag size is stored in four synchsafe bytes, 28 bits in total. A larger
+ * tag cannot store its own size, so the library must not write it. The test
+ * makes the tag too large with a padding request. This needs no large
+ * allocation. The test checks that no tag is produced.
  */
 static void
 test_v2_size_over_synchsafe_limit_rejected(void **state)
@@ -508,12 +528,12 @@ test_v2_size_over_synchsafe_limit_rejected(void **state)
 }
 
 /**
- * @brief The album-art path, the reported vector, is refused past the limit.
+ * @brief Checks that album art that makes the tag too large is also rejected.
  *
- * The size is dominated here by a caller-supplied album-art buffer rather than
- * padding, matching the way the overflow was reported. The image is generated
- * in memory (about 256 MB, with a valid JPEG signature so it is accepted) and
- * freed as soon as the library has taken its own copy.
+ * Here most of the size comes from album art that the caller passes, not from
+ * padding. The test builds the image in memory. It is about 256 MB and has a
+ * valid JPEG signature, so the setter accepts it. The test frees it as soon as
+ * the library has made its own copy.
  */
 static void
 test_v2_albumart_over_synchsafe_limit_rejected(void **state)
@@ -535,10 +555,10 @@ test_v2_albumart_over_synchsafe_limit_rejected(void **state)
 }
 
 /**
- * @brief A tag that fits within the field is still written.
+ * @brief Checks that a tag that fits in the size field is still written.
  *
- * The guard must refuse only the tags that cannot be represented; an ordinary
- * padded tag has to keep working.
+ * The check must reject only the tags whose size the field cannot store. A
+ * normal tag with padding must still work.
  */
 static void
 test_v2_size_within_limit_written(void **state)
@@ -553,18 +573,19 @@ test_v2_size_within_limit_written(void **state)
 /* --- ID3v2 auto play-length (TLEN) ------------------------------------- */
 
 /**
- * @brief A play-length past 2^32-1 ms is written in full, not clamped.
+ * @brief Checks that a play length above 2^32-1 ms is written in full, not
+ *        clamped.
  *
- * The TLEN value is derived from num_samples, so a long enough declared length
- * yields a duration beyond a 32-bit millisecond count. This is only
- * representable where unsigned long is wider than 32 bits (num_samples must
- * hold the sample count), so it is skipped elsewhere. The length is set on the
- * config, not encoded, so no audio is processed.
+ * The TLEN value comes from num_samples. A long enough length gives a duration
+ * above a 32-bit count of milliseconds. num_samples can store such a sample
+ * count only where unsigned long is wider than 32 bits. On other platforms the
+ * test is skipped. The test sets the length in the configuration and encodes
+ * no audio.
  *
- * The skip is decided by the preprocessor rather than at run time, because the
- * problem is a compile-time one: the sample count is a constant too large for
- * a 32-bit unsigned long, and a run-time guard leaves it in the translation
- * unit to be truncated and warned about on every build that cannot hold it.
+ * The preprocessor decides the skip, not a run-time check. The sample count is
+ * a constant that is too large for a 32-bit unsigned long. With a run-time
+ * check, the constant stays in the code. Every build with a 32-bit unsigned
+ * long then truncates the constant and warns about it.
  */
 static void
 test_v2_playlength_beyond_32bit(void **state)
@@ -590,16 +611,21 @@ test_v2_playlength_beyond_32bit(void **state)
 /* --- the genre list ---------------------------------------------------- */
 
 /**
- * @brief Compare two genre names the way the genre list is ordered.
+ * @brief Compares two genre names in the order of the genre list.
  *
- * Case-insensitive, and skipping everything that is not a letter or a digit.
- * The second half is not a convenience: the list is sorted over the letters
- * alone, so a plain comparison reports five inversions that are not
- * inversions - "Classical" before "Classic Rock", "Eurodance" before
- * "Euro-House", "Folklore" before "Folk-Rock", "Hardcore" before "Hard Rock",
- * "Rave" before "R&B". Every one of them is in order once the space, hyphen
- * or ampersand is dropped. Written locally rather than with strcasecmp, which
- * is not available everywhere this builds.
+ * The comparison ignores case. It also skips every character that is not a
+ * letter or a digit. This second part is necessary. The list is sorted by the
+ * letters and digits only. So a plain case-insensitive comparison reports five
+ * pairs in the wrong order that are in fact correct:
+ * - "Classical" before "Classic Rock",
+ * - "Eurodance" before "Euro-House",
+ * - "Folklore" before "Folk-Rock",
+ * - "Hardcore" before "Hard Rock",
+ * - "Rave" before "R&B".
+ *
+ * Each pair is in order without the space, hyphen or ampersand. The function
+ * is written here and does not use strcasecmp. strcasecmp is not available on
+ * every platform that builds LAME.
  */
 static int
 genre_name_cmp(const char *a, const char *b)
@@ -624,9 +650,9 @@ genre_name_cmp(const char *a, const char *b)
 /**
  * @brief State for the id3tag_genre_list() callback.
  *
- * @p seen counts how often each genre number was reported, which is what lets
- * the test assert the list is a *permutation* - every genre exactly once -
- * rather than merely of the right length.
+ * @p seen counts how often the callback gets each genre number. With it, the
+ * test checks that the list is a @e permutation: every genre exactly once. A
+ * correct length alone is not enough.
  */
 #define GENRE_SEEN_MAX 512
 struct genre_probe {
@@ -666,13 +692,14 @@ genre_probe_handler(int num, const char *name, void *cookie)
 }
 
 /**
- * @brief The genre list is enumerated once per genre, in alphabetical order.
+ * @brief Checks that the genre list gives every genre once, in alphabetical
+ *        order.
  *
- * The count is asserted exactly rather than as a lower bound. 148 is the
- * ID3v1 genre set plus the Winamp extensions, which is what the format
- * defines; a change to it is a deliberate act and should have to update this
- * line. The permutation check is the stronger half - it fails on a genre
- * reported twice or skipped, which a count alone would not see.
+ * The test checks the exact count, not a lower limit. 148 is the ID3v1 genre
+ * set plus the Winamp extensions. This is the set the format defines. A change
+ * to this number must be on purpose, and it must update this line. The
+ * permutation check is the stronger part. It fails when a genre comes twice or
+ * is missing. A count alone does not detect this.
  */
 static void
 test_genre_list_enumerates_every_genre(void **state)
@@ -699,7 +726,7 @@ test_genre_list_enumerates_every_genre(void **state)
     assert_int_equal(distinct, p.calls);   /* ... and never skipped */
 }
 
-/** @brief A NULL handler is accepted and does nothing. */
+/** @brief Checks that a NULL handler is accepted and does nothing. */
 static void
 test_genre_list_null_handler(void **state)
 {
@@ -710,17 +737,19 @@ test_genre_list_null_handler(void **state)
 /* --- resetting the tag state ------------------------------------------- */
 
 /**
- * @brief id3tag_init() returns the instance to its initial tagging state.
+ * @brief Checks that id3tag_init() returns the instance to its initial tag
+ *        state.
  *
- * Checked by writing a second, different title afterwards and asking for the
- * tag once: the new title must be there and the old one gone. Asking whether
- * an emptied instance still emits a tag at all would test something else.
+ * After the reset, the test sets a second, different title and gets the tag
+ * once. The new title must be there, and the old one must be gone. A test
+ * that asks whether an empty instance still writes a tag checks something
+ * else.
  *
- * The three fields that are not strings are what make this test worth having.
- * The strings are released by the same helper lame_close() uses, so a test
- * that only looked at those would still pass with the rest of the reset
- * removed; the track number, the genre and the request for an ID3v2 tag are
- * cleared by the reset alone, and are asserted here for that reason.
+ * The three fields that are not strings are the important part of this test.
+ * lame_close() frees the strings with the same helper. So a test that checks
+ * only the strings still passes when the rest of the reset is removed. Only
+ * the reset clears the track number, the genre and the request for an ID3v2
+ * tag. So the test checks these three.
  */
 static void
 test_init_discards_previous_fields(void **state)
@@ -759,7 +788,7 @@ test_init_discards_previous_fields(void **state)
 
 /* --- ID3v2.4 / UTF-8 selection ----------------------------------------- */
 
-/** @brief The ID3v2 header's version byte, or -1 if there is no tag. */
+/** @brief Returns the ID3v2 version byte, or -1 if there is no tag. */
 static int
 v2_version_byte(lame_t gfp)
 {
@@ -770,11 +799,12 @@ v2_version_byte(lame_t gfp)
 }
 
 /**
- * @brief id3tag_add_v2_4_UTF8() selects version 2.4 and keeps the ID3v1 tag.
+ * @brief Checks that id3tag_add_v2_4_UTF8() selects version 2.4 and keeps the
+ *        ID3v1 tag.
  *
- * The version is read out of the tag header rather than inferred, and the
- * default is checked in the same test so that "it says 4" is known to be a
- * consequence of the call and not of the format.
+ * The test reads the version from the tag header. It also checks the default
+ * version in the same test. This shows that the 4 comes from the call and not
+ * from the format.
  */
 static void
 test_add_v2_4_utf8_selects_version_4(void **state)
@@ -796,7 +826,10 @@ test_add_v2_4_utf8_selects_version_4(void **state)
     assert_int_equal(lame_get_id3v1_tag(utf8, tagbuf, sizeof tagbuf), 128);
 }
 
-/** @brief id3tag_v2_4_UTF8_only() selects version 2.4 and drops the v1 tag. */
+/**
+ * @brief Checks that id3tag_v2_4_UTF8_only() selects version 2.4 and writes no
+ *        ID3v1 tag.
+ */
 static void
 test_v2_4_utf8_only_suppresses_v1(void **state)
 {
@@ -810,7 +843,7 @@ test_v2_4_utf8_only_suppresses_v1(void **state)
 
 /* --- ID3v1 field padding ----------------------------------------------- */
 
-/** @brief Count the bytes equal to @p c in tagbuf[from, to). */
+/** @brief Counts the bytes equal to @p c in tagbuf[from, to). */
 static int
 count_byte(size_t from, size_t to, unsigned char c)
 {
@@ -823,11 +856,12 @@ count_byte(size_t from, size_t to, unsigned char c)
 }
 
 /**
- * @brief id3tag_space_v1() fills the unused ID3v1 bytes with spaces.
+ * @brief Checks that id3tag_space_v1() fills the unused ID3v1 bytes with
+ *        spaces.
  *
- * The title occupies bytes 3..32 of the 128-byte block. A three-character
- * title leaves 27 bytes, and the two builds are compared against each other so
- * the assertion is about the call and not about a guess at the layout.
+ * The title uses bytes 3 to 32 of the 128-byte tag. A title of three
+ * characters leaves 27 bytes. The test compares two builds with each other.
+ * So the check is about the call, not about a guess of the layout.
  */
 static void
 test_space_v1_pads_with_spaces(void **state)
@@ -849,7 +883,10 @@ test_space_v1_pads_with_spaces(void **state)
     assert_int_equal(count_byte(6, 33, 0x00), 0);
 }
 
-/** @brief id3tag_space_v1() also cancels a previous id3tag_v2_only(). */
+/**
+ * @brief Checks that id3tag_space_v1() also cancels an earlier
+ *        id3tag_v2_only().
+ */
 static void
 test_space_v1_cancels_v2_only(void **state)
 {
@@ -864,11 +901,12 @@ test_space_v1_cancels_v2_only(void **state)
 /* --- ID3v2 padding ----------------------------------------------------- */
 
 /**
- * @brief id3tag_pad_v2() is id3tag_set_pad() with the documented 128 bytes.
+ * @brief Checks that id3tag_pad_v2() is id3tag_set_pad() with the documented
+ *        128 bytes.
  *
- * Asserted as an equivalence between two instances rather than as a size, so
- * the test says what the function promises and does not also pin the size of
- * an ordinary tag.
+ * The test compares the tags of two instances and does not check a size. So
+ * it checks what the function promises, and does not also fix the size of a
+ * normal tag.
  */
 static void
 test_pad_v2_equals_set_pad_128(void **state)
@@ -897,7 +935,10 @@ test_pad_v2_equals_set_pad_128(void **state)
 
 /* --- comments ---------------------------------------------------------- */
 
-/** @brief The simple comment setter writes a COMM frame with the text. */
+/**
+ * @brief Checks that the simple comment setter writes a COMM frame with the
+ *        text. The ID3v1 tag also gets the text.
+ */
 static void
 test_set_comment_writes_comm(void **state)
 {
@@ -916,7 +957,10 @@ test_set_comment_writes_comm(void **state)
     assert_true(mem_contains(tagbuf, sz, "PlainComment"));
 }
 
-/** @brief The Latin-1 comment setter records the language and description. */
+/**
+ * @brief Checks that the Latin-1 comment setter stores the language and the
+ *        description.
+ */
 static void
 test_set_comment_latin1(void **state)
 {
@@ -943,7 +987,10 @@ test_set_comment_latin1(void **state)
  * wrong function.
  */
 
-/** @brief id3tag_set_textinfo_ucs2() == id3tag_set_textinfo_utf16(). */
+/**
+ * @brief Checks that id3tag_set_textinfo_ucs2() writes the same tag as
+ *        id3tag_set_textinfo_utf16().
+ */
 static void
 test_textinfo_ucs2_matches_utf16(void **state)
 {
@@ -968,7 +1015,10 @@ test_textinfo_ucs2_matches_utf16(void **state)
     assert_memory_equal(tagbuf, other, sa);
 }
 
-/** @brief id3tag_set_comment_ucs2() == id3tag_set_comment_utf16(). */
+/**
+ * @brief Checks that id3tag_set_comment_ucs2() writes the same tag as
+ *        id3tag_set_comment_utf16().
+ */
 static void
 test_comment_ucs2_matches_utf16(void **state)
 {
@@ -994,7 +1044,10 @@ test_comment_ucs2_matches_utf16(void **state)
     assert_memory_equal(tagbuf, other, sa);
 }
 
-/** @brief id3tag_set_fieldvalue_ucs2() == id3tag_set_fieldvalue_utf16(). */
+/**
+ * @brief Checks that id3tag_set_fieldvalue_ucs2() writes the same tag as
+ *        id3tag_set_fieldvalue_utf16().
+ */
 static void
 test_fieldvalue_ucs2_matches_utf16(void **state)
 {
@@ -1024,10 +1077,12 @@ test_fieldvalue_ucs2_matches_utf16(void **state)
 /* --- the Latin-1 text-frame setter ------------------------------------- */
 
 /**
- * @brief id3tag_set_textinfo_latin1() writes the named frame, and refuses.
+ * @brief Checks that id3tag_set_textinfo_latin1() writes the named frame and
+ *        rejects identifiers that it cannot use.
  *
- * Both documented refusals are exercised: an identifier that is not a valid
- * frame id, and a valid identifier for a frame this function cannot write.
+ * The test covers both documented rejections: an identifier that is not a
+ * valid frame ID, and a valid identifier for a frame that this function cannot
+ * write.
  */
 static void
 test_textinfo_latin1(void **state)
@@ -1049,12 +1104,13 @@ test_textinfo_latin1(void **state)
 /* --- the track number --------------------------------------------------- */
 
 /**
- * @brief id3tag_set_track() reports only whether ID3v1 could hold the number.
+ * @brief Checks that id3tag_set_track() reports only whether the number fits
+ *        in the ID3v1 tag.
  *
- * The documented catch: a number ID3v1 cannot express returns -1 while still
- * being written to the ID3v2 frame, so -1 is not a failure. Byte 126 of the
- * ID3v1 block is the ID3v1.1 track byte, which is where the fitting case has
- * to show up.
+ * The documented catch: for a number that ID3v1 cannot store, the function
+ * returns -1, but it still writes the ID3v2 frame. So -1 is not a failure.
+ * Byte 126 of the ID3v1 tag is the ID3v1.1 track byte. A number that fits
+ * must appear there.
  */
 static void
 test_set_track(void **state)
@@ -1076,7 +1132,7 @@ test_set_track(void **state)
     lame_close(toobig);
 }
 
-/** @brief The "number/total" form keeps the total in the ID3v2 frame. */
+/** @brief Checks that "number/total" keeps the total in the ID3v2 frame. */
 static void
 test_set_track_with_total(void **state)
 {
@@ -1098,13 +1154,13 @@ test_set_track_with_total(void **state)
 /* --- the tag as a reader walks it -------------------------------------- */
 
 /**
- * @brief A one-character language is padded with spaces, and nothing past it
- *        is read.
+ * @brief Checks that a one-character language is padded with spaces, and that
+ *        nothing after it is read.
  *
- * The language is on the heap and exactly its own size, so a read past its
- * terminator is out of bounds under a sanitizer.
+ * The language is on the heap and has exactly its own size. So a read past
+ * its NUL is out of bounds, and a sanitizer reports it.
  *
- * @param state the fixture's encoder instance.
+ * @param state the encoder instance of the fixture.
  */
 static void
 test_v2_comment_one_character_language(void **state)
@@ -1125,9 +1181,10 @@ test_v2_comment_one_character_language(void **state)
 }
 
 /**
- * @brief A two-character language is padded with a space, not a NUL.
+ * @brief Checks that a two-character language is padded with a space, not a
+ *        NUL.
  *
- * @param state the fixture's encoder instance.
+ * @param state the encoder instance of the fixture.
  */
 static void
 test_v2_comment_two_character_language(void **state)
@@ -1143,10 +1200,10 @@ test_v2_comment_two_character_language(void **state)
 }
 
 /**
- * @brief An identifier shorter than four characters is refused and adds no
- *        frame, so a frame set after it stays within a reader's reach.
+ * @brief Checks that an identifier shorter than four characters is rejected
+ *        and adds no frame. A reader then still finds a frame set after it.
  *
- * @param state the fixture's encoder instance.
+ * @param state the encoder instance of the fixture.
  */
 static void
 test_v2_short_frame_id_refused(void **state)
@@ -1164,10 +1221,10 @@ test_v2_short_frame_id_refused(void **state)
 }
 
 /**
- * @brief A URL frame with nothing to carry adds no bytes to the tag, whichever
- *        setter it comes through.
+ * @brief Checks that an empty URL frame adds no bytes to the tag, through any
+ *        of the setters.
  *
- * @param state the fixture's encoder instance.
+ * @param state the encoder instance of the fixture.
  */
 static void
 test_v2_empty_url_frame_adds_nothing(void **state)
@@ -1185,13 +1242,14 @@ test_v2_empty_url_frame_adds_nothing(void **state)
 }
 
 /**
- * @brief In an ID3v2.4 tag, frames of 128 bytes and more are sized synchsafe,
- *        so a reader reaches each of them and the frame after them.
+ * @brief Checks that an ID3v2.4 tag uses synchsafe sizes for frames of 128
+ *        bytes and more. A reader then finds each of these frames and the
+ *        frame after them.
  *
- * One long frame from each of the four frame writers - text, comment, URL,
- * picture - since each writes its own size field.
+ * The test writes one long frame through each of the four frame writers:
+ * text, comment, URL and picture. Each writer writes its own size field.
  *
- * @param state the fixture's encoder instance.
+ * @param state the encoder instance of the fixture.
  */
 static void
 test_v2_4_long_frames_sized_synchsafe(void **state)
@@ -1229,7 +1287,7 @@ test_v2_4_long_frames_sized_synchsafe(void **state)
 
 /* --- fixture ----------------------------------------------------------- */
 
-/** @brief Per-test fixture: fresh lame_t into @p state. */
+/** @brief Per-test setup: stores a new encoder instance in @p state. */
 static int
 setup_lame(void **state)
 {
@@ -1240,7 +1298,7 @@ setup_lame(void **state)
     return 0;
 }
 
-/** @brief Per-test fixture teardown: closes the lame_t. */
+/** @brief Per-test teardown: closes the encoder instance in @p state. */
 static int
 teardown_lame(void **state)
 {

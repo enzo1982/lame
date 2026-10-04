@@ -1,21 +1,24 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief What the frontend hands on from a floating point input file
+ * @brief Tests what the frontend passes on from a floating point input file
  *        (@c get_audio_float(), @c frontend/get_audio.c).
  *
- * A floating point file is read as floats and handed to the library as they
- * are; @c lame_encode_buffer_ieee_float() refuses what it cannot encode. These
- * tests cover that the samples arrive bit for bit from a little-endian WAVE
- * file, a big-endian AIFF-C file and a WAVE file read with @c --swap-bytes,
- * whatever their value; that the integer reader refuses such a file; that the
- * count of samples beyond full scale follows the scaling the encoder will
- * apply; and the 16 bit conversion @c --decode writes, against the integer
- * path for every 16 bit value.
+ * The frontend reads a floating point file as floats. It passes them to the
+ * library unchanged. @c lame_encode_buffer_ieee_float() rejects the samples
+ * that it cannot encode. These tests check the following:
+ * - The samples arrive bit for bit, whatever their value. This is checked for
+ *   a little-endian WAVE file, a big-endian AIFF-C file, and a WAVE file read
+ *   with @c --swap-bytes.
+ * - The integer reader rejects such a file.
+ * - The count of samples above full scale uses the same scaling as the
+ *   encoder.
+ * - The 16 bit conversion that @c --decode writes matches the integer path
+ *   for every 16 bit value.
  *
- * The reader's helpers are static, so @c get_audio.c is compiled directly
- * into the test, the same arrangement @c test_get_audio_wav.c uses. The file
- * tests drive the frontend's own reader.
+ * The helpers of the reader are static. So the test compiles @c get_audio.c
+ * directly, as @c test_get_audio_wav.c does. The file tests use the reader of
+ * the frontend itself.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -42,15 +45,16 @@
 /**
  * @brief The largest 32-bit float below 1.0.
  *
- * Written as the arithmetic that produces it rather than as a hexadecimal
- * constant, so the test says what it means on any host whose floats are IEEE.
+ * It is written as the arithmetic that gives the value, not as a hexadecimal
+ * constant. So the meaning is clear, and the value is the same on any host
+ * with IEEE floats.
  */
 #define JUST_BELOW_ONE (1.0f - 1.0f / 16777216.0f)
 
 /* --- the 16 bit conversion --decode writes ------------------------------ */
 
 /**
- * @brief Silence and half scale, both signs.
+ * @brief Checks the conversion of silence and of half scale, with both signs.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -64,11 +68,12 @@ test_16bit_zero_and_half_scale(void **state)
 }
 
 /**
- * @brief A 16 bit sample written as a float comes back as itself.
+ * @brief Checks that a 16 bit sample written as a float converts back to the
+ *        same value.
  *
- * @c s/32768 is exact in a 32 bit float, so @c --decode of a floating point
- * file made from a 16 bit one writes the 16 bit samples again. The loop
- * checks all 65536 values; @c s = -32768 arrives as exactly -1.0.
+ * @c s/32768 is exact in a 32 bit float. So for a floating point file made
+ * from a 16 bit file, @c --decode writes the original 16 bit samples. The
+ * loop checks all 65536 values. @c s = -32768 gives exactly -1.0.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -91,7 +96,10 @@ test_16bit_ladder_comes_back(void **state)
 }
 
 /**
- * @brief Full scale and beyond give the extremes; just below does not wrap.
+ * @brief Checks that full scale and above give the largest or smallest
+ *        16 bit value.
+ *
+ * The value just below 1.0 does not wrap around.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -109,8 +117,9 @@ test_16bit_full_scale_and_beyond(void **state)
 /* --- the count of samples beyond full scale ----------------------------- */
 
 /**
- * @brief Strictly beyond full scale is counted, in either channel; full scale
- *        itself and anything within it is not.
+ * @brief Checks that a sample above full scale is counted, in either channel.
+ *
+ * A sample at full scale or within full scale is not counted.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -128,8 +137,10 @@ test_count_unscaled(void **state)
 }
 
 /**
- * @brief The overall scale applies: what it brings within full scale is not
- *        counted, what it leaves beyond is.
+ * @brief Checks that the count uses the overall scaling factor.
+ *
+ * A sample that the scaling brings within full scale is not counted. A sample
+ * that stays above full scale is counted.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -149,7 +160,8 @@ test_count_follows_scale(void **state)
 }
 
 /**
- * @brief A per-channel scale applies to its own channel only.
+ * @brief Checks that a per-channel scaling factor applies to its own channel
+ *        only.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -168,8 +180,9 @@ test_count_follows_channel_scale(void **state)
 }
 
 /**
- * @brief Two channels mixed into one are counted as the one sample they
- *        become.
+ * @brief Checks that two channels mixed into one count as one sample.
+ *
+ * The count uses the mixed sample, not the two input samples.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -188,7 +201,9 @@ test_count_follows_downmix(void **state)
 }
 
 /**
- * @brief Mono input counts its one channel; the second buffer is not read.
+ * @brief Checks that mono input counts its one channel only.
+ *
+ * The function does not read the second buffer.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -210,9 +225,9 @@ test_count_mono_input(void **state)
 /**
  * @brief Stores a field, least significant byte first.
  *
- * @param p  where the field goes.
- * @param v  its value.
- * @param n  its width in bytes.
+ * @param p  where to store the field.
+ * @param v  the value of the field.
+ * @param n  the width of the field in bytes.
  */
 static void
 put_le(unsigned char *p, uint32_t v, int n)
@@ -225,9 +240,9 @@ put_le(unsigned char *p, uint32_t v, int n)
 /**
  * @brief Stores a field, most significant byte first.
  *
- * @param p  where the field goes.
- * @param v  its value.
- * @param n  its width in bytes.
+ * @param p  where to store the field.
+ * @param v  the value of the field.
+ * @param n  the width of the field in bytes.
  */
 static void
 put_be(unsigned char *p, uint32_t v, int n)
@@ -241,10 +256,10 @@ put_be(unsigned char *p, uint32_t v, int n)
  * @brief Writes a 32 bit float WAVE file to a temporary file.
  *
  * @param channels  1 or 2.
- * @param samples   the samples' IEEE-754 bit patterns, interleaved.
- * @param n         how many in all.
- * @param reversed  nonzero to store each sample's bytes most significant
- *                  first, as @c --swap-bytes then reads them.
+ * @param samples   the IEEE-754 bit patterns of the samples, interleaved.
+ * @param n         the total number of samples.
+ * @param reversed  nonzero to store the bytes of each sample most significant
+ *                  first. @c --swap-bytes reads them in this order.
  * @return the file, positioned at its start.
  */
 static FILE *
@@ -281,11 +296,12 @@ float_wave(int channels, const uint32_t *samples, int n, int reversed)
 }
 
 /**
- * @brief Writes a stereo 32 bit float AIFF-C file to a temporary file, the
- *        samples most significant byte first as the format stores them.
+ * @brief Writes a stereo 32 bit float AIFF-C file to a temporary file.
  *
- * @param samples  the samples' IEEE-754 bit patterns, interleaved.
- * @param n        how many in all; even.
+ * The samples are stored most significant byte first, as the format requires.
+ *
+ * @param samples  the IEEE-754 bit patterns of the samples, interleaved.
+ * @param n        the total number of samples. It must be even.
  * @return the file, positioned at its start.
  */
 static FILE *
@@ -326,10 +342,13 @@ float_aiff(const uint32_t *samples, int n)
 }
 
 /**
- * @brief Opens @p f as the reader's input, as @c init_infile() leaves the
- *        reader for each input file, and initialises the encoder for it.
+ * @brief Sets @p f as the input of the reader, and initializes the encoder
+ *        instance for it.
  *
- * @param gfp        the encoder.
+ * The reader is left in the same state as @c init_infile() leaves it for each
+ * input file.
+ *
+ * @param gfp        the encoder instance.
  * @param f          the input file.
  * @param swapbytes  the @c --swap-bytes setting.
  */
@@ -350,9 +369,9 @@ open_reader(lame_t gfp, FILE *f, int swapbytes)
 }
 
 /**
- * @brief Closes what ::open_reader() opened, and the encoder.
+ * @brief Closes what ::open_reader() opened, and closes the encoder instance.
  *
- * @param gfp  the encoder.
+ * @param gfp  the encoder instance.
  */
 static void
 close_reader(lame_t gfp)
@@ -366,20 +385,22 @@ close_reader(lame_t gfp)
     lame_close(gfp);
 }
 
-/** @brief Samples the library refuses or must not have changed: half scale,
- *         beyond full scale both signs, a quiet NaN, an infinity, 5000.0 and
- *         the smallest denormal. */
+/** @brief Samples that the library rejects, or that must arrive unchanged.
+ *
+ * They are: half scale, above full scale with both signs, a quiet NaN, an
+ * infinity, 5000.0 and the smallest denormal. */
 static const uint32_t odd_samples[7] = {
     0x3F000000u, 0x3FC00000u, 0xBFC00000u, 0x7FC00000u, 0x7F800000u, 0x459C4000u, 0x00000001u
 };
 
 /**
- * @brief Compares what the reader delivered with the bit patterns written.
+ * @brief Compares the samples from the reader with the bit patterns that were
+ *        written.
  *
- * @param got   the delivered samples of one channel.
+ * @param got   the samples of one channel, as the reader returned them.
  * @param want  the bit patterns.
- * @param n     how many.
- * @param step  the distance between one channel's samples in @p want.
+ * @param n     the number of samples.
+ * @param step  the distance between two samples of one channel in @p want.
  */
 static void
 assert_bits(const float *got, const uint32_t *want, int n, int step)
@@ -394,8 +415,8 @@ assert_bits(const float *got, const uint32_t *want, int n, int step)
 }
 
 /**
- * @brief A little-endian WAVE file's samples arrive bit for bit, whatever
- *        their value.
+ * @brief Checks that the samples of a little-endian WAVE file arrive bit for
+ *        bit, whatever their value.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -414,8 +435,8 @@ test_wave_samples_arrive_unchanged(void **state)
 }
 
 /**
- * @brief A big-endian AIFF-C file's samples arrive bit for bit, in their
- *        channels.
+ * @brief Checks that the samples of a big-endian AIFF-C file arrive bit for
+ *        bit, each in its own channel.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -439,8 +460,8 @@ test_aiff_samples_arrive_unchanged(void **state)
 }
 
 /**
- * @brief With @c --swap-bytes, a WAVE file whose samples are stored most
- *        significant byte first arrives bit for bit.
+ * @brief Checks that with @c --swap-bytes, the samples arrive bit for bit
+ *        from a WAVE file that stores them most significant byte first.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -458,8 +479,10 @@ test_swapped_wave_arrives_unchanged(void **state)
 }
 
 /**
- * @brief The same file without @c --swap-bytes does not: the byte order is
- *        what the test above depends on.
+ * @brief Checks that the same file without @c --swap-bytes gives different
+ *        samples.
+ *
+ * This shows that the test above depends on the byte order.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -479,7 +502,8 @@ test_swapped_wave_differs_unswapped(void **state)
 }
 
 /**
- * @brief What the reader counts reaches @c samples_above_full_scale().
+ * @brief Checks that @c samples_above_full_scale() returns the count of the
+ *        reader.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -498,7 +522,7 @@ test_reader_counts_above_full_scale(void **state)
 }
 
 /**
- * @brief The integer reader refuses a floating point file.
+ * @brief Checks that the integer reader rejects a floating point file.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -516,7 +540,8 @@ test_integer_reader_refuses_float_file(void **state)
 }
 
 /**
- * @brief The 16 bit reader @c --decode uses converts finite samples ...
+ * @brief Checks that the 16 bit reader that @c --decode uses converts finite
+ *        samples.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -537,8 +562,10 @@ test_decode_reader_converts(void **state)
 }
 
 /**
- * @brief ... and refuses a sample that is not a number, which has no 16 bit
- *        value.
+ * @brief Checks that the 16 bit reader that @c --decode uses rejects a sample
+ *        that is not a number.
+ *
+ * A NaN has no 16 bit value.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -555,7 +582,7 @@ test_decode_reader_refuses_nan(void **state)
     close_reader(gfp);
 }
 
-/** @brief Registers and runs the floating point reader test group. */
+/** @brief Registers the tests of the floating point reader and runs them. */
 int
 main(void)
 {

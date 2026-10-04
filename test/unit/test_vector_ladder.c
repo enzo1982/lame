@@ -1,41 +1,42 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit tests for the automatic rung choice in vector_impl_init().
+ * @brief Unit tests for the automatic tier choice in vector_impl_init().
  *
- * The function under test is the *decision*, not the report.  Since the
- * decision was split out, vector_implementation() only hands back what was
- * decided earlier, so asking it what a machine would choose answers nothing:
- * @c vector_impl_init() is where a capability combination turns into a rung.
+ * This file tests the *decision*, not the report. vector_implementation()
+ * only returns the tier that was stored earlier. So it cannot tell which tier
+ * a machine would choose. @c vector_impl_init() is the function that turns a
+ * combination of capabilities into a tier.
  *
- * It reads @c gfc->CPU_features and nothing else - not cpuid, not the
- * processor it is running on.  That is what makes this testable anywhere: the
- * capability bits are set by hand, so one host covers the whole lattice,
- * including combinations it does not have and the all-scalar machine that has
- * none of them.  A host with AVX-512 tests the no-vector case here, and a host
- * with nothing tests the AVX-512 case; neither could be reached by encoding
- * something and looking at what came out.
+ * @c vector_impl_init() reads @c gfc->CPU_features and nothing else. It does
+ * not run cpuid, and it does not look at the CPU it runs on. So this test can
+ * run on any host. The test sets the capability bits by hand. So one host can
+ * test every combination, including combinations that it does not have. One
+ * of them is a machine with no vector capability at all. A host with AVX-512
+ * tests the case without vector routines here. A host without vector routines
+ * tests the AVX-512 case. An encode on either host cannot test these cases.
  *
- * Four properties, deliberately checked separately rather than folded into one
- * loop.  The first states the answer; the other three state things that must
- * hold whatever the answer is, so a mistake in the first one's model of the
- * ladder does not silence them:
+ * The file checks four properties, each in its own test. The first test
+ * states the expected tier. The other three properties must be true whatever
+ * that tier is. So a mistake in the first test's model of the tiers does not
+ * hide a failure in the other three:
  *
- *   - AUTO picks the widest rung this build carries whose capability bit is
- *     set;
- *   - it never picks a rung whose bit is clear, which is the failure that
- *     ends in an illegal instruction on a user's machine;
- *   - it never picks a rung this build did not compile, which is the failure
- *     that ends in a link error or a call through nothing;
- *   - with no capabilities at all the answer is the scalar code.
+ *   - AUTO picks the widest tier that this build has and whose capability
+ *     bit is set.
+ *   - AUTO never picks a tier whose bit is clear. This failure ends in an
+ *     illegal instruction on a user's machine.
+ *   - AUTO never picks a tier that this build did not compile. This failure
+ *     ends in a link error or in a call to a routine that does not exist.
+ *   - With no capabilities at all, the result is the scalar code.
  *
- * @c vector_impl_init() is internal and is withheld from the shared library by
- * @c include/libmp3lame.sym, so this test links the static archive - the same
- * arrangement @c test_set_get.c uses for the internal tuning setters.
+ * @c vector_impl_init() is internal. @c include/libmp3lame.sym does not list
+ * it, so the shared library does not export it. So this test links the
+ * static archive. @c test_set_get.c does the same for the internal tuning
+ * setters.
  *
- * Not covered here, on purpose: that an explicit request is honoured.
- * @c test_vector_routines.c already proves that end to end through the public
- * API, which is the level a caller sees it at.  See @ref vector_dispatch.
+ * This file does not test that an explicit request is applied.
+ * @c test_vector_routines.c tests that end to end through the public API.
+ * That is the level at which a caller sees it. See @ref vector_dispatch.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -107,14 +108,14 @@ static const struct {
     { 0, VECTOR_IMPL_NONE }
 };
 
-/** @brief Rungs this build compiled; the sentinel is not one of them. */
+/** @brief Returns the number of tiers that this build compiled. The sentinel is not counted. */
 static int
 ladder_count(void)
 {
     return (int) (sizeof ladder / sizeof ladder[0]) - 1;
 }
 
-/** @brief A zeroed encoder context - the only two fields in play are set here. */
+/** @brief Allocates a zeroed encoder context. The tests set the only two fields that matter. */
 static int
 gfc_setup(void **state)
 {
@@ -133,7 +134,7 @@ gfc_teardown(void **state)
     return 0;
 }
 
-/** @brief Present @p mask to the decision as if the processor reported it. */
+/** @brief Sets the capability bits from @p mask, as if the CPU had reported them. */
 static void
 set_capabilities(lame_internal_flags * gfc, unsigned mask)
 {
@@ -144,11 +145,12 @@ set_capabilities(lame_internal_flags * gfc, unsigned mask)
 }
 
 /**
- * @brief What the ladder owes for @p mask, worked out independently.
+ * @brief Returns the tier that AUTO must pick for @p mask, computed
+ *        independently.
  *
- * The rows ascend, so the last one whose bit is set is the widest offered.
- * test_ladder_is_ordered() is what entitles this to say "last" and mean
- * "widest".
+ * The rows are in increasing order. So the last row whose bit is set is the
+ * widest tier offered. test_ladder_is_ordered() checks this order. That check
+ * is what makes "last" mean "widest" here.
  */
 static vector_impl_t
 widest_offered(unsigned mask)
@@ -164,13 +166,14 @@ widest_offered(unsigned mask)
 }
 
 /**
- * @brief Run the decision on a context that carries exactly @p mask.
+ * @brief Runs the decision on a context that has exactly the bits in @p mask.
  *
- * Twice, from opposite starting values, because the interesting way for a
- * decision to be wrong is not to be made at all: a path that returns without
- * writing the field leaves whatever was there, and reading the field back
- * afterwards cannot tell that from an answer.  Starting once at the bottom of
- * the ladder and once at the top makes any such path disagree with itself.
+ * The decision runs twice, from opposite start values. One way for the
+ * decision to be wrong is that it is not made at all. A path that returns
+ * without writing the field keeps the old value. A read of the field cannot
+ * tell that old value from a real result. So one run starts at the lowest
+ * tier and one run starts at the highest. A path that does not write the
+ * field then gives two different results.
  */
 static vector_impl_t
 decide(lame_internal_flags * gfc, unsigned mask)
@@ -191,7 +194,7 @@ decide(lame_internal_flags * gfc, unsigned mask)
     return from_bottom;
 }
 
-/** @brief Whether @p impl is a rung this build actually carries. */
+/** @brief Checks whether @p impl is a tier that this build compiled. */
 static int
 is_compiled_rung(vector_impl_t impl)
 {
@@ -205,13 +208,14 @@ is_compiled_rung(vector_impl_t impl)
 }
 
 /**
- * @brief The enum is capability-ordered, and so is the table above.
+ * @brief Checks that the enum values in the table above increase in
+ *        capability order.
  *
- * Both the "widest wins" walk in util.c and the call sites that ask
- * ">= the rung my routine needs" are comparisons on this enum, so its order is
- * load-bearing rather than cosmetic.  Reordering the members - or adding a new
- * rung in the wrong place - would leave every one of those comparisons
- * compiling and answering differently.
+ * The dispatch sites test ">= the tier my routine needs". These tests compare
+ * values of the enum, so the order of its members matters. The walk in util.c
+ * goes through its table from the last row to the first. So the order of that
+ * table matters too. A reordered enum, or a new tier in the wrong place,
+ * still compiles. But the comparisons then give different results.
  */
 static void
 test_ladder_is_ordered(LAME_UNUSED void **state)
@@ -226,12 +230,13 @@ test_ladder_is_ordered(LAME_UNUSED void **state)
 }
 
 /**
- * @brief AUTO answers with the widest rung the machine offers.
+ * @brief Checks that AUTO returns the widest tier that the machine offers.
  *
- * Every capability combination, not just the plausible ones: a processor that
- * reports AVX-512 without AVX2 does not exist, but the walk must not depend on
- * that, because the bits it reads have already been masked by the deprecated
- * asm_optimizations flags and can arrive with holes in them.
+ * The test runs every combination of capabilities, not only the realistic
+ * ones. No CPU reports AVX-512 without AVX2. But the walk must not depend on
+ * that. Separate probes set the bits that it reads. The deprecated
+ * asm_optimizations flags then mask them. The walk must return the right tier
+ * for any combination.
  */
 static void
 test_auto_picks_the_widest_offered(void **state)
@@ -244,11 +249,11 @@ test_auto_picks_the_widest_offered(void **state)
 }
 
 /**
- * @brief It never picks a rung the processor did not report.
+ * @brief Checks that AUTO never picks a tier that the CPU did not report.
  *
- * The consequence of getting this wrong is an illegal instruction on a
- * machine that is otherwise fine, which is why it is asserted on its own
- * rather than left to the model above.
+ * If this property fails, a machine that otherwise works stops with an
+ * illegal instruction. So this test checks the property on its own. It does
+ * not depend on the model above.
  */
 static void
 test_auto_never_exceeds_the_capabilities(void **state)
@@ -270,12 +275,12 @@ test_auto_never_exceeds_the_capabilities(void **state)
 }
 
 /**
- * @brief It never picks a rung this build did not compile.
+ * @brief Checks that AUTO never picks a tier that this build did not compile.
  *
- * The mirror failure: a machine that reports more than the binary carries -
- * an AVX-512 processor running a build configured without it, which is the
- * common case, not an exotic one.  The answer there must be the widest rung
- * that was compiled, never the one the hardware could have run.
+ * This is the opposite failure. The machine reports more than the binary
+ * has. An example is an AVX-512 CPU that runs a build configured without
+ * AVX-512. This case is common. The result must be the widest tier that the
+ * build compiled, never the tier that the hardware could run.
  */
 static void
 test_auto_never_exceeds_the_build(void **state)
@@ -293,11 +298,11 @@ test_auto_never_exceeds_the_build(void **state)
 }
 
 /**
- * @brief A processor with none of them runs the scalar code.
+ * @brief Checks that a CPU with none of the capabilities runs the scalar code.
  *
- * Stated without reference to the model above, because it is the one answer
- * that is the same in every configuration - including a build carrying no
- * vector routines at all, where it is the only answer.
+ * This test does not use the model above. Its result is the same in every
+ * configuration. In a build with no vector routines at all, it is the only
+ * possible result.
  */
 static void
 test_no_capabilities_is_scalar(void **state)

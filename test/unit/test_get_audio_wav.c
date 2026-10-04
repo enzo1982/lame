@@ -1,29 +1,29 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Regression tests for the sample rate a WAVE header may declare
- *        (@c parse_wave_header(), @c frontend/get_audio.c).
+ * @brief Regression tests for the sample rate and the sample width that a WAVE
+ *        header may declare (@c parse_wave_header(), @c frontend/get_audio.c).
  *
- * The @c fmt chunk carries @c nSamplesPerSec as 32 unsigned bits while the
- * encoder takes the rate as an @c int, so the upper half of the field's range
- * cannot be passed on. The parser refuses those headers itself, while the
- * declared value is still intact; converting first and leaving the refusal to
- * the "not below 1" check reports a rate that is nowhere in the file.
+ * The @c fmt chunk stores @c nSamplesPerSec as an unsigned 32-bit value. The
+ * encoder takes the sample rate as an @c int. So the upper half of the field's
+ * range cannot be passed on. The parser rejects these headers itself, while it
+ * still has the declared value. If it converts the value first and lets the
+ * "not below 1" check reject it, the error message shows a rate that is not in
+ * the file.
  *
- * The accepted cases are as much of the point as the rejected ones. LAME
- * resamples any input rate down to one the format allows, and rates far above
- * anything a consumer format uses are ordinary studio and mastering material -
- * so the tests below pin that 192 kHz, 384 kHz and 768 kHz stay acceptable, and
- * that the boundary sits at @c INT_MAX rather than at some lower number nobody
- * measured.
+ * The accepted cases matter as much as the rejected ones. LAME resamples a high
+ * input rate down to a rate that MP3 allows. Rates far above any consumer
+ * format are normal in studio and mastering work. So the tests check that
+ * 192 kHz, 384 kHz and 768 kHz are accepted. They also check that the limit is
+ * exactly @c INT_MAX, and not some lower value.
  *
- * @c parse_wave_header() is static, so the reader is compiled directly into the
- * test, the same arrangement @c test_get_audio_aiff.c uses.
+ * @c parse_wave_header() is static. So the test compiles the reader directly
+ * into the test, in the same way as @c test_get_audio_aiff.c.
  *
- * The test is host byte-order independent: every field is written to the
- * fixture a byte at a time in WAVE's on-disk order (chunk identifiers
- * big-endian, numeric fields little-endian), which is how @c get_audio.c reads
- * them back.
+ * The test does not depend on the byte order of the host. It writes every
+ * field of the fixture one byte at a time, in the WAVE on-disk order. Chunk
+ * identifiers are big-endian, and numeric fields are little-endian.
+ * @c get_audio.c reads them back in the same way.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -50,13 +50,13 @@
 /* --- helpers ----------------------------------------------------------- */
 
 /**
- * @brief Builds a rewound temp FILE* holding @p bytes.
+ * @brief Writes @p bytes to a temporary FILE* and rewinds it.
  *
- * The stream represents the input positioned right after the 4-byte "RIFF"
- * magic, which is where @c parse_wave_header() begins reading.
- * @param bytes the post-"RIFF" header bytes.
+ * The stream stands for the input file just after the 4-byte "RIFF" magic.
+ * @c parse_wave_header() starts to read at this position.
+ * @param bytes the header bytes that follow "RIFF".
  * @param n     number of bytes.
- * @return an open, rewound temp stream.
+ * @return an open temporary stream, rewound to the start.
  */
 static FILE *
 wav_stream(const unsigned char *bytes, size_t n)
@@ -84,15 +84,15 @@ put_le32(unsigned char *p, uint32_t v)
 /** @brief Offset of nSamplesPerSec within ::valid_wav. */
 #define WAV_RATE_OFFSET 20
 
-/** @brief The rate ::valid_wav declares, so ::WAV_RATE_OFFSET stays anchored. */
+/** @brief The rate in ::valid_wav. A test uses it to check ::WAV_RATE_OFFSET. */
 #define WAV_FIXTURE_RATE 44100u
 
 /**
- * @brief A minimal well-formed 16-bit stereo WAVE, from just past "RIFF".
+ * @brief A minimal valid 16-bit stereo WAVE header, starting after "RIFF".
  *
- * Post-"RIFF" bytes: size + "WAVE" + "fmt " + cksize + 16 bytes of fmt +
- * "data" + size = 40 bytes. Identifiers are big-endian on disk, numeric
- * fields little-endian, which is what the reader expects.
+ * The bytes after "RIFF" are: size + "WAVE" + "fmt " + cksize + 16 bytes of
+ * fmt + "data" + size = 40 bytes. Identifiers are big-endian on disk, and
+ * numeric fields are little-endian. The reader expects this order.
  */
 static const unsigned char valid_wav[] = {
     0x00, 0x00, 0x00, 0x28,                 /* RIFF size (only tested > 0)  */
@@ -110,14 +110,15 @@ static const unsigned char valid_wav[] = {
 };
 
 /**
- * @brief Builds ::valid_wav with only nSamplesPerSec replaced.
+ * @brief Builds a copy of ::valid_wav with only nSamplesPerSec replaced.
  *
- * The byte rate is deliberately left as the fixture's own. It only restates
- * what the other fields say, the reader cross-checks it rather than using it,
- * and a rate near the top of the field's range has no expressible byte rate
- * anyway - @c nAvgBytesPerSec is itself 32 bits, so it overflows above
- * 1073741823 Hz at this block alignment. That is a limit of the file format
- * and not something the encoder is being asked about here.
+ * The byte rate stays the fixture's own value, on purpose:
+ * - It only repeats what the other fields say.
+ * - The reader only compares it with the other fields and does not use it.
+ * - A rate near the top of the field's range has no valid byte rate.
+ *   @c nAvgBytesPerSec is also 32 bits, so at this block alignment it
+ *   overflows above 1073741823 Hz. This is a limit of the file format. These
+ *   tests do not test it.
  *
  * @param hdr  destination, ::valid_wav sized.
  * @param rate the rate to declare.
@@ -132,13 +133,13 @@ build_wav_with_rate(unsigned char *hdr, uint32_t rate)
 /* --- tests ------------------------------------------------------------- */
 
 /**
- * @brief The unmodified fixture parses, so a rejection below means the rate.
+ * @brief Checks that the unchanged fixture parses. A rejection in a later test
+ *        is then caused by the rate.
  *
- * Without this every rejection test would also pass against a fixture that was
- * malformed for some unrelated reason, which is the way a rate test stops
- * testing the rate.
+ * Without this test, every rejection test also passes when the fixture is
+ * broken for some other reason. The rate tests then do not test the rate.
  *
- * @param state fixture state holding an initialised @c lame_t.
+ * @param state the fixture state, an initialized encoder instance.
  */
 static void
 test_valid_wav_accepted(void **state)
@@ -153,13 +154,14 @@ test_valid_wav_accepted(void **state)
 }
 
 /**
- * @brief High rates that LAME resamples down must keep being accepted.
+ * @brief Checks that high rates, which LAME resamples down, are accepted.
  *
- * Each is a real format: 192 kHz is DVD-Audio and every professional audio
- * interface, 352.8 kHz is DXD, 384 kHz its 48 kHz-family sibling. The encoder
- * handles all of them, so the parser must not be the thing that refuses.
+ * Several of them are real formats. 192 kHz is a DVD-Audio rate, and every
+ * professional audio interface supports it. 352.8 kHz is DXD. 384 kHz is the
+ * matching rate in the 48 kHz family. The encoder accepts all of these rates.
+ * So the parser must not reject them.
  *
- * @param state fixture state holding an initialised @c lame_t.
+ * @param state the fixture state, an initialized encoder instance.
  */
 static void
 test_high_sample_rates_accepted(void **state)
@@ -188,13 +190,14 @@ test_high_sample_rates_accepted(void **state)
 }
 
 /**
- * @brief The highest representable rate must be accepted, not refused early.
+ * @brief Checks that the highest rate an @c int can store is accepted.
  *
- * The limit is the width of the type the encoder takes the rate in, so it
- * belongs at @c INT_MAX. Pinning both sides of that boundary is what stops a
- * later change from quietly lowering it to a number that merely looks tidy.
+ * The encoder takes the rate as an @c int. So the limit is @c INT_MAX. This
+ * test checks @c INT_MAX, and the next test checks @c INT_MAX + 1. Together
+ * they fail if a change moves the limit to a lower number that only looks
+ * neat.
  *
- * @param state fixture state holding an initialised @c lame_t.
+ * @param state the fixture state, an initialized encoder instance.
  */
 static void
 test_boundary_rate_accepted(void **state)
@@ -211,16 +214,18 @@ test_boundary_rate_accepted(void **state)
 }
 
 /**
- * @brief A rate the encoder cannot represent must be refused as malformed.
+ * @brief Checks that a rate an @c int cannot store is rejected as a malformed
+ *        header (return value -1).
  *
- * Each case is ::valid_wav with only the rate replaced, so the header is
- * acceptable in every other respect and the rate is the sole reason for the
- * refusal. Without the range check the value is converted to @c int first,
- * which lands negative and is then refused by a guard meant to catch zero -
- * the file is still rejected, so the return value alone does not separate the
- * two. What separates them is that the conversion happens at all.
+ * Each case is ::valid_wav with only the rate replaced. The header is valid in
+ * every other way, so the rate is the only reason for the rejection.
  *
- * @param state fixture state holding an initialised @c lame_t.
+ * Without the range check, the parser converts the value to @c int first. The
+ * result is negative. The "not below 1" check then rejects it, and the parser
+ * returns 0, not -1. The error message then shows a negative rate that is not
+ * in the file. The test requires -1, so it fails without the range check.
+ *
+ * @param state the fixture state, an initialized encoder instance.
  */
 static void
 test_unrepresentable_sample_rate_rejected(void **state)
@@ -253,13 +258,14 @@ test_unrepresentable_sample_rate_rejected(void **state)
 }
 
 /**
- * @brief A rate of zero must still be refused.
+ * @brief Checks that a rate of zero is rejected.
  *
- * The pre-existing guard for this lives in the library rather than the parser,
- * so it is worth holding: a range check written only for the upper end could
- * replace it and lose the lower one without any test noticing.
+ * The check for zero is in the library (@c lame_set_in_samplerate()), not in
+ * the parser. A range check in the parser that covers only the upper end
+ * could replace that path. Without this test, nothing then notices that the
+ * lower end is lost.
  *
- * @param state fixture state holding an initialised @c lame_t.
+ * @param state the fixture state, an initialized encoder instance.
  */
 static void
 test_zero_sample_rate_rejected(void **state)
@@ -281,11 +287,11 @@ test_zero_sample_rate_rejected(void **state)
 /** @brief Offset of wBitsPerSample within ::valid_wav. */
 #define WAV_BITS_OFFSET 30
 
-/** @brief One (format tag, sample width) pair to feed the parser. */
+/** @brief One (format tag, sample width) pair for the parser. */
 struct wav_width_case {
     uint16_t    tag;    /**< the format tag to declare */
     uint16_t    bits;   /**< the sample width to declare */
-    char const *what;   /**< how to name it in a failure message */
+    char const *what;   /**< the name of the case in a failure message */
 };
 
 /** @brief Writes @p v into @p p as 2 little-endian bytes (WAVE field order). */
@@ -297,7 +303,8 @@ put_le16(unsigned char *p, uint16_t v)
 }
 
 /**
- * @brief Builds ::valid_wav with the format tag and sample width replaced.
+ * @brief Builds a copy of ::valid_wav with the format tag and sample width
+ *        replaced.
  * @param hdr  destination, ::valid_wav sized.
  * @param tag  the format tag to declare.
  * @param bits the sample width to declare.
@@ -311,13 +318,14 @@ build_wav_with_format(unsigned char *hdr, uint16_t tag, uint16_t bits)
 }
 
 /**
- * @brief The widths the sample reader implements must be accepted.
+ * @brief Checks that the widths the sample reader supports are accepted.
  *
- * These are the four the unpacker has cases for, plus 32-bit float, which it
- * reads through the same path and converts. Pinning them stops the allow-list
- * from being tightened past what the reader can actually do.
+ * These are the four integer widths that the unpacker supports: 8, 16, 24 and
+ * 32 bits. The fifth is 32-bit float, which @c read_samples_float() reads. The
+ * test fails if a change makes the list of accepted widths stricter than the
+ * reader.
  *
- * @param state fixture state holding an initialised @c lame_t.
+ * @param state the fixture state, an initialized encoder instance.
  */
 static void
 test_supported_sample_widths_accepted(void **state)
@@ -356,7 +364,8 @@ test_supported_sample_widths_accepted(void **state)
 }
 
 /**
- * @brief Runs a table of (format, width) pairs and requires each to be refused.
+ * @brief Parses each (format, width) pair in a table and requires a rejection
+ *        (return value -1).
  * @param gfp   the encoder instance.
  * @param cases the table.
  * @param n     entries in @p cases.
@@ -384,17 +393,20 @@ expect_widths_rejected(lame_t gfp, const struct wav_width_case *cases, size_t n)
 }
 
 /**
- * @brief An integer width the unpacker has no case for must be refused here.
+ * @brief Checks that the header parser rejects an integer width that the
+ *        unpacker does not support.
  *
- * These would otherwise reach the unpacker and be refused there, one buffer
- * later, by a message naming neither the header nor the field.
+ * Without the check, most of these widths get to the sample reader. It rejects
+ * them at the first read, with a message that names neither the header nor
+ * the field. A width of 0 makes the parser divide by zero when it computes the
+ * number of samples.
  *
- * Kept separate from the floating point widths below on purpose. A single test
- * covering both stops at its first failure, so when it is run against a build
- * without the allow-list it only ever demonstrates the integer half - and the
- * floating point half is the one worth demonstrating.
+ * This test is separate from the floating point test below, on purpose. A
+ * single test stops at its first failure. Against a build without the width
+ * check, a combined test then shows only the integer failures. The floating
+ * point failures are the more important ones.
  *
- * @param state fixture state holding an initialised @c lame_t.
+ * @param state the fixture state, an initialized encoder instance.
  */
 static void
 test_unsupported_integer_widths_rejected(void **state)
@@ -411,14 +423,14 @@ test_unsupported_integer_widths_rejected(void **state)
 }
 
 /**
- * @brief A floating point width other than 32 must be refused by the header.
+ * @brief Checks that the header parser rejects a floating point width other
+ *        than 32.
  *
- * This is the case with teeth. Such a file was unpacked as integers of the
- * declared width and the resulting buffer then reinterpreted as 32-bit floats,
- * so it produced noise rather than an error - nothing along the way had any
- * reason to complain.
+ * This is the most important case. Without the check, the float reader reads
+ * every 4 bytes of such a file as one 32-bit float. The result is noise, and
+ * no step reports an error.
  *
- * @param state fixture state holding an initialised @c lame_t.
+ * @param state the fixture state, an initialized encoder instance.
  */
 static void
 test_unsupported_float_widths_rejected(void **state)
@@ -435,7 +447,7 @@ test_unsupported_float_widths_rejected(void **state)
 
 /* --- fixture ----------------------------------------------------------- */
 
-/** @brief Per-test fixture: creates a @c lame_t into @p state. */
+/** @brief Per-test setup: stores a new encoder instance in @p state. */
 static int
 setup_lame(void **state)
 {
@@ -449,7 +461,7 @@ setup_lame(void **state)
     return 0;
 }
 
-/** @brief Per-test fixture teardown: closes the @c lame_t from @p state. */
+/** @brief Per-test teardown: closes the encoder instance in @p state. */
 static int
 teardown_lame(void **state)
 {
@@ -457,7 +469,7 @@ teardown_lame(void **state)
     return 0;
 }
 
-/** @brief Registers and runs the WAVE sample-rate test group. */
+/** @brief Registers and runs the WAVE header test group. */
 int
 main(void)
 {

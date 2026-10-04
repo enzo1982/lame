@@ -1,29 +1,31 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief The scale the unclipped decoder hands back.
+ * @brief Unit tests for the scale of the samples that the unclipped decoder
+ *        returns.
  *
- * @c hip_decode1_unclipped() exists so that the encoder can measure the peak of
- * what a decoder will produce, and clipping is exactly the case where that peak
- * goes past full scale. Both of those depend on one thing the type does not
- * carry: the samples are in LAME's own scale, where full scale is 32768.
+ * The encoder uses @c hip_decode1_unclipped() to measure the peak of what a
+ * decoder will produce. When the output clips, that peak is above full
+ * scale. Both uses depend on one fact that the type does not show: the
+ * samples are in LAME's own scale, where full scale is 32768.
  *
- * The decoder underneath was replaced by libmpg123, whose floating point output
- * is normalised to +-1, and nothing noticed for a release: the encoder still
- * produced correct audio, and the only symptom was that @c --clipdetect stopped
- * being able to report clipping and @c --replaygain-accurate returned the same
- * figure for every input. There was no test of the scale, because the scale is
- * not visible in any signature.
+ * The decoder underneath is libmpg123. Its floating point output is
+ * normalized to +-1. If the scale is wrong, the encoder still produces
+ * correct audio. The only symptoms are that @c --clipdetect cannot report
+ * clipping, and that @c --replaygain-accurate returns the same figure for
+ * every input. No signature shows the scale. So only a test of the scale can
+ * catch the error.
  *
- * So these tests ask the question directly, and the strong one asks it without
- * naming 32768 at all: decode the same stream through the clipped path, whose
- * scale is fixed by its @c short type, and through the unclipped one, and
- * require them to agree. That comparison would have failed by a factor of 32768
- * before the fix, and it cannot be satisfied by a wrong constant.
+ * These tests check the scale directly. The strongest test does this without
+ * naming 32768 at all. It decodes the same stream through the clipped path,
+ * whose @c short type fixes its scale. It also decodes the stream through the
+ * unclipped path. The two results must agree. If the unclipped path returns
+ * the normalized scale of libmpg123, the two differ by a factor of 32768. A
+ * wrong constant cannot make them agree.
  *
- * The tests skip rather than fail where the library was built without a
- * decoder: @c hip_decode_init() hands back nothing there, and "no decoder" and
- * "a decoder with the wrong scale" must not look the same.
+ * Where the library is built without a decoder, the tests skip and do not
+ * fail. @c hip_decode_init() returns NULL there. "No decoder" and "a decoder
+ * with the wrong scale" must not look the same.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -46,27 +48,27 @@
 #include "util.h"
 #include "test_unused.h"
 
-/** @brief Sample rate every test in this file encodes at. */
+/** @brief Sample rate of every encode in this file. */
 #define SAMPLE_RATE  44100
-/** @brief Samples per channel in the test signal - half a second. */
+/** @brief Samples per channel in the test signal. This is half a second. */
 #define FRAMES       (SAMPLE_RATE / 2)
-/** @brief Samples per channel handed to the encoder in one call. */
+/** @brief Samples per channel that one call to the encoder gets. */
 #define CHUNK        1152
-/** @brief Room for the encoded stream, ample at these settings. */
+/** @brief Buffer size for the encoded stream. It is large enough at these settings. */
 #define MP3_ROOM     (FRAMES * 2)
 
 /**
- * @brief Full scale for a @c short sample, the scale the unclipped decoder
- *        is documented to share.
+ * @brief Full scale of a @c short sample. The unclipped decoder is
+ *        documented to use the same scale.
  */
 #define FULL_SCALE   32767.0
 
 
 /**
- * @brief Encodes a sine at a fraction of full scale and hands back the stream.
+ * @brief Encodes a sine at a fraction of full scale and returns the stream.
  *
- * @param amplitude_fraction  1.0 is full scale; more than that asks for a
- *                            stream that decodes past it.
+ * @param amplitude_fraction  1.0 is full scale. A larger value asks for a
+ *                            stream that decodes past full scale.
  * @param out_len             receives the length in bytes.
  * @return the bitstream, which the caller frees, or NULL.
  */
@@ -115,12 +117,12 @@ encode_sine(double amplitude_fraction, size_t * out_len)
 
 
 /**
- * @brief Decodes a stream and reports the largest magnitude it saw.
+ * @brief Decodes a stream and returns the largest magnitude in it.
  *
  * @param mp3        the bitstream to decode.
  * @param len        its length in bytes.
- * @param unclipped  take the float path, which is not limited to full scale,
- *                   rather than the one handing back a @c short.
+ * @param unclipped  nonzero for the float path, which is not limited to full
+ *                   scale. Zero for the path that returns a @c short.
  * @return the peak, or -1 where the build has no decoder at all.
  */
 static double
@@ -172,13 +174,14 @@ peak_of(unsigned char *mp3, size_t len, int unclipped)
 
 
 /**
- * @brief The two decode paths return the same audio in the same scale.
+ * @brief Checks that the two decode paths return the same audio in the same
+ *        scale.
  * @param state cmocka fixture state (unused).
  *
- * The clipped path hands back a @c short, whose type fixes its scale; the
- * unclipped one hands back a @c float and nothing in its signature says what
- * full scale is. Comparing the two is a check on the scale that does not
- * have to name the factor between them.
+ * The clipped path returns a @c short, and that type fixes its scale. The
+ * unclipped path returns a @c float, and nothing in its signature says what
+ * full scale is. A comparison of the two checks the scale. It does not need
+ * to name the factor between them.
  */
 static void
 test_both_paths_agree(LAME_UNUSED void **state)
@@ -202,11 +205,12 @@ test_both_paths_agree(LAME_UNUSED void **state)
 
 
 /**
- * @brief The peak the library reports is in the encoder's scale.
+ * @brief Checks that the peak that the library reports is in the encoder's
+ *        scale.
  * @param state cmocka fixture state (unused).
  *
- * That is the scale every reader of it assumes: the clipping count, and the
- * gain figure written into the tag.
+ * Every reader of the peak expects this scale: the clipping count, and the
+ * gain figure that is written into the tag.
  */
 static void
 test_peak_is_in_lame_scale(LAME_UNUSED void **state)
@@ -225,12 +229,12 @@ test_peak_is_in_lame_scale(LAME_UNUSED void **state)
 
 
 /**
- * @brief Clipping takes samples away from the peak and never adds to it.
+ * @brief Checks that clipping can only lower the peak, never raise it.
  * @param state cmocka fixture state (unused).
  *
- * Stated as an inequality: a correct decoder's stream need not exceed full
- * scale, and a particular figure would pin an encoder property in a decoder
- * test.
+ * The test uses an inequality. The stream of a correct decoder does not have
+ * to exceed full scale. A specific figure would fix an encoder property in a
+ * decoder test.
  */
 static void
 test_clipping_only_reduces(LAME_UNUSED void **state)

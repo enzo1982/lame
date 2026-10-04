@@ -4,13 +4,15 @@
  * @brief Unit test for @c set_path_arg() and the option value readers in
  *        @c frontend/parse.c.
  *
- * Verifies that a positional input/output filename of @c PATH_MAX bytes or
- * longer is rejected, and that a shorter one is copied and null-terminated;
- * and that an option value no option can use makes @c parse_args() fail.
+ * The tests check three things:
+ * - A positional input or output file name of @c PATH_MAX bytes or longer is
+ *   rejected.
+ * - A shorter name is copied and ends with a NUL.
+ * - An option value that no option can use makes @c parse_args() fail.
  *
- * @c set_path_arg() is static, so the whole translation unit is pulled in with
- * @c \#include; @c parse_test_stubs.c supplies the console/file helpers
- * @c parse.c references and libmp3lame provides the @c lame_* API.
+ * @c set_path_arg() is static, so the test includes the whole translation unit
+ * with @c \#include. @c parse_test_stubs.c supplies the console and file
+ * helpers that @c parse.c uses. libmp3lame supplies the @c lame_* API.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -29,14 +31,15 @@
 
 #include "parse.c"
 
-/** Non-NUL fill byte: a copy that fails to terminate leaves this in place of
-    the expected '\0', making the fault detectable. */
+/** A fill byte that is not NUL. If a copy does not write the NUL, this byte
+    stays in its place, and the test finds the fault. */
 #define SENTINEL 0x7f
 
 /**
- * @brief A filename of @c PATH_MAX bytes or longer must be rejected.
+ * @brief Checks that a file name of @c PATH_MAX bytes or longer is rejected.
  *
- * Were it copied instead, the destination would be left unterminated.
+ * A copy of such a name with @c strncpy() and a limit of @c PATH_MAX writes
+ * no NUL.
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -56,7 +59,8 @@ test_overlong_path_rejected(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A short filename must be copied verbatim and null-terminated.
+ * @brief Checks that a short file name is copied without change and ends with
+ *        a NUL.
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -71,10 +75,11 @@ test_fitting_path_terminated(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Boundary check around the limit.
+ * @brief Checks the lengths at the limit.
  *
- * A name of exactly @c PATH_MAX bytes is rejected; @c PATH_MAX-1 is accepted
- * and the result is properly terminated (no walk-off possible).
+ * A name of exactly @c PATH_MAX bytes is rejected. A name of @c PATH_MAX-1
+ * bytes is accepted, and the copy ends with a NUL. So a read of the copy
+ * cannot run past its end.
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -98,11 +103,13 @@ test_boundary_length(LAME_UNUSED void **state)
 }
 
 /**
- * @brief parse_args() refuses an option value that is not a finite number or
- *        lies beyond what any option can mean, and accepts an ordinary one.
+ * @brief Checks that parse_args() rejects an option value that is not a
+ *        finite number or is out of range for every option. It also checks
+ *        that parse_args() accepts an ordinary value.
  *
- * The values cover both readers: a double that is NaN, infinite or huge, which
- * several options convert to an int, and an integer beyond the range of one.
+ * The values cover both readers. The double reader gets NaN, infinity and
+ * huge values. Several options convert such a double to an int. The integer
+ * reader gets a value outside the range of an int.
  * @param state cmocka fixture state (unused).
  */
 static void

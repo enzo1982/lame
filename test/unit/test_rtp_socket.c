@@ -1,26 +1,25 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit tests for the RTP sender's destination handling.
+ * @brief Unit tests for the destination handling of the RTP sender.
  *
- * @c frontend/rtp.c has one implementation for every platform: a destination
- * may be an IPv4 address, an IPv6 address or a host name, resolved the same way
- * everywhere, and a build configured for IPv4 only differs in exactly one
- * respect - which address family the resolver is asked for. These tests hold it
- * to that.
+ * @c frontend/rtp.c has one implementation for every platform. A destination
+ * can be an IPv4 address, an IPv6 address or a host name. The code resolves
+ * it the same way on every platform. A build configured for IPv4 only differs
+ * in one point: the address family that it asks the resolver for. These tests
+ * check this behavior.
  *
- * @c rtp_socket() is external and @c rtpsocket is a non-static global, so what
- * the socket ended up connected to can be read back with @c getpeername()
- * rather than inferred. That is the core assertion: the family and the address
- * are the ones that were asked for.
+ * @c rtp_socket() is external, and @c rtpsocket is a non-static global. So the
+ * test reads the connected address back with @c getpeername(). It does not
+ * have to guess it. This is the main assertion: the family and the address
+ * are the ones that the test asked for.
  *
- * One test additionally receives what @c rtp_output() sends, in this same
- * process, and checks the RTP header it produced. Loopback delivery is not
- * something a unit test can insist on - a host firewall may drop it, and on
- * Windows it routinely does between processes - so that test probes the path
- * first and skips rather than fails when nothing can get through. The probe is
- * what keeps a skip honest: without it, "no packets arrived" and "the sender is
- * broken" are the same observation.
+ * One test also receives the packets that @c rtp_output() sends, in the same
+ * process. It checks the RTP header of each packet. A unit test cannot
+ * require loopback delivery. A host firewall can drop it, and on Windows it
+ * often does between processes. So this test first probes the path. If no
+ * packet gets through, the test skips and does not fail. Without the probe,
+ * "no packets arrived" and "the sender is broken" look the same.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -62,7 +61,7 @@ typedef socklen_t socket_len_t;
 
 #include "rtp.h"
 
-/** The socket rtp.c connected, so that this test can look at it. */
+/** The socket that rtp.c connected. The tests read it. */
 extern SOCKET rtpsocket;
 
 #define RTP_HEADER_LEN  16      /**< four 32 bit words, as rtp.c builds it */
@@ -71,11 +70,12 @@ extern SOCKET rtpsocket;
 #define RECV_TIMEOUT_MS 400
 
 /**
- * @brief Stand-in for the console error reporter rtp.c calls.
+ * @brief Replaces the console error function that rtp.c calls.
  *
- * The frontend's console layer is a whole translation unit that this test has
- * no use for. Messages are counted rather than matched: that a rejected
- * destination *says* something is worth asserting, the exact wording is not.
+ * The console layer of the frontend is a whole translation unit, and this
+ * test does not need it. The test counts the messages and does not compare
+ * their text. A rejected destination must print a message. The exact wording
+ * does not matter.
  */
 static int error_calls;
 
@@ -88,11 +88,12 @@ error_printf(const char *format, ...)
 }
 
 /**
- * @brief Bind a receiver on @a host and report the port the system chose.
+ * @brief Binds a receiver socket on @a host, and stores the port that the
+ *        system chose in @a port.
  *
- * Asking for port 0 and reading the assignment back removes the only race a
- * fixed port number would have, and removes the chance of colliding with
- * whatever else on the machine happens to hold it.
+ * The function asks for port 0 and reads the assigned port back. A fixed port
+ * number can race with another program. It can also collide with a program
+ * that already uses that port. Port 0 avoids both problems.
  */
 static SOCKET
 open_receiver(int family, char const *host, unsigned int *port)
@@ -140,7 +141,7 @@ set_receive_timeout(SOCKET s)
     setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (char const *) &t, sizeof(t));
 }
 
-/** @brief What rtp.c's socket is connected to, printed. */
+/** @brief Returns the peer address of @a s as text, and stores its family in @a family. */
 static char const *
 peer_of(SOCKET s, char *buf, size_t buflen, int *family)
 {
@@ -164,9 +165,11 @@ peer_of(SOCKET s, char *buf, size_t buflen, int *family)
 }
 
 /**
- * @brief Can a datagram reach @a host in this process at all?
+ * @brief Checks that datagrams sent to @a host arrive within this process.
  *
- * Decides whether a later "nothing arrived" is a result or an environment.
+ * The result decides what a later "nothing arrived" means: a fault in the
+ * code, or a limit of the test environment.
+ * @return 1 if all probe datagrams arrived, 0 otherwise.
  */
 static int
 path_works(int family, char const *host)
@@ -204,7 +207,7 @@ path_works(int family, char const *host)
     return got == FRAME_COUNT;
 }
 
-/** @brief Close whatever the previous test left connected. */
+/** @brief Closes the socket that the previous test left connected, if any. */
 static int
 teardown_socket(void **state)
 {
@@ -233,7 +236,7 @@ group_teardown(void **state)
     return 0;
 }
 
-/** @brief An IPv4 literal connects, and to the address it named. */
+/** @brief Checks that an IPv4 literal connects, and to the address that it names. */
 static void
 test_ipv4_literal(void **state)
 {
@@ -253,11 +256,12 @@ test_ipv4_literal(void **state)
 }
 
 /**
- * @brief An IPv6 literal, and what an IPv4-only build does with one instead.
+ * @brief Checks an IPv6 literal. In an IPv4-only build, checks that the
+ *        address is rejected.
  *
- * Both halves are asserted rather than one being compiled away silently: an
- * IPv4-only build must *refuse* the address, not accept it and do something
- * else with it.
+ * Each build has its own assertion, so the test is not empty in an IPv4-only
+ * build. That build must reject the address. It must not accept it and do
+ * something else with it.
  */
 static void
 test_ipv6_literal(void **state)
@@ -285,11 +289,12 @@ test_ipv6_literal(void **state)
 }
 
 /**
- * @brief Does this host resolve @a name at all?
+ * @brief Returns 1 if this host resolves @a name, 0 otherwise.
  *
- * Asked separately, and it has to be: the difference between "this machine has
- * no localhost entry" and "the code under test cannot resolve names" is the
- * whole point of the test below, and only one of them is a reason to skip.
+ * The test must ask this separately. Two cases look the same from outside:
+ * "this machine has no localhost entry" and "the code under test cannot
+ * resolve names". The test below exists to tell them apart. Only the first
+ * case is a reason to skip.
  */
 static int
 host_resolves(char const *name)
@@ -305,7 +310,11 @@ host_resolves(char const *name)
     return 1;
 }
 
-/** @brief A host name is resolved, which no literal-only parser could do. */
+/**
+ * @brief Checks that a host name is resolved.
+ *
+ * A parser that accepts only address literals cannot do this.
+ */
 static void
 test_host_name(void **state)
 {
@@ -336,7 +345,7 @@ test_host_name(void **state)
     rtp_close_socket(r);
 }
 
-/** @brief A destination that resolves to nothing is refused, and says so. */
+/** @brief Checks that a destination that does not resolve is rejected with an error message. */
 static void
 test_unresolvable_is_refused(void **state)
 {
@@ -348,7 +357,7 @@ test_unresolvable_is_refused(void **state)
     assert_true(error_calls > 0);
 }
 
-/** @brief Ports outside the 16 bit range are refused rather than truncated. */
+/** @brief Checks that a port outside the range 1 to 65535 is rejected and not truncated. */
 static void
 test_invalid_port_is_refused(void **state)
 {
@@ -359,11 +368,11 @@ test_invalid_port_is_refused(void **state)
 }
 
 /**
- * @brief What rtp_output() puts on the wire is an RTP packet.
+ * @brief Checks that rtp_output() sends RTP packets.
  *
- * Version 2, payload type 14 (MPEG audio), one SSRC for the session and a
- * sequence number that advances by one - and the payload handed in arrives
- * unaltered behind the header.
+ * Each packet has version 2 and payload type 14 (MPEG audio). All packets of
+ * the session have the same SSRC. The sequence number grows by one for each
+ * packet. The payload follows the header without change.
  */
 static void
 test_sends_rtp_packets(void **state)

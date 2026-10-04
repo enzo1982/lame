@@ -1,16 +1,18 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief ReplayGain analysis (libmp3lame/gain_analysis.c).
+ * @brief Unit tests for the ReplayGain analysis (libmp3lame/gain_analysis.c).
  *
- * Mono and stereo input give the window levels and the title gain of a double
- * precision reference, which the test computes with its own filter code.
- * Checked over 3 s of signal and a part window, fed in blocks of several sizes,
- * including blocks shorter than the filter order and blocks that cross a
- * 50 ms analysis window.
+ * The tests check that mono and stereo input give the same window levels and
+ * the same title gain as a reference. The test computes the reference in
+ * double precision, with its own filter code.
  *
- * The analysis is internal and the shared library does not export it, so this
- * test links the static archive, as test_resample_decision.c does.
+ * The input is 3 s of signal plus part of a window. The tests pass it in
+ * blocks of several sizes. Some blocks are shorter than the filter order.
+ * Some blocks cross a 50 ms analysis window.
+ *
+ * The analysis is internal, and the shared library does not export it. So
+ * this test links the static archive, like test_resample_decision.c.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -30,10 +32,10 @@
 #include "machine.h"
 #include "gain_analysis.h"
 
-/** @brief The sample rate analysed. */
+/** @brief The sample rate of the test signal. */
 #define RATE 44100
-/** @brief Samples per channel: 3 s and 1000 more, so the last window is not
- *         complete and its sums are still there to compare. */
+/** @brief Samples per channel: 3 s plus 1000. So the last window is not
+ *         complete, and its sums are available for a comparison. */
 #define NSAMPLES (3 * RATE + 1000)
 /** @brief Samples in one 50 ms analysis window at RATE. */
 #define WINDOW (RATE / 20)
@@ -45,8 +47,8 @@
 static Float_t left[NSAMPLES], right[NSAMPLES];
 
 /** @brief The Yule filter coefficients at 44.1 kHz, copied from
- *         gain_analysis.c: 11 for the input, then 10 for the output, the
- *         oldest sample first. */
+ *         gain_analysis.c. The first 11 are for the input, the next 10 for
+ *         the output. The oldest sample comes first. */
 static const float yule44[2 * ORDER + 1] = {
     -0.00187763777362f, 0.00674613682247f, -0.00240879051584f, 0.01624864962975f,
     -0.02596338512915f, 0.02245293253339f, -0.00834990904936f, -0.00851165645469f,
@@ -56,31 +58,30 @@ static const float yule44[2 * ORDER + 1] = {
     6.36317777566148f, -3.47845948550071f
 };
 
-/** @brief The Butterworth filter coefficients for the same rate: input two
- *         back, output two back, input one back, output one back, the input
- *         sample. */
+/** @brief The Butterworth filter coefficients for the same rate. The order
+ *         is: input two samples back, output two samples back, input one
+ *         sample back, output one sample back, the current input sample. */
 static const float butter44[5] = {
     0.98500175787242f, 0.97022847566350f, -1.97000351574484f, -1.96977855582618f,
     0.98500175787242f
 };
 
-/** @brief The reference's output of the first filter, with ORDER zeros before
- *         it. */
+/** @brief The output of the first reference filter, after ORDER zeros. */
 static double step[NSAMPLES + ORDER];
-/** @brief The reference's output of both filters for each channel, with ORDER
- *         zeros before it. */
+/** @brief The output of both reference filters for each channel, after ORDER
+ *         zeros. */
 static double filtered[2][NSAMPLES + ORDER];
 
-/** @brief Block sizes: shorter than the filter order, a granule, a frame,
+/** @brief Block sizes: one shorter than the filter order, a granule, a frame,
  *         and one that crosses the 2205-sample window. */
 static const int blocks[] = { 5, 576, 1152, 2300 };
 
 /**
- * @brief Filters one channel in double precision, the way the ReplayGain
+ * @brief Filters one channel in double precision, as the ReplayGain
  *        specification defines it.
  *
  * @param in       the samples.
- * @param channel  0 or 1: which of #filtered gets the result.
+ * @param channel  0 or 1: the row of #filtered that gets the result.
  */
 static void
 reference_filter(const Float_t *in, int channel)
@@ -103,10 +104,12 @@ reference_filter(const Float_t *in, int channel)
 }
 
 /**
- * @brief Fills the left channel with a tone and noise, and the right channel
- *        with a different tone and noise, each under a slow envelope, so the
- *        window levels spread over about 45 dB. Then filters them with the
+ * @brief Fills both channels with a test signal and filters them with the
  *        reference.
+ *
+ * The left channel gets a tone and noise. The right channel gets a different
+ * tone and noise. Each channel has a slow envelope, so the window levels
+ * spread over about 45 dB.
  *
  * @param channels  1 for mono: the reference filters the left channel twice.
  *                  2 for stereo.
@@ -129,8 +132,9 @@ make_signal(int channels)
 }
 
 /**
- * @brief The level of the reference's filtered samples, as the analysis
- *        computes it: 10 log10 of half the summed mean square of both channels.
+ * @brief Returns the level of the filtered reference samples, computed in the
+ *        same way as the analysis: 10 log10 of half the summed mean square of
+ *        both channels.
  *
  * @param first  the first sample.
  * @param n      the number of samples.
@@ -148,8 +152,10 @@ reference_level(int first, int n)
 }
 
 /**
- * @brief The title gain of the reference: the histogram and the percentile of
- *        the analysis, over the reference's levels of the full windows.
+ * @brief Returns the title gain of the reference.
+ *
+ * It uses the same histogram and percentile as the analysis. The input is the
+ * reference level of each full window.
  *
  * @return the gain in dB.
  */
@@ -178,7 +184,7 @@ reference_title_gain(void)
 }
 
 /**
- * @brief Analyses the signal in blocks of one size.
+ * @brief Analyzes the signal in blocks of one size.
  *
  * @param channels  1 for mono (the left channel), 2 for stereo.
  * @param block     samples per call.
@@ -201,11 +207,12 @@ analyse(int channels, int block)
 }
 
 /**
- * @brief Checks that the input gives the reference's level in every window
- *        above 30 dB, within 0.001 dB.
+ * @brief Checks that the analysis gives the reference level, within 0.001 dB,
+ *        in every window above 30 dB.
  *
- * Each window is fed in two blocks: all but its last sample, then that sample.
- * Between the two, the sums of the window in progress give its level.
+ * Each window is passed in two blocks: all samples but the last, then the
+ * last sample. Between the two calls, the sums of the unfinished window give
+ * its level. At least 3/4 of the windows must be above 30 dB.
  *
  * @param channels  1 for mono, 2 for stereo.
  */
@@ -239,8 +246,8 @@ check_levels(int channels)
 }
 
 /**
- * @brief Checks that the input gives the reference's title gain in every block
- *        size.
+ * @brief Checks that every block size gives exactly the title gain of the
+ *        reference.
  *
  * @param channels  1 for mono, 2 for stereo.
  */
@@ -309,7 +316,7 @@ test_stereo_title_gain(void **state)
 }
 
 /**
- * @brief In the window in progress, the two sums of mono input are equal.
+ * @brief Checks that mono input gives two equal sums in the unfinished window.
  *
  * @param state cmocka fixture state (unused).
  */

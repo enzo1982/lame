@@ -1,20 +1,21 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit test for the exit status @c parse_args() reports for help.
+ * @brief Unit test for the exit status that @c parse_args() reports for help.
  *
- * @c parse_args() distinguishes two ways of not proceeding to an encode: -2
- * means it printed what was asked for and there is nothing left to do, and -1
- * means the command line was wrong. Both frontends that read the value act on
- * that difference, and it is what a caller sees as the process exit status.
+ * @c parse_args() has two ways to stop before an encode. -2 means that it
+ * printed what the user asked for and has nothing left to do. -1 means that
+ * the command line is wrong. Both frontends that read the value act on this
+ * difference. A caller sees it as the exit status of the process.
  *
- * These cases pin every argument form that asks for help to the first of the
- * two, and one wrong command line to the second - without which "always
- * report success" would pass.
+ * These tests check that every argument form that asks for help returns the
+ * first code. They also check that wrong command lines return the second
+ * code. Without these checks, a parser that always reports success would
+ * pass.
  *
- * @c presets_set() is static, so the whole translation unit is pulled in with
- * @c \#include; @c parse_test_stubs.c supplies the console/file helpers
- * @c parse.c references and libmp3lame provides the @c lame_* API.
+ * @c presets_set() is static, so the test includes the whole translation unit
+ * with @c \#include. @c parse_test_stubs.c supplies the console and file
+ * helpers that @c parse.c uses. libmp3lame supplies the @c lame_* API.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -32,19 +33,24 @@
 
 #include "parse.c"
 
-/** @brief Codes @c parse_args() returns, named so the assertions read. */
+/**
+ * @brief Names for the codes that @c parse_args() returns, so that the
+ *        assertions are easy to read.
+ */
 #define PARSE_PRINTED_AND_DONE  (-2)
 #define PARSE_REJECTED          (-1)
 #define PARSE_PROCEED           0
 
-/** @brief An encoder instance, and somewhere for the parser to write.
+/** @brief Creates an encoder instance, and sets the streams that the parser
+ *         writes to.
  *
- * The console streams are opened by the frontend's own startup, which is not
- * linked here, so the stub leaves them null. The rejection paths hand one of
- * them straight to the library's version banner, which does not test its
- * argument - so a test that skips this crashes on the case it is checking
- * rather than reporting it. They cannot be initialised where the stub declares
- * them: @c stderr need not be a constant expression.
+ * The startup code of the frontend opens the console streams. This test does
+ * not link that code, so the stub leaves the streams null. A rejection path
+ * passes one of them directly to the version banner, lame_version_print() in
+ * parse.c. The banner does not check its argument. Without this setup, a test
+ * crashes on the case that it checks and does not report a result. The stub
+ * cannot initialize the streams where it declares them, because @c stderr
+ * need not be a constant expression.
  */
 static int
 gfp_setup(void **state)
@@ -68,10 +74,10 @@ gfp_teardown(void **state)
 }
 
 /**
- * @brief Run @p argv through the option parser and report what it decided.
+ * @brief Runs @p argv through the option parser and returns its result.
  *
- * The output goes to stdout, which is where these invocations are supposed to
- * write it; the test harness captures it per program.
+ * The output goes to standard output. These command lines are meant to write
+ * there. The test harness captures the output of each program.
  */
 static int
 parse(lame_t gfp, int argc, char **argv)
@@ -86,12 +92,11 @@ parse(lame_t gfp, int argc, char **argv)
 }
 
 /**
- * @brief Every way of asking for help reports success.
+ * @brief Checks that every way to ask for help reports success.
  *
- * The three that already did are here with the two that did not, because the
- * property being pinned is that they agree - checking only the two that
- * changed would not notice the others drifting the other way.
- * @param state fixture state holding an initialised @c lame_t.
+ * The test checks all forms together, because they must agree. A test of only
+ * some forms does not notice when another form changes its result.
+ * @param state fixture state that contains an initialized encoder instance.
  */
 static void
 test_help_requests_report_success(void **state)
@@ -121,12 +126,12 @@ test_help_requests_report_success(void **state)
 }
 
 /**
- * @brief A preset that does not exist is still an error.
+ * @brief Checks that a preset that does not exist is an error.
  *
- * The control for the case above: the help request and the unusable argument
- * come out of the same call, so a change that reported success for both would
- * satisfy it.
- * @param state fixture state holding an initialised @c lame_t.
+ * This is the control for the test above. The help request and the unknown
+ * preset go through the same function, presets_set(). A change that reports
+ * success for both passes the test above. This test catches such a change.
+ * @param state fixture state that contains an initialized encoder instance.
  */
 static void
 test_unknown_preset_is_rejected(void **state)
@@ -141,8 +146,8 @@ test_unknown_preset_is_rejected(void **state)
 }
 
 /**
- * @brief An unrecognised option is still an error.
- * @param state fixture state holding an initialised @c lame_t.
+ * @brief Checks that an unrecognized option is an error.
+ * @param state fixture state that contains an initialized encoder instance.
  */
 static void
 test_unknown_option_is_rejected(void **state)
@@ -156,8 +161,9 @@ test_unknown_option_is_rejected(void **state)
 }
 
 /**
- * @brief An empty argument list, without even a program name, is an error.
- * @param state fixture state holding an initialised @c lame_t.
+ * @brief Checks that an empty argument list, without a program name, is an
+ *        error.
+ * @param state fixture state that contains an initialized encoder instance.
  */
 static void
 test_empty_argument_list_is_rejected(void **state)
@@ -170,11 +176,11 @@ test_empty_argument_list_is_rejected(void **state)
 }
 
 /**
- * @brief An ordinary command line still asks to proceed.
+ * @brief Checks that an ordinary command line returns the code to proceed.
  *
- * Nothing is opened here - the parser only records the names - so this says
- * that neither of the codes above has leaked onto the encoding path.
- * @param state fixture state holding an initialised @c lame_t.
+ * The parser only stores the file names and opens no file. So this test shows
+ * that neither of the codes above appears on the encoding path.
+ * @param state fixture state that contains an initialized encoder instance.
  */
 static void
 test_ordinary_invocation_proceeds(void **state)

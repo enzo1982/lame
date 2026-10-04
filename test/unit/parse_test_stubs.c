@@ -3,24 +3,32 @@
  * @ingroup unit_tests
  * @brief Link-time stubs for the parse.c unit tests.
  *
- * Minimal stand-ins for the console and file helpers that @c frontend/parse.c
- * references but that normally live in @c console.c / @c lame_main.c. The
- * parse.c tests link this file. The console stand-ins print nothing, and
- * @c lame_fopen() opens the file with @c fopen(). @c parse.c itself defines the
- * frontend global-config blocks (@c global_reader / @c global_writer / ...),
- * so - unlike the get_audio test - those are @e not stubbed here.
+ * @c frontend/parse.c uses console and file helpers that are defined in other
+ * frontend files, mostly @c console.c and @c main.c. This file defines minimal
+ * stand-ins for them. The parse.c tests link this file. The console stand-ins
+ * print nothing. @c lame_fopen() opens the file with @c fopen().
  *
- * The @c utf8To* / @c toLatin1 helpers @c parse.c uses are compiled in only
- * under @c _WIN32 && !__MINGW32__, so they are not referenced on the platforms
- * these tests build on and need no stubs.
+ * @c parse.c itself defines the frontend global-config blocks
+ * (@c global_reader, @c global_writer and the others). So this file does
+ * @e not stub them. The get_audio tests are different: their stub file
+ * defines these blocks.
  *
- * Several of the stubs below look superfluous on any one platform, and are not:
- * @c parse.c reaches for them under configurations other than the one being
- * built - a decoderless build, a debug or unoptimized build, Windows - and the
- * tests link that one translation unit without the rest of the frontend. Deleting
- * a stub because nothing here calls it breaks @c make @c check somewhere else.
- * The real prototypes are included rather than re-declared so a signature that
- * drifts fails to compile instead of failing to link.
+ * @c parse.c uses the @c utf8To* and @c toLatin1 helpers only under
+ * @c _WIN32 && !__MINGW32__. These tests do not build on such a platform. So
+ * nothing references the helpers, and they need no stubs.
+ *
+ * Some stubs below look unnecessary on any one platform. They are necessary.
+ * @c parse.c calls them in other configurations:
+ * - a build without the decoder,
+ * - a debug or unoptimized build,
+ * - Windows.
+ *
+ * The tests link this one translation unit without the rest of the frontend.
+ * If you delete a stub because nothing calls it here, @c make @c check fails
+ * in another configuration.
+ *
+ * The file includes the real prototypes and does not declare its own. So a
+ * signature that changes fails at compile time, not at link time.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -46,7 +54,7 @@ void  console_flush(void) {}
 void  error_flush(void) {}
 void  report_flush(void) {}
 
-/* used by parse.c's album-art reader (defined in lame_main.c normally) */
+/* used by parse.c's album-art reader (defined in main.c normally) */
 FILE *lame_fopen(char const *file, char const *mode) { return fopen(file, mode); }
 
 /* LAMEOPT environment lookup, used by parse_args() (defined in main.c normally) */

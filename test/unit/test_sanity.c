@@ -3,12 +3,13 @@
  * @ingroup unit_tests
  * @brief CMocka harness smoke test.
  *
- * Proves the unit-test harness is wired correctly: that @c --enable-unit-tests
- * locates CMocka, that a test binary compiles and links against it, and that
- * @c "make check" runs the result and reports its pass/fail status.
+ * Checks that the unit-test harness is set up correctly:
+ * - @c --enable-unit-tests finds CMocka.
+ * - A test binary compiles and links against CMocka.
+ * - @c "make check" runs the binary and reports whether it passes or fails.
  *
- * Only the pre-2.0 CMocka macro set is used, a temporary restriction until
- * cmocka 2.0 is more widely available across Linux distributions.
+ * The test uses only the CMocka macros from before version 2.0. This is a
+ * temporary limit. Many Linux distributions do not ship cmocka 2.0 yet.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -23,7 +24,7 @@
 
 #include "test_unused.h"
 
-/** @brief Trivial function under test, exercised by test_harness_runs(). */
+/** @brief Returns the sum of @p a and @p b. test_harness_runs() calls it. */
 static int
 add(int a, int b)
 {
@@ -31,7 +32,9 @@ add(int a, int b)
 }
 
 /**
- * @brief Asserts a known-true result so the harness has something to run.
+ * @brief Checks a result that is always true.
+ *
+ * This gives the harness one test to run.
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -40,7 +43,7 @@ test_harness_runs(LAME_UNUSED void **state)
     assert_int_equal(add(2, 2), 4);
 }
 
-/** @brief Registers and runs the smoke-test group. */
+/** @brief Registers the smoke test and runs it. */
 int
 main(void)
 {

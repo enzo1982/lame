@@ -1,19 +1,21 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit test for the frontend ID3 dispatch in frontend/parse.c (SF #524).
+ * @brief Unit test for the ID3 dispatch of the frontend in frontend/parse.c
+ *        (SF #524).
  *
- * Drives the static id3_tag() entry point, which converts the argument and
- * routes it to the encoding-specific set_id3v2tag_utf8() / set_id3v2tag_utf16()
- * handlers. The UTF-8 path is where SF #524 lived (it used to feed UTF-8 data
- * to the UTF-16/UCS-2 setters); these tests assert the UTF-8 text, comment and
- * field-value cases produce the right frame, and that the UTF-16 path still
- * works after the split.
+ * The tests call the static id3_tag() entry point. It converts the argument
+ * and passes it to the handler for its encoding: set_id3v2tag_utf8() or
+ * set_id3v2tag_utf16(). The UTF-8 handler must call the UTF-8 setters, not the
+ * UTF-16 or UCS-2 setters (SF #524). The tests check that UTF-8 text, comments
+ * and field values give the right frame. They also check that the UTF-16 path
+ * works.
  *
- * id3_tag() is static, so the translation unit is pulled in with @c \#include;
- * parse_test_stubs.c supplies the frontend externs and libmp3lame provides the
- * id3tag_* / lame_get_id3v2_tag API. id3_tag() converts via iconv, so inputs
- * are kept ASCII (encoding-transparent) to stay locale-independent.
+ * id3_tag() is static, so the test includes the translation unit with
+ * @c \#include. parse_test_stubs.c supplies the frontend externs. libmp3lame
+ * supplies the id3tag_* and lame_get_id3v2_tag API. id3_tag() converts the
+ * text with iconv. So the inputs are ASCII, which converts the same way in
+ * every locale.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -32,7 +34,7 @@
 
 static unsigned char tagbuf[8192];
 
-/** @brief True if the byte string @p needle occurs verbatim in @p hay. */
+/** @brief Returns 1 if the byte string @p needle occurs unchanged in @p hay, 0 otherwise. */
 static int
 mem_contains(const unsigned char *hay, size_t hn, const char *needle)
 {
@@ -47,7 +49,7 @@ mem_contains(const unsigned char *hay, size_t hn, const char *needle)
     return 0;
 }
 
-/** @brief A UTF-8 text tag routes to the correct frame (the #524 path). */
+/** @brief Checks that a UTF-8 text tag goes to the correct frame (the #524 path). */
 static void
 test_utf8_text_frame(void **state)
 {
@@ -61,7 +63,7 @@ test_utf8_text_frame(void **state)
     assert_true(mem_contains(tagbuf, sz, "DispArtist"));
 }
 
-/** @brief A UTF-8 comment routes to a COMM frame. */
+/** @brief Checks that a UTF-8 comment goes to a COMM frame. */
 static void
 test_utf8_comment_frame(void **state)
 {
@@ -75,7 +77,7 @@ test_utf8_comment_frame(void **state)
     assert_true(mem_contains(tagbuf, sz, "DispComment"));
 }
 
-/** @brief A UTF-8 field value routes through id3tag_set_fieldvalue_utf8 (#524). */
+/** @brief Checks that a UTF-8 field value goes through id3tag_set_fieldvalue_utf8 (#524). */
 static void
 test_utf8_fieldvalue(void **state)
 {
@@ -89,7 +91,7 @@ test_utf8_fieldvalue(void **state)
     assert_true(mem_contains(tagbuf, sz, "DispField"));
 }
 
-/** @brief The UTF-16 path still works after the split (regression guard). */
+/** @brief Checks that the UTF-16 path works (regression guard). */
 static void
 test_utf16_still_works(void **state)
 {
@@ -102,7 +104,7 @@ test_utf16_still_works(void **state)
     assert_true(mem_contains(tagbuf, sz, "TIT2"));
 }
 
-/** @brief Per-test fixture: fresh lame_t into @p state. */
+/** @brief Per-test setup: creates a new encoder instance and stores it in @p state. */
 static int
 setup_lame(void **state)
 {
@@ -113,7 +115,7 @@ setup_lame(void **state)
     return 0;
 }
 
-/** @brief Per-test fixture teardown: closes the lame_t. */
+/** @brief Per-test teardown: closes the encoder instance in @p state. */
 static int
 teardown_lame(void **state)
 {

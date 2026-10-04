@@ -1,23 +1,21 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit tests for the instance-free library information API
- *        (version.c, tables.c).
+ * @brief Unit tests for the library information API that needs no encoder
+ *        instance (version.c, tables.c).
  *
- * Everything tested here is a property of the build rather than of an encoder:
- * the version and build-information strings, and the two accessors that hand a
- * caller the MPEG bitrate and sample-rate tables. None of them takes a
- * lame_global_flags, so none of them is reachable from any test that starts by
- * calling lame_init() - which is why they were the largest block of exported
- * symbols no test named at all.
+ * Everything tested here is a property of the build, not of an encoder. This
+ * covers the version and build-information strings. It also covers the two
+ * functions that return values from the MPEG bitrate and sample rate tables.
+ * None of them takes a lame_global_flags.
  *
- * The version functions are deliberately tested against each other rather than
- * against the version macros. Rebuilding the macro expressions in the test
- * would only assert that a copy of the code agrees with the code; asking
- * instead whether the four string forms and the numerical form report the same
- * version is a question that can actually come out wrong, and it is the one a
- * caller cares about. What the strings contain beyond that is documented as
- * unspecified, so nothing here asserts it.
+ * The tests compare the version functions with each other, not with the
+ * version macros. A copy of the macro expressions in the test would only check
+ * that a copy of the code agrees with the code. The tests ask a different
+ * question: do the four string forms and the numerical form report the same
+ * version? This check can fail, and a caller cares about it. The
+ * documentation leaves the rest of the string content unspecified, so the
+ * tests do not check it.
  *
  * Library-level tests: they link libmp3lame and call the exported API directly.
  */
@@ -44,12 +42,14 @@
  */
 
 /**
- * @brief Every version string is non-NULL, non-empty and the same on re-entry.
+ * @brief Checks that each version string is not NULL, not empty, and the same
+ *        pointer on a second call.
  *
- * The documented contract is a pointer to a static string that stays valid for
- * the lifetime of the process; a second call returning the same pointer is the
- * observable half of that. get_lame_os_bitness() is excluded because it is the
- * one function documented as possibly returning an empty string.
+ * The documentation promises a pointer to a static string. The string stays
+ * valid as long as the process runs. A second call that returns the same
+ * pointer is the part of this promise that a test can see. The test leaves out
+ * get_lame_os_bitness(). It is the one function whose documentation allows an
+ * empty string.
  */
 static void
 test_version_strings_are_static(LAME_UNUSED void **state)
@@ -78,12 +78,14 @@ test_version_strings_are_static(LAME_UNUSED void **state)
 }
 
 /**
- * @brief get_lame_version_numerical() writes every field of the struct.
+ * @brief Checks that get_lame_version_numerical() writes every field of the
+ *        structure.
  *
- * Documented: the structure need not be initialised first, because every field
- * is assigned. Poisoning it beforehand is what turns that promise into
- * something a test can fail - a field the function forgot would still hold the
- * poison pattern afterwards.
+ * The documentation says that the structure does not need to be initialized
+ * first, because the function sets every field. The test fills the structure
+ * with a poison pattern before the call. This makes the check able to fail. A
+ * field that the function does not set still contains the pattern after the
+ * call.
  */
 static void
 test_version_numerical_fills_every_field(LAME_UNUSED void **state)
@@ -118,13 +120,14 @@ test_version_numerical_fills_every_field(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The string forms and the numerical form report the same version.
+ * @brief Checks that the string forms and the numerical form report the same
+ *        version.
  *
- * Each string is built from the version macros at its own site in version.c,
- * so agreement between them is not structural - a version bump that updates
- * one arm and not another is exactly the failure this catches. Only the
- * leading "major.minor" is checked: everything after it (build type, patch
- * level, build date) is documented as having no guaranteed layout.
+ * version.c builds each string from the version macros in its own place. So
+ * the strings do not agree by construction. A version change can update one
+ * place and miss another. This test finds that failure. It checks only the
+ * leading "major.minor". The documentation does not guarantee the layout of
+ * the rest: build type, patch level and build date.
  */
 static void
 test_version_strings_agree_with_numbers(LAME_UNUSED void **state)
@@ -144,18 +147,18 @@ test_version_strings_agree_with_numbers(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The very short version has the fixed layout its documentation states.
+ * @brief Checks that the very short version has the layout that its
+ *        documentation states.
  *
- * "LAME", the version, and exactly one build-type character - the one form
- * whose layout the API does promise, because callers copy it into fixed-size
- * fields.
+ * The layout starts with "LAME", the version, and one build-type character.
+ * This is the one form whose layout the API documents.
  *
- * The build-type character can only be cross-checked one way. An alpha or beta
- * build reports its patch level in @c alpha or @c beta, so a non-zero one of
- * those must be matched by an 'a' or a 'b'. The converse does not hold: an
- * alpha at patch level 0 leaves both
- * fields 0 and is numerically indistinguishable from a release, so a caller
- * cannot use them to ask "is this an alpha?".
+ * The test can check the build-type character in one direction only. An alpha
+ * or beta build reports its patch level in @c alpha or @c beta. So if one of
+ * them is not 0, the character must be 'a' or 'b'. The reverse check does not
+ * work. An alpha at patch level 0 sets both fields to 0. Its numbers are then
+ * the same as those of a release. So a caller cannot use the fields to ask
+ * "is this an alpha?".
  */
 static void
 test_very_short_version_layout(LAME_UNUSED void **state)
@@ -182,10 +185,12 @@ test_very_short_version_layout(LAME_UNUSED void **state)
 }
 
 /**
- * @brief get_lame_os_bitness() reports the pointer width of this build.
+ * @brief Checks that get_lame_os_bitness() reports the pointer width of this
+ *        build.
  *
- * Documented as a property of the library, not of the operating system, so the
- * test asks the same question of its own translation unit.
+ * The documentation describes the result as a property of the library, not of
+ * the operating system. So the test compares it with the pointer size in its
+ * own translation unit.
  */
 static void
 test_os_bitness_matches_pointer_width(LAME_UNUSED void **state)
@@ -214,7 +219,10 @@ test_os_bitness_matches_pointer_width(LAME_UNUSED void **state)
  * them is the range checking, which is the part that could be got wrong.
  */
 
-/** @brief Bitrates for MPEG-2, MPEG-1 and MPEG-2.5, and the out-of-range arms. */
+/**
+ * @brief Checks the bitrates for MPEG-2, MPEG-1 and MPEG-2.5, and the results
+ *        for out-of-range indices.
+ */
 static void
 test_bitrate_table(LAME_UNUSED void **state)
 {
@@ -249,7 +257,10 @@ test_bitrate_table(LAME_UNUSED void **state)
     assert_int_equal(lame_get_bitrate(1, 16), -1);
 }
 
-/** @brief Sample rates for the three MPEG versions, and the out-of-range arms. */
+/**
+ * @brief Checks the sample rates for the three MPEG versions, and the results
+ *        for out-of-range indices.
+ */
 static void
 test_samplerate_table(LAME_UNUSED void **state)
 {

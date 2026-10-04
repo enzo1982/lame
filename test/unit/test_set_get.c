@@ -3,18 +3,24 @@
  * @ingroup unit_tests
  * @brief Unit tests for the libmp3lame parameter API (set_get.c).
  *
- * set_get.c is almost entirely getter/setter pairs that the CLI frontend never
- * exercises: it drives the encoder through a handful of paths. These functions
- * are not dead - they are the public ABI every third-party caller uses -
- * so they are exactly what a unit test should pin down. Each function is probed
- * three ways where it applies: a valid round-trip, an invalid-@p gfp call (the
- * `is_lame_global_flags_valid` false branch, i.e. the `return -1` / default
- * tail), and an out-of-range value (the validation-reject branch). The first
- * pins behaviour; the latter two are the branches the frontend never reaches.
+ * set_get.c consists almost entirely of getter and setter pairs. The CLI
+ * frontend calls few of them, because it uses the encoder through only a few
+ * paths. The functions are still in use. Every third-party caller uses them as
+ * the public ABI. So a unit test must check them.
  *
- * Library-level tests: they link libmp3lame and call the exported API directly.
- * With --enable-internal the test links the static library, so that it can
- * reach the internal setters as well.
+ * Where it applies, the test checks each function in three ways:
+ * - A valid value: the getter returns what the setter stored.
+ * - An invalid @p gfp: this is the false branch of
+ *   `is_lame_global_flags_valid`, which returns -1 or the default value.
+ * - A value out of range: this is the branch where the validation rejects
+ *   the value.
+ *
+ * The first check fixes the behavior. The frontend never runs the other two
+ * branches.
+ *
+ * These are library-level tests. They link libmp3lame and call the exported
+ * API directly. With --enable-internal, the test links the static library, so
+ * that it can also call the internal setters.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -94,7 +100,8 @@ extern Padding_type lame_get_padding_type(const lame_global_flags *);
 #define ASM_OPTIM_ARCH 0
 #endif
 
-/** @brief A fresh encoder context for each test; @p *state carries it. */
+/** @brief Creates a new encoder instance for each test and stores it in
+ *         @p *state. */
 static int
 gfp_setup(void **state)
 {
@@ -825,11 +832,13 @@ test_maximum_number_of_samples(void **state)
 }
 
 /**
- * @brief lame_init_params() refuses an output rate more than 128 times the
- *        input rate, and accepts one exactly 128 times it.
+ * @brief Checks that lame_init_params() rejects an output sample rate more
+ *        than 128 times the input sample rate.
  *
- * Both ways the output rate can come about: set by the caller, and picked by
- * LAME - which for a very low input rate is its lowest, 8 kHz.
+ * It accepts an output sample rate of exactly 128 times the input sample
+ * rate. The test covers both sources of the output sample rate. The caller
+ * can set it, or LAME can choose it. For a very low input sample rate, LAME
+ * chooses its lowest rate, 8 kHz.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -862,11 +871,13 @@ test_upsampling_ratio_limit(void **state)
 }
 
 /**
- * @brief lame_init_params() refuses a variable bitrate floor above the
- *        ceiling, in every variable bitrate mode, and accepts one equal to it.
+ * @brief Checks that lame_init_params() rejects a minimum VBR bitrate above
+ *        the maximum, in every VBR mode.
  *
- * The comparison is between the snapped rates: at 22.05 kHz a floor of 256
- * becomes 160, still above a ceiling of 128; at 11.025 kHz both become 64.
+ * It accepts a minimum that is equal to the maximum. The comparison uses the
+ * bitrates after LAME rounds them to valid bitrates. At 22.05 kHz, a minimum
+ * of 256 becomes 160, which is still above a maximum of 128. At 11.025 kHz,
+ * both become 64.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -906,12 +917,13 @@ test_vbr_floor_above_ceiling(void **state)
 }
 
 /**
- * @brief lame_init_params() copes with the extreme ints a caller can set for
- *        the bitrates and the lowpass frequency.
+ * @brief Checks that lame_init_params() handles INT_MIN and INT_MAX as the
+ *        bitrates and the lowpass frequency.
  *
- * Under UBSan with halt_on_error, arithmetic that overflows on the way fails
- * this test; without it, the test checks that the settings end up usable - a
- * bitrate from the table, a lowpass within the output band.
+ * Under UBSan with halt_on_error, any arithmetic overflow fails this test.
+ * Without UBSan, the test checks that the settings are usable after the call.
+ * The bitrate must be from 0 to 320 kbps. The lowpass frequency must be
+ * within the output band.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -944,11 +956,12 @@ test_extreme_int_settings(void **state)
 }
 
 /**
- * @brief A compression ratio small enough to ask for more kbit/s than an int
- *        holds gives the highest bitrate, not an overflow.
+ * @brief Checks that a very small compression ratio gives the highest
+ *        bitrate, not an overflow.
  *
- * Under UBSan with halt_on_error the conversion that used to overflow fails
- * this test; either way the result must be the format's top rate.
+ * The ratio is small enough to ask for more kbit/s than an int can store.
+ * Under UBSan with halt_on_error, an overflow in the conversion fails this
+ * test. In every build, the result must be the highest bitrate of the format.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -970,12 +983,13 @@ test_tiny_compression_ratio(void **state)
 }
 
 /**
- * @brief A variable bitrate stream with a constant bitrate far beyond the
- *        tables set as well encodes under strict ISO.
+ * @brief Checks that a VBR stream encodes under strict ISO when a CBR bitrate
+ *        far above the tables is also set.
  *
- * The constant bitrate is not the stream's in VBR mode, and the frontend's
- * -b sets it alongside the VBR minimum. Noise at an MPEG-2 and an MPEG-1 rate,
- * the bit reservoir off as lame_set_brate() leaves it above 320 kbps.
+ * In VBR mode, the CBR bitrate is not the bitrate of the stream. The -b option
+ * of the frontend sets it together with the minimum VBR bitrate. The test
+ * encodes noise at an MPEG-2 sample rate and at an MPEG-1 sample rate. The bit
+ * reservoir is off, because lame_set_brate() turns it off above 320 kbps.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -1011,9 +1025,11 @@ test_vbr_with_cbr_bitrate_beyond_tables(void **state)
 }
 
 /**
- * @brief Assembles a float from its IEEE-754 bit pattern, unfoldable by the
- *        compiler - under the fast floating point maths these tests are built
- *        with, a NaN or an infinity the compiler can see is folded away.
+ * @brief Builds a float from its IEEE-754 bit pattern, in a way that the
+ *        compiler cannot fold.
+ *
+ * These tests are built with fast floating point math. Under it, the compiler
+ * removes a NaN or an infinity that it can see at compile time.
  *
  * @param bits the bit pattern.
  * @return the float with that pattern.
@@ -1031,12 +1047,13 @@ float_from_bits(uint32_t bits)
 }
 
 /**
- * @brief The floating point setters refuse NaN and the infinities and keep
- *        the value they held, and an encode after such a refusal runs.
+ * @brief Checks that the floating point setters reject NaN and the
+ *        infinities, and keep the stored value.
  *
- * Each setter first takes a valid value, then each non-finite one; the getter
- * must still report the valid value. lame_set_msfix() returns nothing, so for
- * it only the getter speaks.
+ * Each setter first gets a valid value, then a value that is not finite. The
+ * getter must still return the valid value. After this, an encode must run.
+ * lame_set_msfix() returns nothing, so for it the test checks only the
+ * getter.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -1085,8 +1102,11 @@ test_float_setters_refuse_nonfinite(void **state)
 }
 
 /**
- * @brief The scale setters take a factor up to 4096 in magnitude and refuse a
- *        larger one, keeping the value they held.
+ * @brief Checks that the scaling factor setters accept a magnitude up to 4096,
+ *        and reject a larger one.
+ *
+ * After a rejected value, the getter returns the value stored before.
+ *
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -1121,15 +1141,20 @@ test_scale_setters_refuse_beyond_bound(void **state)
 }
 
 /**
- * @brief lame_get_maximum_number_of_samples() keeps its promise: that many
- *        samples per call never overflow the buffer it was asked about.
+ * @brief Checks that lame_get_maximum_number_of_samples() keeps its promise.
  *
- * Asked before every call, since what the encoder holds changes from call to
- * call: the first call also hands out what lame_init_params() wrote - the
- * ID3v2 tag, the LAME tag frame - and a resampling encoder returns the output
- * of input it held back the call before. White noise, the input that needs
- * the most bits; resampling up to a ratio of 80, free format, and a tag
- * carrying album art.
+ * The promise: an encode call with that many samples never overflows the
+ * buffer size that the caller passed.
+ *
+ * The test calls the function before every encode call. The data that the
+ * encoder keeps changes from call to call:
+ * - The first call also returns what lame_init_params() wrote. This is the
+ *   ID3v2 tag and the LAME tag frame.
+ * - A resampling encoder returns the output of input that it kept back in the
+ *   call before.
+ *
+ * The input is white noise, which needs the most bits. The cases include
+ * resampling up to a ratio of 80, free format, and a tag with album art.
  *
  * @param state cmocka fixture state (unused).
  */

@@ -1,24 +1,23 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit tests for the clipping figures reported after an encode
- *        (libmp3lame/lame.c).
+ * @brief Unit tests for the clipping figures that the encoder reports after an
+ *        encode (libmp3lame/lame.c).
  *
- * With the peak measurement enabled the encoder decodes its own output and
- * records the loudest sample it sees. Material whose samples are all zero
- * leaves that peak at zero, which is the one value the headroom figure cannot
- * be computed from - the logarithm of zero is not a number, and converting it
- * to an integer is undefined. Silence is ordinary input for this measurement:
- * a leading gap, a muted track, an empty capture.
+ * With the peak measurement on, the encoder decodes its own output. It stores
+ * the loudest sample that it sees. If all samples are zero, the peak stays at
+ * zero. The headroom figure cannot be computed from a peak of zero. The
+ * logarithm of zero is minus infinity, and its conversion to an integer is
+ * undefined. Silence is ordinary input for this measurement, for example a
+ * leading gap, a muted track or an empty capture.
  *
- * Both cases need a build that can decode: without one the request to measure
- * the peak is refused outright, so nothing computes a headroom figure and there
- * is no behaviour here to check. That is asked of the library rather than of a
- * configuration macro, since the refusal is what a caller actually meets.
+ * Both tests need a build that can decode. Without a decoder, the library
+ * rejects the request to measure the peak. Then nothing computes a headroom
+ * figure, and there is no behavior to check. The test asks the library, not a
+ * configuration macro, because the rejection is what a caller sees.
  *
- * The loud case is the control for the silent one: it shows the figures do
- * move, without which a zero would equally be the signature of a measurement
- * that never ran.
+ * The loud case is the control for the silent case. It shows that the figures
+ * change. Without it, a zero can also mean that the measurement never ran.
  *
  * Library-level tests: they link libmp3lame and call the exported API directly.
  */
@@ -45,11 +44,13 @@
 #define MP3BUF_SIZE      (5 * SAMPLES_PER_CALL / 4 + 7200)
 
 /**
- * @brief Encodes one buffer repeatedly with the peak measurement on, then
- *        flushes, which is what computes the figures under test.
+ * @brief Encodes one buffer several times with the peak measurement on, and
+ *        then flushes.
+ *
+ * The flush computes the figures that the tests check.
  * @param left,right the block of samples to encode, repeated #CALLS times.
- * @return the encoder instance, still open, for the caller to interrogate, or
- *         NULL where this build refuses to measure the peak at all.
+ * @return the encoder instance, still open, for the caller to check. NULL if
+ *         this build rejects the peak measurement.
  */
 static lame_t
 encode_with_peak_measurement(short const *left, short const *right)
@@ -86,12 +87,13 @@ encode_with_peak_measurement(short const *left, short const *right)
 }
 
 /**
- * @brief Silence reports no clipping and no scaling, and nothing undefined.
+ * @brief Checks that silence reports no clipping, no scaling and no undefined
+ *        value.
  *
- * Before the guard this computed the logarithm of zero and converted the
- * infinity that comes back to an int, which the C standard leaves undefined;
- * what it produced in practice was the most negative int there is, reported to
- * the caller as a headroom of some 214 million decibels.
+ * Without the check for a zero peak, the code takes the logarithm of zero. It
+ * then converts the resulting infinity to an int. The C standard leaves this
+ * conversion undefined. A typical result is the most negative int. The caller
+ * then sees a headroom of about 214 million decibels.
  */
 static void
 test_silence_reports_no_headroom(LAME_UNUSED void **state)
@@ -109,11 +111,11 @@ test_silence_reports_no_headroom(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Material that is not silent moves the figures.
+ * @brief Checks that a signal that is not silent changes the figures.
  *
- * The control for the case above: it shows the measurement runs and writes,
- * so a zero there is the answer for silence rather than the signature of a
- * peak that was never taken.
+ * This is the control for the test above. It shows that the measurement runs
+ * and writes its result. So a zero in the test above is the result for
+ * silence. It does not mean that the peak was never measured.
  */
 static void
 test_signal_reports_a_peak(LAME_UNUSED void **state)

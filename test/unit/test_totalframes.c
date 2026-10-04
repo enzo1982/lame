@@ -1,16 +1,20 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit tests for lame_get_totalframes() length handling (set_get.c).
+ * @brief Unit tests for the length handling of lame_get_totalframes()
+ *        (set_get.c).
  *
- * lame_get_totalframes() estimates the number of MP3 frames from the caller's
- * declared num_samples. Two edge cases are checked here: the documented
- * "unknown" sentinel (2^32-1) must report 0 rather than a bogus estimate, and a
- * declared length whose frame count would exceed the int the estimate is
- * returned in must not overflow it. The latter is only reachable where
- * unsigned long is wider than int, so it is skipped elsewhere.
+ * lame_get_totalframes() estimates the number of MP3 frames. It uses the
+ * num_samples value that the caller sets. The tests check two edge cases:
+ * - The documented "unknown" value (2^32-1) returns 0, not a wrong estimate.
+ * - A length with more frames than an int can store does not overflow the
+ *   return value.
  *
- * Library-level tests: they link libmp3lame and call the exported API directly.
+ * The second case needs an unsigned long that is wider than int. On other
+ * platforms the test is skipped.
+ *
+ * These are library-level tests. They link libmp3lame and call the exported
+ * API directly.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -29,7 +33,7 @@
 
 #include "lame.h"
 
-/** @brief totalframes estimate for a stereo 44.1 kHz stream of @p ns samples. */
+/** @brief Returns the frame estimate for @p ns samples of stereo 44.1 kHz. */
 static int
 totalframes_for(unsigned long ns)
 {
@@ -44,14 +48,14 @@ totalframes_for(unsigned long ns)
     return tf;
 }
 
-/** @brief The documented unknown sentinel (2^32-1) reports 0, not an estimate. */
+/** @brief Checks that the documented "unknown" value (2^32-1) returns 0. */
 static void
 test_sentinel_is_unknown(LAME_UNUSED void **state)
 {
     assert_int_equal(totalframes_for(0xFFFFFFFFUL), 0);
 }
 
-/** @brief A known finite length gives a positive estimate near samples/1152. */
+/** @brief Checks that a known length gives an estimate near samples/1152. */
 static void
 test_known_length_estimated(LAME_UNUSED void **state)
 {
@@ -62,10 +66,11 @@ test_known_length_estimated(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A frame count past INT_MAX yields the unknown estimate, not overflow.
+ * @brief Checks that a frame count above INT_MAX returns 0 ("unknown") and does
+ *        not overflow.
  *
- * Only reachable where unsigned long is wider than int (e.g. LP64); where it is
- * not, num_samples cannot express such a length, so the case is skipped.
+ * The case needs an unsigned long that is wider than int, for example on LP64.
+ * Otherwise num_samples cannot express such a length, and the test is skipped.
  */
 static void
 test_overflow_length_is_unknown(LAME_UNUSED void **state)

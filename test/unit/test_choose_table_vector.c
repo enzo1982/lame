@@ -1,26 +1,28 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit tests for the vectorised Huffman table search primitives.
+ * @brief Unit tests for the vectorized Huffman table search primitives.
  *
- * The bitstream-identity check covers these routines from a long way off: it
- * encodes whole files and compares the result. That answers "does a real
- * encode still produce the same bits", but it exercises whatever region
- * lengths and value ranges the music happens to produce, and it says nothing
- * about the ones it never reaches. These tests go at the routines directly,
- * over the cases that are awkward by construction rather than by luck: the
- * lengths either side of the block size and the vector threshold, the value
- * where the code lengths switch to escape coding, and the range where
- * narrowing to sixteen bits saturates.
+ * The bitstream-identity check tests these routines only from far away. It
+ * encodes whole files and compares the result. So it tests whether a real
+ * encode still produces the same bits. But it only tests the region lengths
+ * and value ranges that the music happens to produce. It says nothing about
+ * the cases that it never gets to. These tests call the routines directly.
+ * They test the cases that are difficult by design, not by chance:
  *
- * Each routine is checked against an independent scalar reference written
- * here rather than against LAME's own - two spellings of the same loop would
- * agree about a shared misunderstanding.
+ *   - the lengths on both sides of the block size and of the vector
+ *     threshold,
+ *   - the value where the code lengths switch to escape coding,
+ *   - the range where the narrowing to sixteen bits saturates.
+ *
+ * Each routine is checked against an independent scalar reference in this
+ * file. The reference is not LAME's own scalar loop. Two versions of the same
+ * loop can share a mistake and still agree.
  *
  * The tables are synthetic for the same reason. The routines take their
- * tables as arguments, so nothing here depends on the contents of LAME's, and
- * an index computed one place off shows up as a wrong sum instead of being
- * masked by neighbouring entries that happen to be equal.
+ * tables as arguments. So nothing here depends on the contents of LAME's
+ * tables. An index that is off by one gives a wrong sum. Neighbor entries
+ * with the same value cannot hide the mistake.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -42,10 +44,10 @@
 #include "quantize_pvt.h"
 #include "vector/lame_intrin.h"
 
-/** Longest region the encoder ever asks about. */
+/** Longest region that the encoder passes to the routines. */
 #define MAX_LEN 576
 
-/** @brief Does the running CPU offer AVX2? */
+/** @brief Checks whether the running CPU has AVX2. */
 static int
 have_avx2(void)
 {
@@ -63,10 +65,10 @@ have_avx2(void)
 }
 
 /**
- * @brief The AVX2 maximum, or a stand-in where it was not compiled.
+ * @brief Calls the AVX2 maximum, or returns 0 if the build does not have it.
  *
- * The stand-in is never called: have_avx2() answers no wherever the routine
- * does not exist, so the guard is one test rather than one per call site.
+ * The empty case is never called. have_avx2() returns 0 wherever the routine
+ * does not exist. So one check guards every call site.
  */
 static int
 avx2_max(const int *ix, const int *end)
@@ -152,7 +154,7 @@ ref_from3(const int *ix, int n, int xlen, unsigned int sums[3])
 /* helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-/** @brief Fill @p ix with a repeatable pseudo-random pattern in [0, hi]. */
+/** @brief Fills @p ix with a repeatable pseudo-random pattern in [0, hi]. */
 static void
 fill(int *ix, int n, int hi, unsigned int seed)
 {
@@ -168,11 +170,12 @@ fill(int *ix, int n, int hi, unsigned int seed)
 /* ------------------------------------------------------------------ */
 
 /**
- * @brief The vector maximum agrees with a scalar one at every length.
+ * @brief Checks that the vector maximum agrees with a scalar maximum at every
+ *        length.
  *
- * Lengths run from the shortest a region can be up to past two full vector
- * blocks, so the block loop, its remainder, and the case where the loop never
- * runs at all are each covered.
+ * The lengths run from the shortest possible region to more than two full
+ * vector blocks. So the test covers the block loop, its remainder, and the
+ * case where the block loop does not run at all.
  */
 static void
 test_ix_max_lengths(LAME_UNUSED void **state)
@@ -189,11 +192,12 @@ test_ix_max_lengths(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The values the caller makes decisions on are reported exactly.
+ * @brief Checks that the values on which the caller decides are returned
+ *        exactly.
  *
- * choose_table asks three questions of this number - is it at most 15, is it
- * above IXMAX_VAL, and which linbits bucket does it fall in - so the answers
- * either side of both boundaries have to be exact.
+ * choose_table asks three questions about this number. Is it at most 15? Is
+ * it above IXMAX_VAL? Which linbits range does it fall in? So the results on
+ * both sides of both boundaries must be exact.
  */
 static void
 test_ix_max_boundaries(LAME_UNUSED void **state)
@@ -219,13 +223,14 @@ test_ix_max_boundaries(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Above the narrowing's saturation point the answer stays usable.
+ * @brief Checks that the result stays usable above the saturation point of
+ *        the narrowing.
  *
- * Sixteen bits cannot hold 40000, and the routine does not pretend otherwise.
- * What it promises is weaker and is all the caller needs: a value that is
- * still above IXMAX_VAL, so the region is still rejected. This is the test
- * that fails if IXMAX_VAL is ever raised past the saturation point - together
- * with the compile-time assertion in takehiro.c.
+ * Sixteen bits cannot store 40000, and the routine does not claim otherwise.
+ * It promises less, and that is all the caller needs. The result is still
+ * above IXMAX_VAL, so the caller still rejects the region. This test fails if
+ * IXMAX_VAL is ever raised past the saturation point. The compile-time
+ * assertion in takehiro.c then fails too.
  */
 static void
 test_ix_max_saturation(LAME_UNUSED void **state)
@@ -249,7 +254,7 @@ test_ix_max_saturation(LAME_UNUSED void **state)
 /* count_bit_esc_sse2                                                  */
 /* ------------------------------------------------------------------ */
 
-/** @brief Sum and clamp count agree with a scalar reference at every length. */
+/** @brief Checks that the sum and the clamp count agree with a scalar reference at every length. */
 static void
 test_esc_lengths(LAME_UNUSED void **state)
 {
@@ -268,10 +273,11 @@ test_esc_lengths(LAME_UNUSED void **state)
 }
 
 /**
- * @brief 15 is clamped and 14 is not - the boundary the escape coding turns on.
+ * @brief Checks that 15 is clamped and 14 is not. Escape coding starts at
+ *        this boundary.
  *
- * Checked as whole regions of one value so a count that is off by one per
- * block, per lane, or per remainder cannot hide in a mixed sample.
+ * Each region has the same value in every position. So a count that is off
+ * by one per block, per lane or per remainder cannot hide in a mixed sample.
  */
 static void
 test_esc_clamp_boundary(LAME_UNUSED void **state)
@@ -293,7 +299,7 @@ test_esc_clamp_boundary(LAME_UNUSED void **state)
     }
 }
 
-/** @brief Values far above the clamp still count once each, not more. */
+/** @brief Checks that values far above the clamp still count once each, not more. */
 static void
 test_esc_large_values(LAME_UNUSED void **state)
 {
@@ -315,11 +321,12 @@ test_esc_large_values(LAME_UNUSED void **state)
 /* ------------------------------------------------------------------ */
 
 /**
- * @brief The three sums agree with a scalar reference, at each table width.
+ * @brief Checks that the three sums agree with a scalar reference at each
+ *        table width.
  *
- * The widths are the ones the table selection can produce, and each caps the
- * values that can occur with it - a wider index than that would run off the
- * end of the code-length table, so the ranges here are the real ones.
+ * The widths are the ones that the table selection can produce. Each width
+ * limits the values that can occur with it. A larger index would run past the
+ * end of the code-length table. So the value ranges here are the real ones.
  */
 static void
 test_from3_widths(LAME_UNUSED void **state)
@@ -343,7 +350,7 @@ test_from3_widths(LAME_UNUSED void **state)
     }
 }
 
-/** @brief The extreme index of each width is computed, not wrapped or clipped. */
+/** @brief Checks that the extreme indices of each width are computed exactly, without wrap or clip. */
 static void
 test_from3_index_extremes(LAME_UNUSED void **state)
 {
@@ -373,7 +380,7 @@ test_from3_index_extremes(LAME_UNUSED void **state)
 
 /* ------------------------------------------------------------------ */
 
-/** @brief Guard: a reference that agreed with everything would prove nothing. */
+/** @brief Guard: checks that the reference can disagree. A reference that agrees with everything proves nothing. */
 static void
 test_reference_can_disagree(LAME_UNUSED void **state)
 {

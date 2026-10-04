@@ -4,10 +4,10 @@
  * @brief Unit tests for turning perceptual entropy into bits
  *        (libmp3lame/quantize_pvt.c).
  *
- * The encoder scales the perceptual entropy by a smoothed value that can come
- * out near zero, so the entropy the bit allocation sees can lie far outside
- * anything an int holds. These reach internal symbols, so the test links the
- * static archive.
+ * The encoder multiplies the perceptual entropy by a factor. This factor
+ * divides by a smoothed sum, and the sum can be near zero. So the entropy
+ * that the bit allocation gets can be far outside the range of an int. These
+ * tests call internal symbols, so the test links the static archive.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -33,8 +33,8 @@
 #include "reservoir.h"
 
 /**
- * @brief bits_in_range() truncates a count inside the range and clamps one
- *        outside it, however far outside.
+ * @brief Checks that bits_in_range() truncates a count inside the range. It
+ *        clamps a count outside the range, however far outside.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -51,11 +51,13 @@ test_bits_in_range(LAME_UNUSED void **state)
 }
 
 /**
- * @brief on_pe() gives a channel the most extra bits it allows for an entropy
- *        far above any real one, and none for one far below.
+ * @brief Checks the extra bits that on_pe() gives a channel for extreme
+ *        entropy values.
  *
- * 700 is the entropy on_pe() adds nothing for, so it is the reference: a far
- * higher entropy must add bits, a far lower one must not take any away.
+ * For an entropy far above any real one, on_pe() gives the most extra bits
+ * that it allows. For an entropy far below, it gives none. For an entropy of
+ * 700, on_pe() adds no bits, so 700 is the reference. A much higher entropy
+ * must add bits. A much lower entropy must not take bits away.
  *
  * @param state cmocka fixture state (unused).
  */

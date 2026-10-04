@@ -3,33 +3,30 @@
  * @ingroup unit_tests
  * @brief Unit tests for the decision to resample (libmp3lame/util.c).
  *
- * Sample rates are integers, so "does this session need resampling" is an
- * equality question: any input rate other than the output rate has to go
- * through the resampler, however close the two are.
+ * Sample rates are integers. So the question "does this session need
+ * resampling" is a test for equality. Any input rate other than the output
+ * rate goes through the resampler, even when the two rates are very close.
  *
- * That was not always safe. A near-integer ratio used to be rounded to an
- * integer one, which chose the wrong filter length and let the window index
- * run past the precomputed filter table - a segmentation fault, reachable by
- * asking for 44100&nbsp;Hz output from a 44101&nbsp;Hz input. The encoder
- * carried a guard against ever reaching that path: rates agreeing to about
- * four digits were declared equal and the audio was passed through. The
- * rounding was fixed years later and the guard outlived it.
+ * Close rates give a resampling ratio near an integer, for example
+ * 44101&nbsp;Hz input and 44100&nbsp;Hz output. The resampler must not round
+ * such a ratio to an integer. If it does, it chooses the wrong filter length.
+ * The window index then runs past the precomputed filter table, and the
+ * encoder crashes with a segmentation fault.
  *
- * Both halves are checked here, because the second is what makes the first
- * safe:
+ * The tests check both parts, because the second part makes the first safe:
  *
- *   - the decision itself, over pairs that straddle the width of the old
- *     guard, including the two rates that sat exactly on its edges;
- *   - an encode across a one-hertz mismatch, which is the pairing that used
- *     to fault, run end to end through the public API.
+ *   - the decision itself, over rate pairs on both sides of a tolerance of
+ *     about 0.05 percent, including the two rates on its edges.
+ *   - an encode across a one-hertz mismatch, end to end through the public
+ *     API.
  *
- * A pass-through session (equal rates) is encoded too. It is the arm that must
- * keep working: a decision that answered "resample" for everything would
- * satisfy the mismatch cases on its own.
+ * The tests also encode a pass-through session with equal rates. This case
+ * must keep working. A decision that returns "resample" for every pair would
+ * pass the mismatch cases alone.
  *
- * @c isResamplingNecessary() is internal and is withheld from the shared
- * library by @c include/libmp3lame.sym, so this test links the static archive -
- * the same arrangement @c test_vector_ladder.c uses.
+ * @c isResamplingNecessary() is internal. @c include/libmp3lame.sym does not
+ * export it from the shared library. So this test links the static archive,
+ * as @c test_vector_ladder.c does.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -49,7 +46,7 @@
 #include "encoder.h"
 #include "util.h"
 
-/** @brief Samples per channel handed to the encoder in one call. */
+/** @brief Samples per channel that the test passes to the encoder in one call. */
 #define NSAMPLES 4608
 /** @brief Size of the output buffer, per the worst case in lame.h. */
 #define MP3BUF_SIZE (NSAMPLES * 5 / 4 + 7200)
@@ -63,11 +60,12 @@ struct rate_pair {
 };
 
 /**
- * @brief Every rate pair is decided by equality, not by proximity.
+ * @brief Checks that the decision for each rate pair uses equality, not
+ *        proximity.
  *
- * The 44077 and 44122 rows are the edges of the guard this replaced: they were
- * the outermost rates it still called equal to 44100. Both are mismatches and
- * must be resampled.
+ * The 44077 and 44122 rows are the outermost rates that a tolerance of about
+ * 0.05 percent calls equal to 44100. Both are mismatches and must be
+ * resampled.
  */
 static void
 test_decision_is_exact(LAME_UNUSED void **state)
@@ -100,8 +98,9 @@ test_decision_is_exact(LAME_UNUSED void **state)
  * @brief Encodes silence through a session with the given rates.
  * @param in_rate   input sample rate, Hz.
  * @param out_rate  output sample rate, Hz.
- * @return the number of mp3 bytes produced, or -1 if the session could not be
- *         opened.
+ * @return the number of MP3 bytes, or a negative value on failure. The value
+ *         is -1 if the session cannot be set up. A failed encode call returns
+ *         its own negative code.
  */
 static int
 encode_across(int in_rate, int out_rate)
@@ -143,11 +142,11 @@ encode_across(int in_rate, int out_rate)
 }
 
 /**
- * @brief A one-hertz mismatch encodes to completion.
+ * @brief Checks that an encode with a one-hertz mismatch runs to the end.
  *
- * This is the pairing the removed guard existed to avoid. Reaching the
- * resampler at all is the point of the test; the byte count only says the
- * encode ran.
+ * This pair goes through the resampler with a ratio near 1. The purpose of the
+ * test is to run the resampler. The byte count only shows that the encode
+ * ran.
  */
 static void
 test_near_equal_rates_encode(LAME_UNUSED void **state)
@@ -157,7 +156,7 @@ test_near_equal_rates_encode(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Equal rates still encode, on the pass-through path.
+ * @brief Checks that equal rates encode on the pass-through path.
  */
 static void
 test_equal_rates_encode(LAME_UNUSED void **state)

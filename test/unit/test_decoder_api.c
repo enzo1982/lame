@@ -1,29 +1,28 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit tests for the decoder handle's public entry points.
+ * @brief Unit tests for the public functions of the decoder instance.
  *
- * Three groups, with different prerequisites:
+ * The tests form three groups. Each group needs different things.
  *
- * The analysis hooks and the handle's lifecycle are the part of this API a
- * frontend wires up without necessarily having a decoder to wire it to: a
- * library built without libmpg123 hands back no handle at all, and a frontend
- * that plots what the decoder saw may install no block. Both calls therefore
- * have to survive being handed nothing, which is what the header undertakes
- * and what is checked here. Reaching the end of a case is the assertion in the
- * two hook tests: the failure they guard against is a dereference, so a
- * regressed build leaves the case on a signal rather than on a failed
- * comparison.
+ * The analysis hooks and the create and destroy calls: a frontend calls
+ * these even when it may have no decoder. A library built without libmpg123
+ * returns no decoder instance at all. A frontend that plots what the decoder
+ * saw may set no block. So these calls must accept NULL. The header promises
+ * this, and these tests check it. In the two hook tests, the check is that
+ * the test gets to its end. A broken build dereferences NULL. The test then
+ * stops on a signal, and CMocka reports it as failed.
  *
- * The decoding calls need a decoder, so they encode a short stream with this
- * same library and read it back. They skip where hip_decode_init() returns
- * NULL rather than assert a decode that could not be attempted.
+ * The decoding calls: these need a decoder. The tests encode a short stream
+ * with this library and decode it again. Where hip_decode_init() returns
+ * NULL, the tests skip. They do not check a decode that cannot run.
  *
- * The obsolete lame_decode* entry points need nothing at all: they are inert
- * in every build, and what is pinned is that they stay inert - fixed answers,
- * and output buffers they never touch.
+ * The obsolete lame_decode* functions: these need nothing. They do nothing in
+ * every build. The tests check that they keep doing nothing. They return
+ * fixed values, and they never write to the output buffers.
  *
- * Library-level tests: they link libmp3lame and call the exported API directly.
+ * These are library-level tests. They link libmp3lame and call the exported
+ * API directly.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -62,33 +61,34 @@ extern int lame_decode1_headersB(unsigned char *, int, short[], short[],
 
 #define RATE        44100
 #define KBPS        128
-#define NSAMPLES    4608        /**< four granules per encode call */
+#define NSAMPLES    4608        /**< four MPEG-1 frames per encode call */
 #define NCALLS      6
 #define MP3CAP      (NCALLS * (NSAMPLES * 5 / 4 + 7200) + 7200)
 #define SAMPLES_IN  (NSAMPLES * NCALLS)
-#define FRAME       1152        /**< samples per channel in one MPEG frame */
+#define FRAME       1152        /**< samples per channel in one MPEG-1 frame */
 
-/** Room for every frame the input can yield, which is what hip_decode() needs
-    the caller to provide - it has no bound of its own to enforce. */
+/** Room for every frame that the input can produce. hip_decode() needs this
+    much room from the caller. It does not know the buffer size, so it cannot
+    check it. */
 #define PCMCAP      (SAMPLES_IN + 16 * FRAME)
 
-/** A value no decoded sample of this signal can take, so "was not written" is
-    distinguishable from "was written with a plausible number". */
+/** A value that no decoded sample of this signal can have. So the test can
+    tell "was not written" from "was written with a plausible number". */
 #define SENTINEL    0x5A5A
 
-/** Spelled out rather than taken from math.h: M_PI is not standard C, and
-    whether it is visible depends on which feature-test macros the compiler
-    happens to have set. */
+/** Written out here, not taken from math.h. M_PI is not standard C. Whether
+    math.h defines it depends on the feature-test macros that are set. */
 #define PI          3.14159265358979323846
 
 /**
- * @brief Encode a short stereo stream with this library.
+ * @brief Encodes a short stereo stream with this library.
  *
  * @param mp3       receives the encoded stream.
- * @param cap       how much room @a mp3 has.
- * @param with_tag  write the real LAME tag over the frame the encoder reserved
- *                  for it. The delay and padding figures live there, so it is
- *                  what separates a stream those can be recovered from.
+ * @param cap       the size of @a mp3 in bytes.
+ * @param with_tag  nonzero to write the real LAME tag into the frame that the
+ *                  encoder reserved for it. The LAME tag stores the delay and
+ *                  padding. So a decoder can read these values only from a
+ *                  stream with the tag.
  * @return the number of bytes written, or -1.
  */
 static int
@@ -153,10 +153,12 @@ encode_a_stream(unsigned char *mp3, int cap, int with_tag)
 }
 
 /**
- * @brief Decode a whole stream one frame at a time, reporting delay and padding.
+ * @brief Decodes a whole stream one frame at a time, and reports the delay and
+ *        padding.
  *
- * The loop the header describes: feed the input on the first call, then keep
- * calling with a length of 0 to drain what the decoder still holds.
+ * This is the loop that the documentation describes. The first call passes
+ * the input. Each later call passes a length of 0, to get the samples that
+ * the decoder still has.
  *
  * @return the total samples per channel, or -1 if the decode failed.
  */
@@ -184,12 +186,13 @@ drain_headersB(hip_t hip, unsigned char *mp3, int mp3len, short *pcm_l,
 }
 
 /**
- * @brief Neither analysis hook dereferences a handle it was not given.
+ * @brief Checks that neither analysis hook dereferences a NULL decoder
+ *        instance.
  *
- * A caller that never obtained a decoder - which is every caller on a library
- * built without libmpg123, since hip_decode_init() then returns NULL - still
- * reaches the frontend's shutdown path, and the header promises both calls do
- * nothing rather than that they are unreachable.
+ * In a library built without libmpg123, hip_decode_init() returns NULL. So no
+ * caller gets a decoder instance there. The frontend can still call these
+ * functions with NULL. The header promises that both calls accept NULL and
+ * do nothing.
  */
 static void
 test_analysis_hooks_tolerate_a_null_handle(LAME_UNUSED void **state)
@@ -199,11 +202,11 @@ test_analysis_hooks_tolerate_a_null_handle(LAME_UNUSED void **state)
 }
 
 /**
- * @brief hip_finish_pinfo() does nothing when no block was installed.
+ * @brief Checks that hip_finish_pinfo() does nothing when no block was set.
  *
- * The other half of the same promise, on a handle that really exists. Skipped
- * where the library cannot hand one out, rather than passing on the strength of
- * a call that was never made.
+ * This is the other half of the same promise, on a real decoder instance.
+ * Where the library cannot create one, the test skips. A test that passes
+ * without making the call checks nothing.
  */
 static void
 test_finish_pinfo_without_a_block(LAME_UNUSED void **state)
@@ -218,11 +221,12 @@ test_finish_pinfo_without_a_block(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Releasing a handle that was never obtained reports success.
+ * @brief Checks that hip_decode_exit() returns success for a NULL decoder
+ *        instance.
  *
- * hip_decode_exit() accepts NULL, so a frontend can call it unconditionally on
- * a path where the handle may never have been created - including the one where
- * the library has no decoder to hand out.
+ * hip_decode_exit() accepts NULL. So a frontend can call it on every path,
+ * also where no decoder instance was created. One such path is a library
+ * that has no decoder.
  */
 static void
 test_decode_exit_accepts_a_null_handle(LAME_UNUSED void **state)
@@ -231,12 +235,14 @@ test_decode_exit_accepts_a_null_handle(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The three reporting setters accept anything and report nothing.
+ * @brief Checks that the three reporting setters accept any argument and
+ *        report nothing.
  *
- * They are documented as accepting the callback and discarding it, on a handle
- * or on NULL, so what is checked is that all six calls return - the failure
- * they could have is a dereference, not a wrong answer. A caller that installs
- * all six reporting callbacks, encoder and decoder, is the reason they exist.
+ * Their documentation says that they accept the callback and discard it. This
+ * is true for a decoder instance and for NULL. So the test checks that every
+ * call returns. The possible failure is a dereference, not a wrong value. The
+ * setters exist for callers that set all six reporting callbacks,
+ * three for the encoder and three for the decoder.
  */
 static void
 test_reporting_setters_accept_a_handle_or_null(LAME_UNUSED void **state)
@@ -256,14 +262,16 @@ test_reporting_setters_accept_a_handle_or_null(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A stream this library encoded decodes back through hip_decode1_headers().
+ * @brief Checks that hip_decode1_headers() decodes a stream that this library
+ *        encoded.
  *
- * The round trip is the only way to check that the frame description reaches
- * the caller: the rate, the channel count and the bitrate come out of the
- * frame header, so they can be compared against what the encode was told to
- * do. The sample count is checked as a range rather than a figure - a decoder
- * hands back whole frames and the encoder pads to a frame boundary, so the
- * exact total is a property of both and not a contract of either.
+ * Only a round trip checks that the caller gets the frame description. The
+ * sample rate, the channel count and the bitrate come from the frame header.
+ * So the test compares them with the settings of the encode.
+ *
+ * The test checks the sample count against a range, not an exact number. A
+ * decoder returns whole frames, and the encoder pads to a frame boundary. So
+ * the exact total depends on both. Neither of them promises it.
  */
 static void
 test_decode1_headers_round_trip(LAME_UNUSED void **state)
@@ -317,13 +325,13 @@ test_decode1_headers_round_trip(LAME_UNUSED void **state)
 }
 
 /**
- * @brief hip_decode() returns in one call what hip_decode1() returns in pieces.
+ * @brief Checks that hip_decode() returns in one call what hip_decode1()
+ *        returns in pieces.
  *
- * That is the whole of what hip_decode() undertakes - it repeats hip_decode1()
- * until there is nothing left - so the two totals agreeing is the contract
- * itself rather than an incidental property. hip_decode_headers() is the same
- * loop with the frame description, and is checked alongside so that all three
- * are known to agree.
+ * hip_decode() promises only this. It decodes one frame at a time until the
+ * decoder has nothing left. So equal totals are the contract itself.
+ * hip_decode_headers() is the same loop, and it also fills in the frame
+ * description. The test checks it too, so that all three agree.
  */
 static void
 test_decode_matches_the_piecewise_total(LAME_UNUSED void **state)
@@ -387,17 +395,18 @@ test_decode_matches_the_piecewise_total(LAME_UNUSED void **state)
 }
 
 /**
- * @brief hip_decode1_headersB() recovers the delay and padding from the tag.
+ * @brief Checks that hip_decode1_headersB() reads the delay and padding from
+ *        the LAME tag.
  *
- * Those two figures are the only reason to call it rather than
- * hip_decode1_headers(), and they are carried by the LAME tag - so the same
- * audio is encoded twice, once with that tag written and once without, and the
- * assertion is on the difference. Without both arms, "-1 and -1" from an
- * untagged stream would satisfy a test that only ever saw one.
+ * These two values are the only reason to call this function and not
+ * hip_decode1_headers(). The LAME tag stores them. So the test encodes the
+ * same audio twice, once with the tag and once without. It checks the
+ * difference between the two results. With only one stream, a result of -1
+ * and -1 from a stream without the tag passes the test.
  *
- * The figures themselves are checked for being present and sane rather than
- * for a particular value: the delay is the encoder's, so pinning it here would
- * make an encoder change break a decoder test.
+ * The test checks that the values are present and plausible. It does not
+ * check exact values. The delay comes from the encoder. With an exact value
+ * here, a change to the encoder breaks a decoder test.
  */
 static void
 test_headersB_reports_the_tags_delay_and_padding(LAME_UNUSED void **state)
@@ -462,14 +471,18 @@ test_headersB_reports_the_tags_delay_and_padding(LAME_UNUSED void **state)
 }
 
 /**
- * @brief hip_decode1_headersB() answers the frame description, delay and
- *        padding on a call that needs more input, too.
+ * @brief Checks that hip_decode1_headersB() also returns the frame
+ *        description, delay and padding on a call that needs more input.
  *
- * Two such calls: the first one of a stream, fed too few bytes for a header,
- * which has nothing to report and must say so - header_parsed 0, delay and
- * padding -1; and one after a tagged stream was decoded to its end, which must
- * report the tag's figures. The outputs start as values no answer can take
- * (-2, a byte pattern), so a call that writes nothing shows.
+ * The test makes two such calls:
+ * - The first call of a stream, with too few bytes for a header. It has
+ *   nothing to report and must say so. header_parsed is 0, and the delay and
+ *   padding are -1.
+ * - A call after a stream with a LAME tag was decoded to its end. It must
+ *   report the delay and padding from the tag.
+ *
+ * The outputs start with values that no result can have: -2, and a byte
+ * pattern. So the test sees a call that writes nothing.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -525,19 +538,16 @@ test_headersB_answers_while_it_needs_more_input(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Every decoding entry point refuses a handle it was not given.
+ * @brief Checks that every decoding function rejects a NULL decoder instance.
  *
- * hip_decode_init() returns NULL where the library has no decoder, and its
- * documentation tells callers that checking the result is enough - because a
- * caller who skips the check meets the same absence at the first decode
- * instead, as an error. All five have to answer -1 for that to be true, and it
- * has to be true in both builds: the entry points are exported whether or not
- * there is a decoder behind them.
+ * hip_decode_init() returns NULL where the library has no decoder. Its
+ * documentation says that a caller who does not check the result gets an
+ * error from every decode call. For this to be true, all five functions must
+ * return -1. It must be true in both builds, because the library exports
+ * these functions with or without a decoder.
  *
- * This is a case where the test can only be written once the library is right.
- * Four of the five used to dereference the handle here, and a unit test that
- * segfaults does not fail - it ends the run and takes every test after it,
- * which is a suite outage rather than a red result.
+ * A dereference here stops the test on a signal. CMocka reports the signal as
+ * a failure of this test, and runs the next test.
  */
 static void
 test_decode_calls_refuse_a_null_handle(LAME_UNUSED void **state)
@@ -561,12 +571,13 @@ test_decode_calls_refuse_a_null_handle(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The gapless handle is a decoder like any other.
+ * @brief Checks that the gapless decoder instance decodes like any other.
  *
- * What it does differently is libmpg123's - it applies the tag's trimming
- * inside the decoder instead of handing the figures out - so what is pinned
- * here is the part that is this library's: it either yields a working handle
- * or, in a build with no decoder, the same NULL its plain counterpart yields.
+ * libmpg123 does what is different about it. It removes the delay and
+ * padding from the LAME tag inside the decoder, so the caller does not have
+ * to. So the test checks only the part that belongs to this library. Either
+ * the function returns a working decoder instance, or it returns NULL in a
+ * build with no decoder, as hip_decode_init() does.
  */
 static void
 test_gapless_handle_decodes(LAME_UNUSED void **state)
@@ -610,17 +621,19 @@ test_gapless_handle_decodes(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The obsolete decoder entry points are inert, and stay that way.
+ * @brief Checks that the obsolete decoder functions do nothing.
  *
- * They are kept so that programs linked against an older release still
- * resolve; the decoder they drove was global and no longer exists. Two things
- * are pinned. The fixed answers, so that "inert" does not quietly become
- * "returns something a caller might act on"; and that they do not write to the
- * buffers they are handed, which the header makes explicit - a caller that
- * ignores the -1 reads whatever was in its output buffer already, and that is
- * only safe to say if it really is untouched.
+ * The library keeps them so that programs built against an older release
+ * still link. The global decoder that they used does not exist in this
+ * library. The test checks two things:
+ * - They return fixed values. So they cannot start to return a value that a
+ *   caller acts on.
+ * - They do not write to the buffers that the caller passes. Their
+ *   documentation in mpglib_interface.c says this. A caller that ignores the
+ *   -1 reads what was in its output buffer before the call. The
+ *   documentation is correct only if the buffer stays unchanged.
  *
- * They need no decoder, so this runs in every build.
+ * They need no decoder, so this test runs in every build.
  */
 static void
 test_obsolete_decoders_are_inert(LAME_UNUSED void **state)

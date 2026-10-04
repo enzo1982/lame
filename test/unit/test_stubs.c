@@ -3,12 +3,14 @@
  * @ingroup unit_tests
  * @brief Link-time stubs for the get_audio.c unit tests.
  *
- * Minimal stand-ins for the frontend globals and helpers that @c get_audio.c
- * references but that normally live in @c lame_main.c / @c main.c /
- * @c console.c. The AIFF, WAVE and floating point reader tests link this file.
- * The console stand-ins print nothing. Kept deliberately small by
- * building the tests with the internal file IO (no libsndfile / mpg123 /
- * mpglib), so the heavy conditional code paths compile out.
+ * @c get_audio.c uses frontend globals and helpers that are defined in other
+ * files: @c parse.c, @c main.c, @c console.c and @c lametime.c. This file
+ * defines minimal stand-ins for them. The AIFF, WAVE and floating point reader
+ * tests link this file. The console stand-ins print nothing.
+ *
+ * The file stays small because the tests compile @c get_audio.c with
+ * @c HAVE_MPG123 undefined. The large mpg123 and mpglib code paths are then not
+ * compiled.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -38,7 +40,7 @@ void  console_flush(void) {}
 void  error_flush(void) {}
 void  report_flush(void) {}
 
-/* filesystem / encoding helpers (defined in lame_main.c / main.c normally) */
+/* filesystem / encoding helpers (defined in main.c normally) */
 FILE *lame_fopen(char const *file, char const *mode) { return fopen(file, mode); }
 char *utf8ToConsole8Bit(const char *str) { return (char *) str; }
 char *utf8ToLatin1(const char *str)      { return (char *) str; }

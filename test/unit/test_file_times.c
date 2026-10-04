@@ -3,14 +3,15 @@
  * @ingroup unit_tests
  * @brief Unit tests for the file-time helpers behind @c --preserve-modtime.
  *
- * @c frontend/lametime.c is compiled into this program, so the two halves are
- * exercised as the frontend uses them: @c lame_read_file_times() before
- * anything opens the input, @c lame_write_file_times() once the output exists.
+ * This program compiles @c frontend/lametime.c into itself. The tests call the
+ * two helpers in the same order as the frontend:
+ * - @c lame_read_file_times() runs before anything opens the input.
+ * - @c lame_write_file_times() runs after the output file exists.
  *
- * Where the platform has no @c utime(), both calls report failure rather than
- * returning success having done nothing; the arms below hold for that build
- * too, which is why they assert on the pair (return value, observable effect)
- * rather than on the return value alone.
+ * On a platform without @c utime(), both calls return failure. They do not
+ * return success after doing nothing. The tests also pass on that build.
+ * For this reason, each test checks two things: the return value and the
+ * visible effect on the file.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -33,9 +34,10 @@
 #include "test_unused.h"
 
 /**
- * @brief Whether this build can set file times at all.
+ * @brief 1 if this build can set file times, 0 if it cannot.
  *
- * Decided from the same three configure answers as lametime.c.
+ * It uses the same three configure results as lametime.c: @c HAVE_UTIME,
+ * @c HAVE_UTIME_H and @c HAVE_SYS_UTIME_H.
  */
 #if defined(HAVE_UTIME) && (defined(HAVE_UTIME_H) || defined(HAVE_SYS_UTIME_H))
 # define TEST_CAN_SET_TIMES 1
@@ -43,22 +45,26 @@
 # define TEST_CAN_SET_TIMES 0
 #endif
 
-/** @brief The file whose times are captured. */
+/** @brief The file that the tests read the times from. */
 #define SRC_NAME "lame_test_file_times_src.tmp"
-/** @brief The file the captured times are applied to. */
+/** @brief The file that the tests write the times to. */
 #define DST_NAME "lame_test_file_times_dst.tmp"
-/** @brief A name no test creates, for the failure arms. */
+/** @brief A file name that no test creates. The failure tests use it. */
 #define GONE_NAME "lame_test_file_times_no_such_file.tmp"
 
 /**
  * @brief 2001-02-03 04:05:06 UTC.
  *
- * Far from any clock this test could run against, so a pass cannot come
- * from the two files happening to share a timestamp.
+ * This time is far from any clock that this test can run against. So a pass
+ * cannot come from two files that have the same time by chance.
  */
 #define KNOWN_TIME ((time_t) 981173106L)
 
-/** @brief 2002-03-04 05:06:07 UTC, the second known time the source is moved to. */
+/**
+ * @brief 2002-03-04 05:06:07 UTC.
+ *
+ * A second known time. One test moves the times of the source to it.
+ */
 #define DISTURBED_TIME ((time_t) 1015218367L)
 
 
@@ -78,7 +84,8 @@ write_file(char const *name, char const *text)
 
 
 /**
- * @brief Creates the source and destination files and stamps the source.
+ * @brief Creates the source and destination files, and sets the times of the
+ *        source to @c KNOWN_TIME.
  * @param state cmocka fixture state (unused).
  * @return 0.
  */
@@ -115,8 +122,8 @@ teardown_files(LAME_UNUSED void **state)
 
 
 /**
- * @brief The modification time a file carries, read back from the system.
- * @param name  the file to ask about.
+ * @brief Returns the modification time of a file, as stat() reports it.
+ * @param name  the file to check.
  * @return its modification time.
  */
 static time_t
@@ -129,7 +136,8 @@ mtime_of(char const *name)
 
 
 /**
- * @brief What is read from one file is what is written to another.
+ * @brief Checks that the times read from one file are the times written to
+ *        another file.
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -159,14 +167,15 @@ test_read_then_write(LAME_UNUSED void **state)
 
 
 /**
- * @brief The times applied are the ones captured, not the ones on disk.
+ * @brief Checks that the write uses the times that the read captured, not the
+ *        current times of the source.
  * @param state cmocka fixture state (unused).
  *
- * The reason the copy is two calls rather than one. Between capturing the
- * source's times and applying them the encode reads the source, which moves
- * its access time; a single call at the end would preserve the moment of the
- * encode. The test moves both of the source's times to @c DISTURBED_TIME
- * between the two calls and checks that they moved.
+ * This is why the copy uses two calls. The encode reads the source between
+ * the two calls, and this changes the access time of the source. A single
+ * call at the end would copy the time of the encode. The test moves both
+ * times of the source to @c DISTURBED_TIME between the two calls. It checks
+ * that they moved, and that the destination gets @c KNOWN_TIME.
  */
 static void
 test_read_then_disturb_then_write(LAME_UNUSED void **state)
@@ -199,11 +208,13 @@ test_read_then_disturb_then_write(LAME_UNUSED void **state)
 
 
 /**
- * @brief A source that is not there fails, and leaves nothing usable behind.
+ * @brief Checks that reading a missing source fails and leaves no usable
+ *        times.
  * @param state cmocka fixture state (unused).
  *
- * A half-filled structure would be applied by a later write as if it were
- * real, so the failure has to be visible in both halves.
+ * A later write would apply a half-filled structure as if its values were
+ * real. So both calls must show the failure. The read returns -1 and clears
+ * @c valid. The write returns -1 and does not change the destination.
  */
 static void
 test_read_missing_source(LAME_UNUSED void **state)
@@ -222,7 +233,8 @@ test_read_missing_source(LAME_UNUSED void **state)
 
 
 /**
- * @brief A destination that is not there fails, and is not created.
+ * @brief Checks that writing to a missing destination fails and does not
+ *        create the file.
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -238,7 +250,8 @@ test_write_missing_destination(LAME_UNUSED void **state)
 
 
 /**
- * @brief Null arguments are refused rather than dereferenced.
+ * @brief Checks that both functions return -1 for a null argument and do not
+ *        dereference it.
  * @param state cmocka fixture state (unused).
  */
 static void

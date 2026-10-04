@@ -1,26 +1,28 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit tests for the bitrates a free format stream can be asked for
- *        (libmp3lame/lame.c).
+ * @brief Unit tests for the bitrates that a caller can request for a free
+ *        format stream (libmp3lame/lame.c).
  *
- * A free format bitrate is the caller's own number rather than one of the
- * values the standard tabulates, so it can name a frame too small to hold the
- * side information the frame itself has to carry - MPEG-1 at 48 kHz and
- * 8 kbit/s is a 24 byte frame carrying 38 bytes of it for two channels with
- * CRC. There is no encoding to be done in that case and the settings are
- * refused when they are prepared, rather than partway through the first frame.
+ * A free format bitrate is the caller's own number. It is not one of the
+ * values in the tables of the standard. So it can describe a frame that is
+ * too small for its own side information. An example is MPEG-1 at 48 kHz and
+ * 8 kbit/s, with two channels and CRC. The frame is 24 bytes, but the side
+ * information is 38 bytes. Nothing can be encoded in that case. So
+ * \c lame_init_params() rejects these settings. The encoder does not fail
+ * later, partway through the first frame.
  *
- * The tests are on \c lame_init_params() alone, which is where the answer is,
- * so no audio is encoded and each case is a handful of microseconds.
+ * The tests call only \c lame_init_params(), because that function makes the
+ * decision. So no audio is encoded, and each case takes a few microseconds.
  *
- * Half of them exist to check the refusal is narrow. The bound is one granule
- * of audio per granule of frame, and the tightest configuration the bitrate
- * tables allow sits exactly on it - so a check that were even slightly stricter
- * would refuse an ordinary MPEG-2 stream that encodes correctly. That case is
- * here as its own test.
+ * Some of the tests check that the rejection is narrow. The bound is eight
+ * bits (one byte) of room per granule. The tightest configuration that the
+ * bitrate tables allow is exactly on this bound. So a check that is even
+ * slightly stricter rejects an ordinary MPEG-2 stream that encodes correctly.
+ * One test checks this case on its own.
  *
- * Library-level tests: they link libmp3lame and call the exported API directly.
+ * These are library-level tests. They link libmp3lame and call the exported
+ * API directly.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -40,7 +42,7 @@
 
 #include "lame.h"
 
-/** Messages the library reported through its error callback. */
+/** Number of messages that the library reported through its error callback. */
 static int error_messages;
 
 static void
@@ -50,14 +52,15 @@ count_error_message(LAME_UNUSED const char *format, LAME_UNUSED va_list ap)
 }
 
 /**
- * @brief Prepares an instance with everything the cases below share.
+ * @brief Creates an encoder instance with the settings that the cases below
+ *        share, and runs \c lame_init_params() on it.
  * @param samplerate the output sample rate, in Hz.
  * @param channels 1 or 2.
  * @param kbps the bitrate to ask for.
  * @param free_format 1 for a free format stream, 0 for a tabulated bitrate.
  * @param crc 1 to add the CRC, which is two more bytes of side information.
- * @return the result of \c lame_init_params() for those settings; the instance
- *         is closed before returning either way.
+ * @return the result of \c lame_init_params() for those settings. The
+ *         function closes the instance in both cases.
  */
 static int
 try_settings(int samplerate, int channels, int kbps, int free_format, int crc)
@@ -83,13 +86,14 @@ try_settings(int samplerate, int channels, int kbps, int free_format, int crc)
 }
 
 /**
- * @brief A free format bitrate whose frame cannot carry a frame is refused.
+ * @brief Checks that a free format bitrate is rejected if its frame has no
+ *        room for audio.
  *
- * Two channels of MPEG-1 side information with CRC is 38 bytes; 8 kbit/s at
- * 48 kHz is a 24 byte frame. What this used to do depended on the build: with
- * assertions live it aborted the process partway through the first frame, and
- * without them it returned success and wrote several megabytes of data that
- * was not an MP3.
+ * MPEG-1 side information for two channels with CRC is 38 bytes. A frame at
+ * 8 kbit/s and 48 kHz is 24 bytes. Without the check, a build with
+ * assertions aborts partway through the first frame. A build without
+ * assertions returns success and writes several megabytes of data that is
+ * not an MP3.
  */
 static void
 test_bitrate_below_the_floor_is_refused(LAME_UNUSED void **state)
@@ -101,12 +105,13 @@ test_bitrate_below_the_floor_is_refused(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The floor depends on the channel count, so mono has its own.
+ * @brief Checks that the floor depends on the channel count. Mono has its own
+ *        floor.
  *
- * Mono side information is 15 bytes shorter, which is why 8 kbit/s is refused
- * here at one bitrate below the mono floor rather than at the six below the
- * stereo one. Without this case the test would pass against a check that only
- * knew about stereo.
+ * Mono side information is 15 bytes shorter. So 8 kbit/s is 1 kbit/s below
+ * the mono floor of 9 kbit/s. It is 6 kbit/s below the stereo floor of
+ * 14 kbit/s. Without this case, the tests would also pass with a check that
+ * only knows about stereo.
  */
 static void
 test_the_floor_follows_the_channel_count(LAME_UNUSED void **state)
@@ -118,10 +123,10 @@ test_the_floor_follows_the_channel_count(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A free format bitrate that does fit is accepted.
+ * @brief Checks that a free format bitrate that fits is accepted.
  *
- * The control for the two above: it shows the refusal is about the bitrate
- * rather than about free format itself.
+ * This is the control for the two tests above. It shows that the rejection
+ * depends on the bitrate, not on free format itself.
  */
 static void
 test_a_workable_free_format_bitrate_is_accepted(LAME_UNUSED void **state)
@@ -131,12 +136,12 @@ test_a_workable_free_format_bitrate_is_accepted(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Free format at 8 kbit/s is accepted where a frame can carry it.
+ * @brief Checks that free format at 8 kbit/s is accepted where a frame has
+ *        room for it.
  *
- * MPEG-2 frames hold one granule instead of two and their side information is
- * shorter, so the same bitrate that cannot work at 48 kHz is ordinary at
- * 24 kHz. A check that refused free format below some fixed bitrate would fail
- * here.
+ * An MPEG-2 frame has one granule, not two, and its side information is
+ * shorter. So the same bitrate that fails at 48 kHz is ordinary at 24 kHz. A
+ * check that rejects free format below a fixed bitrate fails here.
  */
 static void
 test_the_floor_follows_the_sample_rate(LAME_UNUSED void **state)
@@ -146,12 +151,14 @@ test_the_floor_follows_the_sample_rate(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The tightest stream the bitrate tables allow still initializes.
+ * @brief Checks that the tightest stream that the bitrate tables allow still
+ *        initializes.
  *
- * MPEG-2 at 24 kHz and 8 kbit/s, two channels with CRC: a 24 byte frame
- * carrying 23 bytes of side information, so it has exactly the one granule of
- * room that is the bound. This is the case the refusal comes closest to
- * catching, and it is legal, tabulated, and encodes correctly.
+ * The settings are MPEG-2 at 24 kHz and 8 kbit/s, two channels with CRC. The
+ * frame is 24 bytes, and 23 bytes of it are side information. So it has
+ * exactly the bound: one byte of room for its one granule. The rejection
+ * comes closest to this case. The case is legal, it is in the tables, and it
+ * encodes correctly.
  */
 static void
 test_the_tightest_tabulated_stream_is_accepted(LAME_UNUSED void **state)

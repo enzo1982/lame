@@ -1,19 +1,18 @@
 #!/bin/sh
-# Does a failed read reach the exit status?
+# Checks that a failed read gives a non-zero exit status.
 #
-# When the input cannot be decoded part-way through, the frontend's read
-# functions report it, but the encode and decode loops used to end on the same
-# condition whether that had happened or not - so a truncated output file was
-# written and the process still reported success. A caller in a script has no
-# way to notice.
+# The input can fail to decode part-way through. The read functions of the
+# frontend report this. The encode and decode loops must then end the process
+# with a non-zero exit status. Without this, the process writes a truncated
+# output file and still reports success. A caller in a script cannot notice
+# the fault.
 #
-# Both loops are exercised, because they are separate code with the same shape:
-# the encoder path (mp3 in, mp3 out) and the decoder path (--decode).
+# The test runs both loops, because they are separate code with the same
+# shape: the encoder path (MP3 in, MP3 out) and the decoder path (--decode).
 #
-# The two controls are what make a result here mean anything. A clean input
-# must still exit 0, so a build in which everything fails cannot pass this by
-# failing; and an input that does not exist must exit non-zero, so a build in
-# which nothing fails cannot pass it either.
+# Two controls make the result meaningful. A clean input must exit 0, so a
+# build in which everything fails cannot pass. An input that does not exist
+# must exit non-zero, so a build in which nothing fails cannot pass either.
 
 set -u
 

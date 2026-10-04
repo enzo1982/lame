@@ -1,26 +1,26 @@
 /**
  * @file
  * @ingroup unit_tests
- * @brief Unit tests for rejecting an interleaved call on a mono session
+ * @brief Unit tests for the rejection of an interleaved call on a mono session
  *        (libmp3lame/lame.c).
  *
  * The interleaved entry points read the left and right channels from one
- * buffer with a stride of two. A session opened with a single input channel
- * has only one channel in that buffer, so the second, strided read runs one
- * channel's worth of samples past its end. The entry points must refuse this
- * combination with #LAME_BADINPUTDATA instead of reading outside the buffer
+ * buffer with a stride of two. A session with one input channel has only one
+ * channel in that buffer. So the second read runs one channel's worth of
+ * samples past the end of the buffer. The entry points must reject this
+ * combination with #LAME_BADINPUTDATA. They must not read outside the buffer
  * (SourceForge bug #522).
  *
- * The tests size each input buffer to exactly the mono sample count and rely on
- * the address sanitizer, when the suite is built with it, to catch a read past
- * the end; the return-value check stands on its own without it.
+ * Each input buffer has exactly the mono sample count. When the suite is built
+ * with the address sanitizer, the sanitizer catches a read past the end. The
+ * check of the return value also works without the sanitizer.
  *
- * The non-interleaved entry points on the same mono session must keep working,
- * so a rejection that fired on every mono encode rather than only the
- * interleaved one would be caught here too.
+ * The non-interleaved entry points on the same mono session must keep working.
+ * So the tests also catch a rejection of every mono encode, when only the
+ * interleaved one must fail.
  *
- * These are library-level tests: they link libmp3lame and call the exported
- * API directly, so no frontend translation unit is compiled in.
+ * These are library-level tests. They link libmp3lame and call the exported
+ * API directly. No frontend translation unit is compiled in.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -40,15 +40,15 @@
 
 #include "lame.h"
 
-/** @brief Samples per channel handed to the encoder in one call. */
+/** @brief Samples per channel that the test passes to the encoder in one call. */
 #define NSAMPLES 4608
 /** @brief Size of the output buffer, per the worst case in lame.h. */
 #define MP3BUF_SIZE (NSAMPLES * 5 / 4 + 7200)
 
 /**
- * @brief Opens an encoder with the given input-channel count.
+ * @brief Creates an encoder instance with the given number of input channels.
  * @param channels Number of input channels.
- * @return An initialised lame_t; the caller closes it.
+ * @return An initialized encoder instance. The caller closes it.
  */
 static lame_t
 encoder_new(int channels)
@@ -64,7 +64,7 @@ encoder_new(int channels)
 }
 
 /**
- * @brief A mono session rejects the short interleaved entry point.
+ * @brief Checks that a mono session rejects the short interleaved entry point.
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -83,7 +83,7 @@ test_mono_interleaved_short_rejected(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A mono session rejects the int interleaved entry point.
+ * @brief Checks that a mono session rejects the int interleaved entry point.
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -102,7 +102,7 @@ test_mono_interleaved_int_rejected(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A mono session rejects the float interleaved entry point.
+ * @brief Checks that a mono session rejects the float interleaved entry point.
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -121,11 +121,12 @@ test_mono_interleaved_float_rejected(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The non-interleaved entry point on a mono session still encodes.
+ * @brief Checks that the non-interleaved entry point on a mono session
+ *        encodes.
  * @param state cmocka fixture state (unused).
  *
- * The rejection must be specific to the interleaved call; a mono session fed
- * through the ordinary entry point continues to work.
+ * The rejection must apply only to the interleaved call. A mono session that
+ * gets its samples through the ordinary entry point must keep working.
  */
 static void
 test_mono_noninterleaved_still_encodes(LAME_UNUSED void **state)
@@ -142,11 +143,12 @@ test_mono_noninterleaved_still_encodes(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A stereo session on the same interleaved entry point still encodes.
+ * @brief Checks that a stereo session on the same interleaved entry point
+ *        encodes.
  * @param state cmocka fixture state (unused).
  *
- * The interleaved call is only wrong for a mono session; the documented stereo
- * use must be unaffected.
+ * The interleaved call is wrong only for a mono session. The documented
+ * stereo use must keep working.
  */
 static void
 test_stereo_interleaved_still_encodes(LAME_UNUSED void **state)

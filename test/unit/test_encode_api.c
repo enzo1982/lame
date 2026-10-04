@@ -5,33 +5,32 @@
  *        the LAME tag and the reporting calls (libmp3lame/lame.c,
  *        libmp3lame/VbrTag.c).
  *
- * These are library-level tests: they link libmp3lame and call the exported
- * API directly, so no frontend translation unit is compiled in.
+ * These are library-level tests. They link libmp3lame and call the exported
+ * API directly. The test compiles no source file of the frontend.
  *
- * The group covers three contracts that nothing else in the suite states.
+ * The tests check three contracts. No other test in the suite checks them.
  *
- * **The integer entry points agree.** #lame_encode_buffer, and its @c long,
- * @c long2 and @c int forms, each declare a different input scaling; fed the
- * same audio at the scaling each one asks for, they must produce the same
- * bitstream. That the shifted forms come out byte for byte identical is not
- * self-evident - lame.h says the @c int form "cannot, without loosing
- * precision, use the same scaling" - so it was measured before it was asserted
- * here. It holds exactly because each form's internal normalisation is the
- * reciprocal power of two of the shift the caller applies, which a @c float
- * carries without rounding. A test asserting agreement is only worth something
- * if it can also say no, so the wrong scaling is exercised alongside it and
- * must disagree.
+ * <b>The integer entry points agree.</b> #lame_encode_buffer and its @c long,
+ * @c long2 and @c int forms each expect a different input scale. Each gets
+ * the same audio at its own scale. They must then produce the same bitstream.
+ * This is not obvious for the shifted forms. lame.h says that the other
+ * functions use a different scale, which loses precision for the @c int form.
+ * The streams are still identical byte for byte. Each form multiplies its
+ * input by the inverse of the power of two that the caller shifted by. A
+ * @c float stores this factor without rounding. A test of agreement is useful
+ * only if it can also fail. So the test also uses a wrong scale, and that
+ * stream must differ.
  *
- * **The statistics describe the encode that just happened.** The histograms
- * are asserted through their invariants - what they sum to, and whether the
- * two dimensional tables agree with the one dimensional ones - rather than
- * through any particular set of counts, which any future encoder change would
- * move for legitimate reasons.
+ * <b>The statistics describe the encode that just ran.</b> The tests check the
+ * histograms through their invariants: what they sum to, and whether the two
+ * dimensional tables agree with the one dimensional tables. The tests do not
+ * check exact counts. Any change to the encoder can change the counts for
+ * good reasons.
  *
- * **The reporting calls go through the report callbacks.** #lame_print_config
- * and #lame_print_internals write through the callback the caller installed;
- * a test that only checked they did not crash would not notice them going to
- * @c stderr instead.
+ * <b>The reporting calls use the report callbacks.</b> #lame_print_config and
+ * #lame_print_internals write through the callback that the caller set. A
+ * test that only checks that they do not crash does not notice when they
+ * write to @c stderr.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -64,21 +63,23 @@
  */
 extern int lame_encode_finish(lame_global_flags *, unsigned char *, int);
 
-/** @brief Samples per channel handed to the encoder in one call. */
+/** @brief Samples per channel that one call passes to the encoder. */
 #define NSAMPLES 4608
 /** @brief Number of encode calls before the flush. */
 #define NCALLS   6
-/** @brief Output capacity, per the worst case in lame.h plus the flush. */
+/** @brief Output buffer size: the worst case from lame.h, plus the flush. */
 #define MP3CAP   (NCALLS * (NSAMPLES * 5 / 4 + 7200) + 7200)
 
-/** @brief Sample rate every test in this file encodes at. */
+/** @brief Sample rate of every encode in this file. */
 #define RATE     44100
-/** @brief Constant bit rate used where the test needs a known one. */
+/** @brief CBR bitrate, for the tests that need a known bitrate. */
 #define CBR_KBPS 128
-/** @brief Index of #CBR_KBPS in the MPEG-1 Layer III bit rate table. */
+/** @brief Index of #CBR_KBPS in the 14 slots of lame_bitrate_kbps() and
+ *         lame_bitrate_hist(). */
 #define CBR_INDEX 8
 
-/** @brief Granule/channel slots each frame contributes to a block-type count. */
+/** @brief Number of granule and channel slots that each frame adds to a
+ *         block type count. */
 #define BLOCKS_PER_FRAME 4
 
 /** @brief Left channel of the shared test signal. */
@@ -86,15 +87,15 @@ static short pcm_l[NSAMPLES * NCALLS];
 /** @brief Right channel of the shared test signal. */
 static short pcm_r[NSAMPLES * NCALLS];
 
-/** @brief Text collected by capture_report(). */
+/** @brief Text that capture_report() collected. */
 static char capture[65536];
-/** @brief Bytes currently held in #capture. */
+/** @brief Number of bytes in #capture. */
 static size_t caplen;
-/** @brief Number of times capture_report() has been called. */
+/** @brief Number of calls of capture_report(). */
 static int  capcalls;
 
 /**
- * @brief Report callback that collects what the library writes.
+ * @brief Collects what the library writes. This is a report callback.
  * @param format printf format string.
  * @param ap     the arguments for @p format.
  */
@@ -112,7 +113,7 @@ capture_report(const char *format, va_list ap)
     }
 }
 
-/** @brief Empties the capture buffer before a call that should fill it. */
+/** @brief Empties the capture buffer before a call that must fill it. */
 static void
 capture_reset(void)
 {
@@ -122,13 +123,13 @@ capture_reset(void)
 }
 
 /**
- * @brief Searches a byte range for a NUL-terminated needle.
+ * @brief Searches a byte range for a NUL-terminated string.
  * @param hay  start of the range to search.
- * @param n    length of that range.
- * @param what the string to look for.
- * @return Non-zero when @p what occurs in the range.
+ * @param n    length of the range.
+ * @param what the string to search for.
+ * @return Nonzero if @p what occurs in the range.
  *
- * memmem() is a GNU extension, and this suite builds on three platforms.
+ * memmem() is not standard C, and this suite builds on three platforms.
  */
 static int
 mem_contains(const unsigned char *hay, size_t n, const char *what)
@@ -146,10 +147,10 @@ mem_contains(const unsigned char *hay, size_t n, const char *what)
 /**
  * @brief Fills #pcm_l and #pcm_r with a deterministic stereo signal.
  *
- * Two tones per channel, in the range a real recording occupies, plus the
- * extremes of the type at four positions: those are where an off-by-one in a
- * scaling conversion would show, and they are exactly representable at every
- * scaling the integer entry points use.
+ * Each channel has two tones, at levels like those of a real recording. Four
+ * positions contain the smallest and largest value of the type. An off-by-one
+ * error in a scale conversion shows at these values. Every scale that the
+ * integer entry points use represents them exactly.
  */
 static void
 make_signal(void)
@@ -171,10 +172,10 @@ make_signal(void)
 }
 
 /**
- * @brief Opens an initialised encoder.
- * @param vbr Non-zero for VBR, zero for CBR at #CBR_KBPS.
- * @param tag Non-zero to reserve and write the LAME tag.
- * @return An initialised lame_t; the caller closes it.
+ * @brief Creates an initialized encoder instance.
+ * @param vbr Nonzero for VBR, zero for CBR at #CBR_KBPS.
+ * @param tag Nonzero to reserve and write the LAME tag.
+ * @return An initialized lame_t. The caller closes it.
  */
 static lame_t
 encoder_new(int vbr, int tag)
@@ -198,7 +199,7 @@ encoder_new(int vbr, int tag)
     return gfp;
 }
 
-/** @brief Which integer entry point encode_variant() drives. */
+/** @brief Selects the integer entry point that encode_variant() calls. */
 enum variant {
     VAR_SHORT,                  /**< lame_encode_buffer(), +/- 32768.        */
     VAR_LONG,                   /**< lame_encode_buffer_long(), +/- 32768.   */
@@ -208,15 +209,15 @@ enum variant {
 };
 
 /**
- * @brief Encodes the shared signal through one integer entry point and flushes.
- * @param variant which entry point to use.
+ * @brief Encodes the shared signal through one integer entry point, then
+ *        flushes.
+ * @param variant the entry point to use.
  * @param out     receives the whole stream.
- * @param cap     capacity of @p out.
+ * @param cap     size of @p out in bytes.
  * @return Total bytes written, or a negative value from the library.
  *
- * Each buffer is filled at the scaling its own entry point declares, so a
- * disagreement between two runs is a disagreement about the audio and not
- * about the units it arrived in.
+ * Each buffer is filled at the scale that its own entry point expects. So when
+ * two runs differ, the audio differs, not only the units of the samples.
  */
 static int
 encode_variant(enum variant variant, unsigned char *out, int cap)
@@ -280,10 +281,12 @@ encode_variant(enum variant variant, unsigned char *out, int cap)
 }
 
 /**
- * @brief Encodes the shared signal through the short entry point and flushes.
- * @param gfp an initialised encoder, left open for the statistics calls.
+ * @brief Encodes the shared signal through the short entry point, then
+ *        flushes.
+ * @param gfp an initialized encoder instance. It stays open for the
+ *            statistics calls.
  * @param out receives the whole stream.
- * @param cap capacity of @p out.
+ * @param cap size of @p out in bytes.
  * @return Total bytes written.
  */
 static int
@@ -305,8 +308,8 @@ encode_and_flush(lame_t gfp, unsigned char *out, int cap)
 /**
  * @brief Sums an integer array.
  * @param a the array.
- * @param n its length.
- * @return The sum of its elements.
+ * @param n the number of elements.
+ * @return The sum of the elements.
  */
 static int
 sum_of(const int *a, int n)
@@ -319,12 +322,13 @@ sum_of(const int *a, int n)
 }
 
 /**
- * @brief The four integer entry points produce the same bitstream.
+ * @brief Checks that the four integer entry points produce the same
+ *        bitstream.
  * @param state cmocka fixture state (unused).
  *
- * The scaling each one declares differs; the audio does not. Byte identity is
- * the contract, and it is exact rather than approximate because every scaling
- * involved is a power of two.
+ * Each one expects a different scale, but the audio is the same. The contract
+ * is identical bytes. The result is exact, not approximate, because every
+ * scale here is a power of two.
  */
 static void
 test_integer_variants_agree(LAME_UNUSED void **state)
@@ -349,13 +353,13 @@ test_integer_variants_agree(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The int entry point at the wrong scaling produces a different stream.
+ * @brief Checks that the int entry point at the wrong scale produces a
+ *        different stream.
  * @param state cmocka fixture state (unused).
  *
- * This is the control for the test above, kept in the suite rather than run
- * once by hand: it fails if the entry points ever stop reading the samples
- * they are given, which is the way the agreement assertion could come to hold
- * for no reason at all.
+ * This is the control for the test above. It stays in the suite, so it runs
+ * every time. It fails if the entry points stop reading their samples. In that
+ * case, the test above passes for no real reason.
  */
 static void
 test_int_wrong_scaling_differs(LAME_UNUSED void **state)
@@ -372,11 +376,13 @@ test_int_wrong_scaling_differs(LAME_UNUSED void **state)
 }
 
 /**
- * @brief lame_bitrate_kbps() reports the MPEG-1 Layer III bit rate table.
+ * @brief Checks that lame_bitrate_kbps() returns the MPEG-1 Layer III bitrate
+ *        table.
  * @param state cmocka fixture state (unused).
  *
- * The table is the format's, not the encoder's, so it is safe to pin exactly:
- * it is what the bit rate histogram's fourteen slots mean.
+ * The table belongs to the format, not to the encoder. So the test can check
+ * exact values. The table gives the meaning of the 14 slots of the bitrate
+ * histogram.
  */
 static void
 test_bitrate_kbps_is_the_mpeg1_table(LAME_UNUSED void **state)
@@ -395,11 +401,12 @@ test_bitrate_kbps_is_the_mpeg1_table(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A CBR encode puts every frame in the slot for its bit rate.
+ * @brief Checks that a CBR encode counts every frame in the slot for its
+ *        bitrate.
  * @param state cmocka fixture state (unused).
  *
- * The frame count comes from lame_get_frameNum() rather than from the
- * histogram, so the two have to agree about something neither one defines.
+ * The frame count comes from lame_get_frameNum(), not from the histogram. So
+ * two independent sources must agree.
  */
 static void
 test_bitrate_hist_counts_cbr_frames(LAME_UNUSED void **state)
@@ -422,12 +429,13 @@ test_bitrate_hist_counts_cbr_frames(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A VBR encode spreads its frames over more than one bit rate.
+ * @brief Checks that a VBR encode spreads its frames over more than one
+ *        bitrate.
  * @param state cmocka fixture state (unused).
  *
- * The point of the histogram is the distribution, so a run that produced one
- * is what makes the CBR case above a statement rather than a coincidence.
- * Which rates get used is the encoder's business and is not asserted.
+ * The histogram exists to show the distribution. This test sees a real
+ * distribution. So the result of the CBR test above is not a coincidence. The
+ * encoder decides which bitrates it uses, so the test does not check them.
  */
 static void
 test_bitrate_hist_counts_vbr_frames(LAME_UNUSED void **state)
@@ -450,7 +458,8 @@ test_bitrate_hist_counts_vbr_frames(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The stereo mode histogram accounts for every frame exactly once.
+ * @brief Checks that the stereo mode histogram counts every frame exactly
+ *        once.
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -470,13 +479,14 @@ test_stereo_mode_hist_counts_frames(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The block type histogram carries its own total in the last slot.
+ * @brief Checks that the block type histogram stores its own total in the
+ *        last slot.
  * @param state cmocka fixture state (unused).
  *
- * Five slots count block types and the sixth is their sum, which is why the
- * array sums to twice the number of blocks. Each frame contributes
- * #BLOCKS_PER_FRAME of them - two granules for each of two channels - so the
- * total is tied to the frame count as well.
+ * Five slots count block types, and the sixth slot is their sum. So the whole
+ * array sums to twice the number of blocks. Each frame adds #BLOCKS_PER_FRAME
+ * blocks: two granules for each of two channels. So the total also depends
+ * on the frame count.
  */
 static void
 test_block_type_hist_totals(LAME_UNUSED void **state)
@@ -496,12 +506,14 @@ test_block_type_hist_totals(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The two dimensional histograms agree with the one dimensional ones.
+ * @brief Checks that the two dimensional histograms agree with the one
+ *        dimensional histograms.
  * @param state cmocka fixture state (unused).
  *
- * Each is the same population split a second way, so every row has to add up
- * to that bit rate's frame count - and for the block-type table, to that
- * count's worth of blocks, the last column again being the row's own total.
+ * Each table counts the same frames, split in a second way. So every row must
+ * sum to the frame count of its bitrate. In the block type table, every row
+ * must sum to the number of blocks in those frames. The last column again
+ * stores the total of the row.
  */
 static void
 test_two_dimensional_hists_agree(LAME_UNUSED void **state)
@@ -532,11 +544,12 @@ test_two_dimensional_hists_agree(LAME_UNUSED void **state)
 }
 
 /**
- * @brief lame_init_bitstream() clears the statistics it documents clearing.
+ * @brief Checks that lame_init_bitstream() clears the statistics that its
+ *        documentation names.
  * @param state cmocka fixture state (unused).
  *
- * The counters have to be non-zero first, or the test would pass against a
- * library that never counted anything.
+ * The counters must be nonzero first. Without this, the test passes against a
+ * library that never counts anything.
  */
 static void
 test_init_bitstream_clears_statistics(LAME_UNUSED void **state)
@@ -566,11 +579,13 @@ test_init_bitstream_clears_statistics(LAME_UNUSED void **state)
 }
 
 /**
- * @brief After lame_encode_flush_nogap() the same instance keeps encoding.
+ * @brief Checks that the same encoder instance continues to encode after
+ *        lame_encode_flush_nogap().
  * @param state cmocka fixture state (unused).
  *
- * That is what the call is for: it completes the mp3 data so far without
- * writing an ID3v1 tag, leaving the instance usable for the next stream.
+ * This is the purpose of the call. It completes the MP3 data so far, and it
+ * does not write an ID3v1 tag. The encoder instance stays usable for the next
+ * stream.
  */
 static void
 test_flush_nogap_allows_continuing(LAME_UNUSED void **state)
@@ -604,12 +619,13 @@ test_flush_nogap_allows_continuing(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Calls whose output does not fit can be repeated, and the encoder then
- *        goes on once there is room.
+ * @brief Checks that a call whose output does not fit can be repeated, and
+ *        that the encoder continues when there is room.
  *
- * Each call hands over twenty frames of noise and room for about four, so it
- * answers -1 after encoding a few; the frame that did not fit stays in the
- * encoder. At least one call must answer -1, or the case was not reached.
+ * Each call passes twenty frames of noise and room for about four frames. So
+ * the call returns -1 after it encodes a few frames. The frame that did not
+ * fit stays in the encoder. At least one call must return -1. Otherwise the
+ * test did not cover the case.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -646,8 +662,10 @@ test_small_buffer_calls_repeat(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A negative sample count is refused as bad input data, and the
- *        encoder takes samples normally afterwards.
+ * @brief Checks that a negative sample count fails with LAME_BADINPUTDATA.
+ *
+ * After this, the encoder accepts samples as usual.
+ *
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -667,13 +685,13 @@ test_negative_count_refused(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A missing output buffer is answered as a buffer that is too small
- *        once there are bytes to hand over.
+ * @brief Checks that a NULL output buffer fails like a buffer that is too
+ *        small, once there are bytes to write.
  * @param state cmocka fixture state (unused).
  *
- * A call that produces no bytes yet may pass no buffer; the calls that do
- * produce bytes answer -1, with a size of 0 ("do not check the size") as with
- * a size given.
+ * A call that produces no bytes yet may pass NULL. A call that produces bytes
+ * returns -1. This is true with a size of 0 ("do not check the size") and
+ * with a given size.
  */
 static void
 test_null_output_buffer_refused(LAME_UNUSED void **state)
@@ -691,11 +709,11 @@ test_null_output_buffer_refused(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A call without an output buffer returns 0 while the frames it
- *        encodes hand over no bytes.
+ * @brief Checks that a call without an output buffer returns 0 while the
+ *        frames that it encodes produce no bytes.
  * @param state cmocka fixture state (unused).
  *
- * With silent input, the first frame hands over no bytes.
+ * With silent input, the first frame produces no bytes.
  */
 static void
 test_null_output_buffer_empty_frame(LAME_UNUSED void **state)
@@ -712,14 +730,14 @@ test_null_output_buffer_empty_frame(LAME_UNUSED void **state)
 }
 
 /**
- * @brief A sample louder than 4096 times full scale, after all scaling
- *        factors, returns LAME_BADINPUTDATA. Input up to about 4000 times
- *        full scale is encoded.
+ * @brief Checks that a sample louder than 4096 times full scale, after all
+ *        scaling factors, returns LAME_BADINPUTDATA.
  *
- * Floating point input reaches the bound by itself; 16-bit input only
- * through the scale factors, whose product the setters cannot bound. The
- * bitrate presets scale the input by 0.95 to 1, so the refused sample sits
- * well beyond 4096 rather than just past it.
+ * Input up to about 4000 times full scale is encoded. Floating point input
+ * can exceed the limit by itself. 16-bit input can exceed it only through the
+ * scaling factors. The setters cannot limit the product of the factors. The
+ * bitrate presets scale the input by 0.95 to 1. So the rejected sample is
+ * well above 4096, not just above it.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -756,16 +774,17 @@ test_input_beyond_bound_refused(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Reads the encoder delay and padding out of a LAME tag frame.
- * @param frame   the frame lame_get_lametag_frame() filled.
- * @param n       its length.
+ * @brief Reads the encoder delay and padding from a LAME tag frame.
+ * @param frame   the frame that lame_get_lametag_frame() filled.
+ * @param n       the length of the frame.
  * @param delay   receives the delay field.
  * @param padding receives the padding field.
  *
- * The two 12-bit fields sit 21 bytes past the Xing fields, whose length the
- * flag word selects; this walks the frame the way the library's own tag
- * reader does. The marker has to be found or the test asserting on the
- * fields would read two zero bytes as a delay of 0.
+ * The two 12-bit fields start 21 bytes after the Xing fields. The flag word
+ * sets the length of the Xing fields. This function reads the frame in the
+ * same way as the tag reader of the library. The function must find the
+ * marker. Otherwise a test of the fields reads two zero bytes as a delay
+ * of 0.
  */
 static void
 lametag_delay_padding(const unsigned char *frame, size_t n, int *delay, int *padding)
@@ -799,14 +818,16 @@ lametag_delay_padding(const unsigned char *frame, size_t n, int *delay, int *pad
 }
 
 /**
- * @brief The tag of a file continuing a nogap set reports no encoder delay.
+ * @brief Checks that the LAME tag of a later file in a nogap set reports no
+ *        encoder delay.
  * @param state cmocka fixture state (unused).
  *
- * The lead-in the encoder inserts is written once, at the front of a set's
- * first file; the next file begins with audio. Its tag has to say so, or a
- * reader trimming by the delay field drops real samples from every file after
- * the first. The first file's tag is the control: it still reports the delay,
- * and the last file's tag reports the padding the final flush computed.
+ * The encoder writes its lead-in once, at the start of the first file of a
+ * set. The next file starts with audio. Its LAME tag must say so. Otherwise a
+ * reader that trims by the delay field drops real samples from every file
+ * after the first. The LAME tag of the first file is the control. It reports
+ * the delay. The LAME tag of the last file reports the padding that the final
+ * flush computed.
  */
 static void
 test_lametag_delay_zero_after_nogap_flush(LAME_UNUSED void **state)
@@ -856,13 +877,14 @@ test_lametag_delay_zero_after_nogap_flush(LAME_UNUSED void **state)
 }
 
 /**
- * @brief lame_encode_finish() is lame_encode_flush() plus lame_close().
+ * @brief Checks that lame_encode_finish() works as lame_encode_flush() plus
+ *        lame_close().
  * @param state cmocka fixture state (unused).
  *
- * Obsolete, still exported, and therefore still owed a test. What it promises
- * is the combination, so the same audio taken both ways has to end in the same
- * stream; the instance it was given must not be closed again afterwards,
- * because this call already did it.
+ * The function is obsolete, but the library still exports it. So it needs a
+ * test. It promises the combination of the two calls. So the same audio must
+ * give the same stream both ways. The test must not close the encoder
+ * instance again, because lame_encode_finish() already closed it.
  */
 static void
 test_encode_finish_matches_flush_then_close(LAME_UNUSED void **state)
@@ -900,13 +922,14 @@ test_encode_finish_matches_flush_then_close(LAME_UNUSED void **state)
 }
 
 /**
- * @brief lame_get_lametag_frame() reports the size it needs, then fills it.
+ * @brief Checks that lame_get_lametag_frame() returns the size it needs, and
+ *        then fills the buffer.
  * @param state cmocka fixture state (unused).
  *
- * A buffer that is too small is not written to: the call reports the size the
- * frame needs, which is larger than the size offered, and that is how the
- * caller is meant to ask. The sentinel proves nothing was written, which the
- * return value alone does not.
+ * The call does not write to a buffer that is too small. It returns the size
+ * that the frame needs, which is larger than the given size. A caller uses
+ * this to ask for the size. The sentinel shows that nothing was written. The
+ * return value alone does not show this.
  */
 static void
 test_lametag_frame_reports_required_size(LAME_UNUSED void **state)
@@ -939,12 +962,12 @@ test_lametag_frame_reports_required_size(LAME_UNUSED void **state)
 }
 
 /**
- * @brief With the LAME tag turned off there is no frame to hand over.
+ * @brief Checks that there is no frame to return when the LAME tag is off.
  * @param state cmocka fixture state (unused).
  *
- * The control for the test above: the same call on the same audio has to be
- * able to answer nothing, or a return value of "the size I need" would be
- * unconditional.
+ * This is the control for the test above. The same call on the same audio
+ * must be able to return nothing. Otherwise the test above cannot tell a
+ * real size from a call that always returns a size.
  */
 static void
 test_lametag_frame_absent_without_tag(LAME_UNUSED void **state)
@@ -960,13 +983,15 @@ test_lametag_frame_absent_without_tag(LAME_UNUSED void **state)
 }
 
 /**
- * @brief lame_mp3_tags_fid() replaces the reserved frame in a written stream.
+ * @brief Checks that lame_mp3_tags_fid() replaces the reserved frame in a
+ *        written stream.
  * @param state cmocka fixture state (unused).
  *
- * The reserved frame LAME puts at the front of the audio carries no tag until
- * this call goes back and writes one, so the file has to change and the marker
- * has to appear where it was not before. tmpfile() supplies the seekable
- * read/write stream the call documents needing, and leaves no path behind.
+ * LAME reserves a frame at the start of the audio. This frame has no tag
+ * until this call writes one into it. So the file must change, and the marker
+ * must appear where it was missing before. tmpfile() gives the stream that
+ * the documentation asks for: seekable, and open for reading and writing. It
+ * also leaves no file behind.
  */
 static void
 test_mp3_tags_fid_writes_the_tag(LAME_UNUSED void **state)
@@ -1003,11 +1028,12 @@ test_mp3_tags_fid_writes_the_tag(LAME_UNUSED void **state)
 }
 
 /**
- * @brief With the LAME tag turned off, lame_mp3_tags_fid() leaves the file alone.
+ * @brief Checks that lame_mp3_tags_fid() does not change the file when the
+ *        LAME tag is off.
  * @param state cmocka fixture state (unused).
  *
- * The control for the test above. Without it, a call that rewrote the front of
- * every file it was handed would pass just as well.
+ * This is the control for the test above. Without it, a call that rewrites
+ * the start of every file also passes.
  */
 static void
 test_mp3_tags_fid_noop_without_tag(LAME_UNUSED void **state)
@@ -1041,11 +1067,12 @@ test_mp3_tags_fid_noop_without_tag(LAME_UNUSED void **state)
 }
 
 /**
- * @brief lame_print_config() writes through the installed report callback.
+ * @brief Checks that lame_print_config() writes through the report callback
+ *        that the caller set.
  * @param state cmocka fixture state (unused).
  *
- * What it says is the encoder's business and changes with the build; that it
- * arrives at the caller's callback rather than at stderr is the contract.
+ * The text belongs to the encoder and changes with the build. The contract is
+ * that the text goes to the callback of the caller, not to stderr.
  */
 static void
 test_print_config_routes_through_callback(LAME_UNUSED void **state)
@@ -1070,13 +1097,14 @@ test_print_config_routes_through_callback(LAME_UNUSED void **state)
 }
 
 /**
- * @brief lame_print_internals() writes through the installed report callback.
+ * @brief Checks that lame_print_internals() writes through the report
+ *        callback that the caller set.
  * @param state cmocka fixture state (unused).
  *
- * A separate test from the one above rather than a second half of it: each is
- * a claim about a different exported function, and cmocka stops a test at its
- * first failed assertion, so a combined one would only ever demonstrate the
- * first.
+ * This is a separate test, not a second half of the test above. Each test
+ * checks a different exported function. cmocka stops a test at its first
+ * failed check. So in a combined test, a failure in the first function hides
+ * the result for the second.
  */
 static void
 test_print_internals_routes_through_callback(LAME_UNUSED void **state)
@@ -1112,7 +1140,7 @@ group_setup(LAME_UNUSED void **state)
     return 0;
 }
 
-/** @brief Registers and runs the encode-API test group. */
+/** @brief Registers the tests of the encode API and runs them. */
 int
 main(void)
 {

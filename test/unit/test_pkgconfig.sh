@@ -1,17 +1,19 @@
 #!/bin/sh
-# Does the installed pkg-config file describe what libmp3lame actually needs?
+# Checks that the pkg-config file lame.pc lists the libraries that
+# libmp3lame needs, and no others. The test reads the lame.pc in the build
+# tree, which is the file that "make install" installs.
 #
-# A consumer that links libmp3lame statically gets its libraries from
-# `pkg-config --static --libs lame`. If lame.pc understates them the link
-# fails with undefined references; if it overstates them every consumer drags
-# in libraries it has no use for, and on a cross-build those may not exist at
-# all. Both directions are checked here.
+# A program that links libmp3lame statically gets its libraries from
+# `pkg-config --static --libs lame`. If lame.pc lists too few, the link fails
+# with undefined references. If lame.pc lists too many, every program links
+# libraries that it does not need. On a cross-build, these libraries may not
+# exist at all. The test checks both directions.
 #
-# The oracle is libtool's own record of the link, libmp3lame.la's
-# dependency_libs. That is written by the step that linked the library, so it
-# is independent of the configure variables lame.pc is generated from -
-# comparing lame.pc against those would put the same substitution on both
-# sides of the comparison and could not fail.
+# The reference is the record of the link that libtool writes: the
+# dependency_libs line in libmp3lame.la. The step that links the library
+# writes this line. So it does not depend on the configure variables that
+# lame.pc is generated from. A comparison of lame.pc with those variables
+# puts the same substitution on both sides, and it cannot fail.
 
 set -u
 

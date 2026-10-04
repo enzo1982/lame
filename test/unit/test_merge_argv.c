@@ -3,16 +3,17 @@
  * @ingroup unit_tests
  * @brief Unit test for @c merge_argv() in @c frontend/parse.c.
  *
- * @c parse_args() allocates the merged argument vector large enough to hold
- * every token (LAMEOPT plus the real @c argv). These tests cover both that
- * property - when the array is sized to fit, @c merge_argv() reports the full
- * count and fills every slot - and the defensive clamp that keeps
- * @c merge_argv() from ever reporting more entries than the array it was
- * handed can hold.
+ * @c parse_args() allocates the merged argument vector with room for every
+ * token: the tokens from LAMEOPT and the real @c argv. The tests check two
+ * things:
+ * - When the array is large enough, @c merge_argv() reports the full count
+ *   and fills every slot.
+ * - A defensive clamp stops @c merge_argv() from reporting more entries than
+ *   the array has slots.
  *
- * @c merge_argv() is static, so the whole translation unit is pulled in with
- * @c \#include; @c parse_test_stubs.c supplies the frontend externs and
- * libmp3lame provides the @c lame_* API.
+ * @c merge_argv() is static, so the test includes the whole translation unit
+ * with @c \#include. @c parse_test_stubs.c supplies the frontend externs.
+ * libmp3lame supplies the @c lame_* API.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -30,11 +31,12 @@
 #include "parse.c"
 
 /**
- * @brief Sized to fit: every argument survives the merge.
+ * @brief Checks that every argument is kept when the array is large enough.
  *
- * The scenario @c parse_args() guarantees by allocating @c str_argv to hold
- * all tokens - @c merge_argv() must return the full count and fill every slot
- * in range (poisoned to NULL beforehand, so a gap would be detected).
+ * @c parse_args() makes this case certain, because it allocates @c str_argv
+ * with room for all tokens. @c merge_argv() must return the full count and
+ * fill every slot in range. The test sets all slots to NULL before the call,
+ * so it finds a slot that the merge leaves empty.
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -58,11 +60,11 @@ test_merge_sized_to_fit(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Defensive clamp: an undersized array never yields an over-count.
+ * @brief Checks that a small array never gives a count that is too large.
  *
- * If the destination is smaller than the token total, @c merge_argv() must
- * report exactly the array size (never the inflated raw total), and every slot
- * within that count must be initialised.
+ * If the destination has fewer slots than there are tokens, @c merge_argv()
+ * must report exactly the array size, not the total number of tokens. Every
+ * slot within that count must be set.
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -86,7 +88,8 @@ test_merge_clamped_to_bound(LAME_UNUSED void **state)
 }
 
 /**
- * @brief The ordinary (non-overflowing) case is untouched by the clamp.
+ * @brief Checks that the clamp does not change the ordinary case, where all
+ *        tokens fit.
  * @param state cmocka fixture state (unused).
  */
 static void
@@ -101,7 +104,8 @@ test_merge_no_overflow_unchanged(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Boundary: a total of exactly N stays N; one over is clamped to N.
+ * @brief Checks the limit. A total of exactly N stays N. A total of N+1 is
+ *        clamped to N.
  * @param state cmocka fixture state (unused).
  */
 static void
