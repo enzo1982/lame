@@ -46,31 +46,32 @@ typedef const struct {
 } ToolTipItem;
 /**
   \class AEncodeProperties
-  \brief the AEncodeProperties class is responsible for handling all the encoding properties
+  \brief Handles all encoding settings of the ACM codec.
 */
 class AEncodeProperties  
 {
 public:
 	/**
-		\brief default constructor
+		\brief Creates the settings with their default values.
 
-		\param hModule the windows module with which you can retrieve many informations
+		\param hModule the Windows module of the codec. The settings file
+		lame_acm.xml is in the folder of this module.
 	*/
 	AEncodeProperties(HMODULE hModule);
 
 	/**
-		\brief default destructor
+		\brief Destroys the settings.
 	*/
 	virtual ~AEncodeProperties() {}
 
 	/**
 		\enum BRMode
-		\brief A bitrate mode (CBR, VBR, ABR)
+		\brief The bitrate mode: CBR, VBR or ABR.
 	*/
 	enum BRMode { BR_CBR, BR_VBR, BR_ABR };
 
 	/**
-		\brief Handle all the commands that occur in the Config dialog box
+		\brief Handles the commands of the configuration dialog box.
 	*/
 	bool HandleDialogCommand(const HWND parentWnd, const WPARAM wParam, const LPARAM lParam);
 	/**
@@ -79,131 +80,144 @@ public:
 	bool operator != (const AEncodeProperties & the_instance) const;
 
 	/**
-		\brief Check wether the Encode process should use the Copyright bit
+		\brief Returns true if the encoder sets the copyright bit.
 	*/
 	inline const bool GetCopyrightMode() const { return bCopyright; }
 	/**
-		\brief Check wether the Encode process should use the CRC bit
+		\brief Returns true if the encoder writes CRC checksums.
 	*/
 	inline const bool GetCRCMode() const { return bCRC; }
 	/**
-		\brief Check wether the Encode process should use the Original bit
+		\brief Returns true if the encoder sets the original bit.
 	*/
 	inline const bool GetOriginalMode() const { return bOriginal; }
 	/**
-		\brief Check wether the Encode process should use the Private bit
+		\brief Returns true if the encoder sets the private bit.
 	*/
 	inline const bool GetPrivateMode() const { return bPrivate; }
 	/**
-		\brief Check wether the Encode process should use the Smart Bitrate output
+		\brief Returns true if Smart Output is on. Then the codec does not offer
+		output formats whose compression ratio is above GetSmartRatio().
 	*/
 	inline const bool GetSmartOutputMode() const { return bSmartOutput; }
 	/**
-		\brief Check wether the Encode process should allow Average Bitrate output
+		\brief Returns true if the codec offers ABR output formats.
 	*/
 	inline const bool GetAbrOutputMode() const { return bAbrOutput; }
 
 	/**
-		\brief Check wether the Encode process shouldn't use the Bit Reservoir
+		\brief Returns true if the settings switch off the bit reservoir.
+		\todo The encoder does not use this setting.
 	*/
 	inline const bool GetNoBiResMode() const { return bNoBitRes; }
 
 	/**
-		\brief Check wether the Encode process should force the channel mode (stereo or mono resampling)
+		\brief Returns true if the settings force the selected channel mode, with
+		a conversion from stereo to mono or from mono to stereo.
+		\todo The encoder does not use this setting.
 	*/
 	inline const bool GetForceChannelMode() const { return bForceChannel; }
 
 	/**
-		\brief Returns the bitrate mode: CBR, VBR or ABR
+		\brief Returns the bitrate mode of the settings: CBR, VBR or ABR.
+		\todo The encoder does not use this setting. The output format
+		selects the bitrate mode.
 	*/
 	inline const BRMode GetVBRUseMode() const { return mBRmode; }
 	/**
-		\brief Check wether the Encode process should use the Xing frame in the VBR mode
-		\note the Xing frame is a silent frame at the beginning that contain VBR statistics about the file.
+		\brief Returns true if the settings ask for a Xing frame in VBR mode.
+		\todo The encoder does not use this setting. The codec never
+		writes a Xing frame, because it cannot go back to the start of the
+		output stream.
+		\note The Xing frame is a silent frame at the start of the file. It contains
+		VBR information about the file.
 	*/
 	inline const bool GetXingFrameMode() const { return bXingFrame; }
 
 	/**
-		\brief Check wether the Encode process should resample before encoding
+		\brief Returns true if the settings ask to resample the input before
+		encoding, to GetResampleFreq().
+		\todo The encoder does not use this setting.
 	*/
 	inline const bool GetResampleMode() const { return bResample; }
 	
 	/**
-		\brief Set wether the Encode process should use the Copyright bit
+		\brief Sets whether the encoder sets the copyright bit.
 	*/
 	inline void SetCopyrightMode(const bool bMode) { bCopyright = bMode; }
 	/**
-		\brief Set wether the Encode process should use the CRC bit
+		\brief Sets whether the encoder writes CRC checksums.
 	*/
 	inline void SetCRCMode(const bool bMode) { bCRC = bMode; }
 	/**
-		\brief Set wether the Encode process should use the Original bit
+		\brief Sets whether the encoder sets the original bit.
 	*/
 	inline void SetOriginalMode(const bool bMode) { bOriginal = bMode; }
 	/**
-		\brief Set wether the Encode process should use the Private bit
+		\brief Sets whether the encoder sets the private bit.
 	*/
 	inline void SetPrivateMode(const bool bMode) { bPrivate = bMode; }
 
 	/**
-		\brief Set wether the Encode process should use the Smart Bitrate output
+		\brief Switches Smart Output on or off, see GetSmartOutputMode().
 	*/
 	inline void SetSmartOutputMode(const bool bMode) { bSmartOutput = bMode; }
 	/**
-		\brief Set wether the Encode process should use the Average Bitrate output
+		\brief Sets whether the codec offers ABR output formats.
 	*/
 	inline void SetAbrOutputMode(const bool bMode) { bAbrOutput = bMode; }
 
 
 	/**
-		\brief Set wether the Encode process shouldn't use the Bit Reservoir
+		\brief Sets the setting that GetNoBiResMode() returns.
 	*/
 	inline void SetNoBiResMode(const bool bMode) { bNoBitRes = bMode; }
 	
 	/**
-		\brief Set wether the Encode process should force the channel mode (stereo or mono resampling)
+		\brief Sets the setting that GetForceChannelMode() returns.
 	*/
 	inline void SetForceChannelMode(const bool bMode) { bForceChannel = bMode; }
 	
 	/**
-		\brief Set wether the Encode process should use the VBR mode
+		\brief Sets the setting that GetVBRUseMode() returns.
 	*/
 	inline void SetVBRUseMode(const BRMode mode) { mBRmode = mode; }
 
 	/**
-		\brief Set wether the Encode process should use the Xing frame in the VBR mode
-		\note the Xing frame is a silent frame at the beginning that contain VBR statistics about the file.
+		\brief Sets the setting that GetXingFrameMode() returns.
+		\note The Xing frame is a silent frame at the start of the file. It contains
+		VBR information about the file.
 	*/
 	inline void SetXingFrameMode(const bool bMode) { bXingFrame = bMode; }
 
 	/**
-		\brief CBR : Get the bitrate to use         / 
-		       VBR : Get the minimum bitrate value
+		\brief Returns the bitrate for CBR, or the minimum bitrate for VBR.
 	*/
 	const unsigned int GetBitrateValue() const;
 
 	/**
-		\brief Get the current (VBR:min) bitrate for the specified MPEG version
+		\brief Gets the current bitrate (the minimum bitrate for VBR) for the given
+		       MPEG version.
 
-		\param bitrate the data that will be filled with the bitrate
-		\param MPEG_Version The MPEG version (MPEG1 or MPEG2)
+		\param bitrate receives the bitrate
+		\param MPEG_Version the MPEG version (MPEG-1 or MPEG-2)
 
 		\return the result of GetBitrateValueMPEG1() or GetBitrateValueMPEG2()
 	*/
 	const int GetBitrateValue(DWORD & bitrate, const DWORD MPEG_Version) const;
 	/**
-		\brief Get the current (VBR:min) bitrate for MPEG I
+		\brief Gets the current bitrate (the minimum bitrate for VBR) for MPEG-1.
 
-		\param bitrate the data that will be filled with the bitrate
+		\param bitrate receives the bitrate
 
 		\return 0 if the bitrate is in the MPEG-1 table. 1 if it is not; then
 		        \a bitrate is the next higher MPEG-1 bitrate.
 	*/
 	const int GetBitrateValueMPEG1(DWORD & bitrate) const;
 	/**
-		\brief Get the current (VBR:min) bitrate for MPEG II
+		\brief Gets the current bitrate (the minimum bitrate for VBR) for MPEG-2.
 
-		\param bitrate the data that will be filled with the bitrate
+		\param bitrate receives the bitrate
 
 		\return 0 if the bitrate is in the MPEG-2 table. -1 if it is not; then
 		        \a bitrate is the next lower MPEG-2 bitrate.
@@ -211,28 +225,28 @@ public:
 	const int GetBitrateValueMPEG2(DWORD & bitrate) const;
 
 	/**
-		\brief Get the current (VBR:min) bitrate in the form of a string
+		\brief Writes the current bitrate (the minimum bitrate for VBR) as text.
 
-		\param string the string that will be filled
-		\param string_size the size of the string
+		\param string the buffer for the text
+		\param string_size the size of the buffer
 
-		\return -1 if the bitrate is not found, and the number of char copied otherwise
+		\return the number of characters written. -1 if the bitrate is not found.
 	*/
 	inline const int GetBitrateString(char * string, int string_size) const {return GetBitrateString(string,string_size,nMinBitrateIndex); }
 
 	/**
-		\brief Get the (VBR:min) bitrate corresponding to the specified index in the form of a string
+		\brief Writes the bitrate with the given index as text.
 
-		\param string the string that will be filled
-		\param string_size the size of the string
-		\param a_bitrateID the index in the Bitrate table
+		\param string the buffer for the text
+		\param string_size the size of the buffer
+		\param a_bitrateID the index in the bitrate table
 
-		\return -1 if the bitrate is not found, and the number of char copied otherwise
+		\return the number of characters written. -1 if the bitrate is not found.
 	*/
 	const int GetBitrateString(char * string, int string_size, int a_bitrateID) const;
 
 	/**
-		\brief Get the number of possible bitrates
+		\brief Returns the number of bitrates in the bitrate table.
 	*/
 	inline const int GetBitrateLentgh() const { return sizeof(the_Bitrates) / sizeof(unsigned int); }
 	/**
@@ -240,76 +254,55 @@ public:
 	*/
 	inline const unsigned int GetResampleFreq() const { return the_SamplingFreqs[nSamplingFreqIndex]; }
 	/**
-		\brief Get the max compression ratio allowed (1:15 default)
+		\brief Returns the highest compression ratio for Smart Output (default
+		       15, for 1:15).
 	*/
 	inline double GetSmartRatio() const { return SmartRatioMax;}
 	/**
-		\brief Get the min ABR bitrate possible
+		\brief Returns the lowest ABR bitrate that the codec offers.
 	*/
 	inline unsigned int GetAbrBitrateMin() const { return AverageBitrate_Min;}
 	/**
-		\brief Get the max ABR bitrate possible
+		\brief Returns the highest ABR bitrate that the codec offers.
 	*/
 	inline unsigned int GetAbrBitrateMax() const { return AverageBitrate_Max;}
 	/**
-		\brief Get the step between ABR bitrates
+		\brief Returns the step between the ABR bitrates that the codec offers.
 	*/
 	inline unsigned int GetAbrBitrateStep() const { return AverageBitrate_Step;}
 
 #if 0
-	/**
-		\brief Get the VBR attributes for a specified MPEG version
-
-		\param MaxBitrate receive the maximum bitrate possible in the VBR mode
-		\param Quality receive the quality value (0 to 9 see Lame doc for more info)
-		\param VBRHeader receive the value that indicates wether the VBR/Xing header should be filled
-		\param MPEG_Version The MPEG version (MPEG1 or MPEG2)
-
-		\return the VBR mode (Old, New, ABR, MTRH, Default or None)
-	*/
 //	VBRMETHOD GetVBRValue(DWORD & MaxBitrate, int & Quality, DWORD & AbrBitrate, BOOL & VBRHeader, const DWORD MPEG_Version) const;
 
-	/**
-		\brief Get the Lame DLL Location
-	*/
 //	const char * GetDllLocation() const { return DllLocation.c_str(); }
-	/**
-		\brief Set the Lame DLL Location
-	*/
 //	void SetDllLocation( const char * the_string ) { DllLocation = the_string; }
 
-	/**
-		\brief Get the output directory for encoding
-	*/
 //	const char * GetOutputDirectory() const { return OutputDir.c_str(); }
-	/**
-		\brief Set the output directory for encoding
-	*/
 //	void SetOutputDirectory( const char * the_string ) { OutputDir = the_string; }
 #endif
 
 	/**
-		\brief Get the current channel mode to use
+		\brief Returns the channel mode to use.
 	*/
 	const unsigned int GetChannelModeValue() const;
 	/**
-		\brief Get the current channel mode in the form of a string
+		\brief Returns the name of the current channel mode.
 	*/
 	inline const char * GetChannelModeString() const {return GetChannelModeString(nChannelIndex); }
 	/**
-		\brief Get the channel mode in the form of a string for the specified Channel mode index
+		\brief Returns the name of the channel mode with the given index.
 
-		\param a_channelID the Channel mode index (see GetChannelLentgh())
+		\param a_channelID the channel mode index (see GetChannelLentgh())
 	*/
 	const char * GetChannelModeString(const int a_channelID) const;
 	/**
-		\brief Get the number of possible channel mode
+		\brief Returns the number of channel modes.
 	*/
 	inline const int GetChannelLentgh() const { return 3; }
 
 //	const LAME_QUALTIY_PRESET GetPresetModeValue() const;
 	/**
-		\brief Get the name of the preset with the given index
+		\brief Returns the name of the preset with the given index.
 
 		\param a_presetID the preset index
 	*/
@@ -317,60 +310,62 @@ public:
 //	inline const int GetPresetLentgh() const { return sizeof(the_Presets) / sizeof(LAME_QUALTIY_PRESET); }
 
 	/**
-		\brief Start the user configuration process (called for the DRV_CONFIGURE message)
+		\brief Shows the configuration dialog box (for the DRV_CONFIGURE message).
 	*/
 	bool Config(const HINSTANCE hInstance, const HWND HwndParent);
 
 	/**
-		\brief Init the config dialog box with the right texts and choices
+		\brief Fills the configuration dialog box with its texts and choices.
 	*/
 	bool InitConfigDlg(HWND hDialog);
 
 	/**
-		\brief Update the instance parameters from the config dialog box
+		\brief Reads the settings from the configuration dialog box.
 	*/
 	bool UpdateValueFromDlg(HWND hDialog);
 	/**
-		\brief Update the config dialog box from the instance parameters
+		\brief Shows the settings in the configuration dialog box.
 	*/
 	bool UpdateDlgFromValue(HWND hDialog);
 
 	/**
-		\brief Update the config dialog box with the BitRate mode
+		\brief Shows the options of the given bitrate mode in the configuration
+		       dialog box.
 	*/
 	static void DisplayVbrOptions(const HWND hDialog, const BRMode the_mode);
 
 	/**
-		\brief Save the current parameters (current config in use)
+		\brief Saves the current settings in the current configuration.
 	*/
 	void ParamsSave(void);
 
 	/**
-		\brief Load the parameters (current config in use)
+		\brief Loads the settings of the current configuration.
 	*/
 	void ParamsRestore(void);
 
 	/**
-		\brief Select the specified config name as the new default one
+		\brief Makes the configuration with the given name the default.
 	*/
 	void SelectSavedParams(const std::string config_name);
 	/**
-		\brief Save the current parameters to the specified config name
+		\brief Saves the current settings under the given configuration name.
 	*/
 	void SaveValuesToStringKey(const std::string & config_name);
 	/**
-		\brief Rename the current config name to something else
+		\brief Renames the current configuration.
 	*/
 	bool RenameCurrentTo(const std::string & new_config_name);
 	/**
-		\brief Delete the config name from the saved configs
+		\brief Deletes the configuration with the given name from the saved
+		       configurations.
 	*/
 	bool DeleteConfig(const std::string & config_name);
 
 	ADbg              my_debug;
 
 	/**
-		\brief Update the slides value (on scroll)
+		\brief Updates the values shown next to the sliders, when a slider moves.
 	*/
 	void UpdateDlgFromSlides(HWND parent_window) const;
 
@@ -431,10 +426,10 @@ private:
 	HMODULE my_hModule;
 
 	/**
-		\brief
+		\brief Reads the settings of a saved configuration from the XML data.
 
-		\param config_name
-		\param parentNode
+		\param config_name the name of the configuration
+		\param parentNode the XML node that contains the configurations
 	*/
 	void GetValuesFromKey(const std::string & config_name, const TiXmlNode & parentNode);
 };

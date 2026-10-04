@@ -55,7 +55,7 @@
 #define TTS_BALLOON            0x40
 #endif // TTS_BALLOON
 
-/** \brief The highest bitrate LAME encodes, in kbit/s. */
+/** \brief The highest bitrate that LAME encodes, in kbit/s. */
 static const unsigned int ABR_BITRATE_LIMIT = 320;
 
 const unsigned int AEncodeProperties::the_Bitrates[18] = {320, 256, 224, 192, 160, 144, 128, 112, 96, 80, 64, 56, 48, 40, 32, 24, 16, 8 };
@@ -107,10 +107,11 @@ static double DoubleFromAttribute(const std::string & the_text)
 }
 
 /**
- * \brief The whole number an attribute holds, or 0 when it holds none.
+ * \brief Converts the value of an attribute to an unsigned integer.
  *
- * \param the_text the attribute's value
- * \return the number, or 0 for text that is not a whole number in range
+ * \param the_text the value of the attribute
+ * \return the number. 0 if the text is not a decimal number, is negative, or
+ *         is larger than UINT_MAX.
  */
 static unsigned int UnsignedFromAttribute(const std::string & the_text)
 {
@@ -307,9 +308,6 @@ static BOOL CALLBACK ConfigProc(
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
-/**
-	\class AEncodeProperties
-*/
 
 
 const char * AEncodeProperties::GetChannelModeString(int a_channelID) const
@@ -1717,7 +1715,7 @@ my_debug.OutPut("finished saving");
 		file.lStructSize = sizeof(file); 
 		file.hwndOwner  = parentWnd;
 		file.Flags = OFN_FILEMUSTEXIST | OFN_NODEREFERENCELINKS | OFN_ENABLEHOOK | OFN_EXPLORER ;
-///				file.lpstrFile = AOut::the_AOut->DllLocation;
+//				file.lpstrFile = AOut::the_AOut->DllLocation;
 		file.lpstrFile = DllLocation;
 		file.lpstrFilter = "Lame DLL (lame_enc.dll)\0LAME_ENC.DLL\0DLL (*.dll)\0*.DLL\0All (*.*)\0*.*\0";
 		file.nFilterIndex = 1;

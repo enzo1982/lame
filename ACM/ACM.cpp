@@ -60,7 +60,7 @@
 
 char ACM::VersionString[120];
 
-/// The driver version the codec reports is the LAME version it is built from.
+/// The codec reports the LAME version that it is built from as its driver version.
 #define LAME_ACM_DRIVER_VERSION MAKE_ACM_VERSION(LAME_MAJOR_VERSION, LAME_MINOR_VERSION, LAME_PATCH_VERSION)
 
 #ifdef WIN32
@@ -111,10 +111,11 @@ static const int LAME_MPEG25 = 2;
 #define SIZE_BITRATE_MPEG2 (sizeof(mpeg2_bitrate) / sizeof(unsigned int))
 
 /**
-	\brief Fills the four rate tables above from the library
+	\brief Fills mpeg1_bitrate, mpeg2_bitrate, mpeg1_freq and mpeg2_freq from
+	the library.
 
-	Idempotent: it writes the same values every time, so a second driver
-	instance costs nothing.
+	Each call writes the same values. So it is safe to call it again for a
+	second driver instance.
 */
 static void FillRateTables()
 {
@@ -139,10 +140,10 @@ static void FillRateTables()
 }
 
 /**
-	\brief Whether a sample rate is one an MPEG Layer-3 stream can have
+	\brief Tells whether an MPEG Layer-3 stream can have this sample rate.
 
 	\param the_Frequency the sample rate in Hz
-	\return true for one of the rates in the two tables above
+	\return true if the rate is in mpeg1_freq or mpeg2_freq
 */
 static bool IsMP3Frequency(const unsigned int the_Frequency)
 {
@@ -547,9 +548,10 @@ switch (msg) {
 	Fills in the details of one format that this driver supports.
 	The format tag and the format index in \a a_FormatDetails select it.
 
-	\param a_FormatDetails will be filled with all the corresponding data
-	\param a_Query which kind of detail is wanted, in the bits
-	       ACM_FORMATDETAILSF_QUERYMASK selects
+	\param a_FormatDetails the format to describe. The function fills in
+	       its other members.
+	\param a_Query the query flags. The bits in
+	       ACM_FORMATDETAILSF_QUERYMASK select the kind of query.
 */
 inline DWORD ACM::OnFormatDetails(LPACMFORMATDETAILS a_FormatDetails, const LPARAM a_Query)
 {
@@ -636,12 +638,13 @@ inline DWORD ACM::OnFormatDetails(LPACMFORMATDETAILS a_FormatDetails, const LPAR
 }
 
 /*!
-	Retreive the details of each known format by this ACM driver
-	The index represent the specified format (0 = MP3 / 1 = PCM)
+	Fills in the details of one format tag that this driver supports.
+	The index selects the format tag: 0 is MP3, 1 is PCM.
 
-	\param a_FormatTagDetails will be filled with all the corresponding data
-	\param a_Query which kind of detail is wanted, in the bits
-	       ACM_FORMATTAGDETAILSF_QUERYMASK selects
+	\param a_FormatTagDetails the format tag to describe. The function fills
+	       in its other members.
+	\param a_Query the query flags. The bits in
+	       ACM_FORMATTAGDETAILSF_QUERYMASK select the kind of query.
 */
 inline DWORD ACM::OnFormatTagDetails(LPACMFORMATTAGDETAILS a_FormatTagDetails, const LPARAM a_Query)
 {
@@ -738,10 +741,10 @@ inline DWORD ACM::OnFormatTagDetails(LPACMFORMATTAGDETAILS a_FormatTagDetails, c
 }
 
 /*!
-	Retreive the global details of this ACM driver
+	Fills in the details of this ACM driver.
 
-	\param hdrvr the driver whose module the icon is loaded from
-	\param a_DriverDetail will be filled with all the corresponding data
+	\param hdrvr the driver. Its module provides the icon.
+	\param a_DriverDetail receives the driver details
 */
 inline DWORD ACM::OnDriverDetails(const HDRVR hdrvr, LPACMDRIVERDETAILS a_DriverDetail)
 {
@@ -778,9 +781,10 @@ inline DWORD ACM::OnDriverDetails(const HDRVR hdrvr, LPACMDRIVERDETAILS a_Driver
 }
 
 /*!
-	Suggest an output format for the specified input format
+	Suggests an output format for the given input format.
 
-	\param a_FormatSuggest will be filled with all the corresponding data
+	\param a_FormatSuggest the input format and the suggestion flags. The
+	       function fills in the suggested output format.
 */
 inline DWORD ACM::OnFormatSuggest(LPACMDRVFORMATSUGGEST a_FormatSuggest)
 {
@@ -1000,9 +1004,9 @@ my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed C");
 }
 
 /*!
-	Create a stream instance for decoding/encoding
+	Opens a conversion stream.
 
-	\param a_StreamInstance contain information about the stream desired
+	\param a_StreamInstance the source and target formats of the stream
 */
 inline DWORD ACM::OnStreamOpen(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 {
@@ -1298,12 +1302,11 @@ inline DWORD ACM::OnStreamConvert(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACM
 
 
 /*!
-	Tell whether the flags of an MPEG Layer-3 format say the stream carries an
-	average bitrate rather than a constant one.
+	Tells whether the flags of an MPEG Layer-3 format describe an ABR stream.
 
-	\param the_Flags the fdwFlags member of a MPEGLAYER3WAVEFORMAT this codec
-	       filled in
-	\return true when the flags describe an average-bitrate stream
+	\param the_Flags the fdwFlags member of a MPEGLAYER3WAVEFORMAT that this
+	       codec filled in
+	\return true for an ABR stream, false for a CBR stream
 */
 bool ACM::IsABRFormatFlags(const DWORD the_Flags)
 {
@@ -1312,15 +1315,16 @@ bool ACM::IsABRFormatFlags(const DWORD the_Flags)
 }
 
 /*!
-	Fill a format structure with the MPEG Layer-3 format this codec produces for
-	one set of encoding parameters, tail included.
+	Fills a format structure with the MPEG Layer-3 format that this codec
+	writes for one set of encoding parameters, including the extra fields
+	at the end.
 
-	\param the_Format receives the format, and has room for a whole
-	       MPEGLAYER3WAVEFORMAT
+	\param the_Format receives the format. It must have room for a whole
+	       MPEGLAYER3WAVEFORMAT.
 	\param the_Frequency the sample rate in Hz
 	\param the_Bitrate the bitrate in kbit/s
-	\param the_Channels the channel count, 1 or 2
-	\param the_Mode the bitrate mode the stream is encoded in
+	\param the_Channels the number of channels, 1 or 2
+	\param the_Mode the bitrate mode of the stream
 */
 void ACM::FillMP3Format(WAVEFORMATEX & the_Format, const unsigned int the_Frequency, const unsigned int the_Bitrate, const unsigned int the_Channels, const vbr_mode the_Mode) const
 {
@@ -1355,12 +1359,13 @@ void ACM::FillMP3Format(WAVEFORMATEX & the_Format, const unsigned int the_Freque
 }
 
 /*!
-	Write the name this codec gives an MPEG Layer-3 format into a description
-	buffer, in the wording the format list uses.
+	Writes the name of an MPEG Layer-3 format into a buffer, with the same
+	words as the format list.
 
 	\param the_Format the format to describe
-	\param the_String receives the description, at most
-	       ACMFORMATDETAILS_FORMAT_CHARS characters including the terminator
+	\param the_String receives the name, at most
+	       ACMFORMATDETAILS_FORMAT_CHARS characters, including the terminating
+	       NUL
 */
 void ACM::DescribeMP3Format(const WAVEFORMATEX & the_Format, unsigned short the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const
 {
