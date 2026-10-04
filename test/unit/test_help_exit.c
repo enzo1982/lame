@@ -155,6 +155,20 @@ test_unknown_option_is_rejected(void **state)
 }
 
 /**
+ * @brief An empty argument list, without even a program name, is an error.
+ * @param state fixture state holding an initialised @c lame_t.
+ */
+static void
+test_empty_argument_list_is_rejected(void **state)
+{
+    lame_t  gfp = (lame_t) *state;
+    char   *argv[1];
+
+    argv[0] = NULL;
+    assert_int_equal(parse(gfp, 0, argv), PARSE_REJECTED);
+}
+
+/**
  * @brief An ordinary command line still asks to proceed.
  *
  * Nothing is opened here - the parser only records the names - so this says
@@ -184,6 +198,8 @@ main(void)
         cmocka_unit_test_setup_teardown(test_unknown_preset_is_rejected,
                                         gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_unknown_option_is_rejected,
+                                        gfp_setup, gfp_teardown),
+        cmocka_unit_test_setup_teardown(test_empty_argument_list_is_rejected,
                                         gfp_setup, gfp_teardown),
         cmocka_unit_test_setup_teardown(test_ordinary_invocation_proceeds,
                                         gfp_setup, gfp_teardown),

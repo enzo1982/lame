@@ -2960,6 +2960,10 @@ int parse_args(lame_t gfp, int argc, char **argv, char *const inPath, char *cons
     int     str_argc, ret;
     size_t  n;
 
+    if (argc < 1) { /* not even a program name */
+        error_printf("the argument list is empty\n");
+        return -1;
+    }
     str = lame_getenv("LAMEOPT");
     /* Size the merged argument vector to actually fit: at worst every byte of
        LAMEOPT begins a new token, the real argv contributes argc entries, plus
