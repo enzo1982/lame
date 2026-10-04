@@ -2,15 +2,15 @@
 @defgroup api API Reference
 @brief Everything a program linking against libmp3lame may use.
 
-The public interface is declared in @c include/lame.h, the only header LAME
-installs. Nothing else in the source tree is part of the interface, and
-nothing else carries a stability or ABI guarantee.
+The public interface is declared in @c include/lame.h. It is the only header
+that LAME installs. Nothing else in the source tree is part of the interface,
+and nothing else has a stability or ABI guarantee.
 
 The sections below are in the order a program uses them: create an encoder,
-choose the encoding parameters, then feed audio and collect MP3 frames.
-Tagging is set up before the first frame is encoded, and the statistics are
-read at the end, before the encoder is released. The decoder is independent of
-all of it.
+choose the encoding parameters, then pass in audio and collect MP3 frames.
+Set up the tags before the first frame is encoded. Read the statistics at the
+end, before the encoder is released. The decoder does not depend on any of
+this.
 */
 
 /**
@@ -18,16 +18,15 @@ all of it.
 @ingroup api
 @brief Creating an encoder, running it, and releasing it.
 
-The encoder lifecycle: creating an instance, turning the settings into a
-usable encoder, starting a bitstream, finishing one, and releasing the
-instance - together with the reporting calls that describe the configuration
-those steps arrived at.
+These functions create an encoder, check its settings, encode audio, finish
+the stream and release the encoder. The group also has functions that print
+the final configuration.
 
-A session is lame_init(), then any number of the calls under
-@ref api_settings, then lame_init_params(), which decides whether the
-combination is usable. Audio goes in through one of the lame_encode_buffer()
-variants and the last frames come out of lame_encode_flush(); lame_close()
-releases the instance.
+The order of calls is: lame_init(), then any number of the functions in
+@ref api_settings, then lame_init_params(). lame_init_params() checks whether
+the combination of settings is usable. Audio goes in through one of the
+lame_encode_buffer() functions. lame_encode_flush() returns the last frames.
+lame_close() releases the encoder instance.
 */
 
 /**
@@ -35,43 +34,44 @@ releases the instance.
 @ingroup api
 @brief The encoder parameters, as set/get pairs.
 
-Every encoder setting a caller can change is a set/get pair. The setters
-record a value and validate it in isolation; whether the resulting combination
-is usable is decided later, by lame_init_params().
+Every encoder setting that a caller can change is a set/get pair. A setter
+stores a value and checks only that value. lame_init_params() later checks
+whether the combination of values is usable.
 
-Two properties hold throughout and are not repeated on each function:
+These rules apply to every function in this group:
 
-- a setter returns 0 on success and -1 if the value was rejected or the
-  instance is not usable. A setter that returns other values lists them on
-  its own page;
-- **a getter cannot report an error.** Given an unusable instance it returns
-  0, which for most of these settings is also a legitimate value, so a caller
-  has no way to tell the two apart. Check the instance, not the result.
+- a setter returns 0 on success. It returns -1 if it rejects the value or if
+  the instance is not usable. A setter that returns other values lists them
+  on its own page.
+- **a getter cannot report an error.** If the instance is not usable, the
+  getter returns 0. For most settings, 0 is also a valid value, so the caller
+  cannot tell the two cases apart. Check the instance before you call a
+  getter.
 */
 
 /**
 @defgroup api_tags Tags
 @ingroup api
-@brief The ID3 metadata written alongside the audio.
+@brief The ID3 metadata written with the audio.
 
-Everything a caller can put in the ID3 tags of the encoded file: the familiar
-fields, arbitrary ID3v2 frames, and cover art. These functions only record
-what to write; the tags themselves are produced during encoding, or handed to
-the caller on request.
+These functions set what goes into the ID3 tags of the encoded file: the
+common fields, any ID3v2 frame, and cover art. They only store what to write.
+The encoder writes the tags during encoding, or returns them to the caller on
+request.
 
-Four properties hold throughout and are not repeated on each function:
+These rules apply to every function in this group:
 
-- **all of this must be set first**, before lame_init_params(), since that is
-  where the ID3v2 tag is assembled and it goes ahead of the audio.
-- which tags are written is chosen by id3tag_init() and the handful of
-  functions after it. By default LAME writes an ID3v1 tag, and an ID3v2 one as
-  soon as a field that ID3v1 cannot hold is set.
-- **ID3v1 is a fixed-size format with fixed-length fields.** Anything longer
-  than the field is truncated there without complaint. ID3v2 has no such
-  limit, so the same call can be lossy in one tag and exact in the other.
-- the setters that return @c void cannot report failure at all, including a
-  failure to allocate; the ones that return @c int return 0 on success and
-  non-zero on failure.
+- **set all of this first**, before lame_init_params(). lame_init_params()
+  builds the ID3v2 tag, and the tag comes before the audio.
+- id3tag_init() and the functions after it choose which tags are written. By
+  default LAME writes an ID3v1 tag. It also writes an ID3v2 tag as soon as a
+  field is set that ID3v1 cannot hold.
+- **ID3v1 has fixed-length fields.** Text longer than a field is cut to fit,
+  without a warning. ID3v2 has no such limit, so the same call can lose text
+  in one tag and keep all of it in the other.
+- a setter that returns @c void cannot report a failure, not even a failed
+  allocation. A setter that returns @c int returns 0 on success and non-zero
+  on failure.
 */
 
 /**
@@ -79,29 +79,29 @@ Four properties hold throughout and are not repeated on each function:
 @ingroup api
 @brief What the encoder did, counted while it did it.
 
-The encoder keeps counters as it writes frames, and these report them: how the
-bitrates, the stereo modes and the block types were distributed over the
-encode. Reading them costs nothing and changes nothing.
+The encoder counts as it writes frames, and these functions return the counts:
+how the bitrates, the stereo modes and the block types were distributed over
+the encode. Reading them costs nothing and changes nothing.
 
-Five properties hold throughout and are not repeated on each function:
+These rules apply to every function in this group:
 
-- **when they can be read.** The counters live in the encoder instance, so the
-  order is lame_encode_flush(), then these, then lame_close(). Anything that
-  releases the instance takes the counters with it.
-- **they are reset by lame_init_bitstream()**, which lame_init_params() calls
-  as well - so the counts describe the current bitstream, not the process.
-- **they cannot report an error.** Given an instance that is not usable they
-  return having written nothing, leaving the caller's array as it was. An array
-  the caller did not initialise is therefore indistinguishable from a result.
-- **the 14 bitrate slots are the bitrates of the chosen MPEG version**, in the
-  order the standard lists them. The 4-bit field in an MP3 frame header holds
-  16 values, of which 0 means free format and 15 is invalid; the 14 that remain
-  are what these arrays hold, and lame_bitrate_kbps() reports which bitrate
-  each slot is. A free-format encode uses no index at all, so the entire count
-  is in slot 0 and the other 13 are empty.
-- **the stereo-mode slots are** 0 left/right, 1 left/right with intensity
-  stereo, 2 mid/side, 3 mid/side with intensity stereo. They are counted only
-  where the output has two channels; a mono encode leaves all four at zero.
+- **when to read them.** The counts are stored in the encoder instance, so the
+  order is lame_encode_flush(), then these functions, then lame_close().
+  Releasing the instance also releases the counts.
+- **lame_init_bitstream() sets them to 0.** lame_init_params() calls it too,
+  so the counts describe the current stream, not the whole process.
+- **they cannot report an error.** If the instance is not usable, they write
+  nothing and the caller's array keeps its old contents. So an array that the
+  caller did not initialize looks like a result.
+- **the 14 bitrate slots are the bitrates of the selected MPEG version**, in
+  the order of the standard's table. The bitrate field in a frame header has
+  16 values. 0 means free format and 15 is not valid. The other 14 values are
+  the 14 slots. lame_bitrate_kbps() returns the bitrate of each slot. In a
+  free-format encode, all frames are counted in slot 0 and the other 13 slots
+  are 0.
+- **the stereo mode slots are** 0 left/right, 1 left/right with intensity
+  stereo, 2 mid/side, 3 mid/side with intensity stereo. They count only when
+  the output has two channels. A mono encode leaves all four at 0.
 */
 
 /**
@@ -109,26 +109,24 @@ Five properties hold throughout and are not repeated on each function:
 @ingroup api
 @brief Reading MP3, through the optional decoder library.
 
-libmp3lame does not decode MP3 itself. Decoding is done by libmpg123, an
-external library it can be built against, and that is optional: a build
-without it encodes everything it otherwise would, and decodes nothing at all.
+libmp3lame does not decode MP3 itself. libmpg123 decodes it. This is an
+external library, and LAME can be built without it. A build without libmpg123
+encodes everything as usual and cannot decode anything.
 
-The encoder reaches for it on its own, through none of the calls below, when
-it is asked to measure its own output instead of its input - see
-lame_set_decode_on_the_fly(), which has the encoder create and release a
-decoder for the purpose. The functions here are for the other direction: an
-application that wants to read MP3 itself, to re-encode it or to write it out
-as PCM. It is the interface LAME's own frontend uses to accept MP3 input.
+When lame_set_decode_on_the_fly() is set, the encoder creates and releases its
+own decoder. It does not use the functions below for this. The functions below
+are for an application that reads MP3 itself, for example to re-encode it or
+to write it as PCM. LAME's own frontend uses them to read MP3 input.
 
-Two properties hold throughout and are not repeated on each function:
+These rules apply to every function in this group:
 
-- the decoder is **a separate object from the encoder**. It is created by
-  hip_decode_init(), passed as the first argument to everything here, and
-  destroyed by hip_decode_exit(); an encoder instance is neither needed nor
-  accepted.
-- **a library built without libmpg123 cannot decode at all**, and says so
-  where it can still be acted on: neither creation call hands back a decoder,
-  so the absence is met before any input has been read.
+- the decoder is **a separate object from the encoder**. hip_decode_init()
+  creates it. Every function here takes it as the first argument.
+  hip_decode_exit() destroys it. These functions do not take an encoder
+  instance.
+- **a library built without libmpg123 cannot decode.** In such a library,
+  hip_decode_init() and hip_decode_init_gapless() return NULL. So the program
+  learns this before it reads any input.
 */
 
 /**
@@ -136,7 +134,7 @@ Two properties hold throughout and are not repeated on each function:
 @ingroup api
 @brief Which LAME a program is talking to.
 
-The calls that report the version of LAME a program has linked against: a
-numerical form meant for comparison, and string forms meant for display or for
-embedding in an encoded stream.
+These functions return the version of LAME that a program is linked against:
+a numerical form for comparison, and string forms for display or for writing
+into an encoded stream.
 */

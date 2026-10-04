@@ -8,18 +8,17 @@ frontend, developed and maintained by [The LAME Project](https://lame.sf.net).
 ## Where to start
 
 - The @ref api describes everything a program may call. It is declared in
-  `include/lame.h`, the only header LAME installs. A typical encode session
-  calls lame_init(), configures it, then lame_init_params(), feeds PCM
-  through lame_encode_buffer() (or one of its buffer-format variants), and
-  finishes with lame_encode_flush() and lame_close().
-- `libmp3lame/` contains the encoder implementation itself. Most of it is
-  internal - not part of the stable API or ABI.
-- `frontend/` contains the `lame` command-line tool, built on top of the
-  library.
-- `mp3x` is the optional GTK4 frame analyzer: it encodes a file frame by frame
-  and shows the spectrum, the psychoacoustic decisions and the re-synthesized
-  result, which is the quickest way to see what an encoding setting actually
-  does. Its manual page, `mp3x(1)`, describes how to use it.
+  `include/lame.h`, the only header LAME installs. A program calls
+  lame_init(), sets the parameters and calls lame_init_params(). It then
+  passes PCM to lame_encode_buffer() or one of its variants, and ends with
+  lame_encode_flush() and lame_close().
+- `libmp3lame/` contains the encoder itself. Most of it is internal and not
+  part of the stable API or ABI.
+- `frontend/` contains the `lame` command-line tool, which uses the library.
+- `mp3x` is the optional GTK4 frame analyzer. It encodes a file frame by
+  frame and shows the spectrum, the psychoacoustic decisions and the decoded
+  result. This is the quickest way to see what an encoding setting does. Its
+  manual page, `mp3x(1)`, describes how to use it.
 
 ## License
 
