@@ -51,7 +51,10 @@ TESTS += test_pkgconfig.sh
 # The frontend's exit status on a failed read. This one drives the built lame
 # binary rather than the library, so it needs the source root for the test
 # input as well as the build root for the binary; both are exported below.
+# It runs only where the frontend is built.
+if WITH_LAME_FRONTEND
 TESTS += test_exit_status.sh
+endif
 
 # Every test here links libmp3lame, and every one of them has to load the copy
 # this build just produced - not one the host happens to have installed. That

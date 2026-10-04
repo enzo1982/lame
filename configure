@@ -687,6 +687,8 @@ VECTOR_SSE2_FLAGS
 CPP
 INTERNAL_OPTS_FALSE
 INTERNAL_OPTS_TRUE
+WITH_LAME_FRONTEND_FALSE
+WITH_LAME_FRONTEND_TRUE
 LIB_WITH_DECODER_FALSE
 LIB_WITH_DECODER_TRUE
 mpg123_LIBS
@@ -19522,6 +19524,14 @@ else
 	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf '%s\n' "no" >&6; }
 fi
+ if test -n "${WITH_FRONTEND}"; then
+  WITH_LAME_FRONTEND_TRUE=
+  WITH_LAME_FRONTEND_FALSE='#'
+else
+  WITH_LAME_FRONTEND_TRUE='#'
+  WITH_LAME_FRONTEND_FALSE=
+fi
+
 
 
 
@@ -23291,6 +23301,10 @@ fi
 
 if test -z "${LIB_WITH_DECODER_TRUE}" && test -z "${LIB_WITH_DECODER_FALSE}"; then
   as_fn_error $? "conditional \"LIB_WITH_DECODER\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${WITH_LAME_FRONTEND_TRUE}" && test -z "${WITH_LAME_FRONTEND_FALSE}"; then
+  as_fn_error $? "conditional \"WITH_LAME_FRONTEND\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${INTERNAL_OPTS_TRUE}" && test -z "${INTERNAL_OPTS_FALSE}"; then
