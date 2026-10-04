@@ -67,11 +67,11 @@ typedef void (*lame_report_function)(const char *format, va_list ap);
 typedef enum vbr_mode_e {
   vbr_off=0,            /**< constant bitrate */
   vbr_mt,               /**< obsolete, same as \c vbr_mtrh */
-  vbr_rh,               /**< variable bitrate, the older implementation -
-                             \c --vbr-old on the command line */
+  vbr_rh,               /**< variable bitrate, the older implementation
+                             (\c --vbr-old in the lame tool) */
   vbr_abr,              /**< average bitrate */
-  vbr_mtrh,             /**< variable bitrate, the faster implementation -
-                             \c --vbr-new on the command line */
+  vbr_mtrh,             /**< variable bitrate, the faster implementation
+                             (\c --vbr-new in the lame tool) */
   vbr_max_indicator,    /* Don't use this! It's used for sanity checks.       */
   vbr_default=vbr_mtrh  /**< the recommended variable bitrate mode. A new
                              encoder instance uses \c vbr_off. */
@@ -80,28 +80,30 @@ typedef enum vbr_mode_e {
 
 /**
  * \ingroup api_settings
- * How the two channels of a stereo signal are carried. Set with
- * lame_set_mode().
+ * How the encoder codes the channels. Set with lame_set_mode().
  */
 typedef enum MPEG_mode_e {
   STEREO = 0,     /**< two channels, coded independently of each other */
-  JOINT_STEREO,   /**< two channels, coded together where that is cheaper */
-  DUAL_CHANNEL,   /**< present because the format has it; LAME does not
-                       implement it and it is accepted without complaint */
-  MONO,           /**< one channel; two-channel input is downmixed */
-  NOT_SET,        /**< the default: LAME decides at lame_init_params() */
+  JOINT_STEREO,   /**< two channels. Mid/side coding is used in frames where
+                       it saves bits. */
+  DUAL_CHANNEL,   /**< dual channel. LAME does not implement this mode.
+                       lame_set_mode() accepts it without an error. */
+  MONO,           /**< one channel. Two-channel input is mixed to one
+                       channel. */
+  NOT_SET,        /**< the default. LAME chooses the mode in
+                       lame_init_params(). */
   MAX_INDICATOR   /* Don't use this! It's used for sanity checks. */
 } MPEG_mode;
 
 /**
  * \ingroup api_settings
- * \deprecated The encoder decides padding per frame; no setter or getter takes
+ * \deprecated The encoder decides the padding of each frame. No function takes
  * this type.
  */
 typedef enum Padding_type_e {
   PAD_NO = 0,         /**< never pad */
   PAD_ALL,            /**< always pad */
-  PAD_ADJUST,         /**< pad as needed - what the encoder always does */
+  PAD_ADJUST,         /**< pad as needed. The encoder always does this. */
   PAD_MAX_INDICATOR   /* Don't use this! It's used for sanity checks. */
 } Padding_type;
 
@@ -109,20 +111,20 @@ typedef enum Padding_type_e {
 
 /**
  * \ingroup api_settings
- * The values lame_set_preset() understands, in three families: a target
- * bitrate in kbps for average bitrate encoding, a VBR quality level, or one of
- * the older named presets. 8 to 320 is reserved for the bitrates, so a caller
- * asking for average bitrate may simply pass the rate.
+ * The values that lame_set_preset() accepts:
  *
- * Each quality level has two spellings of the same value: \c Vx as the command
- * line writes it, and \c VBR_xx counting the other way. The named presets
- * resolve to a quality level and also select \c vbr_mtrh, except \c INSANE,
- * which is a constant bitrate.
+ * - 8 to 320: average bitrate (ABR) in kbps. Pass the bitrate itself.
+ * - 410 to 500: a VBR quality level.
+ * - 1000 to 1007: the older named presets.
+ *
+ * Each VBR quality level has two names for the same value. \c Vx is the name
+ * the lame tool uses. \c VBR_xx counts in the opposite direction. Each named
+ * preset selects a VBR quality level and \c vbr_mtrh. The exception is
+ * \c INSANE, which selects 320 kbps constant bitrate.
  */
 typedef enum preset_mode_e {
-    ABR_8 = 8,      /**< average bitrate, 8 kbps - the bottom of the reserved
-                         range */
-    ABR_320 = 320,  /**< average bitrate, 320 kbps - the top of it */
+    ABR_8 = 8,      /**< average bitrate, 8 kbps, the lowest ABR value */
+    ABR_320 = 320,  /**< average bitrate, 320 kbps, the highest ABR value */
 
     V9 = 410,       /**< VBR quality 9, the smallest files */
     VBR_10 = 410,   /**< another spelling of \c V9 */
@@ -165,26 +167,18 @@ typedef enum preset_mode_e {
  *
  * \deprecated Use lame_set_vector_routines() and the calls beside it.
  *
- * These name x86 instruction-set families, and a family is not what the
- * library actually selects: the routines are compiled for SSE2, and SSE here
- * is the group switch for all of them rather than a peer of AVX2.  Naming
- * every future instruction set on every future architecture would mean a new
- * value in this enum, in this header, for each one - so the replacement takes
- * a name instead, and this enum is frozen at the values below.
+ * lame_set_asm_optimizations() and lame_get_asm_optimizations() still work.
+ * \c SSE switches all vector routines on or off. These routines use SSE2.
  *
- * Still supported: the two calls remain exported and keep working.  Nothing
- * here is removed, and no caller loses a capability.
- *
- * MMX and AMD_3DNOW are deprecated more strongly than the others: this
- * library has no MMX or 3DNow! code and has not had any for years.  They are
- * no longer stored, since there was nothing for them to select - the setter
- * refuses them with -2 and the getter always answers 0.  The values stay so
- * that source naming them still compiles.
+ * The library has no MMX or 3DNow! code. For \c MMX and \c AMD_3DNOW the
+ * setter returns -2 and the getter returns 0. These values stay in the enum
+ * so that existing source code still compiles.
  */
 typedef enum asm_optimizations_e {
-    MMX = 1,        /**< no MMX code in this library; the setter answers -2 */
-    AMD_3DNOW = 2,  /**< no 3DNow! code in this library; the setter answers -2 */
-    SSE = 3,        /**< the group switch for the vector routines */
+    MMX = 1,        /**< no MMX code in this library. The setter returns -2. */
+    AMD_3DNOW = 2,  /**< no 3DNow! code in this library. The setter returns
+                         -2. */
+    SSE = 3,        /**< switches all vector routines */
     AVX2 = 4        /**< AVX2 */
 } asm_optimizations;
 
@@ -198,14 +192,14 @@ typedef enum Psy_model_e {
 
 /**
  * \ingroup api_settings
- * How much room the bit reservoir may use. Passed to lame_set_strict_ISO().
+ * The maximum size of the bit reservoir. Set with lame_set_strict_ISO().
  */
 typedef enum buffer_constraint_e {
-    MDB_DEFAULT=0,     /**< a ceiling every decoder in circulation copes with */
-    MDB_STRICT_ISO=1,  /**< the ceiling the ISO document allows */
-    MDB_MAXIMUM=2      /**< the largest the format can express, and the value
-                            in force unless another is set - the name
-                            \c MDB_DEFAULT does not mark the default */
+    MDB_DEFAULT=0,     /**< a limit that all common decoders support */
+    MDB_STRICT_ISO=1,  /**< the limit that the ISO standard allows */
+    MDB_MAXIMUM=2      /**< the largest size the format allows. This is the
+                            default value. \c MDB_DEFAULT is not the default,
+                            despite its name. */
 } buffer_constraint;
 
 
@@ -227,10 +221,9 @@ typedef lame_global_flags *lame_t;
 
 /*
  * REQUIRED:
- * initialize the encoder.  sets default for all encoder parameters,
- * returns NULL if some malloc()'s failed
- * otherwise returns pointer to structure needed for all future
- * API calls.
+ * Creates an encoder and sets all parameters to their default values.
+ * Returns the encoder instance, which every other encoder call takes as
+ * its first argument. Returns NULL if memory allocation fails.
  */
 lame_global_flags * CDECL lame_init(void);
 #if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
@@ -251,7 +244,7 @@ int CDECL lame_init_old(lame_global_flags *);
 int CDECL lame_set_num_samples(lame_global_flags *, unsigned long);
 unsigned long CDECL lame_get_num_samples(const lame_global_flags *);
 
-/* input sample rate in Hz.  default = 44100hz */
+/* input sample rate in Hz.  default = 44100 Hz */
 int CDECL lame_set_in_samplerate(lame_global_flags *, int);
 int CDECL lame_get_in_samplerate(const lame_global_flags *);
 
@@ -261,34 +254,34 @@ int CDECL lame_get_num_channels(const lame_global_flags *);
 
 /*
   scale the input by this amount before encoding.  default=1
-  (not used by decoding routines)
+  The decoder does not use it.
 */
 int CDECL lame_set_scale(lame_global_flags *, float);
 float CDECL lame_get_scale(const lame_global_flags *);
 
 /*
   scale the channel 0 (left) input by this amount before encoding.  default=1
-  (not used by decoding routines)
+  The decoder does not use it.
 */
 int CDECL lame_set_scale_left(lame_global_flags *, float);
 float CDECL lame_get_scale_left(const lame_global_flags *);
 
 /*
   scale the channel 1 (right) input by this amount before encoding.  default=1
-  (not used by decoding routines)
+  The decoder does not use it.
 */
 int CDECL lame_set_scale_right(lame_global_flags *, float);
 float CDECL lame_get_scale_right(const lame_global_flags *);
 
 /*
-  output sample rate in Hz.  default = 0, which means LAME picks best value
-  based on the amount of compression.  MPEG only allows:
-  MPEG1    32, 44.1,   48khz
+  output sample rate in Hz.  default = 0: LAME chooses the sample rate from
+  the bitrate.  MPEG allows only these rates (kHz):
+  MPEG1    32, 44.1,   48
   MPEG2    16, 22.05,  24
   MPEG2.5   8, 11.025, 12
-  lame_init_params() refuses an output rate more than 128 times the input
-  rate, whether set here or picked by LAME.
-  (not used by decoding routines)
+  lame_init_params() fails if the output sample rate is more than 128 times
+  the input sample rate. This also applies when LAME chooses the rate.
+  The decoder does not use it.
 */
 int CDECL lame_set_out_samplerate(lame_global_flags *, int);
 int CDECL lame_get_out_samplerate(const lame_global_flags *);
@@ -302,9 +295,8 @@ int CDECL lame_set_analysis(lame_global_flags *, int);
 int CDECL lame_get_analysis(const lame_global_flags *);
 
 /*
-  1 = write a Xing VBR header frame.
+  1 = write the LAME tag frame (a Xing/Info header) at the start of the stream.
   default = 1
-  this variable must have been added by a Hungarian notation Windows programmer :-)
 */
 int CDECL lame_set_bWriteVbrTag(lame_global_flags *, int);
 int CDECL lame_get_bWriteVbrTag(const lame_global_flags *);
@@ -322,19 +314,20 @@ int CDECL lame_get_ogg(const lame_global_flags *);
 #endif
 
 /*
-  internal algorithm selection.  True quality is determined by the bitrate
-  but this variable will effect quality by selecting expensive or cheap algorithms.
-  quality=0..9.  0=best (very slow).  9=worst.
+  selects the encoding algorithms, from 0 to 9.  The bitrate decides most of
+  the quality.  This setting chooses between slow algorithms with better
+  quality and fast ones.  0 is the best and slowest, 9 the worst and fastest.
   recommended:  2     near-best quality, not too slow
                 5     good quality, fast
-                7     ok quality, really fast
+                7     acceptable quality, very fast
 */
 int CDECL lame_set_quality(lame_global_flags *, int);
 int CDECL lame_get_quality(const lame_global_flags *);
 
 /*
-  mode = 0,1,2,3 = stereo, jstereo, dual channel (not supported), mono
-  default: lame picks based on compression ration and input channels
+  mode = 0,1,2,3 = stereo, joint stereo, dual channel (not supported), mono
+  default: LAME chooses from the compression ratio and the number of input
+  channels
 */
 int CDECL lame_set_mode(lame_global_flags *, MPEG_mode);
 MPEG_mode CDECL lame_get_mode(const lame_global_flags *);
@@ -368,7 +361,7 @@ int CDECL lame_get_findReplayGain(const lame_global_flags *);
 /* decode on the fly. Search for the peak sample. If the ReplayGain
  * analysis is enabled then perform the analysis on the decoded data
  * stream. default = 0 (disabled)
- * NOTE: if this option is set the build-in decoder should not be used */
+ * NOTE: if this option is set the built-in decoder should not be used */
 int CDECL lame_set_decode_on_the_fly(lame_global_flags *, int);
 int CDECL lame_get_decode_on_the_fly(const lame_global_flags *);
 
@@ -401,16 +394,14 @@ int CDECL lame_get_nogap_currentindex(const lame_global_flags*);
 
 /*
  * OPTIONAL:
- * Set printf like error/debug/message reporting functions.
- * The second argument has to be a pointer to a function which looks like
+ * Sets the functions that print error, debug and info messages.
+ * The second argument is a pointer to a function like this one:
  *   void my_debugf(const char *format, va_list ap)
  *   {
  *       (void) vfprintf(stdout, format, ap);
  *   }
- * If you use NULL as the value of the pointer in the set function, the
- * lame buildin function will be used (prints to stderr).
- * To quiet any output you have to replace the body of the example function
- * with just "return;" and use it in the set function.
+ * By default, LAME uses its own function, which prints to stderr.
+ * If you pass NULL, LAME prints nothing on that stream.
  */
 int CDECL lame_set_errorf(lame_global_flags *, lame_report_function);
 int CDECL lame_set_debugf(lame_global_flags *, lame_report_function);
@@ -418,7 +409,8 @@ int CDECL lame_set_msgf  (lame_global_flags *, lame_report_function);
 
 
 
-/* set one of brate compression ratio.  default is compression ratio of 11.  */
+/* set either the bitrate or the compression ratio.  default is a compression
+   ratio of 11.025 */
 int CDECL lame_set_brate(lame_global_flags *, int);
 int CDECL lame_get_brate(const lame_global_flags *);
 int CDECL lame_set_compression_ratio(lame_global_flags *, float);
@@ -432,11 +424,10 @@ int CDECL lame_get_asm_optimizations( const lame_global_flags*  gfp, int );
 /*
  * Which vector routines the encoder runs.
  *
- * This replaces the asm_optimizations pair above.  The set of names is data
- * rather than an enum, so a new instruction set - on this architecture or
- * another - needs no change here and breaks no caller.  Names are lowercase
- * and are the real instruction set ("sse2", not "sse"); the displayed form is
- * the name upper-cased.
+ * This replaces lame_set_asm_optimizations() and lame_get_asm_optimizations().
+ * Each set of routines has a name.  Names are lowercase and name the real
+ * instruction set ("sse2", not "sse").  The displayed form is the name in
+ * uppercase.
  */
 int CDECL lame_get_num_vector_routines(void);
 const char* CDECL lame_get_vector_routines_name(int index);
@@ -467,7 +458,7 @@ int CDECL lame_set_padding_type(lame_global_flags *, Padding_type);
 Padding_type CDECL lame_get_padding_type(const lame_global_flags *);
 #endif
 
-/* MP3 'private extension' bit  Meaningless.  default=0 */
+/* MP3 'private extension' bit.  LAME gives it no meaning.  default=0 */
 int CDECL lame_set_extension(lame_global_flags *, int);
 int CDECL lame_get_extension(const lame_global_flags *);
 
@@ -501,7 +492,7 @@ int CDECL lame_get_experimentalY(const lame_global_flags *);
 int CDECL lame_set_experimentalZ(lame_global_flags *, int);
 int CDECL lame_get_experimentalZ(const lame_global_flags *);
 
-/* Naoki's psycho acoustic model.  default=0 */
+/* Naoki's psychoacoustic model.  default=0 */
 int CDECL lame_set_exp_nspsytune(lame_global_flags *, int);
 int CDECL lame_get_exp_nspsytune(const lame_global_flags *);
 
@@ -520,11 +511,12 @@ vbr_mode CDECL lame_get_VBR(const lame_global_flags *);
 int CDECL lame_set_VBR_q(lame_global_flags *, int);
 int CDECL lame_get_VBR_q(const lame_global_flags *);
 
-/* VBR quality level.  0=highest  9=lowest, Range [0,...,10[  */
+/* VBR quality level.  0=highest  9=lowest.  From 0 to less than 10  */
 int CDECL lame_set_VBR_quality(lame_global_flags *, float);
 float CDECL lame_get_VBR_quality(const lame_global_flags *);
 
-/* Ignored except for VBR=vbr_abr (ABR mode) */
+/* average bitrate in kbps for ABR mode.  CBR mode also uses it when
+   lame_set_brate() was not called */
 int CDECL lame_set_VBR_mean_bitrate_kbps(lame_global_flags *, int);
 int CDECL lame_get_VBR_mean_bitrate_kbps(const lame_global_flags *);
 
@@ -535,8 +527,8 @@ int CDECL lame_set_VBR_max_bitrate_kbps(lame_global_flags *, int);
 int CDECL lame_get_VBR_max_bitrate_kbps(const lame_global_flags *);
 
 /*
-  1=strictly enforce VBR_min_bitrate.  Normally it will be violated for
-  analog silence
+  1 = every frame uses at least the minimum VBR bitrate.  By default, silent
+  frames can use less
 */
 int CDECL lame_set_VBR_hard_min(lame_global_flags *, int);
 int CDECL lame_get_VBR_hard_min(const lame_global_flags *);
@@ -550,14 +542,14 @@ int CDECL lame_set_preset_expopts(lame_global_flags *, int);
 /********************************************************************
  * Filtering control
  ***********************************************************************/
-/* freq in Hz to apply lowpass. Default = 0 = lame chooses.  -1 = disabled */
+/* freq in Hz to apply lowpass. Default = 0: LAME chooses.  -1 = disabled */
 int CDECL lame_set_lowpassfreq(lame_global_flags *, int);
 int CDECL lame_get_lowpassfreq(const lame_global_flags *);
 /* width of transition band, in Hz.  Default = one polyphase filter band */
 int CDECL lame_set_lowpasswidth(lame_global_flags *, int);
 int CDECL lame_get_lowpasswidth(const lame_global_flags *);
 
-/* freq in Hz to apply highpass. Default = 0 = lame chooses.  -1 = disabled */
+/* freq in Hz to apply highpass. Default = 0: LAME chooses.  -1 = disabled */
 int CDECL lame_set_highpassfreq(lame_global_flags *, int);
 int CDECL lame_get_highpassfreq(const lame_global_flags *);
 /* width of transition band, in Hz.  Default = one polyphase filter band */
@@ -566,7 +558,7 @@ int CDECL lame_get_highpasswidth(const lame_global_flags *);
 
 
 /********************************************************************
- * psycho acoustics and other arguments which you should not change
+ * psychoacoustics and other arguments which you should not change
  * unless you know what you are doing
  ***********************************************************************/
 
@@ -586,7 +578,7 @@ int CDECL lame_get_noATH(const lame_global_flags *);
 int CDECL lame_set_ATHtype(lame_global_flags *, int);
 int CDECL lame_get_ATHtype(const lame_global_flags *);
 
-/* lower ATH by this many db */
+/* lower ATH by this many dB */
 int CDECL lame_set_ATHlower(lame_global_flags *, float);
 float CDECL lame_get_ATHlower(const lame_global_flags *);
 
@@ -613,13 +605,13 @@ int CDECL lame_get_cwlimit(const lame_global_flags *);
 #endif
 
 /*
-  allow blocktypes to differ between channels?
-  default: 0 for jstereo, 1 for stereo
+  allow block types to differ between channels?
+  default: 0 for stereo and joint stereo
 */
 int CDECL lame_set_allow_diff_short(lame_global_flags *, int);
 int CDECL lame_get_allow_diff_short(const lame_global_flags *);
 
-/* use temporal masking effect (default = 1) */
+/* use temporal masking effect.  default = 1, but 0 with vbr_mtrh */
 int CDECL lame_set_useTemporal(lame_global_flags *, int);
 int CDECL lame_get_useTemporal(const lame_global_flags *);
 
@@ -635,10 +627,9 @@ int CDECL lame_get_no_short_blocks(const lame_global_flags *);
 int CDECL lame_set_force_short_blocks(lame_global_flags *, int);
 int CDECL lame_get_force_short_blocks(const lame_global_flags *);
 
-/* Input PCM is emphased PCM (for instance from one of the rarely
-   emphased CDs), it is STRONGLY not recommended to use this, because
-   psycho does not take it into account, and last but not least many decoders
-   ignore these bits */
+/* Marks the input as emphasized PCM, as on a few CDs.  Do not use this.
+   LAME only writes the field.  The psychoacoustic model does not take the
+   emphasis into account, and many decoders ignore the field */
 int CDECL lame_set_emphasis(lame_global_flags *, int);
 int CDECL lame_get_emphasis(const lame_global_flags *);
 
@@ -655,10 +646,9 @@ int CDECL lame_get_version(const lame_global_flags *);
 int CDECL lame_get_encoder_delay(const lame_global_flags *);
 
 /*
-  padding appended to the input to make sure decoder can fully decode
-  all input.  Note that this value can only be calculated during the
-  call to lame_encoder_flush().  Before lame_encoder_flush() has
-  been called, the value of encoder_padding = 0.
+  padding appended to the input, so that a decoder can decode all of the
+  input.  LAME computes this value in lame_encode_flush().  Before that
+  call it is 0.
 */
 int CDECL lame_get_encoder_padding(const lame_global_flags *);
 
@@ -669,11 +659,10 @@ int CDECL lame_get_framesize(const lame_global_flags *);
 int CDECL lame_get_mf_samples_to_encode( const lame_global_flags*  gfp );
 
 /*
-  size (bytes) of mp3 data buffered, but not yet encoded.
-  this is the number of bytes which would be output by a call to
-  lame_encode_flush_nogap.  NOTE: lame_encode_flush() will return
-  more bytes than this because it will encode the reamining buffered
-  PCM samples before flushing the mp3 buffers.
+  number of bytes of MP3 data that the encoder has produced but not yet
+  returned.  lame_encode_flush_nogap() returns this many bytes.
+  lame_encode_flush() returns more, because it first encodes the PCM
+  samples that are still in the buffer.
 */
 int CDECL lame_get_size_mp3buffer( const lame_global_flags*  gfp );
 
@@ -681,15 +670,15 @@ int CDECL lame_get_size_mp3buffer( const lame_global_flags*  gfp );
 int CDECL lame_get_frameNum(const lame_global_flags *);
 
 /*
-  lame's estimate of the total number of frames to be encoded
-   only valid if calling program set num_samples
+  LAME's estimate of the total number of frames to be encoded.
+  Valid only if the program set num_samples.
 */
 int CDECL lame_get_totalframes(const lame_global_flags *);
 
 /* RadioGain value. Multiplied by 10 and rounded to the nearest. */
 int CDECL lame_get_RadioGain(const lame_global_flags *);
 
-/* AudiophileGain value. Multipled by 10 and rounded to the nearest. */
+/* AudiophileGain value. Multiplied by 10 and rounded to the nearest. */
 int CDECL lame_get_AudiophileGain(const lame_global_flags *);
 
 /* the peak sample */
@@ -706,8 +695,8 @@ int CDECL lame_get_noclipGainChange(const lame_global_flags *);
    not clip or the value cannot be determined */
 float CDECL lame_get_noclipScale(const lame_global_flags *);
 
-/* returns the limit of PCM samples, which one can pass in an encode call
-   under the constrain of a provided buffer of size buffer_size */
+/* returns the largest number of PCM samples that one encode call can take,
+   so that the output fits into a buffer of buffer_size bytes */
 int CDECL lame_get_maximum_number_of_samples(lame_t gfp, size_t buffer_size);
 
 
@@ -716,7 +705,7 @@ int CDECL lame_get_maximum_number_of_samples(lame_t gfp, size_t buffer_size);
 
 /*
  * REQUIRED:
- * sets more internal configuration based on data provided above.
+ * checks the settings and prepares the encoder.
  * returns -1 if something failed.
  */
 int CDECL lame_init_params(lame_global_flags *);
@@ -724,7 +713,7 @@ int CDECL lame_init_params(lame_global_flags *);
 
 /*
  * OPTIONAL:
- * get the version number, in a string. of the form:
+ * get the version number as a string, such as
  * "3.63 (beta)" or just "3.63".
  */
 const char*  CDECL get_lame_version       ( void );
@@ -763,7 +752,7 @@ void CDECL get_lame_version_numerical(lame_version_t *);
 
 /*
  * OPTIONAL:
- * print internal lame configuration to message handler
+ * print the LAME configuration through the message function
  */
 void CDECL lame_print_config(const lame_global_flags*  gfp);
 
@@ -772,7 +761,7 @@ void CDECL lame_print_internals( const lame_global_flags *gfp);
 
 /**
  * \ingroup api_encoding
- * Input pcm data, output (maybe) mp3 frames.
+ * Encodes PCM samples and writes all complete MP3 frames to @p mp3buf.
  * This routine handles all buffering, resampling and filtering for you.
  *
  * The @p mp3buf_size needed depends on the settings. A worst case for the
@@ -782,40 +771,39 @@ void CDECL lame_print_internals( const lame_global_flags *gfp);
  *
  * The first call after lame_init_params() also returns the ID3v2 tag, when one
  * is written automatically: add its size (lame_get_id3v2_tag()) for that call.
- * Free format is not covered - its bitrates go beyond what the figure assumes.
- * lame_get_maximum_number_of_samples() answers for any settings, free format
- * included, the other way round: how many samples a buffer of a given size
- * takes.
+ * The formula does not apply to free format, because free format allows
+ * higher bitrates. For any settings, including free format,
+ * lame_get_maximum_number_of_samples() returns how many samples fit into a
+ * buffer of a given size.
  *
  * @note If the input has 2 channels and the mode is \c MONO, the encoder
  *       averages the two channels and encodes the result. The data in
  *       @p buffer_l and @p buffer_r is not changed.
  *
- * @param gfp          global context handle.
+ * @param gfp          the encoder instance.
  * @param buffer_l     PCM data for the left channel.
  * @param buffer_r     PCM data for the right channel.
  * @param nsamples     number of samples per channel.
  * @param mp3buf       receives the encoded MP3 stream.
- * @param mp3buf_size  number of valid octets in @p mp3buf. Set it to 0 and
- *                     LAME will not check whether @p mp3buf is large enough.
- * @return The number of bytes written to @p mp3buf, which is 0 while the
- *         encoder is still accumulating a full frame, or a negative value on
- *         failure:
+ * @param mp3buf_size  size of @p mp3buf in bytes. If it is 0, LAME does not
+ *                     check whether @p mp3buf is large enough.
+ * @return The number of bytes written to @p mp3buf. This is 0 while the
+ *         encoder is still collecting samples for a full frame. A negative
+ *         value means failure:
  *         @li -1 @p mp3buf was too small, or NULL while there were bytes to
- *             hand over.
+ *             write.
  *         @li -2 malloc() problem.
  *         @li -3 lame_init_params() not called.
- *         @li -4 psycho acoustic problems.
+ *         @li -4 a problem in the psychoacoustic model.
  *         @li -6 the ReplayGain analysis of the resampled input failed.
  *         @li #LAME_BADINPUTDATA @p nsamples is negative, or a sample is
- *             louder than 4096 times full scale once lame_set_scale() and
- *             the per-channel scales are applied; nothing of the call is
- *             encoded.
+ *             louder than 4096 times full scale after lame_set_scale() and
+ *             the per-channel scales. Nothing of the call is encoded.
  *         @li #LAME_INTERNALERROR the encoder could not fit a frame into its
- *             bits; this and every later encode or flush call fail.
+ *             bits. This call and every later encode or flush call fail.
  */
 int CDECL lame_encode_buffer (
-        lame_global_flags*  gfp,           /* global context handle         */
+        lame_global_flags*  gfp,           /* encoder instance              */
         const short int     buffer_l [],   /* PCM data for left channel     */
         const short int     buffer_r [],   /* PCM data for right channel    */
         const int           nsamples,      /* number of samples per channel */
@@ -830,7 +818,7 @@ int CDECL lame_encode_buffer (
  * channel, not the total number of samples in pcm[]
  */
 int CDECL lame_encode_buffer_interleaved(
-        lame_global_flags*  gfp,           /* global context handlei        */
+        lame_global_flags*  gfp,           /* encoder instance              */
         short int           pcm[],         /* PCM data for left and right
                                               channel, interleaved          */
         int                 num_samples,   /* number of samples per channel,
@@ -843,16 +831,15 @@ int CDECL lame_encode_buffer_interleaved(
 
 /**
  * \ingroup api_encoding
- * As lame_encode_buffer(), but for 'float's.
+ * As lame_encode_buffer(), but the samples are of type float.
  *
- * !! NOTE: !! data must still be scaled to be in the same range as
- * short int, +/- 32768
+ * \note Full scale is +/- 32768, the same range as short int samples.
  *
  * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
  *         sample is not a finite number, as for lame_encode_buffer_ieee_float().
  */
 int CDECL lame_encode_buffer_float(
-        lame_global_flags*  gfp,           /* global context handle         */
+        lame_global_flags*  gfp,           /* encoder instance              */
         const float         pcm_l [],      /* PCM data for left channel     */
         const float         pcm_r [],      /* PCM data for right channel    */
         const int           nsamples,      /* number of samples per channel */
@@ -862,13 +849,12 @@ int CDECL lame_encode_buffer_float(
 
 /**
  * \ingroup api_encoding
- * As lame_encode_buffer(), but for 'float's.
+ * As lame_encode_buffer(), but the samples are of type float.
  *
- * !! NOTE: !! data must be scaled to +/- 1 full scale
+ * \note Full scale is +/- 1.0.
  *
- * Every sample must be a finite number. A NaN or an infinity has no meaning as
- * an audio sample and is refused: it would spread through the psycho acoustic
- * model and turn a whole frame into noise.
+ * Every sample must be a finite number. If a sample is NaN or infinite, the
+ * call returns #LAME_BADINPUTDATA and encodes nothing.
  *
  * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
  *         sample is not a finite number. Nothing is encoded in that case.
@@ -884,7 +870,7 @@ int CDECL lame_encode_buffer_ieee_float(
  * \ingroup api_encoding
  * As lame_encode_buffer_ieee_float(), but for interleaved data.
  *
- * !! NOTE: !! data must be scaled to +/- 1 full scale
+ * \note Full scale is +/- 1.0.
  *
  * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
  *         sample is not a finite number, as for lame_encode_buffer_ieee_float().
@@ -901,7 +887,7 @@ int CDECL lame_encode_buffer_interleaved_ieee_float(
  * \ingroup api_encoding
  * As lame_encode_buffer(), but for 'double's.
  *
- * !! NOTE: !! data must be scaled to +/- 1 full scale
+ * \note Full scale is +/- 1.0.
  *
  * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
  *         sample is not a finite number, as for lame_encode_buffer_ieee_float().
@@ -917,7 +903,7 @@ int CDECL lame_encode_buffer_ieee_double(
  * \ingroup api_encoding
  * As lame_encode_buffer_ieee_double(), but for interleaved data.
  *
- * !! NOTE: !! data must be scaled to +/- 1 full scale
+ * \note Full scale is +/- 1.0.
  *
  * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
  *         sample is not a finite number, as for lame_encode_buffer_ieee_float().
@@ -930,16 +916,14 @@ int CDECL lame_encode_buffer_interleaved_ieee_double(
         unsigned char * mp3buf,
         const int       mp3buf_size);
 
-/* as lame_encode_buffer, but for long's
- * !! NOTE: !! data must still be scaled to be in the same range as
- * short int, +/- 32768
+/* as lame_encode_buffer, but the samples are of type long.
+ * NOTE: full scale is +/- 32768, the same range as short int samples.
  *
- * This scaling was a mistake (doesn't allow one to exploit full
- * precision of type 'long'.  Use lame_encode_buffer_long2() instead.
- *
+ * This scaling does not use the full precision of type long.
+ * Use lame_encode_buffer_long2() instead.
  */
 int CDECL lame_encode_buffer_long(
-        lame_global_flags*  gfp,           /* global context handle         */
+        lame_global_flags*  gfp,           /* encoder instance              */
         const long     buffer_l [],       /* PCM data for left channel     */
         const long     buffer_r [],       /* PCM data for right channel    */
         const int           nsamples,      /* number of samples per channel */
@@ -947,13 +931,11 @@ int CDECL lame_encode_buffer_long(
         const int           mp3buf_size ); /* number of valid octets in this
                                               stream                        */
 
-/* Same as lame_encode_buffer_long(), but with correct scaling.
- * !! NOTE: !! data must still be scaled to be in the same range as
- * type 'long'.   Data should be in the range:  +/- 2^(8*size(long)-1)
- *
+/* Same as lame_encode_buffer_long(), but full scale is the whole range of
+ * type long:  +/- 2^(8*sizeof(long)-1)
  */
 int CDECL lame_encode_buffer_long2(
-        lame_global_flags*  gfp,           /* global context handle         */
+        lame_global_flags*  gfp,           /* encoder instance              */
         const long     buffer_l [],       /* PCM data for left channel     */
         const long     buffer_r [],       /* PCM data for right channel    */
         const int           nsamples,      /* number of samples per channel */
@@ -961,17 +943,13 @@ int CDECL lame_encode_buffer_long2(
         const int           mp3buf_size ); /* number of valid octets in this
                                               stream                        */
 
-/* as lame_encode_buffer, but for int's
- * !! NOTE: !! input should be scaled to the maximum range of 'int'
- * If int is 4 bytes, then the values should range from
- * +/- 2147483648.
- *
- * This routine does not (and cannot, without loosing precision) use
- * the same scaling as the rest of the lame_encode_buffer() routines.
- *
+/* as lame_encode_buffer, but the samples are of type int.
+ * NOTE: full scale is the whole range of int, +/- 2147483648 for a
+ * 4-byte int.  The other lame_encode_buffer() functions use a different
+ * scale, which would lose precision here.
  */
 int CDECL lame_encode_buffer_int(
-        lame_global_flags*  gfp,           /* global context handle         */
+        lame_global_flags*  gfp,           /* encoder instance              */
         const int      buffer_l [],       /* PCM data for left channel     */
         const int      buffer_r [],       /* PCM data for right channel    */
         const int           nsamples,      /* number of samples per channel */
@@ -981,8 +959,7 @@ int CDECL lame_encode_buffer_int(
 
 /*
  * as above, but for interleaved data.
- * !! NOTE: !! data must still be scaled to be in the same range as
- * type 'int32_t'.   Data should be in the range:  +/- 2^(8*size(int32_t)-1)
+ * NOTE: full scale is +/- 2^(8*sizeof(int32_t)-1).
  * NOTE:
  * num_samples = number of samples in the L (or R)
  * channel, not the total number of samples in pcm[]
@@ -1002,10 +979,9 @@ int CDECL lame_encode_buffer_interleaved_int(
 
 /*
  * REQUIRED:
- * lame_encode_flush will flush the intenal PCM buffers, padding with
- * 0's to make sure the final frame is complete, and then flush
- * the internal MP3 buffers, and thus may return a
- * final few mp3 frames.  'mp3buf' should be at least 7200 bytes long
+ * lame_encode_flush encodes the PCM samples still in the internal buffers,
+ * pads the last frame with zeros, and returns the last MP3 frames.
+ * 'mp3buf' should be at least 7200 bytes long
  * to hold all possible emitted data at the standard bitrates. For free
  * format it should hold 8 frames at the chosen bitrate plus 2048 bytes,
  * and 128 more when an ID3v1 tag is written; a frame is
@@ -1013,52 +989,52 @@ int CDECL lame_encode_buffer_interleaved_int(
  * 72000 * kbps / samplerate + 1 bytes for MPEG-2 and 2.5, samplerate
  * being the output sample rate.
  *
- * will also write id3v1 tags (if any) into the bitstream
+ * It also writes the ID3v1 tag into the stream, if there is one.
  *
- * return code = number of bytes output to mp3buf. Can be 0; -1 when
- * mp3buf is too small for them, or NULL; LAME_INTERNALERROR as for
+ * return code = number of bytes written to mp3buf. Can be 0.  -1 when
+ * mp3buf is too small for them, or NULL.  LAME_INTERNALERROR as for
  * lame_encode_buffer().
  */
 int CDECL lame_encode_flush(
-        lame_global_flags *  gfp,    /* global context handle                 */
+        lame_global_flags *  gfp,    /* encoder instance                      */
         unsigned char*       mp3buf, /* pointer to encoded MP3 stream         */
         int                  size);  /* number of valid octets in this stream */
 
 /*
  * OPTIONAL:
- * lame_encode_flush_nogap will flush the internal mp3 buffers and pad
- * the last frame with ancillary data so it is a complete mp3 frame.
+ * lame_encode_flush_nogap returns the MP3 data still in the internal
+ * buffers.  It pads the last frame with ancillary data, so that it is a
+ * complete MP3 frame.
  *
  * 'mp3buf' should be at least 7200 bytes long
  * to hold all possible emitted data at the standard bitrates. For free
  * format it should hold 8 frames at the chosen bitrate plus 2048 bytes,
  * counted as for lame_encode_flush().
  *
- * After a call to this routine, the outputed mp3 data is complete, but
- * you may continue to encode new PCM samples and write future mp3 data
- * to a different file.  The two mp3 files will play back with no gaps
- * if they are concatenated together.
+ * After this call, the MP3 data written so far is complete.  You can
+ * continue to encode new PCM samples and write the MP3 data to a different
+ * file.  The two MP3 files play back without a gap when they are joined.
  *
- * This routine will NOT write id3v1 tags into the bitstream.
+ * This function does NOT write an ID3v1 tag into the stream.
  *
- * return code = number of bytes output to mp3buf. Can be 0; -1 when
- * mp3buf is too small for them, or NULL; LAME_INTERNALERROR as for
+ * return code = number of bytes written to mp3buf. Can be 0.  -1 when
+ * mp3buf is too small for them, or NULL.  LAME_INTERNALERROR as for
  * lame_encode_buffer().
  */
 int CDECL lame_encode_flush_nogap(
-        lame_global_flags *  gfp,    /* global context handle                 */
+        lame_global_flags *  gfp,    /* encoder instance                      */
         unsigned char*       mp3buf, /* pointer to encoded MP3 stream         */
         int                  size);  /* number of valid octets in this stream */
 
 /*
  * OPTIONAL:
- * Normally, this is called by lame_init_params().  It writes id3v2 and
- * Xing headers into the front of the bitstream, and sets frame counters
- * and bitrate histogram data to 0.  You can also call this after
+ * Normally, lame_init_params() calls this.  It writes the ID3v2 tag and the
+ * LAME tag frame at the start of the stream, and sets the frame counters and
+ * the bitrate histogram to 0.  You can also call this after
  * lame_encode_flush_nogap().
  */
 int CDECL lame_init_bitstream(
-        lame_global_flags *  gfp);    /* global context handle                 */
+        lame_global_flags *  gfp);    /* encoder instance                      */
 
 
 
@@ -1068,9 +1044,9 @@ int CDECL lame_init_bitstream(
  * a stereo mode histogram to visualize the distribution of used stereo
  *   modes, useful in joint-stereo mode only
  *   0: LR    left-right encoded
- *   1: LR-I  left-right and intensity encoded (currently not supported)
+ *   1: LR-I  left-right and intensity encoded (not supported)
  *   2: MS    mid-side encoded
- *   3: MS-I  mid-side and intensity encoded (currently not supported)
+ *   3: MS-I  mid-side and intensity encoded (not supported)
  *
  * attention: call them before lame_close()
  * suggested: lame_encode_flush -> lame_*_hist -> lame_close
@@ -1102,47 +1078,42 @@ void CDECL lame_bitrate_block_type_hist (
 #else
 /*
  * OPTIONAL:
- * lame_mp3_tags_fid will rewrite a Xing VBR tag to the mp3 file with file
- * pointer fid.  These calls perform forward and backwards seeks, so make
- * sure fid is a real file.  Make sure lame_encode_flush has been called,
- * and all mp3 data has been written to the file before calling this
- * function.
+ * lame_mp3_tags_fid writes the final LAME tag frame into the MP3 file fid.
+ * It seeks forwards and backwards, so fid must be a real file.  Call it
+ * after lame_encode_flush(), when all MP3 data is written to the file.
  * NOTE:
- * if VBR  tags are turned off by the user, or turned off by LAME itself,
- * this call does nothing
+ * if the LAME tag is turned off by the user or by LAME, this call does
+ * nothing.
  * NOTE:
- * LAME wants to read from the file to skip an optional ID3v2 tag, so
- * make sure you opened the file for writing and reading.
+ * LAME reads the file to skip an ID3v2 tag, so open the file for reading
+ * and writing.
  * NOTE:
- * You can call lame_get_lametag_frame instead, if you want to insert
- * the lametag yourself.
+ * To write the LAME tag yourself, call lame_get_lametag_frame instead.
 */
 void CDECL lame_mp3_tags_fid(lame_global_flags *, FILE* fid);
 #endif
 
 /*
  * OPTIONAL:
- * lame_get_lametag_frame copies the final LAME-tag into 'buffer'.
- * The function returns the number of bytes copied into buffer, or
- * the required buffer size, if the provided buffer is too small.
- * Function failed, if the return value is larger than 'size'!
- * Make sure lame_encode flush has been called before calling this function.
+ * lame_get_lametag_frame copies the final LAME tag frame into 'buffer'.
+ * It returns the number of bytes copied.  If 'buffer' is too small, it
+ * copies nothing and returns the required size.  So a return value larger
+ * than 'size' means failure.  Call lame_encode_flush() first.
  * NOTE:
- * if VBR  tags are turned off by the user, or turned off by LAME,
- * this call does nothing and returns 0.
+ * if the LAME tag is turned off by the user or by LAME, this call does
+ * nothing and returns 0.
  * NOTE:
- * LAME inserted an empty frame in the beginning of mp3 audio data,
- * which you have to replace by the final LAME-tag frame after encoding.
- * In case there is no ID3v2 tag, usually this frame will be the very first
- * data in your mp3 file. If you put some other leading data into your
- * file, you'll have to do some bookkeeping about where to write this buffer.
+ * At the start of the MP3 data, LAME writes an empty frame.  After encoding,
+ * overwrite that frame with this buffer.  Without an ID3v2 tag, this frame
+ * is usually at the start of the file.  If you write other data before the
+ * MP3 data, you must track where the frame is yourself.
  */
 size_t CDECL lame_get_lametag_frame(
         const lame_global_flags *, unsigned char* buffer, size_t size);
 
 /*
  * REQUIRED:
- * final call to free all remaining buffers
+ * frees the encoder instance and all its buffers.  Call it last.
  */
 int  CDECL lame_close (lame_global_flags *);
 
@@ -1186,8 +1157,8 @@ typedef struct {
   int stereo;          /* number of channels                             */
   int samplerate;      /* sample rate                                    */
   int bitrate;         /* bitrate                                        */
-  int mode;            /* mp3 frame type                                 */
-  int mode_ext;        /* mp3 frame type                                 */
+  int mode;            /* channel mode from the frame header             */
+  int mode_ext;        /* mode extension from the frame header           */
   int framesize;       /* number of samples per mp3 frame                */
 
   /* the decoder does not fill in the three fields below */
@@ -1198,8 +1169,8 @@ typedef struct {
 
 /* required call to initialize decoder */
 hip_t CDECL hip_decode_init(void);
-/* With that you don't have to care about MP3 encoder/decoder delay
-   anymore. Only available with libmpg123 (returns NULL otherwise). */
+/* like hip_decode_init, but the decoder removes the encoder delay and
+   padding.  Returns NULL without libmpg123. */
 hip_t CDECL hip_decode_init_gapless(void);
 
 /* cleanup call to exit decoder  */
@@ -1212,20 +1183,16 @@ void CDECL hip_set_msgf  (hip_t gfp, lame_report_function f);
 
 /* Analysis hooks, for a frontend that plots what the decoder saw.
 
-   plotting_data stays an incomplete type here: its layout is internal and
-   changes with the encoder, so it is only ever passed by pointer. A caller
-   that needs the fields includes the internal header and accepts that it is
-   not covered by the API guarantee; a caller that only wires the hooks up
-   does not need them at all.
+   plotting_data is declared but not defined here.  Its layout is internal
+   and can change, so pass it only by pointer.  The fields are in an internal
+   header that is not part of the API.
 
-   hip_set_pinfo installs the block the decoder fills in, and must be called
-   before decoding starts. hip_finish_pinfo completes the last frame's data
-   once the input ends, and does nothing if no block was installed.
+   hip_set_pinfo sets the block that the decoder fills in.  Call it before
+   decoding starts.  hip_finish_pinfo completes the data of the last frame at
+   the end of the input.  It does nothing if no block was set.
 
-   Both accept a NULL decoder, so a frontend that wires the hooks up can do so
-   without first establishing that it got one.
-
-   Both are no-ops unless the library was built with the mpg123 decoder. */
+   Both functions accept NULL as the decoder.  Both do nothing if the library
+   was built without the mpg123 decoder. */
 #ifndef plotting_data_defined
 #define plotting_data_defined
 struct plotting_data;
@@ -1236,7 +1203,7 @@ void CDECL hip_set_pinfo(hip_t gfp, plotting_data* pinfo);
 void CDECL hip_finish_pinfo(hip_t gfp);
 
 /*********************************************************************
- * input 1 mp3 frame, output (maybe) pcm data.
+ * decodes MP3 data and returns the PCM samples.
  *
  *  nout = hip_decode(hip, mp3buf,len,pcm_l,pcm_r);
  *
@@ -1246,8 +1213,8 @@ void CDECL hip_finish_pinfo(hip_t gfp);
  *
  * output:
  *    nout:  -1    : decoding error
- *            0    : need more data before we can complete the decode
- *           >0    : returned 'nout' samples worth of data in pcm_l,pcm_r
+ *            0    : more data is needed to complete a frame
+ *           >0    : number of samples per channel written to pcm_l, pcm_r
  *    pcm_l[nout]  : left channel data
  *    pcm_r[nout]  : right channel data
  *
@@ -1286,7 +1253,7 @@ int CDECL hip_decode1_headers( hip_t           gfp
                              );
 
 /* same as hip_decode1_headers, but also returns enc_delay and enc_padding
-   from VBR Info tag, (-1 if no info tag was found) */
+   from the LAME tag (-1 if there is none) */
 int CDECL hip_decode1_headersB( hip_t gfp
                               , unsigned char*   mp3buf
                               , size_t           len
@@ -1300,9 +1267,8 @@ int CDECL hip_decode1_headersB( hip_t gfp
 
 
 /* OBSOLETE:
- * lame_decode... functions are there to keep old code working
- * but it is strongly recommended to replace calls by hip_decode...
- * function calls, see above.
+ * the lame_decode... functions keep old code working.
+ * Use the hip_decode... functions above instead.
  */
 #if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
 #else
@@ -1344,7 +1310,7 @@ int CDECL lame_decode_exit(void);
 
 /*********************************************************************
  *
- * id3tag stuff
+ * ID3 tags
  *
  *********************************************************************/
 
@@ -1368,17 +1334,17 @@ int CDECL lame_decode_exit(void);
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/* utility to obtain alphabetically sorted list of genre names with numbers */
+/* calls handler for each genre name and number, in alphabetical order */
 void CDECL id3tag_genre_list(
         void (*handler)(int, const char *, void *),
         void*  cookie);
 
 void CDECL id3tag_init     (lame_t gfp);
 
-/* force addition of version 2 tag */
+/* always add a version 2 tag */
 void CDECL id3tag_add_v2   (lame_t gfp);
 
-/* force addition of version 2.4 tag with UTF-8 encoding */
+/* always add a version 2.4 tag with UTF-8 encoding */
 void CDECL id3tag_add_v2_4_UTF8 (lame_t gfp);
 
 /* add only a version 2.4 tag with UTF-8 encoding */
@@ -1405,45 +1371,41 @@ void CDECL id3tag_set_album(lame_t gfp, const char* album);
 void CDECL id3tag_set_year(lame_t gfp, const char* year);
 void CDECL id3tag_set_comment(lame_t gfp, const char* comment);
             
-/* return -1 result if track number is out of ID3v1 range
-                    and ignored for ID3v1 */
+/* returns -1 if the track number is out of the ID3v1 range.  The ID3v1
+   tag then has no track number */
 int CDECL id3tag_set_track(lame_t gfp, const char* track);
 
-/* return non-zero result if genre name or number is invalid
-  result 0: OK
-  result -1: genre number out of range
-  result -2: no valid ID3v1 genre name, mapped to ID3v1 'Other'
-             but taken as-is for ID3v2 genre tag */
+/* returns -1 if the genre number is out of range, 0 otherwise.
+  A name that is not an ID3v1 genre name is not an error.  The ID3v1 tag
+  then gets 'Other', and the ID3v2 tag gets the name as given */
 int CDECL id3tag_set_genre(lame_t gfp, const char* genre);
 
-/* return non-zero result if field name is invalid */
+/* returns non-zero if the field name is not valid */
 int CDECL id3tag_set_fieldvalue(lame_t gfp, const char* fieldvalue);
 
-/* return non-zero result if image type is invalid */
+/* returns non-zero if the image type is not valid */
 int CDECL id3tag_set_albumart(lame_t gfp, const char* image, size_t size);
 
-/* lame_get_id3v1_tag copies ID3v1 tag into buffer.
- * Function returns number of bytes copied into buffer, or number
- * of bytes rquired if buffer 'size' is too small.
- * Function fails, if returned value is larger than 'size'.
+/* lame_get_id3v1_tag copies the ID3v1 tag into buffer.
+ * It returns the number of bytes copied, or the number of bytes required
+ * if 'size' is too small.  A return value larger than 'size' means failure.
  * NOTE:
- * This functions does nothing, if user/LAME disabled ID3v1 tag.
+ * This function does nothing if the user or LAME turned the ID3v1 tag off.
  */
 size_t CDECL lame_get_id3v1_tag(lame_t gfp, unsigned char* buffer, size_t size);
 
-/* lame_get_id3v2_tag copies ID3v2 tag into buffer.
- * Function returns number of bytes copied into buffer, or number
- * of bytes rquired if buffer 'size' is too small.
- * Function fails, if returned value is larger than 'size'.
+/* lame_get_id3v2_tag copies the ID3v2 tag into buffer.
+ * It returns the number of bytes copied, or the number of bytes required
+ * if 'size' is too small.  A return value larger than 'size' means failure.
  * NOTE:
- * This functions does nothing, if user/LAME disabled ID3v2 tag.
+ * This function does nothing if the user or LAME turned the ID3v2 tag off.
  */
 size_t CDECL lame_get_id3v2_tag(lame_t gfp, unsigned char* buffer, size_t size);
 
-/* normaly lame_init_param writes ID3v2 tags into the audio stream
- * Call lame_set_write_id3tag_automatic(gfp, 0) before lame_init_param
- * to turn off this behaviour and get ID3v2 tag with above function
- * write it yourself into your file.
+/* By default, lame_init_params() writes the ID3v2 tag into the MP3 stream.
+ * To write the tag yourself, call lame_set_write_id3tag_automatic(gfp, 0)
+ * before lame_init_params().  Then get the tag with lame_get_id3v2_tag()
+ * and write it to your file.
  */
 void CDECL lame_set_write_id3tag_automatic(lame_global_flags * gfp, int);
 int CDECL lame_get_write_id3tag_automatic(lame_global_flags const* gfp);
@@ -1497,7 +1459,8 @@ int CDECL id3tag_set_comment_utf8(lame_t gfp, char const *lang, char const *desc
 extern const int     bitrate_table    [3][16];
 extern const int     samplerate_table [3][ 4];
 
-/* access functions for use in DLL, global vars are not exported */
+/* access functions for the tables, because a DLL does not export global
+   variables */
 int CDECL lame_get_bitrate(int mpeg_version, int table_index);
 int CDECL lame_get_samplerate(int mpeg_version, int table_index);
 
@@ -1508,29 +1471,29 @@ int CDECL lame_get_samplerate(int mpeg_version, int table_index);
 
 /* maximum size of mp3buffer needed if you encode at most 1152 samples for
    each call to lame_encode_buffer.  see lame_encode_buffer()
-   (LAME_MAXMP3BUFFER is now obsolete)  */
+   (LAME_MAXMP3BUFFER is obsolete)  */
 #define LAME_MAXMP3BUFFER   (16384 + LAME_MAXALBUMART)
 
 
 /**
  *  \ingroup api
  *  Status values returned by the encoding and decoding calls. A negative
- *  value is an error; the `FRONTEND_` codes are produced by the command line
- *  tools rather than by the library.
+ *  value is an error. The `FRONTEND_` codes come from the command-line
+ *  tools, not from the library.
  */
 typedef enum {
     LAME_OKAY             =   0,  /**< the call succeeded */
-    LAME_NOERROR          =   0,  /**< another spelling of \c LAME_OKAY */
+    LAME_NOERROR          =   0,  /**< another name for \c LAME_OKAY */
     LAME_GENERICERROR     =  -1,  /**< the call failed, with no more specific
                                        code to report */
     LAME_NOMEM            = -10,  /**< an allocation failed */
-    LAME_BADBITRATE       = -11,  /**< the bitrate asked for is not usable */
-    LAME_BADSAMPFREQ      = -12,  /**< the sample rate asked for is not
-                                       usable */
-    LAME_INTERNALERROR    = -13,  /**< the library reached a state it does not
-                                       expect */
-    /** The data handed to the encoder cannot be encoded, e.g. a PCM sample
-        which is not a finite number. */
+    LAME_BADBITRATE       = -11,  /**< the requested bitrate is not supported */
+    LAME_BADSAMPFREQ      = -12,  /**< the requested sample rate is not
+                                       supported */
+    LAME_INTERNALERROR    = -13,  /**< an internal error occurred in the
+                                       library */
+    /** The input data cannot be encoded, for example a PCM sample that is not
+        a finite number. */
     LAME_BADINPUTDATA     = -14,
 
     FRONTEND_READERROR    = -80,  /**< the input could not be read */
