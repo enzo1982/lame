@@ -22,9 +22,9 @@
  *  \brief The mp3x plotting layer.
  *  \internal
  *
- *  The GTK4/Cairo successor to gpkplotting.c. Mp3xCanvas holds the shared
- *  drawing primitives; the analyzer graphs are built entirely from them and
- *  read only plotting_data - no analyzer logic lives in this layer.
+ *  The GTK4/Cairo drawing code. Mp3xCanvas has the shared drawing functions.
+ *  The analyzer graphs use only these functions, and read only plotting_data.
+ *  This file contains no analyzer logic.
  */
 
 #ifdef HAVE_CONFIG_H

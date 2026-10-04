@@ -37,7 +37,8 @@ extern int lame_set_stream_binary_mode(FILE * const fp);
 
 /**
  * @internal
- * @brief The times a file carries, captured before anything opens it.
+ * @brief The access and modification times of a file, read before anything
+ *        opens it.
  */
 typedef struct {
     int     valid;

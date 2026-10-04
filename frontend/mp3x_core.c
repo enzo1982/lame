@@ -24,15 +24,10 @@
  *  \brief The mp3x analyzer engine.
  *  \internal
  *
- *  Mechanically extracted from gtkanal.c so that the encode/decode analysis
- *  work is separated from any particular UI toolkit. It reads one frame of
- *  input, encodes it, and re-synthesizes it with LAME's internal HIP/mpglib
- *  decoder, filling the shared plotting_data ring.
- *
- *  Nothing here includes GTK/GDK; that is the whole point. The frame algorithm
- *  is unchanged from the original gtkmakeframe(): the only differences are that
- *  the encoder handle is now a parameter rather than a file-global, and the
- *  internal-flags pointer is derived locally from it.
+ *  The engine reads one frame of input, encodes it, and decodes it again with
+ *  the internal HIP/mpglib decoder of LAME. It fills the shared plotting_data
+ *  ring. This file does not include GTK or GDK, so that the analysis does not
+ *  depend on a GUI toolkit.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -190,13 +185,9 @@ mp3x_core_shutdown(void)
 }
 
 
-/**********************************************************************
- * read one frame and encode it
- *
- * Verbatim from gtkanal.c:gtkmakeframe(). The encoder handle is now the
- * parameter gfp (previously a file-global); gfc is derived from it here,
- * exactly as the frontend used to derive it once in gtkcontrol().
- **********************************************************************/
+/*
+ * Reads one frame and encodes it. gfc is derived here from the parameter gfp.
+ */
 int
 mp3x_core_makeframe(lame_global_flags *gfp)
 {
@@ -343,14 +334,11 @@ mp3x_core_makeframe(lame_global_flags *gfp)
 }
 
 
-/**********************************************************************
- * advance one frame
- *
- * The ring-buffer stepping the GTK1 frontend used to inline in frameadv1():
- * shift the ring back one slot, read+encode+decode the next frame into the new
- * slot (pinfo), timestamp it, and point pplot at the display frame. A frontend
- * calls this to drive the analyzer; all analysis stays here.
- **********************************************************************/
+/*
+ * Advancing one frame: shift the ring back one slot, read, encode and decode
+ * the next frame into the new slot (pinfo), store its time, and point pplot to
+ * the display frame.
+ */
 static void
 shift_ring(void)
 {
@@ -465,13 +453,12 @@ mp3x_core_drain_step(void)
 }
 
 
-/**********************************************************************
- * display-frame navigation
- *
- * The display frame walks the ring between the newest displayable frame
- * (&Pinfo[READ_AHEAD]) and NUMBACK frames older. Back moves toward history,
- * forward toward the newest; each returns 1 if it actually moved.
- **********************************************************************/
+/*
+ * Navigation of the display frame. It moves in the ring between the newest
+ * frame that can be shown (&Pinfo[READ_AHEAD]) and NUMBACK frames before it.
+ * Back moves to older frames, forward to newer ones. Each returns 1 if it
+ * moved.
+ */
 int
 mp3x_core_disp_back(void)
 {

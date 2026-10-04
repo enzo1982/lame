@@ -149,8 +149,9 @@ set_process_affinity()
 #if defined(WIN32)
 
 /**
- *  Long Filename support for the WIN32 platform
- *
+ *  Replaces the last part of @p filename, in place, with its long Windows
+ *  file name. If the file is not found, or the long name does not fit,
+ *  @p filename is not changed.
  */
 
 void

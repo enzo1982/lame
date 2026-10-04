@@ -86,10 +86,11 @@
 
 /**
  * @internal
- * @brief The loudest sample of a frame, on the scale @c levelmessage() takes.
+ * @brief Returns the largest sample magnitude of a frame, on the scale that
+ *        @c levelmessage() uses.
  *
  * @param Buffer  the frame, per channel.
- * @param n       samples per channel.
+ * @param n       the number of samples per channel.
  * @return the magnitude, at most 32768.
  */
 static unsigned int
@@ -109,12 +110,12 @@ maxvalue(int Buffer[2][1152], int n)
 
 /**
  * @internal
- * @brief The loudest sample of a frame of floating point samples, on the scale
- *        @c levelmessage() takes.
+ * @brief Returns the largest sample magnitude of a frame of floating point
+ *        samples, on the scale that @c levelmessage() uses.
  *
- * @param Buffer  the frame, per channel, 1.0 being full scale.
- * @param n       samples per channel.
- * @return the magnitude, 32768 at and beyond full scale.
+ * @param Buffer  the frame, per channel. 1.0 is full scale.
+ * @param n       the number of samples per channel.
+ * @return the magnitude. 32768 at or above full scale.
  */
 static unsigned int
 maxvalue_float(float Buffer[2][1152], int n)

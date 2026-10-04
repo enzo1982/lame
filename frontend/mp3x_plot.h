@@ -22,17 +22,17 @@
  *  \brief The GTK4/Cairo plotting layer for the analyzer.
  *  \internal
  *
- *  The successor to the GTK1 gpkplotting.c. It has two parts:
+ *  It has two parts:
  *
- *  1. Mp3xCanvas - reusable drawing primitives (background, baseline, line
- *     series, bars, title) that map analyzer data onto a Cairo surface. Every
- *     graph is built from these; they contain no analyzer logic.
- *  2. The analyzer graphs themselves (PCM waveform, re-synthesis overlay, and
- *     the rest), each a thin GtkDrawingArea that reads plotting_data and draws
+ *  1. Mp3xCanvas: drawing functions (background, baseline, lines, bars, title)
+ *     that draw analyzer data on a Cairo surface. Every graph uses them. They
+ *     contain no analyzer logic.
+ *  2. The analyzer graphs (PCM waveform, re-synthesis overlay, and the others).
+ *     Each graph is a small GtkDrawingArea that reads plotting_data and draws
  *     with the canvas.
  *
- *  \see \ref mp3x_internals for the drawing and export architecture. What each
- *  graph means to someone reading it is described in the mp3x(1) manual page.
+ *  \see \ref mp3x_internals for how drawing and export work. The mp3x(1) manual
+ *  page describes what each graph means.
  */
 
 #ifndef LAME_MP3X_PLOT_H
@@ -41,39 +41,41 @@
 #include <gtk/gtk.h>
 
 /**
- *  Shared plotting primitives.
+ *  The drawing functions that all graphs share.
  *
- *  The x axis is always the sample/band index <tt>[0..n-1]</tt> spread across
- *  the full width; the y axis maps the data range <tt>[ymn..ymx]</tt>, with
- *  \c ymx at the top. Callers stack-allocate a canvas per draw and drive it
- *  with the primitives below.
+ *  The x axis is always the sample or band index <tt>[0..n-1]</tt>, across the
+ *  full width. The y axis shows the data range <tt>[ymn..ymx]</tt>, with \c ymx
+ *  at the top. For each draw, the caller creates a canvas on the stack and
+ *  uses the functions below.
  */
 typedef struct {
     cairo_t *cr;                   /**< The Cairo context being drawn into. */
-    GtkWidget *widget;             /**< Borrowed for the duration of one draw. */
+    GtkWidget *widget;             /**< Used for one draw; not owned. */
     int      width;                /**< Full surface width in pixels. */
     int      height;               /**< Full surface height in pixels. */
     int      plot_top;             /**< First pixel row below the title band. */
-    int      plot_height;          /**< Rows available to the data mapping. */
+    int      plot_height;          /**< Pixel rows for the data. */
     double   ymn;                  /**< Data value mapped to the bottom edge. */
     double   ymx;                  /**< Data value mapped to the top edge. */
 } Mp3xCanvas;
 
-/** Begin a graph: bind the context and size, set the y range, paint the background. */
+/** Starts a graph: sets the context, the size and the y range, and paints the
+    background. */
 void mp3x_canvas_begin(Mp3xCanvas *c, GtkWidget *widget, cairo_t *cr,
                         int width, int height, double ymn, double ymx);
-/** Set the drawing colour; RGB components run 0..1. */
+/** Sets the drawing color. The RGB components are 0..1. */
 void mp3x_canvas_color(Mp3xCanvas *c, double r, double g, double b);
-/** Draw the grey baseline at data y = 0. */
+/** Draws the gray baseline at data y = 0. */
 void mp3x_canvas_zero_line(Mp3xCanvas *c);
-/** Draw <tt>y[0..n-1]</tt> as a polyline, x being the index across the width. */
+/** Draws <tt>y[0..n-1]</tt> as a line. x is the index, across the width. */
 void mp3x_canvas_series(Mp3xCanvas *c, const double *y, int n);
-/** Draw <tt>y[0..n-1]</tt> as vertical bars rising from the y = 0 baseline. */
+/** Draws a vertical bar for each value of <tt>y[0..n-1]</tt>, up from the
+    baseline at y = 0. */
 void mp3x_canvas_bars(Mp3xCanvas *c, const double *y, int n);
-/** Draw a vertical line at index \p i of \p n across the width, from data-y
-    \p y0 to \p y1, in the current colour. */
+/** Draws a vertical line at index \p i of \p n across the width, from data
+    y \p y0 to \p y1, in the current color. */
 void mp3x_canvas_vline(Mp3xCanvas *c, int i, int n, double y0, double y1);
-/** Draw a title string near the top-left, in the current colour. */
+/** Draws a title near the top left corner, in the current color. */
 void mp3x_canvas_title(Mp3xCanvas *c, const char *title);
 
 
@@ -81,88 +83,98 @@ void mp3x_canvas_title(Mp3xCanvas *c, const char *title);
  * Analyzer graphs (built on the canvas).
  * -------------------------------------------------------------------------- */
 
-/** PCM waveform of the current frame (\c plotting_data.pcmdata, left channel). */
+/** The PCM waveform of the current frame (\c plotting_data.pcmdata, left
+    channel). */
 GtkWidget *mp3x_plot_pcm_new(void);
-/** Render the PCM waveform graph to a PNG file. */
+/** Draws the PCM waveform graph into a PNG file. */
 cairo_status_t mp3x_plot_pcm_write_png(const char *path, int width, int height);
 
-/** Original input against encode-then-decode re-synthesized PCM, overlaid. */
+/** The original input and the re-synthesized PCM (encoded, then decoded
+    again), drawn over each other. */
 GtkWidget *mp3x_plot_resynth_new(void);
-/** Render the re-synthesis comparison graph to a PNG file. */
+/** Draws the re-synthesis comparison graph into a PNG file. */
 cairo_status_t mp3x_plot_resynth_write_png(const char *path, int width, int height);
 
-/** MDCT log-energy spectrum, 576 lines, for granule \p gr (0 or 1), left channel. */
+/** The MDCT log-energy spectrum, 576 lines, for granule \p gr (0 or 1), left
+    channel. */
 GtkWidget *mp3x_plot_mdct_new(int gr);
-/** Render an MDCT spectrum graph to a PNG file. */
+/** Draws an MDCT spectrum graph into a PNG file. */
 cairo_status_t mp3x_plot_mdct_write_png(const char *path, int gr,
                                          int width, int height);
 
 /**
- *  Psychoacoustic energy per scalefactor band, granule \p gr, left channel:
- *  signal energy as bars, masking threshold and actual quantization noise as
- *  lines.
+ *  The psychoacoustic energy per scalefactor band, for granule \p gr, left
+ *  channel. The signal energy is drawn as bars, and the masking threshold and
+ *  the real quantization noise as lines.
  */
 GtkWidget *mp3x_plot_psy_new(int gr);
-/** Render a psychoacoustic graph to a PNG file. */
+/** Draws a psychoacoustic graph into a PNG file. */
 cairo_status_t mp3x_plot_psy_write_png(const char *path, int gr,
                                         int width, int height);
 
 /**
- *  LAME's scalefactor magnitude per scalefactor band, granule \p gr, left
- *  channel, as upright bars - laid out for a long block (\c SBMAX_l bands) or a
- *  short block (<tt>3 * SBMAX_s</tt>, the short bands across the three windows).
+ *  The scalefactor magnitude of LAME per scalefactor band, for granule \p gr,
+ *  left channel, as vertical bars. A long block has \c SBMAX_l bands. A short
+ *  block has <tt>3 * SBMAX_s</tt>: the short bands of the three windows.
  */
 GtkWidget *mp3x_plot_sfb_new(int gr);
-/** Render a scalefactor graph to a PNG file. */
+/** Draws a scalefactor graph into a PNG file. */
 cairo_status_t mp3x_plot_sfb_write_png(const char *path, int gr,
                                         int width, int height);
 
 /**
- *  Set the display options shared by every graph.
+ *  Sets the display options that all graphs use.
  *
- *  Call before redrawing when a toggle changes; the defaults reproduce the
- *  original gtkanal behaviour.
+ *  Call it before the redraw when the user changes one of them. All options
+ *  are 0 by default.
  *
- *  \param channel     0 for left, 1 for right.
- *  \param ms          0 for L/R, 1 for M/S - so \p channel then picks Mid or Side.
- *  \param difference  Non-zero to make the re-synthesis graph draw
- *                     decoded minus original.
- *  \param source      0 for the LAME encoder side, 1 for the mpg123-decoded
- *                     side; applies to the MDCT and scalefactor graphs.
+ *  \param channel     0 for left, 1 for right. If \p ms is 1: 0 for mid, 1 for
+ *                     side.
+ *  \param ms          0 for left/right, 1 for mid/side.
+ *  \param difference  Nonzero to make the re-synthesis graph draw the decoded
+ *                     signal minus the original.
+ *  \param source      0 for the LAME encoder side, 1 for the side that mpg123
+ *                     decoded. Used by the MDCT and scalefactor graphs.
  */
 void mp3x_plot_set_options(int channel, int ms, int difference, int source);
 
-/** Toggle the scalefactor-band marker lines on the MDCT graphs; on by default. */
+/** Switches the scalefactor-band lines on the MDCT graphs on or off. They are
+    on by default. */
 void mp3x_plot_set_sfblines(int on);
 
 /**
- *  Choose the psychoacoustic spectrum's x axis.
+ *  Selects the x axis of the psychoacoustic spectrum.
  *
- *  \param on  0 for one point per scalefactor band - the default, and what the
- *             noise comparison needs - or 1 for one point per FFT bin. This is
- *             gtkanal's Spectrum menu, its \c gtkinfo.kbflag.
+ *  \param on  0 for one point per scalefactor band. This is the default, and
+ *             only this view also draws the masking threshold and the
+ *             quantization noise. 1 for one point per FFT bin. The Spectrum
+ *             menu sets this option.
  */
 void mp3x_plot_set_kbflag(int on);
 
 /**
- *  Select which of a short block's three interleaved windows to draw; all three
- *  by default. This is gtkanal's \c subblock_draw, selected there - as here -
- *  with the 1/2/3/0 keys.
+ *  Selects which of the three windows of a short block the graphs draw. By
+ *  default, all three are drawn. In the GUI, the keys 1, 2 and 3 select one
+ *  window, and the key 0 selects all three.
+ *
+ *  \param w0  nonzero to draw the first window.
+ *  \param w1  nonzero to draw the second window.
+ *  \param w2  nonzero to draw the third window.
  */
 void mp3x_plot_set_subblock(int w0, int w1, int w2);
 
 /**
- *  Infrastructure self-test: exercise every canvas primitive into a PNG.
- *  \internal Developer-only; deliberately not exposed in the File menu.
+ *  A self-test: draws with every canvas function into a PNG file.
+ *  \internal For developers only. On purpose, the File menu does not offer it.
  */
 cairo_status_t mp3x_plot_demo_write_png(const char *path, int width, int height);
 
 /**
- *  Composite screenshot: render all eight analyzer graphs into a single PNG,
- *  laid out as the on-screen graph stack.
+ *  A combined screenshot: draws all eight analyzer graphs into one PNG file,
+ *  in the same order as on the screen.
  *
- *  Uses the canonical fixed dimensions (600 x 499) of the analyzer's standard
- *  layout. This is a re-render, not a literal capture of the user's window.
+ *  It uses the fixed size (600 x 499) of the standard analyzer layout. It draws
+ *  the graphs again. It does not capture the window of the user.
  */
 cairo_status_t mp3x_plot_composite_write_png(const char *path);
 

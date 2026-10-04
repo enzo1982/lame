@@ -96,15 +96,16 @@ char   *strchr(), *strrchr();
 ************************************************************************/
 
 
-/** @internal @brief The input's times, captured before anything opens it. */
+/** @internal @brief The times of the input file, read before anything opens it. */
 static lame_file_times input_file_times;
 
 /**
  * @internal
- * @brief Takes the input file's times, before anything opens it.
+ * @brief Reads the access and modification times of the input file, before
+ *        anything opens it.
  *
- * Does nothing unless @c --preserve-modtime was given, and nothing for
- * standard input, which has no file to take them from.
+ * Does nothing without @c --preserve-modtime, and nothing for standard input,
+ * which has no file times.
  *
  * @param inPath  the input file name, "-" for standard input.
  */
@@ -121,11 +122,12 @@ capture_file_times(char const *inPath)
 
 /**
  * @internal
- * @brief Gives the output file the times captured from the input.
+ * @brief Sets the access and modification times of the output file to those
+ *        of the input file.
  *
- * A pipe on either side is passed over silently - the request was about files.
- * A named file that could not be stamped is reported, because the request then
- * went unfulfilled.
+ * Does nothing, and prints nothing, if the input is standard input or the
+ * output is standard output ("-"). Prints a warning if the times cannot be set
+ * on the output file.
  *
  * @param inPath   the input file name, "-" for standard input.
  * @param outPath  the output file name, "-" for standard output.
@@ -468,17 +470,17 @@ write_id3v1_tag(lame_t gf, FILE * outf)
 }
 
 
-/** @internal @brief Room for a full TXXX descriptor=value string. */
+/** @internal @brief The buffer size for a complete TXXX descriptor=value string. */
 #define RG_TXXX_MAX  64
 
 /**
  * @internal
- * @brief How much longer the two frames can get once the measured figures
+ * @brief How many bytes the two TXXX frames can grow when the measured values
  *        replace the placeholders.
  *
- * PINK_REF and MAX_dB bound the analysis at -55 dB to +65 dB, so a gain
- * costs at most a sign and two integer digits, and a peak normalised to
- * full scale one digit before the point.
+ * PINK_REF and MAX_dB limit the gain to -55 dB ... +65 dB. So a gain needs at
+ * most a sign and two digits before the decimal point. A peak, as a fraction of
+ * full scale, needs one digit before the decimal point.
  */
 #define RG_TXXX_SLACK 3
 
@@ -487,25 +489,25 @@ write_id3v1_tag(lame_t gf, FILE * outf)
 /** @internal @brief The track-peak frame, in id3tag_set_fieldvalue() form. */
 #define RG_PEAK_TXXX "TXXX=REPLAYGAIN_TRACK_PEAK="
 
-/** @internal @brief The full scale lame_get_PeakSample() reports against. */
+/** @internal @brief The full scale of the values that lame_get_PeakSample() returns. */
 #define SAMPLE_T_FULL_SCALE 32768.0
 
 
 /**
  * @internal
- * @brief Writes the two ReplayGain values into the ID3v2 tag being built.
+ * @brief Writes the two ReplayGain values into the ID3v2 tag that is being
+ *        built.
  *
- * Both are written in the form the ReplayGain specification gives, so a
- * positive gain carries no sign and neither value is padded with zeros.
- * Setting a user-defined text frame whose description is already present
- * replaces that frame, so the same call serves for reserving the placeholders
- * and for filling them in.
+ * Both values use the format of the ReplayGain specification. A positive gain
+ * has no plus sign, and neither value is padded with zeros. If the tag already
+ * has a TXXX frame with the same description, the new frame replaces it. So
+ * this function is used both to reserve the placeholders and to fill them in.
  *
- * @param gf         the encoder whose tag is being built.
+ * @param gf         the encoder instance whose tag is being built.
  * @param gain_db    the track gain, in decibels.
  * @param peak       the track peak, as a fraction of full scale.
- * @param with_peak  write the peak frame as well; the peak is only known where
- *                   the stream is decoded as it is encoded.
+ * @param with_peak  nonzero to also write the peak frame. The peak is known
+ *                   only when the stream is decoded during encoding.
  * @return 0 on success.
  */
 static int
@@ -526,13 +528,13 @@ set_replaygain_frames(lame_global_flags * gf, double gain_db, double peak, int w
 
 /**
  * @internal
- * @brief Switches the option off for this run, saying why.
+ * @brief Turns off @c --replaygain-id3v2 for this run, and prints a warning
+ *        with the reason.
  *
- * Declining is better than reserving frames that cannot be filled in: a
- * placeholder left in the file would be read as a real gain of 0 dB, and
- * silence would leave the user believing the file carries one.
+ * It is called when the ReplayGain frames could not be filled in later. A
+ * placeholder left in the file would read as a gain of 0 dB.
  *
- * @param why  what made the frames impossible; goes into the warning.
+ * @param why  the reason, printed in the warning.
  */
 static void
 decline_replaygain_frames(char const *why)
@@ -547,13 +549,14 @@ decline_replaygain_frames(char const *why)
  * @internal
  * @brief Reserves the ReplayGain frames before the tag is written.
  *
- * The figures are not known until the audio has been encoded, and the tag goes
- * out in front of it, so room is made for them first and filled in afterwards.
- * Called once the output file is open and before lame_init_params(), the
- * last moment the tag's contents can still be decided.
+ * The gain and peak values are known only after the audio is encoded, but the
+ * ID3v2 tag is written before the audio. So this function adds placeholder
+ * frames, and update_replaygain_frames() writes the values later. Call it after
+ * the output file is open and before lame_init_params(). After
+ * lame_init_params(), the tag contents cannot change.
  *
- * @param gf    the encoder whose tag is being built.
- * @param outf  the output file, which must be seekable for the later rewrite.
+ * @param gf    the encoder instance whose tag is being built.
+ * @param outf  the output file. It must be seekable, for the later rewrite.
  */
 static void
 reserve_replaygain_frames(lame_global_flags * gf, FILE * outf)
@@ -593,15 +596,17 @@ reserve_replaygain_frames(lame_global_flags * gf, FILE * outf)
 
 /**
  * @internal
- * @brief Fills in the reserved frames once the figures are known.
+ * @brief Fills in the reserved frames when the gain and peak values are known.
  *
- * The rewritten tag has to be exactly the length of the one already in the
- * file - checked before anything is written; a mismatch leaves the file
- * alone rather than overwriting the audio behind the tag.
+ * The new tag must have exactly the same length as the tag already in the
+ * file. The function checks this before it writes anything. If the lengths
+ * differ, it does not change the file, so the audio after the tag is not
+ * overwritten.
  *
- * @param gf          the encoder holding the measured figures.
- * @param outf        the output file, rewound to its start to rewrite the tag.
- * @param id3v2_size  the length of the tag as it was written the first time.
+ * @param gf          the encoder instance with the measured values.
+ * @param outf        the output file. The function seeks to its start to
+ *                    rewrite the tag.
+ * @param id3v2_size  the length of the tag when it was first written.
  */
 static void
 update_replaygain_frames(lame_global_flags * gf, FILE * outf, size_t id3v2_size)

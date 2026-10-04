@@ -707,15 +707,15 @@ samples_to_skip_at_end(void)
 
 /**
  * @internal
- * @brief How many floating point input samples lie beyond full scale once the
- *        encoder's scaling is applied.
+ * @brief Returns how many floating point input samples are above full scale
+ *        after the scaling of the encoder.
  *
- * Counted by @c get_audio_float() as it hands samples on, so it answers for
- * the file read so far, and reset for each input file. Exactly full scale is
- * not counted.
+ * @c get_audio_float() counts them while it reads. So the count covers the
+ * part of the file that was read so far. It starts at 0 for each input file. A
+ * sample at exactly full scale is not counted.
  *
- * @return the number of samples, 0 when the input stayed within full scale or
- *         held no floating point samples.
+ * @return the number of samples. 0 if no sample was above full scale, or if
+ *         the input has no floating point samples.
  */
 unsigned long
 samples_above_full_scale(void)
@@ -725,10 +725,11 @@ samples_above_full_scale(void)
 
 /**
  * @internal
- * @brief Whether the open input file holds floating point samples.
+ * @brief Tells whether the open input file contains floating point samples.
  *
- * Such a file is read with @c get_audio_float() and encoded with
- * @c lame_encode_buffer_ieee_float(); @c get_audio() refuses it.
+ * The frontend reads such a file with @c get_audio_float() and encodes it with
+ * @c lame_encode_buffer_ieee_float(). @c get_audio() returns -1 for such a
+ * file.
  *
  * @return nonzero for floating point samples, 0 otherwise.
  */
@@ -778,12 +779,13 @@ static int
  * @brief Converts a floating point sample to a 16 bit one, for the 16 bit
  *        PCM that @c --decode writes.
  *
- * Rounds at 32 bit resolution and keeps the top 16 bits, as an integer
- * sample is reduced to 16 bit, so both readers in this file give the same
- * value whichever one @c --with-fileio selected.
+ * The function rounds the sample to 32 bits and keeps the top 16 bits.
+ * Integer samples are reduced to 16 bits in the same way. So both readers in
+ * this file return the same value, whichever one @c --with-fileio selected.
  *
  * @param u a finite sample, where 1.0 is full scale.
- * @return the sample as a 16 bit value, the extremes at and beyond full scale.
+ * @return the 16 bit sample. A sample at or above full scale gives the largest
+ *         or the smallest 16 bit value.
  */
 static short
 float_sample_to_16bit(float u)
@@ -808,17 +810,19 @@ float_sample_to_16bit(float u)
 
 /**
  * @internal
- * @brief Counts the samples the encoder will see beyond full scale.
+ * @brief Counts the samples that the encoder gets above full scale.
  *
- * Applies what @c lame_init_params() makes of the scale factors - the overall
- * and the per-channel ones, and the mix of two input channels into one output
- * channel - so a sample the scaling brings within full scale is not counted.
+ * Before counting, the function applies the same scaling as the encoder: the
+ * overall scale, the left and right scales, and the mix of two input channels
+ * into one mono output channel. It uses the values that @c lame_init_params()
+ * set. A sample that this scaling brings back within full scale is not
+ * counted.
  *
- * @param gfp  the encoder, initialised.
- * @param l    the left channel, 1.0 being full scale.
- * @param r    the right channel; not read for mono input.
- * @param n    samples per channel.
- * @return how many samples lie strictly beyond full scale.
+ * @param gfp  the encoder instance, after @c lame_init_params().
+ * @param l    the left channel, where 1.0 is full scale.
+ * @param r    the right channel. Not read for mono input.
+ * @param n    the number of samples per channel.
+ * @return the number of samples above full scale.
  */
 static unsigned long
 count_above_full_scale(lame_t gfp, float const *l, float const *r, int n)
@@ -899,17 +903,17 @@ get_audio16(lame_t gfp, short buffer[2][1152])
 
 /**
  * @internal
- * @brief Reads a frame of floating point samples, as @c get_audio() reads
- *        integer ones.
+ * @brief Reads one frame of floating point samples.
  *
- * The samples are handed on as the file holds them, 1.0 being full scale, for
- * @c lame_encode_buffer_ieee_float(). Those beyond full scale once scaled are
- * counted; @c samples_above_full_scale() reports them.
+ * It works like @c get_audio(), which reads integer samples. The samples are
+ * not converted: 1.0 is full scale, as @c lame_encode_buffer_ieee_float()
+ * expects. The function counts the samples that are above full scale after
+ * scaling. @c samples_above_full_scale() returns this count.
  *
- * @param gfp     the encoder, initialised.
+ * @param gfp     the encoder instance, after @c lame_init_params().
  * @param buffer  receives up to 1152 samples per channel.
- * @return the samples per channel, 0 at the end of the input, negative on an
- *         error.
+ * @return the number of samples per channel. 0 at the end of the input, and a
+ *         negative value on an error.
  */
 int
 get_audio_float(lame_t gfp, float buffer[2][1152])
@@ -1624,16 +1628,17 @@ read_samples_pcm(FILE * musicin, int sample_buffer[2304], int samples_to_read)
 
 /**
  * @internal
- * @brief Reads 32 bit floating point samples into the host's byte order.
+ * @brief Reads 32 bit floating point samples, in the byte order of the host.
  *
- * The file's byte order is decided as for integer samples: little endian
- * unless the format or @c --swap-bytes says otherwise. Where it differs from
- * the host's, the four bytes of each sample are reversed.
+ * The byte order of the file is decided in the same way as for integer
+ * samples: little endian, unless the format or @c --swap-bytes says otherwise.
+ * If it differs from the byte order of the host, the four bytes of each sample
+ * are reversed.
  *
  * @param musicin          the input file.
  * @param sample_buffer    receives the samples, interleaved.
- * @param samples_to_read  how many, at most 2304.
- * @return the samples read, negative on an error.
+ * @param samples_to_read  the number of samples to read, at most 2304.
+ * @return the number of samples read. A negative value on an error.
  */
 static int
 read_samples_float(FILE * musicin, float sample_buffer[2304], int samples_to_read)

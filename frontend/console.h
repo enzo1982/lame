@@ -26,7 +26,8 @@
 extern "C" {
 #endif
 
-/** @brief Bytes for one terminal control string, its terminator included. */
+/** @brief The size in bytes of one terminal control string, including the
+    terminating NUL. */
 #define CONSOLE_CAP_SIZE 16
 
 typedef struct console_io_struct {

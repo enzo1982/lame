@@ -160,14 +160,14 @@ lame_set_stream_binary_mode(FILE * const fp)
 
 /**
  * @internal
- * @brief Remembers the access and modification times a file carries.
+ * @brief Reads the access and modification times of a file.
  *
- * Called before anything opens the file: reading a file updates its access
- * time, so times taken afterwards describe the reader rather than the file.
+ * Call it before anything opens the file, because reading a file changes its
+ * access time.
  *
  * @param path   the file to read the times from.
- * @param times  receives them, and is marked invalid where they could not be
- *               read or where this build cannot write them again anyway.
+ * @param times  receives the times. It is marked invalid if the times cannot
+ *               be read, or if this build cannot set file times.
  * @return 0 on success, -1 otherwise.
  */
 int
@@ -200,13 +200,14 @@ lame_read_file_times(char const *path, lame_file_times * times)
 
 /**
  * @internal
- * @brief Gives a file the times remembered by lame_read_file_times().
+ * @brief Sets the access and modification times of a file to the values from
+ *        lame_read_file_times().
  *
- * @param path   the file to stamp.
- * @param times  times previously read; an invalid set is refused rather than
- *               applied, so a failed read cannot become a wrong stamp.
- * @return 0 on success, -1 otherwise, including where the platform offers no
- *         way to set file times.
+ * @param path   the file to change.
+ * @param times  the times to set. If they are marked invalid, the function
+ *               changes nothing and returns -1.
+ * @return 0 on success. -1 on failure, and also if the platform cannot set
+ *         file times.
  */
 int
 lame_write_file_times(char const *path, lame_file_times const *times)

@@ -78,12 +78,10 @@ static struct EncoderProgress {
  * @internal
  * @brief How many digits the frame counter needs for this file.
  *
- * The heading is built to the same width, so the columns of the rows below it
- * stay under the headings they belong to.
+ * The heading uses the same width, so each column stays under its heading.
  *
- * @param totalframes  how many frames the file will produce.
- * @return digits to reserve, never fewer than the six the display has
- *         always reserved.
+ * @param totalframes  the number of frames that the file will have.
+ * @return the number of digits to reserve, at least 6.
  */
 static int
 ts_frame_width(int totalframes)

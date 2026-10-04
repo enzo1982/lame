@@ -3,9 +3,9 @@
  *  \brief mp3x analyzer session - internal interface.
  *  \internal
  *
- *  The toolkit-independent per-file session lifecycle for the GTK4 mp3x frame
- *  analyzer. One Mp3xSession exists for each open input file; the application
- *  as a whole can be empty (no session) or hold a single session at a time.
+ *  Opening and closing one input file in the GTK4 mp3x frame analyzer, without
+ *  any GUI toolkit code. There is one Mp3xSession for each open input file. The
+ *  application has either no session or one session.
  *
  *  \code
  *  Mp3xPrevalidateResult pre;
@@ -19,14 +19,14 @@
  *  mp3x_session_free(s);
  *  \endcode
  *
- *  The session owns a fresh \c lame_t for the file it represents. Open and
- *  Close define its state transitions; the GTK frontend routes File > Open,
- *  Open Recent, File > Close and File > Quit through those functions.
+ *  The session owns a new \c lame_t for its file. Open and close change its
+ *  state. The GTK frontend calls these functions for File > Open, Open Recent,
+ *  File > Close and File > Quit.
  *
- *  Nothing here includes GTK/GDK. The session engine is toolkit-independent so
- *  the GTK layer in mp3x_ui.c can drive it without coupling.
+ *  This file does not include GTK or GDK, so the GTK code in mp3x_ui.c can use
+ *  the session without depending on it.
  *
- *  \see \ref mp3x_internals for the ownership rules that make a stale async
+ *  \see \ref mp3x_internals for the ownership rules that make a late async
  *  callback safe.
  */
 
@@ -48,19 +48,19 @@ extern "C" {
 
 
 /**
- *  A snapshot of the five process-wide frontend configuration structs.
+ *  A copy of the five global frontend configuration structs.
  *
- *  parse.c exposes \c global_reader, \c global_writer, \c global_ui_config,
- *  \c global_decoder and \c global_raw_pcm. They are mutated by \c parse_args and by
- *  \c init_infile. mp3x_session treats them as the per-file session state they
- *  actually are: every session open restores a captured startup baseline before
- *  any new configuration is applied, so options from a prior file - or
- *  raw-input CLI flags given for the initial file - cannot leak into a later
- *  GUI-opened file.
+ *  parse.c defines \c global_reader, \c global_writer, \c global_ui_config,
+ *  \c global_decoder and \c global_raw_pcm. \c parse_args and \c init_infile
+ *  change them. mp3x_session treats these structs as per-file state. Before
+ *  each open, it restores the values saved at startup, and then it applies the
+ *  new configuration. So options from an earlier file, or raw-input options
+ *  given on the command line for the first file, do not apply to a file opened
+ *  later in the GUI.
  *
- *  Every member of these five structs is plain value data with no pointers, and
- *  \c mp3data_struct inside \c DecoderConfig holds only integers, so struct-copy
- *  is a safe capture and restore mechanism.
+ *  The members of these five structs are plain values without pointers, and
+ *  \c mp3data_struct inside \c DecoderConfig contains only integers. So a
+ *  struct copy is a safe way to save and restore them.
  */
 typedef struct {
     ReaderConfig    reader;

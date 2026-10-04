@@ -275,21 +275,20 @@ char* fromUtf16( char* src )
 
 /**
  * @internal
- * @brief Converts text between character sets, reporting what it could not.
+ * @brief Converts text from one character set to another.
  *
- * iconv() stops at the first character it cannot produce and leaves the rest
- * unread. What could be converted is still returned - a transliterating
- * conversion is what is asked for - and a warning names the value and how
- * many bytes were dropped.
+ * iconv() stops at the first character that it cannot convert. The function
+ * then returns the part that was converted, and prints a warning with the value
+ * and the number of bytes that were dropped.
  *
- * @param to        the character set to produce, as iconv_open() names it.
- * @param from      the character set the text is in.
+ * @param to        the target character set, as iconv_open() names it.
+ * @param from      the character set of the text.
  * @param src       the text.
- * @param srcbytes  how much of it to convert.
- * @param room      in the units the callers use; the buffer is four times that
- *                  plus a margin, and @a room is what iconv may fill.
- * @param lead      bytes at the front of the result that belong to the caller
- *                  rather than to the conversion, for a byte-order mark.
+ * @param srcbytes  the number of bytes of @a src to convert.
+ * @param room      the number of bytes that iconv() may write. The buffer is
+ *                  larger, so the result always ends with zero bytes.
+ * @param lead      the number of bytes at the start of the result that the
+ *                  caller fills in, for a byte-order mark.
  * @return the converted text. An empty string if this system cannot convert
  *         between the two character sets. NULL if no memory is left.
  */
@@ -431,7 +430,8 @@ static int unusable_number = 0;
 
 /**
  * @internal
- * @brief Refuse an option value no option can use, and mark the parse failed.
+ * @brief Prints an error for an option value that no option can use, and
+ *        marks the parse as failed.
  *
  * @param token  the option, for the message.
  * @param arg    the value as given.
@@ -807,7 +807,7 @@ help_developer_switches(FILE * const fp)
             );
     fprintf(fp,
             "    --athaa-type n  ATH auto adjust: 0 'no' else 'loudness based'\n"
-/** OBSOLETE "    --athaa-loudapprox n   n=1 total energy or n=2 equal loudness curve\n"*/
+/*  OBSOLETE "    --athaa-loudapprox n   n=1 total energy or n=2 equal loudness curve\n"*/
             "    --athaa-sensitivity x  activation offset in -/+ dB for ATH auto-adjustment\n"
             "\n");
     fprintf(fp,
@@ -1759,18 +1759,14 @@ set_vector_routines(lame_global_flags * gfp, const char *name)
 
 
 /**
- * Copy a positional input/output filename argument into a fixed PATH_MAX+1
- * byte buffer, always null-terminating the result.
+ * Copies an input or output file name from the command line into a buffer of
+ * PATH_MAX+1 bytes. The copy always ends with a NUL.
  *
- * A source of PATH_MAX bytes or longer is rejected rather than copied, so the
- * destination is never left unterminated for a later unbounded string scan.
- *
- * @param src  NUL-terminated source filename.
- * @param dst  destination buffer of at least PATH_MAX+1 bytes; on success it
- *             holds a null-terminated copy of @p src, on failure it is left
- *             unchanged.
- * @return 0 on success, or -1 if @p src is PATH_MAX bytes or longer (an error
- *         naming the offending file is printed).
+ * @param src  the file name, NUL-terminated.
+ * @param dst  a buffer of at least PATH_MAX+1 bytes. On success, it contains a
+ *             NUL-terminated copy of @p src. On failure, it is not changed.
+ * @return 0 on success. -1 if @p src is PATH_MAX bytes or longer. Then the
+ *         function prints an error with the file name.
  */
 static int
 set_path_arg(char const *const src, char *const dst)
