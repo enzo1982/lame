@@ -24,9 +24,10 @@
 #include "Encoder.h"
 
 
-//////////////////////////////////////////////////////////////////////
-// Construction/Destruction
-//////////////////////////////////////////////////////////////////////
+/**
+ * Creates the encoder wrapper and its output buffer. The LAME encoder itself is
+ * created later, by Init().
+ */
 CEncoder::CEncoder() :
     pgf(NULL),
     m_bInpuTypeSet(FALSE),
@@ -47,9 +48,16 @@ CEncoder::~CEncoder()
         delete [] m_outFrameBuf;
 }
 
-//////////////////////////////////////////////////////////////////////
-// SetInputType - check if given input type is supported
-//////////////////////////////////////////////////////////////////////
+/**
+ * Checks whether the encoder supports an input format, and stores it.
+ *
+ * The encoder supports 16 bit PCM, mono or stereo, at 8000, 11025, 12000,
+ * 16000, 22050, 24000, 32000, 44100 or 48000 Hz.
+ *
+ * @param lpwfex      the input format.
+ * @param bJustCheck  true to only check the format, without storing it.
+ * @return S_OK if the format is supported, E_INVALIDARG if not.
+ */
 HRESULT CEncoder::SetInputType(LPWAVEFORMATEX lpwfex, bool bJustCheck)
 {
     CAutoLock l(&m_lock);
@@ -88,9 +96,9 @@ HRESULT CEncoder::SetInputType(LPWAVEFORMATEX lpwfex, bool bJustCheck)
     return E_INVALIDARG;
 }
 
-//////////////////////////////////////////////////////////////////////
-// SetOutputType - try to initialize encoder with given output type
-//////////////////////////////////////////////////////////////////////
+/**
+ * Stores the encoder settings for the output. Init() applies them.
+ */
 HRESULT CEncoder::SetOutputType(MPEG_ENCODER_CONFIG &mabsi)
 {
     CAutoLock l(&m_lock);
@@ -101,10 +109,13 @@ HRESULT CEncoder::SetOutputType(MPEG_ENCODER_CONFIG &mabsi)
     return S_OK;
 }
 
-//////////////////////////////////////////////////////////////////////
-// Init - initialized or reiniyialized encoder SDK with given input 
-// and output settings
-//////////////////////////////////////////////////////////////////////
+/**
+ * Creates and configures the LAME encoder from the stored input type and
+ * output settings, if it does not exist yet, and resets the output buffer.
+ *
+ * @return S_OK on success. E_UNEXPECTED if the input type or the output
+ *         settings are not set. E_FAIL if LAME cannot be initialized.
+ */
 HRESULT CEncoder::Init()
 {
     CAutoLock l(&m_lock);
@@ -169,7 +180,7 @@ HRESULT CEncoder::Init()
             if (m_mabsi.dwVoiceMode != 0)
             {
                 lame_set_lowpassfreq(pgf,12000);
-                ///pgf->VBR_max_bitrate_kbps = 160;
+                //pgf->VBR_max_bitrate_kbps = 160;
             }
 
             if (m_mabsi.dwKeepAllFreq != 0)
@@ -215,9 +226,10 @@ HRESULT CEncoder::Init()
     return S_OK;
 }
 
-//////////////////////////////////////////////////////////////////////
-// Close - closes encoder
-//////////////////////////////////////////////////////////////////////
+/**
+ * Closes the LAME encoder. If the encoder writes a LAME tag and @p pStream is
+ * not NULL, the function first writes the final LAME tag into the stream.
+ */
 HRESULT CEncoder::Close(IStream* pStream)
 {
 	CAutoLock l(&m_lock);
@@ -235,10 +247,13 @@ HRESULT CEncoder::Close(IStream* pStream)
     return S_OK;
 }
 
-//////////////////////////////////////////////////////////////////////
-// Encode - encodes data placed on pdata and returns
-// the number of processed bytes
-//////////////////////////////////////////////////////////////////////
+/**
+ * Encodes PCM samples into the output buffer.
+ *
+ * @param pdata      the 16 bit PCM samples.
+ * @param data_size  the size of @p pdata in bytes.
+ * @return the number of bytes of @p pdata that were used. -1 on an error.
+ */
 int CEncoder::Encode(const short * pdata, int data_size)
 {
     CAutoLock l(&m_lock);
@@ -305,9 +320,9 @@ int CEncoder::Encode(const short * pdata, int data_size)
     return bytes_processed;
 }
 
-//
-// Finsh - flush the buffered samples
-//
+/**
+ * Flushes the samples that the encoder still holds into the output buffer.
+ */
 HRESULT CEncoder::Finish()
 {
     CAutoLock l(&m_lock);
@@ -404,10 +419,13 @@ int CEncoder::GetFrame(const unsigned char ** pframe)
     return 0;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Returns block of a mp3 file, witch size integer multiples of cbAlign
-// or not aligned if finished
-////////////////////////////////////////////////////////////////////////////////
+/**
+ * Returns the encoded data that is ready, in a size that is a multiple of
+ * @p cbAlign. After Finish(), it returns all remaining data, and rounds
+ * @p *piBufferSize up to a multiple of @p cbAlign.
+ *
+ * @return the number of bytes in the block. -1 on an error.
+ */
 int CEncoder::GetBlockAligned(const unsigned char ** pblock, int* piBufferSize, const long& cbAlign)
 {
 	ASSERT(piBufferSize);
@@ -518,7 +536,10 @@ HRESULT CEncoder::skipId3v2(IStream *pStream, size_t lametag_frame_size)
     return S_OK;
 }
 
-// Updates VBR tag
+/**
+ * Writes the final LAME tag frame over the first frame of the stream, after
+ * any ID3v2 tag.
+ */
 HRESULT CEncoder::updateLameTagFrame(IStream* pStream)
 {
 	HRESULT hr = S_OK;

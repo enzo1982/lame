@@ -41,9 +41,9 @@ const char *chChMode[4] = {
     "Joint stereo",
     "Dual channel"};
 
-////////////////////////////////////////////////////////////////
-// CreateInstance
-////////////////////////////////////////////////////////////////
+/**
+ * Creates the property page. The class factory of the filter calls it.
+ */
 CUnknown *CMpegAudEncPropertyPageAdv::CreateInstance( LPUNKNOWN punk, HRESULT *phr )
 {
     CMpegAudEncPropertyPageAdv *pNewObject
@@ -55,9 +55,9 @@ CUnknown *CMpegAudEncPropertyPageAdv::CreateInstance( LPUNKNOWN punk, HRESULT *p
     return pNewObject;
 }
 
-////////////////////////////////////////////////////////////////
-// Constructor
-////////////////////////////////////////////////////////////////
+/**
+ * Creates the property page for the advanced encoder settings.
+ */
 CMpegAudEncPropertyPageAdv::CMpegAudEncPropertyPageAdv(LPUNKNOWN punk, HRESULT *phr) :
     CBasePropertyPage(NAME("Encoder Advanced Property Page"), punk, IDD_ADVPROPS, IDS_AUDIO_ADVANCED_TITLE),
     m_pAEProps(NULL)
@@ -67,10 +67,9 @@ CMpegAudEncPropertyPageAdv::CMpegAudEncPropertyPageAdv(LPUNKNOWN punk, HRESULT *
     InitCommonControls();
 }
 
-//
-// OnConnect
-//
-// Give us the filter to communicate with
+/**
+ * Gets the IAudioEncoderProperties interface of the filter.
+ */
 HRESULT CMpegAudEncPropertyPageAdv::OnConnect(IUnknown *pUnknown)
 {
     ASSERT(m_pAEProps == NULL);
@@ -101,11 +100,10 @@ HRESULT CMpegAudEncPropertyPageAdv::OnConnect(IUnknown *pUnknown)
     return NOERROR;
 }
 
-//
-// OnDisconnect
-//
-// Release the interface
-
+/**
+ * Saves the settings of the filter in the registry, and releases the
+ * interface.
+ */
 HRESULT CMpegAudEncPropertyPageAdv::OnDisconnect()
 {
     // Release the interface
@@ -131,11 +129,9 @@ HRESULT CMpegAudEncPropertyPageAdv::OnDisconnect()
     return NOERROR;
 }
 
-//
-// OnActivate
-//
-// Called on dialog creation
-
+/**
+ * Called when the dialog is created. Fills the dialog controls.
+ */
 HRESULT CMpegAudEncPropertyPageAdv::OnActivate(void)
 {
     InitPropertiesDialog(m_hwnd);
@@ -143,19 +139,17 @@ HRESULT CMpegAudEncPropertyPageAdv::OnActivate(void)
     return NOERROR;
 }
 
-//
-// OnDeactivate
-//
-// Called on dialog destruction
-
+/**
+ * Called when the dialog is destroyed.
+ */
 HRESULT CMpegAudEncPropertyPageAdv::OnDeactivate(void)
 {
     return NOERROR;
 }
 
-////////////////////////////////////////////////////////////////
-// OnReceiveMessage - message handler function
-////////////////////////////////////////////////////////////////
+/**
+ * Handles the messages of the dialog.
+ */
 INT_PTR CMpegAudEncPropertyPageAdv::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
     switch (uMsg)
@@ -243,9 +237,10 @@ INT_PTR CMpegAudEncPropertyPageAdv::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM 
     }
 }
 
-//
-// OnApplyChanges
-//
+/**
+ * Called when the user presses Apply. Stores the current settings, saves them
+ * in the registry, and applies them to the filter.
+ */
 HRESULT CMpegAudEncPropertyPageAdv::OnApplyChanges()
 {
     m_pAEProps->get_EnforceVBRmin(&m_dwEnforceVBRmin);
@@ -266,9 +261,9 @@ HRESULT CMpegAudEncPropertyPageAdv::OnApplyChanges()
     return S_OK;
 }
 
-//
-// Initialize dialogbox controls with proper values
-//
+/**
+ * Fills the dialog controls with the current settings.
+ */
 void CMpegAudEncPropertyPageAdv::InitPropertiesDialog(HWND hwndParent)
 {
     EnableControls(hwndParent, TRUE);
@@ -330,9 +325,9 @@ void CMpegAudEncPropertyPageAdv::InitPropertiesDialog(HWND hwndParent)
 }
 
 
-////////////////////////////////////////////////////////////////
-// EnableControls
-////////////////////////////////////////////////////////////////
+/**
+ * Enables or disables the dialog controls.
+ */
 void CMpegAudEncPropertyPageAdv::EnableControls(HWND hwndParent, bool bEnable)
 {
     EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_ENFORCE_MIN), bEnable);
@@ -351,11 +346,9 @@ void CMpegAudEncPropertyPageAdv::EnableControls(HWND hwndParent, bool bEnable)
     EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_STOP), bEnable);
 }
 
-//
-// SetDirty
-//
-// notifies the property page site of changes
-
+/**
+ * Marks the page as changed, and tells the property page site.
+ */
 void CMpegAudEncPropertyPageAdv::SetDirty()
 {
     m_bDirty = TRUE;

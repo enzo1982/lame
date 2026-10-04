@@ -241,10 +241,11 @@ static void PresetOptions( lame_global_flags *gfp, LONG myPreset )
 
 
 /**
-    \brief Frees a stream and remembers that it is gone.
+    \brief Closes a stream, and records its handle as released, so that
+           beCloseStream() and beWriteInfoTag() do not use it again.
 
-    \param gfp the stream; the one beWriteVBRHeader() would write is
-               forgotten with it
+    \param gfp the stream to close. If beWriteVBRHeader() would write to
+               this stream, its reference to the stream is cleared too.
 */
 static void release_stream( lame_global_flags* gfp )
 {

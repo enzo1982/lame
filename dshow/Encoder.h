@@ -48,25 +48,25 @@ const unsigned int dwBitRateValue[2][14] =
 #define OUT_BUFFER_MAX              (OUT_BUFFER_SIZE - OUT_BUFFER_GUARD)
 
 typedef struct {
-    DWORD   dwSampleRate;                   //SF in Hz
-    DWORD   dwBitrate;                      //BR in bit per second
+    DWORD   dwSampleRate;                   ///< output sample rate in Hz
+    DWORD   dwBitrate;                      ///< bitrate in kbit/s
     vbr_mode    vmVariable;
-    DWORD   dwVariableMin;                  //specify a minimum allowed bitrate
-    DWORD   dwVariableMax;                  //specify a maximum allowed bitrate
-    DWORD   dwQuality;                      //Encoding quality
-    DWORD   dwVBRq;                         // VBR quality setting (0=highest quality, 9=lowest)                         
-    long    lLayer;                         //Layer: 1 or 2
+    DWORD   dwVariableMin;                  ///< lowest VBR bitrate in kbit/s
+    DWORD   dwVariableMax;                  ///< highest VBR bitrate in kbit/s
+    DWORD   dwQuality;                      ///< encoding quality
+    DWORD   dwVBRq;                         ///< VBR quality, 0 (highest) to 9 (lowest)                         
+    long    lLayer;                         ///< the layer setting of the interface, 1 or 2. The encoder does not use it.
 
-    MPEG_mode ChMode;                       //Channel coding mode: see doc
+    MPEG_mode ChMode;                       ///< channel mode
     DWORD   dwForceMS;
 
-    DWORD   bCRCProtect;                    //Is CRC protection activated?
+    DWORD   bCRCProtect;                    ///< nonzero to write CRC checksums
     DWORD   bForceMono;
     DWORD   bSetDuration;
-    DWORD   bCopyright;                     //Is the stream protected by copyright?
-    DWORD   bOriginal;                      //Is the stream an original?
+    DWORD   bCopyright;                     ///< nonzero to set the copyright bit
+    DWORD   bOriginal;                      ///< nonzero to set the original bit
 
-    DWORD   dwPES;                          // PES header. Obsolete
+    DWORD   dwPES;                          ///< the PES setting. The encoder does not support PES output.
 
     DWORD   dwEnforceVBRmin;
     DWORD   dwVoiceMode;
@@ -86,9 +86,8 @@ public:
     CEncoder();
     virtual ~CEncoder();
 
-    // Initialize encoder with PCM stream properties
-    HRESULT SetInputType(LPWAVEFORMATEX lpwfex, bool bJustCheck = FALSE);   // returns E_INVALIDARG if not supported
-    // GetInputType - returns current input type
+    HRESULT SetInputType(LPWAVEFORMATEX lpwfex, bool bJustCheck = FALSE);
+    /// Copies the input format. Returns E_UNEXPECTED if it is not set.
     HRESULT GetInputType(WAVEFORMATEX *pwfex)
     {
         if(m_bInpuTypeSet)
@@ -100,10 +99,8 @@ public:
             return E_UNEXPECTED;
     }
 
-    // Set MPEG audio parameters
-    HRESULT SetOutputType(MPEG_ENCODER_CONFIG &mabsi);      // returns E_INVALIDARG if not supported or
-                                                            // not compatible with input type
-    // Return current MPEG audio settings
+    HRESULT SetOutputType(MPEG_ENCODER_CONFIG &mabsi);
+    /// Copies the encoder settings. Returns E_UNEXPECTED if they are not set.
     HRESULT GetOutputType(MPEG_ENCODER_CONFIG* pmabsi)
     {
         if (m_bOutpuTypeSet)
@@ -115,27 +112,23 @@ public:
             return E_UNEXPECTED;
     }
 
-    // Set if output stream is a PES. Obsolete
+    /// Sets the PES setting to 0, whatever @p bPES is.
     void SetPES(bool bPES)
     {
         m_mabsi.dwPES = false;//bPES;
     }
-    // Is output stream a PES. Obsolete
+    /// Returns the PES setting. The encoder does not support PES output.
     BOOL IsPES() const
     {
         return (BOOL)m_mabsi.dwPES;
     }
 
-    // Initialize encoder SDK
     HRESULT Init();
-    // Close encoder SDK
     HRESULT Close(IStream* pStream);
 
-    // Encode media sample data
     int Encode(const short * pdata, int data_size);
     int GetFrame(const unsigned char ** pframe);
 
-    // Returns block of a mp3 file, witch size integer multiples of cbAlign
     int GetBlockAligned(const unsigned char ** pblock, int* piBufferSize, const long& cbAlign);
 
     HRESULT Finish();

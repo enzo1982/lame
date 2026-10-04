@@ -56,9 +56,9 @@ CHAR lpszText[] =   "This library is free software; you can redistribute it \r\n
                     "Inc., 59 Temple Place - Suite 330,\r\n"
                     "Boston, MA 02111-1307, USA.\r\n";
 
-//
-// CreateInstance
-//
+/**
+ * Creates the About page. The class factory of the filter calls it.
+ */
 CUnknown * WINAPI CMAEAbout::CreateInstance(LPUNKNOWN lpunk, HRESULT *phr)
 {
     CUnknown *punk = new CMAEAbout(lpunk, phr);
@@ -70,10 +70,9 @@ CUnknown * WINAPI CMAEAbout::CreateInstance(LPUNKNOWN lpunk, HRESULT *phr)
 }
 
 
-//
-// Constructor
-//
-// Creaete a Property page object for the MPEG options
+/**
+ * Creates the About page.
+ */
 CMAEAbout::CMAEAbout(LPUNKNOWN lpunk, HRESULT *phr)
     : CBasePropertyPage(NAME("About LAME Ain't MP3 Encoder"), lpunk,
         IDD_ABOUT,IDS_ABOUT)
@@ -84,22 +83,18 @@ CMAEAbout::CMAEAbout(LPUNKNOWN lpunk, HRESULT *phr)
 //    InitCommonControls();
 }
 
-//
-// OnConnect
-//
-// Give us the filter to communicate with
-
+/**
+ * Does nothing. The About page does not use the filter.
+ */
 HRESULT CMAEAbout::OnConnect(IUnknown *pUnknown)
 {
     return NOERROR;
 }
 
 
-//
-// OnDisconnect
-//
-// Release the interface
-
+/**
+ * Does nothing, like OnConnect().
+ */
 HRESULT CMAEAbout::OnDisconnect()
 {
     // Release the interface
@@ -108,11 +103,10 @@ HRESULT CMAEAbout::OnDisconnect()
 }
 
 
-//
-// OnActivate
-//
-// Called on dialog creation
-
+/**
+ * Called when the dialog is created. Shows the license text, the LAME version
+ * and the address of the LAME home page.
+ */
 HRESULT CMAEAbout::OnActivate(void)
 {
     // Add text to the window.
@@ -132,11 +126,9 @@ HRESULT CMAEAbout::OnActivate(void)
     return NOERROR;
 }
 
-//
-// OnDeactivate
-//
-// Called on dialog destruction
-
+/**
+ * Called when the dialog is destroyed.
+ */
 HRESULT CMAEAbout::OnDeactivate(void)
 {
     m_fWindowInactive = TRUE;
@@ -144,22 +136,18 @@ HRESULT CMAEAbout::OnDeactivate(void)
 }
 
 
-//
-// OnApplyChanges
-//
-// User pressed the Apply button, remember the current settings
-
+/**
+ * Does nothing. The About page has no settings.
+ */
 HRESULT CMAEAbout::OnApplyChanges(void)
 {
     return NOERROR;
 }
 
 
-//
-// OnReceiveMessages
-//
-// Handles the messages for our property window
-
+/**
+ * Handles the messages of the dialog.
+ */
 INT_PTR CMAEAbout::OnReceiveMessage( HWND hwnd
                                 , UINT uMsg
                                 , WPARAM wParam
@@ -178,11 +166,9 @@ INT_PTR CMAEAbout::OnReceiveMessage( HWND hwnd
     }
 }
 
-//
-// SetDirty
-//
-// notifies the property page site of changes
-
+/**
+ * Marks the page as changed, and tells the property page site.
+ */
 void CMAEAbout::SetDirty()
 {
     m_bDirty = TRUE;

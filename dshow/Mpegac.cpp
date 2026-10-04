@@ -474,9 +474,10 @@ HRESULT CMpegAudEnc::FlushEncodedSamples()
 }
 
 
-////////////////////////////////////////////////////////////////////////////
-//  StartStreaming - prepare to receive new data
-////////////////////////////////////////////////////////////////////////////
+/**
+ * Prepares the filter for new data: computes the frame size and frame time for
+ * the output sample rate, resets the time stamps, and initializes the encoder.
+ */
 HRESULT CMpegAudEnc::StartStreaming()
 {
     WAVEFORMATEX * pwfxIn  = (WAVEFORMATEX *) m_pInput->CurrentMediaType().Format();
@@ -546,9 +547,11 @@ HRESULT CMpegAudEnc::StopStreaming()
 }
 
 
-////////////////////////////////////////////////////////////////////////////
-//  EndOfStream - stop data processing 
-////////////////////////////////////////////////////////////////////////////
+/**
+ * Ends the stream: flushes the encoder, delivers the remaining encoded data,
+ * and closes the encoder. For stream output, it also sets the size of the
+ * output stream, and the encoder writes the final LAME tag.
+ */
 HRESULT CMpegAudEnc::EndOfStream()
 {
     CAutoLock lock(&m_cs);
@@ -588,9 +591,11 @@ HRESULT CMpegAudEnc::EndOfStream()
 }
 
 
-////////////////////////////////////////////////////////////////////////////
-//  BeginFlush  - stop data processing 
-////////////////////////////////////////////////////////////////////////////
+/**
+ * Starts a flush. The encoded data that is left is sent downstream. For stream
+ * output, the size of the output stream is set. Then the stream time and the
+ * byte position start again at the beginning.
+ */
 HRESULT CMpegAudEnc::BeginFlush()
 {
     HRESULT hr = CTransformFilter::BeginFlush();
@@ -624,9 +629,14 @@ HRESULT CMpegAudEnc::BeginFlush()
 
 
 
-////////////////////////////////////////////////////////////////////////////
-//	SetMediaType - called when filters are connecting
-////////////////////////////////////////////////////////////////////////////
+/**
+ * Called when a pin connects with a media type.
+ *
+ * For the input pin, the function passes the input format to the encoder and
+ * lists the output formats that this input supports. For the output pin, it
+ * reconnects the input pin if the current input type does not fit the new
+ * output type.
+ */
 HRESULT CMpegAudEnc::SetMediaType(PIN_DIRECTION direction, const CMediaType * pmt)
 {
     if (pmt == NULL)
@@ -689,9 +699,10 @@ HRESULT CMpegAudEnc::SetMediaType(PIN_DIRECTION direction, const CMediaType * pm
     return hr;
 }
 
-////////////////////////////////////////////////////////////////////////////
-// CheckInputType - check if you can support mtIn
-////////////////////////////////////////////////////////////////////////////
+/**
+ * Checks whether the filter accepts an input media type: uncompressed audio in
+ * a WAVEFORMATEX format that the encoder supports.
+ */
 HRESULT CMpegAudEnc::CheckInputType(const CMediaType* mtIn)
 {
     if (*mtIn->Type() == MEDIATYPE_Audio && *mtIn->FormatType() == FORMAT_WaveFormatEx)
@@ -702,9 +713,10 @@ HRESULT CMpegAudEnc::CheckInputType(const CMediaType* mtIn)
     return E_INVALIDARG;
 }
 
-////////////////////////////////////////////////////////////////////////////
-// CheckTransform - checks if we can support the transform from this input to this output
-////////////////////////////////////////////////////////////////////////////
+/**
+ * Checks whether the filter can convert the input media type into the output
+ * media type.
+ */
 HRESULT CMpegAudEnc::CheckTransform(const CMediaType* mtIn, const CMediaType* mtOut)
 {
     if(MEDIATYPE_Stream != mtOut->majortype)
@@ -734,9 +746,9 @@ HRESULT CMpegAudEnc::CheckTransform(const CMediaType* mtIn, const CMediaType* mt
     return VFW_E_TYPE_NOT_ACCEPTED;
 }
 
-////////////////////////////////////////////////////////////////////////////
-// DecideBufferSize - sets output buffers number and size
-////////////////////////////////////////////////////////////////////////////
+/**
+ * Sets the number and the size of the output buffers.
+ */
 HRESULT CMpegAudEnc::DecideBufferSize(
                         IMemAllocator*		  pAllocator,
                         ALLOCATOR_PROPERTIES* pProperties)
@@ -751,7 +763,6 @@ HRESULT CMpegAudEnc::DecideBufferSize(
         m_cbStreamAlignment = pProperties->cbAlign;
     }
 
-    ///
     if (pProperties->cBuffers == 0) pProperties->cBuffers = 1;  // If downstream filter didn't suggest a buffer count then default to 1
     pProperties->cbBuffer = OUT_BUFFER_SIZE;
     //
@@ -771,9 +782,9 @@ HRESULT CMpegAudEnc::DecideBufferSize(
     return S_OK;
 }
 
-////////////////////////////////////////////////////////////////////////////
-// GetMediaType - overrideable for suggesting output pin media types
-////////////////////////////////////////////////////////////////////////////
+/**
+ * Calls CMpegAudEncOutPin::GetMediaType().
+ */
 HRESULT CMpegAudEnc::GetMediaType(int iPosition, CMediaType *pMediaType)
 {
     DbgLog((LOG_TRACE,1,TEXT("CMpegAudEnc::GetMediaType()")));
@@ -781,11 +792,11 @@ HRESULT CMpegAudEnc::GetMediaType(int iPosition, CMediaType *pMediaType)
     return m_pOutput->GetMediaType(iPosition, pMediaType);
 }
 
-////////////////////////////////////////////////////////////////////////////
-//  Reconnect - called after a manual change has been made to the 
-//  encoder parameters to reset the filter output media type structure
-//  to match the current encoder out MPEG audio properties 
-////////////////////////////////////////////////////////////////////////////
+/**
+ * Updates the output media type after the encoder settings were changed by
+ * hand, and reconnects the output pin if the type changed. It works only while
+ * the filter is stopped and the output pin is connected.
+ */
 HRESULT CMpegAudEnc::Reconnect()
 {
     HRESULT hr = S_FALSE;
@@ -820,10 +831,10 @@ HRESULT CMpegAudEnc::Reconnect()
     return hr;
 }
 
-////////////////////////////////////////////////////////////////////////////
-//  LoadOutputCapabilities - create a list of the currently supported output 
-//  format capabilities which will be used by the IAMStreamConfig Interface
-////////////////////////////////////////////////////////////////////////////
+/**
+ * Lists the CBR output formats that the given input sample rate supports. The
+ * IAMStreamConfig interface offers this list.
+ */
 void CMpegAudEnc::LoadOutputCapabilities(DWORD sample_rate)
 {
     m_CapsNum = 0;
@@ -848,9 +859,9 @@ void CMpegAudEnc::LoadOutputCapabilities(DWORD sample_rate)
 }
 
 
-//
-// Read persistent configuration from Registry
-//
+/**
+ * Reads the saved encoder settings from the registry.
+ */
 void CMpegAudEnc::ReadPresetSettings(MPEG_ENCODER_CONFIG * pmec)
 {
     DbgLog((LOG_TRACE,1,TEXT("CMpegAudEnc::ReadPresetSettings()")));
@@ -887,9 +898,9 @@ void CMpegAudEnc::ReadPresetSettings(MPEG_ENCODER_CONFIG * pmec)
     rk.Close();
 }
 
-////////////////////////////////////////////////////////////////
-//  Property page handling 
-////////////////////////////////////////////////////////////////
+/**
+ * Returns the class IDs of the three property pages of the filter.
+ */
 HRESULT CMpegAudEnc::GetPages(CAUUID *pcauuid) 
 {
     GUID *pguid;
@@ -1572,7 +1583,9 @@ STDMETHODIMP CMpegAudEnc::ApplyChanges()
 // CPersistStream stuff
 //
 
-// what is our class ID?
+/**
+ * Returns the class ID of the filter.
+ */
 STDMETHODIMP CMpegAudEnc::GetClassID(CLSID *pClsid)
 {
     CheckPointer(pClsid, E_POINTER);
@@ -1593,8 +1606,9 @@ HRESULT CMpegAudEnc::WriteToStream(IStream *pStream)
 }
 
 
-// what device should we use?  Used to re-create a .GRF file that we
-// are in
+/**
+ * Reads the encoder settings from a saved filter graph (.GRF file).
+ */
 HRESULT CMpegAudEnc::ReadFromStream(IStream *pStream)
 {
     MPEG_ENCODER_CONFIG mec;
@@ -1613,7 +1627,9 @@ HRESULT CMpegAudEnc::ReadFromStream(IStream *pStream)
 }
 
 
-// How long is our data?
+/**
+ * Returns the size of the settings that WriteToStream() writes.
+ */
 int CMpegAudEnc::SizeMax()
 {
     return sizeof(MPEG_ENCODER_CONFIG);
@@ -1623,10 +1639,9 @@ int CMpegAudEnc::SizeMax()
 
 
 
-//////////////////////////////////////////////////////////////////////////
-// CMpegAudEncOutPin is the one and only output pin of CMpegAudEnc  
-// 
-//////////////////////////////////////////////////////////////////////////
+/**
+ * Creates the output pin. CMpegAudEnc has only this one output pin.
+ */
 CMpegAudEncOutPin::CMpegAudEncOutPin( CMpegAudEnc * pFilter, HRESULT * pHr ) :
         CTransformOutputPin( NAME("LameEncoderOutputPin"), pFilter, pHr, L"Output\0" ),
         m_pFilter(pFilter)
@@ -1648,11 +1663,10 @@ STDMETHODIMP CMpegAudEncOutPin::NonDelegatingQueryInterface(REFIID riid, void **
 }
 
 
-//////////////////////////////////////////////////////////////////////////
-// This is called after the output format has been negotiated and
-// will update the LAME encoder settings so that it matches the
-// settings specified in the MediaType structure.
-//////////////////////////////////////////////////////////////////////////
+/**
+ * Called after the output format is negotiated. Changes the encoder settings
+ * to match the media type.
+ */
 HRESULT CMpegAudEncOutPin::SetMediaType(const CMediaType *pmt)
 {
     // Retrieve the current LAME encoder configuration
@@ -1687,11 +1701,10 @@ HRESULT CMpegAudEncOutPin::SetMediaType(const CMediaType *pmt)
 }
 
 
-//////////////////////////////////////////////////////////////////////////
-// Retrieve the various MediaTypes that match the advertised formats
-// supported on the output pin and configure an AM_MEDIA_TYPE output 
-// structure that is based on the selected format.
-//////////////////////////////////////////////////////////////////////////
+/**
+ * Returns the output media type at a position in the list of supported
+ * formats. Position 0 is always the current media type.
+ */
 HRESULT CMpegAudEncOutPin::GetMediaType(int iPosition, CMediaType *pmt)
 {
     if (iPosition < 0) return E_INVALIDARG;
@@ -1811,9 +1824,9 @@ HRESULT CMpegAudEncOutPin::GetMediaType(int iPosition, CMediaType *pmt)
 }
 
 
-//////////////////////////////////////////////////////////////////////////
-// This method is called to see if a given output format is supported
-//////////////////////////////////////////////////////////////////////////
+/**
+ * Checks whether the output pin supports an output media type.
+ */
 HRESULT CMpegAudEncOutPin::CheckMediaType(const CMediaType *pmtOut)
 {
     // Fail if the input pin is not connected.
