@@ -1141,9 +1141,7 @@ static const struct {
  * here.
  *
  * The two lists can differ.  Every name in the table must also be in this
- * list.
- *
- * \todo No test checks that every name in the table is also in this list.
+ * list.  test_vector_ladder.c checks this for the sets that a build compiles.
  */
 static const char *const vector_impl_known_names[] = {
     "sse2", "avx2", "avx512", "neon", 0

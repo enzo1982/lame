@@ -29,6 +29,9 @@
  *     ends in a link error or in a call to a routine that does not exist.
  *   - With no capabilities at all, the result is the scalar code.
  *
+ * A fifth test checks that every set in the table of this build is also in
+ * the list of known set names, with a control that the check can fail.
+ *
  * @c vector_impl_init() is internal. @c include/libmp3lame.sym does not list
  * it, so the shared library does not export it. So this test links the
  * static archive. @c test_set_get.c does the same for the internal tuning
@@ -312,6 +315,52 @@ test_no_capabilities_is_scalar(void **state)
     assert_int_equal((int) decide(gfc, 0u), (int) VECTOR_IMPL_NONE);
 }
 
+/**
+ * @brief Checks that every set in the table of this build is a known set name.
+ *
+ * @c util.c keeps two lists: the table of the sets that this build compiles,
+ * and the names of all sets that LAME has. lame_set_vector_routines() reads
+ * the second list only for a name that is not in the table. It returns -3 for
+ * a known name, which another build has, and -2 for an unknown name. A set
+ * that is missing from the second list therefore gets -2 in every build that
+ * does not compile it. Each build checks the sets it compiles. In a build
+ * with no vector routines the table is empty, and this test checks nothing.
+ *
+ * @param state not used.
+ */
+static void
+test_table_names_are_known(void **state)
+{
+    int const n = vector_impl_count();
+    int     i;
+
+    (void) state;
+    for (i = 0; i < n; ++i) {
+        const char *const name = vector_impl_name_at(i);
+
+        assert_non_null(name);
+        if (!vector_impl_known(name))
+            fail_msg("the table has \"%s\", but the known names do not", name);
+    }
+}
+
+/**
+ * @brief Checks that vector_impl_known() rejects names that are not sets.
+ *
+ * This is the control for the test above. It shows that the check can fail.
+ *
+ * @param state not used.
+ */
+static void
+test_unknown_names_are_rejected(void **state)
+{
+    (void) state;
+    assert_int_equal(vector_impl_known("sse3"), 0);
+    assert_int_equal(vector_impl_known("sse2x"), 0);
+    assert_int_equal(vector_impl_known(""), 0);
+    assert_int_equal(vector_impl_known(NULL), 0);
+}
+
 int
 main(void)
 {
@@ -325,6 +374,8 @@ main(void)
                                         gfc_setup, gfc_teardown),
         cmocka_unit_test_setup_teardown(test_no_capabilities_is_scalar,
                                         gfc_setup, gfc_teardown),
+        cmocka_unit_test(test_table_names_are_known),
+        cmocka_unit_test(test_unknown_names_are_rejected),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
