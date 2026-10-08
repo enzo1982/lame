@@ -615,6 +615,37 @@ typedef HRESULT (STDMETHODCALLTYPE IAudioEncoderProperties::*dword_getter)(DWORD
 /** @brief The setter that goes with it. */
 typedef HRESULT (STDMETHODCALLTYPE IAudioEncoderProperties::*dword_setter)(DWORD);
 
+/** @brief One entry of ::stored_settings. */
+struct stored_setting {
+    dword_getter get;           /**< reads the setting */
+    dword_setter set;           /**< writes the setting */
+    const char *name;           /**< the name of the setting in a failure */
+};
+
+/** @brief The 20 settings that the filter stores as they are. */
+static const stored_setting stored_settings[] = {
+    { &IAudioEncoderProperties::get_Bitrate, &IAudioEncoderProperties::set_Bitrate, "Bitrate" },
+    { &IAudioEncoderProperties::get_VariableMin, &IAudioEncoderProperties::set_VariableMin, "VariableMin" },
+    { &IAudioEncoderProperties::get_VariableMax, &IAudioEncoderProperties::set_VariableMax, "VariableMax" },
+    { &IAudioEncoderProperties::get_Quality, &IAudioEncoderProperties::set_Quality, "Quality" },
+    { &IAudioEncoderProperties::get_VariableQ, &IAudioEncoderProperties::set_VariableQ, "VariableQ" },
+    { &IAudioEncoderProperties::get_SampleRate, &IAudioEncoderProperties::set_SampleRate, "SampleRate" },
+    { &IAudioEncoderProperties::get_ForceMS, &IAudioEncoderProperties::set_ForceMS, "ForceMS" },
+    { &IAudioEncoderProperties::get_CRCFlag, &IAudioEncoderProperties::set_CRCFlag, "CRCFlag" },
+    { &IAudioEncoderProperties::get_ForceMono, &IAudioEncoderProperties::set_ForceMono, "ForceMono" },
+    { &IAudioEncoderProperties::get_SetDuration, &IAudioEncoderProperties::set_SetDuration, "SetDuration" },
+    { &IAudioEncoderProperties::get_SampleOverlap, &IAudioEncoderProperties::set_SampleOverlap, "SampleOverlap" },
+    { &IAudioEncoderProperties::get_EnforceVBRmin, &IAudioEncoderProperties::set_EnforceVBRmin, "EnforceVBRmin" },
+    { &IAudioEncoderProperties::get_VoiceMode, &IAudioEncoderProperties::set_VoiceMode, "VoiceMode" },
+    { &IAudioEncoderProperties::get_KeepAllFreq, &IAudioEncoderProperties::set_KeepAllFreq, "KeepAllFreq" },
+    { &IAudioEncoderProperties::get_StrictISO, &IAudioEncoderProperties::set_StrictISO, "StrictISO" },
+    { &IAudioEncoderProperties::get_NoShortBlock, &IAudioEncoderProperties::set_NoShortBlock, "NoShortBlock" },
+    { &IAudioEncoderProperties::get_XingTag, &IAudioEncoderProperties::set_XingTag, "XingTag" },
+    { &IAudioEncoderProperties::get_OriginalFlag, &IAudioEncoderProperties::set_OriginalFlag, "OriginalFlag" },
+    { &IAudioEncoderProperties::get_CopyrightFlag, &IAudioEncoderProperties::set_CopyrightFlag, "CopyrightFlag" },
+    { &IAudioEncoderProperties::get_ModeFixed, &IAudioEncoderProperties::set_ModeFixed, "ModeFixed" }
+};
+
 /**
  * @brief Checks that each of the settings that the filter stores as they are
  *        reads back the value written to it, and only that one.
@@ -628,33 +659,7 @@ typedef HRESULT (STDMETHODCALLTYPE IAudioEncoderProperties::*dword_setter)(DWORD
 static void
 test_property_round_trip(IBaseFilter *lame)
 {
-    static const struct {
-        dword_getter get;
-        dword_setter set;
-        const char *name;
-    } settings[] = {
-        { &IAudioEncoderProperties::get_Bitrate, &IAudioEncoderProperties::set_Bitrate, "Bitrate" },
-        { &IAudioEncoderProperties::get_VariableMin, &IAudioEncoderProperties::set_VariableMin, "VariableMin" },
-        { &IAudioEncoderProperties::get_VariableMax, &IAudioEncoderProperties::set_VariableMax, "VariableMax" },
-        { &IAudioEncoderProperties::get_Quality, &IAudioEncoderProperties::set_Quality, "Quality" },
-        { &IAudioEncoderProperties::get_VariableQ, &IAudioEncoderProperties::set_VariableQ, "VariableQ" },
-        { &IAudioEncoderProperties::get_SampleRate, &IAudioEncoderProperties::set_SampleRate, "SampleRate" },
-        { &IAudioEncoderProperties::get_ForceMS, &IAudioEncoderProperties::set_ForceMS, "ForceMS" },
-        { &IAudioEncoderProperties::get_CRCFlag, &IAudioEncoderProperties::set_CRCFlag, "CRCFlag" },
-        { &IAudioEncoderProperties::get_ForceMono, &IAudioEncoderProperties::set_ForceMono, "ForceMono" },
-        { &IAudioEncoderProperties::get_SetDuration, &IAudioEncoderProperties::set_SetDuration, "SetDuration" },
-        { &IAudioEncoderProperties::get_SampleOverlap, &IAudioEncoderProperties::set_SampleOverlap, "SampleOverlap" },
-        { &IAudioEncoderProperties::get_EnforceVBRmin, &IAudioEncoderProperties::set_EnforceVBRmin, "EnforceVBRmin" },
-        { &IAudioEncoderProperties::get_VoiceMode, &IAudioEncoderProperties::set_VoiceMode, "VoiceMode" },
-        { &IAudioEncoderProperties::get_KeepAllFreq, &IAudioEncoderProperties::set_KeepAllFreq, "KeepAllFreq" },
-        { &IAudioEncoderProperties::get_StrictISO, &IAudioEncoderProperties::set_StrictISO, "StrictISO" },
-        { &IAudioEncoderProperties::get_NoShortBlock, &IAudioEncoderProperties::set_NoShortBlock, "NoShortBlock" },
-        { &IAudioEncoderProperties::get_XingTag, &IAudioEncoderProperties::set_XingTag, "XingTag" },
-        { &IAudioEncoderProperties::get_OriginalFlag, &IAudioEncoderProperties::set_OriginalFlag, "OriginalFlag" },
-        { &IAudioEncoderProperties::get_CopyrightFlag, &IAudioEncoderProperties::set_CopyrightFlag, "CopyrightFlag" },
-        { &IAudioEncoderProperties::get_ModeFixed, &IAudioEncoderProperties::set_ModeFixed, "ModeFixed" }
-    };
-    enum { N = sizeof(settings) / sizeof(settings[0]), FIRST_VALUE = 1000 };
+    enum { N = sizeof(stored_settings) / sizeof(stored_settings[0]), FIRST_VALUE = 1000 };
     IAudioEncoderProperties *props = NULL;
     DWORD   saved[N], got;
     char    detail[CTEST_DETAIL_CHARS];
@@ -666,26 +671,180 @@ test_property_round_trip(IBaseFilter *lame)
     }
     for (i = 0; i < N; i++) {
         saved[i] = 0;
-        (props->*settings[i].get)(&saved[i]);
+        (props->*stored_settings[i].get)(&saved[i]);
     }
     for (i = 0; i < N; i++) {
-        (props->*settings[i].set)((DWORD) (FIRST_VALUE + i));
+        (props->*stored_settings[i].set)((DWORD) (FIRST_VALUE + i));
     }
     for (i = 0; i < N; i++) {
         got = 0;
-        if ((props->*settings[i].get)(&got) == S_OK && got == (DWORD) (FIRST_VALUE + i)) {
+        if ((props->*stored_settings[i].get)(&got) == S_OK && got == (DWORD) (FIRST_VALUE + i)) {
             ++same;
         } else {
-            sprintf(detail, "%s reads back %lu, not %d", settings[i].name, (unsigned long) got,
+            sprintf(detail, "%s reads back %lu, not %d", stored_settings[i].name, (unsigned long) got,
                     FIRST_VALUE + i);
             CHECK(0, detail);
         }
     }
     CHECK_EQ_U(same, N, "each of the 20 stored settings reads back its own value");
     for (i = 0; i < N; i++) {
-        (props->*settings[i].set)(saved[i]);
+        (props->*stored_settings[i].set)(saved[i]);
     }
     props->Release();
+}
+
+/** @brief The registry key in which the filter keeps its settings, under HKCU. */
+static const char FILTER_SETTINGS_KEY[] = "SOFTWARE\\GNU\\LAME MPEG Layer III Audio Encoder Filter";
+/** @brief The most values of that key that saved_key keeps. */
+#define SAVED_VALUES_MAX 64
+/** @brief The longest value name that saved_key keeps, with its NUL. */
+#define SAVED_NAME_BYTES 128
+/** @brief The longest value that saved_key keeps, in bytes. */
+#define SAVED_DATA_BYTES 64
+
+/** @brief The values of the settings key as they were before a test wrote it. */
+typedef struct {
+    int existed;                                    /**< whether the key was there */
+    int count;                                      /**< the values kept */
+    char name[SAVED_VALUES_MAX][SAVED_NAME_BYTES];  /**< their names */
+    DWORD type[SAVED_VALUES_MAX];                   /**< their types */
+    BYTE data[SAVED_VALUES_MAX][SAVED_DATA_BYTES];  /**< their data */
+    DWORD size[SAVED_VALUES_MAX];                   /**< the bytes of each */
+} saved_key;
+
+/**
+ * @brief Keeps every value of the settings key, so that restore_key() can put
+ *        them back.
+ * @param s  receives the values.
+ * @return 1, or 0 when a value is too large or too many to keep.
+ */
+static int
+save_key(saved_key *s)
+{
+    HKEY key;
+    DWORD i;
+
+    memset(s, 0, sizeof(*s));
+    if (RegOpenKeyExA(HKEY_CURRENT_USER, FILTER_SETTINGS_KEY, 0, KEY_READ, &key) != ERROR_SUCCESS) {
+        return 1;
+    }
+    s->existed = 1;
+    for (i = 0;; i++) {
+        DWORD name_len = SAVED_NAME_BYTES, data_len = SAVED_DATA_BYTES;
+        LONG rc;
+
+        if (s->count == SAVED_VALUES_MAX) {
+            RegCloseKey(key);
+            return 0;
+        }
+        rc = RegEnumValueA(key, i, s->name[s->count], &name_len, NULL, &s->type[s->count],
+                           s->data[s->count], &data_len);
+        if (rc == ERROR_NO_MORE_ITEMS) {
+            break;
+        }
+        if (rc != ERROR_SUCCESS) {
+            RegCloseKey(key);
+            return 0;
+        }
+        s->size[s->count] = data_len;
+        s->count++;
+    }
+    RegCloseKey(key);
+    return 1;
+}
+
+/**
+ * @brief Puts the settings key back as save_key() found it: removed when it
+ *        was not there, otherwise with exactly the values it had.
+ * @param s  the values that save_key() kept.
+ * @return 1, or 0 when the key could not be written.
+ */
+static int
+restore_key(const saved_key *s)
+{
+    HKEY key;
+    int i, ok = 1;
+    LONG rc = RegDeleteTreeA(HKEY_CURRENT_USER, FILTER_SETTINGS_KEY);
+
+    if (rc != ERROR_SUCCESS && rc != ERROR_FILE_NOT_FOUND) {
+        return 0;
+    }
+    if (!s->existed) {
+        return 1;
+    }
+    if (RegCreateKeyExA(HKEY_CURRENT_USER, FILTER_SETTINGS_KEY, 0, NULL, 0, KEY_WRITE, NULL, &key,
+                        NULL) != ERROR_SUCCESS) {
+        return 0;
+    }
+    for (i = 0; i < s->count; i++) {
+        if (RegSetValueExA(key, s->name[i], 0, s->type[i], s->data[i], s->size[i]) != ERROR_SUCCESS) {
+            ok = 0;
+        }
+    }
+    RegCloseKey(key);
+    return ok;
+}
+
+/**
+ * @brief Checks that the 20 settings of ::stored_settings reach a new filter
+ *        through the registry.
+ *
+ * One filter gets a value for each setting that no other gets, and saves
+ * them. A second filter reads its settings from the
+ * registry when it is created, and must report the same values. The user's
+ * own settings key is kept before and put back after.
+ *
+ * @param cf  the class factory of the filter.
+ */
+static void
+test_settings_survive_a_save(IClassFactory *cf)
+{
+    enum { N = sizeof(stored_settings) / sizeof(stored_settings[0]), FIRST_VALUE = 2000 };
+    static saved_key saved;
+    IBaseFilter *first = NULL, *second = NULL;
+    IAudioEncoderProperties *props = NULL;
+    DWORD got;
+    char detail[CTEST_DETAIL_CHARS];
+    int i, same = 0;
+
+    if (!save_key(&saved)) {
+        CHECK(0, "the settings key can be kept before the test writes it");
+        return;
+    }
+    if (FAILED(cf->CreateInstance(NULL, IID_IBaseFilter, (void **) &first))
+        || FAILED(first->QueryInterface(IID_IAudioEncoderProperties_local, (void **) &props))) {
+        CHECK(0, "a first filter offers its audio encoder properties");
+        goto out;
+    }
+    for (i = 0; i < N; i++) {
+        (props->*stored_settings[i].set)((DWORD) (FIRST_VALUE + i));
+    }
+    REQUIRE_HR(props->SaveAudioEncoderPropertiesToRegistry(), "the first filter saves its settings");
+    props->Release();
+    props = NULL;
+
+    if (FAILED(cf->CreateInstance(NULL, IID_IBaseFilter, (void **) &second))
+        || FAILED(second->QueryInterface(IID_IAudioEncoderProperties_local, (void **) &props))) {
+        CHECK(0, "a second filter offers its audio encoder properties");
+        goto out;
+    }
+    for (i = 0; i < N; i++) {
+        got = 0;
+        if ((props->*stored_settings[i].get)(&got) == S_OK && got == (DWORD) (FIRST_VALUE + i)) {
+            ++same;
+        } else {
+            sprintf(detail, "%s comes back as %lu, not %d", stored_settings[i].name,
+                    (unsigned long) got, FIRST_VALUE + i);
+            CHECK(0, detail);
+        }
+    }
+    CHECK_EQ_U(same, N, "a new filter reads each of the 20 saved settings");
+
+out:
+    if (props) props->Release();
+    if (second) second->Release();
+    if (first) first->Release();
+    CHECK(restore_key(&saved), "the settings key is put back as it was");
 }
 
 /**
@@ -1254,6 +1413,7 @@ main(int argc, char **argv)
     }
 
     test_property_round_trip(lame);
+    test_settings_survive_a_save(cf);
     test_encoder_properties(lame);
 
     lame_out = find_pin(lame, PINDIR_OUTPUT);
