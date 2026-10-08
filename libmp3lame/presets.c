@@ -32,15 +32,11 @@
 #include "lame_global_flags.h"
 #include "tables.h"
 
-#define SET_OPTION(opt, val, def) if (enforce) \
-    (void) lame_set_##opt(gfp, val); \
-    else if (!(fabs(lame_get_##opt(gfp) - def) > 0)) \
-    (void) lame_set_##opt(gfp, val);
-
-#define SET__OPTION(opt, val, def) if (enforce) \
-    lame_set_##opt(gfp, val); \
-    else if (!(fabs(lame_get_##opt(gfp) - def) > 0)) \
-    lame_set_##opt(gfp, val);
+/* Sets an option if the caller enforces the preset or left the option at its default. */
+#define SET_OPTION(opt, val, def) do { \
+        if (enforce || !(fabs(lame_get_##opt(gfp) - def) > 0)) \
+            (void) lame_set_##opt(gfp, val); \
+    } while (0)
 
 #undef Min
 #undef Max
@@ -199,7 +195,7 @@ apply_vbr_preset(lame_global_flags * gfp, int a, int enforce)
             (void) lame_set_exp_nspsytune(gfp, sf21mod);
         }
     }
-    SET__OPTION(msfix, set->msfix, -1);
+    SET_OPTION(msfix, set->msfix, -1);
 
     if (enforce == 0) {
         gfp->VBR_q = a;
@@ -237,7 +233,7 @@ apply_abr_preset(lame_global_flags * gfp, int preset, int enforce)
     /* 
      *  Switch mappings for ABR mode
      */
-    const abr_presets_t abr_switch_map[] = {        
+    static const abr_presets_t abr_switch_map[] = {        
     /* one row for each entry of full_bitrate_table; the comment names its kbps
        quant q_s safejoint nsmsfix st_lrm  st_s  scale   msk ath_lwr ath_curve  interch , sfscale */
       {    9,  9,        0,      0,  6.60,  145,  0.95,    0,  -30.0,     11,    0.0012,        1}, /*   8, impossible to use in stereo */
@@ -286,7 +282,7 @@ apply_abr_preset(lame_global_flags * gfp, int preset, int enforce)
     SET_OPTION(quant_comp, abr_switch_map[r].quant_comp, -1.0);
     SET_OPTION(quant_comp_short, abr_switch_map[r].quant_comp_s, -1.0);
 
-    SET__OPTION(msfix, abr_switch_map[r].nsmsfix, -1);
+    SET_OPTION(msfix, abr_switch_map[r].nsmsfix, -1);
 
     SET_OPTION(short_threshold_lrm, abr_switch_map[r].st_lrm, -1);
     SET_OPTION(short_threshold_s, abr_switch_map[r].st_s, -1);
@@ -359,41 +355,10 @@ apply_preset(lame_global_flags * gfp, int preset, int enforce)
     }
 
     gfp->preset = preset;
-    {
-        switch (preset) {
-        case V9:
-            apply_vbr_preset(gfp, 9, enforce);
-            return preset;
-        case V8:
-            apply_vbr_preset(gfp, 8, enforce);
-            return preset;
-        case V7:
-            apply_vbr_preset(gfp, 7, enforce);
-            return preset;
-        case V6:
-            apply_vbr_preset(gfp, 6, enforce);
-            return preset;
-        case V5:
-            apply_vbr_preset(gfp, 5, enforce);
-            return preset;
-        case V4:
-            apply_vbr_preset(gfp, 4, enforce);
-            return preset;
-        case V3:
-            apply_vbr_preset(gfp, 3, enforce);
-            return preset;
-        case V2:
-            apply_vbr_preset(gfp, 2, enforce);
-            return preset;
-        case V1:
-            apply_vbr_preset(gfp, 1, enforce);
-            return preset;
-        case V0:
-            apply_vbr_preset(gfp, 0, enforce);
-            return preset;
-        default:
-            break;
-        }
+    /* V9 to V0 are 410 to 500 in steps of 10 */
+    if (V9 <= preset && preset <= V0 && (V0 - preset) % 10 == 0) {
+        apply_vbr_preset(gfp, (V0 - preset) / 10, enforce);
+        return preset;
     }
     if (8 <= preset && preset <= 320) {
         return apply_abr_preset(gfp, preset, enforce);
@@ -402,3 +367,5 @@ apply_preset(lame_global_flags * gfp, int preset, int enforce)
     gfp->preset = 0;    /*no corresponding preset found */
     return preset;
 }
+
+#undef SET_OPTION

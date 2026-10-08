@@ -1015,7 +1015,7 @@ lame_init_params(lame_global_flags * gfp)
                 gfp->useTemporal = 0; /* off by default for this VBR mode */
             }
 
-            (void) apply_preset(gfp, 500 - (gfp->VBR_q * 10), 0);
+            (void) apply_preset(gfp, V0 - 10 * gfp->VBR_q, 0);
             /*  The newer VBR code supports only a limited
                subset of quality levels:
                9-5=5 are the same, uses x^3/4 quantization
@@ -1040,7 +1040,7 @@ lame_init_params(lame_global_flags * gfp)
         }
     case vbr_rh:{
 
-            (void) apply_preset(gfp, 500 - (gfp->VBR_q * 10), 0);
+            (void) apply_preset(gfp, V0 - 10 * gfp->VBR_q, 0);
 
             /*  sfb21 extra only with MPEG-1 at higher sampling rates
              */
