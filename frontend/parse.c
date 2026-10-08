@@ -1768,21 +1768,6 @@ set_vector_routines(lame_global_flags * gfp, const char *name)
     return -1;
 }
 
-/* Ugly, NOT final version */
-
-#define T_IF(str)          if ( 0 == local_strcasecmp (token,str) ) {
-#define T_ELIF(str)        } else if ( 0 == local_strcasecmp (token,str) ) {
-#define T_ELIF2(str1,str2) } else if ( 0 == local_strcasecmp (token,str1)  ||  0 == local_strcasecmp (token,str2) ) {
-#define T_ELSE             } else {
-#define T_END              }
-
-#define T_ELIF_INTERNAL(str) \
-                           } else if (dev_only_without_arg(str,token,&argIgnored)) {
-
-#define T_ELIF_INTERNAL_WITH_ARG(str) \
-                           } else if (dev_only_with_arg(str,token,nextArg,&argIgnored,&argUsed)) {
-
-
 /**
  * Copies an input or output file name from the command line into a buffer of
  * PATH_MAX+1 bytes. The copy always ends with a NUL.
@@ -1827,6 +1812,1165 @@ typedef struct {
     enum TextEncoding id3_tenc; /**< the text encoding of the tag options */
 } parse_state;
 
+/** @internal @brief What an option handler did with the option it was given. */
+typedef enum {
+    OPT_NOT_MINE,               /**< the option belongs to another handler */
+    OPT_DONE,                   /**< the option is set; the parse goes on */
+    OPT_STOP_OK,                /**< the parse stops without an error */
+    OPT_STOP_ERROR              /**< the parse stops with an error */
+} option_result;
+
+/**
+ * @internal
+ * @brief Parses the options that choose how the audio is encoded.
+ *
+ * @param gfp          the encoder instance.
+ * @param st           the state of the parse.
+ * @param token        the option, without the two dashes.
+ * @param nextArg      the next word of the command line, or "".
+ * @param argUsed      receives how many words after the option it uses.
+ * @return OPT_NOT_MINE for an option of another group, else what the parse does next.
+ */
+static option_result
+parse_encoding_options(lame_t gfp, parse_state * st, char const *token, char *nextArg, int *argUsed)
+{
+    double  double_value = 0;
+    int     int_value = 0;
+
+    if (0 == local_strcasecmp(token, "resample")) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed)
+            (void) lame_set_out_samplerate(gfp, resample_rate(double_value));
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "vbr-old")) {
+        lame_set_VBR(gfp, vbr_rh);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "vbr-new")) {
+        lame_set_VBR(gfp, vbr_mt);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "vbr-mtrh")) {
+        lame_set_VBR(gfp, vbr_mtrh);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "cbr")) {
+        lame_set_VBR(gfp, vbr_off);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "abr")) {
+        /* values larger than 8000 are bps (like Fraunhofer), so it's strange to get 320000 bps MP3 when specifying 8000 bps MP3 */
+        *argUsed = getIntValue(token, nextArg, &int_value);
+        if (*argUsed) {
+            if (int_value >= 8000) {
+                int_value = (int_value + 500) / 1000;
+            }
+            if (int_value > 320) {
+                int_value = 320;
+            }
+            if (int_value < 8) {
+                int_value = 8;
+            }
+            lame_set_VBR(gfp, vbr_abr);
+            lame_set_VBR_mean_bitrate_kbps(gfp, int_value);
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "r3mix")) {
+        lame_set_preset(gfp, R3MIX);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "nores")) {
+        lame_set_disable_reservoir(gfp, 1);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "strictly-enforce-ISO")) {
+        lame_set_strict_ISO(gfp, MDB_STRICT_ISO);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "buffer-constraint")) {
+        *argUsed = 1;
+        if (strcmp(nextArg, "default") == 0)
+            (void) lame_set_strict_ISO(gfp, MDB_DEFAULT);
+        else if (strcmp(nextArg, "strict") == 0)
+            (void) lame_set_strict_ISO(gfp, MDB_STRICT_ISO);
+        else if (strcmp(nextArg, "maximum") == 0)
+            (void) lame_set_strict_ISO(gfp, MDB_MAXIMUM);
+        else {
+            error_printf("unknown buffer constraint '%s'\n", nextArg);
+            return OPT_STOP_ERROR;
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "scale")) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed && lame_set_scale(gfp, (float) double_value) != 0)
+            refuse_number(token, nextArg);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "scale-l")) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed && lame_set_scale_left(gfp, (float) double_value) != 0)
+            refuse_number(token, nextArg);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "scale-r")) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed && lame_set_scale_right(gfp, (float) double_value) != 0)
+            refuse_number(token, nextArg);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "gain")) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed) {
+            double gain = double_value;
+            gain = gain > -20.f ? gain : -20.f;
+            gain = gain < 12.f ? gain : 12.f;
+            gain = pow(10.f, gain*0.05);
+            (void) lame_set_scale(gfp, (float) gain);
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "vector")) {
+        *argUsed = 1;
+        if (set_vector_routines(gfp, nextArg) != 0)
+            return OPT_STOP_ERROR;
+        st->vector_selected = 1;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "noasm")) {
+        *argUsed = 1;
+        if (local_strcasecmp(nextArg, "sse") == 0) {
+            error_printf("WARNING: --noasm sse is deprecated,"
+                         " use --vector none instead\n");
+            if (!st->vector_selected) {
+                (void) lame_set_vector_routines(gfp, "none");
+                st->noasm_none = 1;
+            }
+        }
+        else if (local_strcasecmp(nextArg, "avx2") == 0) {
+            error_printf("WARNING: --noasm avx2 is deprecated,"
+                         " use --vector sse2 instead\n");
+            /* The option could be repeated to turn off more than
+               one tier, so a second mapping may only lower the
+               selection: "sse" already asked for none. */
+            if (!st->vector_selected && !st->noasm_none)
+                (void) lame_set_vector_routines(gfp, "sse2");
+        }
+        else {
+            error_printf("WARNING: --noasm %s is deprecated and selects nothing;"
+                         " see --vector\n", nextArg);
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "freeformat")) {
+        lame_set_free_format(gfp, 1);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "replaygain-fast")) {
+        lame_set_findReplayGain(gfp, 1);
+        return OPT_DONE;
+    }
+#ifdef HAVE_MPG123
+    if (0 == local_strcasecmp(token, "replaygain-accurate")) {
+        lame_set_decode_on_the_fly(gfp, 1);
+        lame_set_findReplayGain(gfp, 1);
+        return OPT_DONE;
+    }
+#endif
+    if (0 == local_strcasecmp(token, "noreplaygain")) {
+        st->noreplaygain = 1;
+        lame_set_findReplayGain(gfp, 0);
+        return OPT_DONE;
+    }
+#ifdef HAVE_MPG123
+    if (0 == local_strcasecmp(token, "clipdetect")) {
+        global_ui_config.print_clipping_info = 1;
+        lame_set_decode_on_the_fly(gfp, 1);
+        return OPT_DONE;
+    }
+#endif
+    if (0 == local_strcasecmp(token, "comp")) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed) {
+            if (double_value < 1.0) {
+                error_printf("Must specify compression ratio >= 1.0\n");
+                return OPT_STOP_ERROR;
+            }
+            else {
+                lame_set_compression_ratio(gfp, (float) double_value);
+            }
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "athaa-sensitivity")) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed)
+            lame_set_athaa_sensitivity(gfp, (float) double_value);
+        return OPT_DONE;
+    }
+    return OPT_NOT_MINE;
+}
+
+/**
+ * @internal
+ * @brief Parses the lowpass and highpass filter options.
+ *
+ * A frequency from 0.001 to 50000 is accepted. A value below 50 for --lowpass,
+ * and below 16 for the other three options, is in kHz; a larger one is in Hz.
+ * A negative --lowpass or --highpass switches that filter off.
+ *
+ * @param gfp          the encoder instance.
+ * @param token        the option, without the two dashes.
+ * @param nextArg      the next word of the command line, or "".
+ * @param argUsed      receives how many words after the option it uses.
+ * @return OPT_NOT_MINE for an option of another group, else what the parse does next.
+ */
+static option_result
+parse_filter_options(lame_t gfp, char const *token, char *nextArg, int *argUsed)
+{
+    double  double_value = 0;
+
+    if (0 == local_strcasecmp(token, "lowpass")) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed) {
+            if (double_value < 0) {
+                lame_set_lowpassfreq(gfp, -1);
+            }
+            else {
+                if (double_value < 0.001 || double_value > 50000.) {
+                    error_printf("Must specify lowpass with --lowpass freq, freq >= 0.001 kHz\n");
+                    return OPT_STOP_ERROR;
+                }
+                lame_set_lowpassfreq(gfp, (int) (double_value * (double_value < 50. ? 1.e3 : 1.e0) + 0.5));
+            }
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "lowpass-width")) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed) {
+            if (double_value < 0.001 || double_value > 50000.) {
+                error_printf
+                    ("Must specify lowpass width with --lowpass-width freq, freq >= 0.001 kHz\n");
+                return OPT_STOP_ERROR;
+            }
+            lame_set_lowpasswidth(gfp, (int) (double_value * (double_value < 16. ? 1.e3 : 1.e0) + 0.5));
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "highpass")) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed) {
+            if (double_value < 0.0) {
+                lame_set_highpassfreq(gfp, -1);
+            }
+            else {
+                if (double_value < 0.001 || double_value > 50000.) {
+                    error_printf("Must specify highpass with --highpass freq, freq >= 0.001 kHz\n");
+                    return OPT_STOP_ERROR;
+                }
+                lame_set_highpassfreq(gfp, (int) (double_value * (double_value < 16. ? 1.e3 : 1.e0) + 0.5));
+            }
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "highpass-width")) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed) {
+            if (double_value < 0.001 || double_value > 50000.) {
+                error_printf
+                    ("Must specify highpass width with --highpass-width freq, freq >= 0.001 kHz\n");
+                return OPT_STOP_ERROR;
+            }
+            lame_set_highpasswidth(gfp, (int) (double_value * (double_value < 16. ? 1.e3 : 1.e0) + 0.5));
+        }
+        return OPT_DONE;
+    }
+    return OPT_NOT_MINE;
+}
+
+/**
+ * @internal
+ * @brief Parses the options for the input and output files.
+ *
+ * @param gfp          the encoder instance.
+ * @param st           the state of the parse.
+ * @param token        the option, without the two dashes.
+ * @param nextArg      the next word of the command line, or "".
+ * @param outDir       receives the output directory, PATH_MAX+1 bytes.
+ * @param ProgramName  the name of the program, for messages.
+ * @param argUsed      receives how many words after the option it uses.
+ * @return OPT_NOT_MINE for an option of another group, else what the parse does next.
+ */
+static option_result
+parse_io_options(lame_t gfp, parse_state * st, char const *token, char *nextArg, char *const outDir,
+                 char const *ProgramName, int *argUsed)
+{
+    int     int_value = 0;
+
+    if (0 == local_strcasecmp(token, "bitwidth")) {
+        *argUsed = getIntValue(token, nextArg, &int_value);
+        if (*argUsed)
+            global_raw_pcm.in_bitwidth = int_value;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "signed")) {
+        global_raw_pcm.in_signed = 1;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "unsigned")) {
+        global_raw_pcm.in_signed = 0;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "little-endian")) {
+        global_raw_pcm.in_endian = ByteOrderLittleEndian;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "big-endian")) {
+        global_raw_pcm.in_endian = ByteOrderBigEndian;
+        return OPT_DONE;
+    }
+#ifdef HAVE_MPG123
+    if (0 == local_strcasecmp(token, "mp1input")) {
+        global_reader.input_format = sf_mp1;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "mp2input")) {
+        global_reader.input_format = sf_mp2;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "mp3input")) {
+        global_reader.input_format = sf_mp3;
+        return OPT_DONE;
+    }
+#endif
+    if (0 == local_strcasecmp(token, "decode")) {
+        (void) lame_set_decode_only(gfp, 1);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "flush")) {
+        global_writer.flush_write = 1;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "preserve-modtime")) {
+        global_writer.preserve_modtime = 1;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "replaygain-id3v2")) {
+        global_writer.replaygain_id3v2 = 1;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "decode-mp3delay")) {
+        *argUsed = getIntValue(token, nextArg, &int_value);
+        if (*argUsed) {
+            global_decoder.mp3_delay = int_value;
+            global_decoder.mp3_delay_set = 1;
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "nogaptags")) {
+        st->nogap_tags = 1;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "nogapout")) {
+        int const arg_n = (int)lame_strnlen(nextArg, PATH_MAX);
+        if (arg_n >= PATH_MAX) {
+            error_printf("%s: %s argument length (%d) exceeds limit (%d)\n", ProgramName, token, arg_n, PATH_MAX);
+            return OPT_STOP_ERROR;
+        }
+        strncpy(outDir, nextArg, PATH_MAX);
+        outDir[PATH_MAX] = '\0';
+        *argUsed = 1;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "out-dir")) {
+        int const arg_n = (int)lame_strnlen(nextArg, PATH_MAX);
+        if (arg_n >= PATH_MAX) {
+            error_printf("%s: %s argument length (%d) exceeds limit (%d)\n", ProgramName, token, arg_n, PATH_MAX);
+            return OPT_STOP_ERROR;
+        }
+        strncpy(outDir, nextArg, PATH_MAX);
+        outDir[PATH_MAX] = '\0';
+        *argUsed = 1;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "nogap")) {
+        st->nogap = 1;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "swap-channel")) {
+        global_reader.swap_channel = 1;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "ignorelength")) {
+        global_reader.ignorewavlength = 1;
+        return OPT_DONE;
+    }
+    return OPT_NOT_MINE;
+}
+
+/**
+ * @internal
+ * @brief Parses the ID3 tag options.
+ *
+ * @param gfp          the encoder instance.
+ * @param st           the state of the parse.
+ * @param token        the option, without the two dashes.
+ * @param nextArg      the next word of the command line, or "".
+ * @param argUsed      receives how many words after the option it uses.
+ * @return OPT_NOT_MINE for an option of another group, else what the parse does next.
+ */
+static option_result
+parse_id3_options(lame_t gfp, parse_state * st, char const *token, char *nextArg, int *argUsed)
+{
+    int     int_value = 0;
+
+#ifdef ID3TAGS_EXTENDED
+    if (0 == local_strcasecmp(token, "id3v2-utf16") || 0 == local_strcasecmp(token, "id3v2-ucs2")) {
+        /* id3v2-ucs2 for compatibility only */
+        st->id3_tenc = TENC_UTF16;
+        id3tag_add_v2(gfp);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "id3v2-utf8")) {
+        st->id3_tenc = TENC_UTF8;
+        id3tag_add_v2_4_UTF8(gfp);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "id3v2-latin1")) {
+        st->id3_tenc = TENC_LATIN1;
+        id3tag_add_v2(gfp);
+        return OPT_DONE;
+    }
+#endif
+    if (0 == local_strcasecmp(token, "tt")) {
+        *argUsed = 1;
+        id3_tag(gfp, 't', st->id3_tenc, nextArg);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "ta")) {
+        *argUsed = 1;
+        id3_tag(gfp, 'a', st->id3_tenc, nextArg);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "tl")) {
+        *argUsed = 1;
+        id3_tag(gfp, 'l', st->id3_tenc, nextArg);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "ty")) {
+        *argUsed = 1;
+        id3_tag(gfp, 'y', st->id3_tenc, nextArg);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "tc")) {
+        *argUsed = 1;
+        id3_tag(gfp, 'c', st->id3_tenc, nextArg);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "tn")) {
+        int ret = id3_tag(gfp, 'n', st->id3_tenc, nextArg);
+        *argUsed = 1;
+        if (ret != 0) {
+            if (0 == st->ignore_tag_errors) {
+                if (st->id3tag_mode == ID3TAG_MODE_V1_ONLY) {
+                    if (global_ui_config.silent < 9) {
+                        error_printf("The track number has to be between 1 and 255 for ID3v1.\n");
+                    }
+                    return OPT_STOP_ERROR;
+                }
+                else if (st->id3tag_mode == ID3TAG_MODE_V2_ONLY) {
+                    /* an ID3v2 tag takes any track number */
+                }
+                else {
+                    if (global_ui_config.silent < 9) {
+                        error_printf("The track number has to be between 1 and 255 for ID3v1, ignored for ID3v1.\n");
+                    }
+                }
+            }
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "tg")) {
+        int ret = 0;
+        *argUsed = 1;
+        if (nextArg != 0 && strlen(nextArg) > 0) {
+            ret = id3_tag(gfp, 'g', st->id3_tenc, nextArg);
+        }
+        if (ret != 0) {
+            if (0 == st->ignore_tag_errors) {
+                if (ret == -1) {
+                    error_printf("Unknown ID3v1 genre number: '%s'.\n", nextArg);
+                    return OPT_STOP_ERROR;
+                }
+                else if (ret == -2) {
+                    if (st->id3tag_mode == ID3TAG_MODE_V1_ONLY) {
+                        error_printf("Unknown ID3v1 genre: '%s'.\n", nextArg);
+                        return OPT_STOP_ERROR;
+                    }
+                    else if (st->id3tag_mode == ID3TAG_MODE_V2_ONLY) {
+                        /* an ID3v2 tag keeps the genre as text */
+                    }
+                    else {
+                        if (global_ui_config.silent < 9) {
+                            error_printf("Unknown ID3v1 genre: '%s'.  Setting ID3v1 genre to 'Other'\n", nextArg);
+                        }
+                    }
+                }
+                else {
+                    if (global_ui_config.silent < 10)
+                        error_printf("Internal error.\n");
+                    return OPT_STOP_ERROR;
+                }
+            }
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "tv")) {
+        *argUsed = 1;
+        if (id3_tag(gfp, 'v', st->id3_tenc, nextArg)) {
+            if (global_ui_config.silent < 9) {
+                error_printf("Invalid field value: '%s'. Ignored\n", nextArg);
+            }
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "ti")) {
+        *argUsed = 1;
+        if (set_id3_albumart(gfp, nextArg) != 0) {
+            if (! st->ignore_tag_errors) {
+                return OPT_STOP_ERROR;
+            }
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "ignore-tag-errors")) {
+        st->ignore_tag_errors = 1;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "add-id3v2")) {
+        id3tag_add_v2(gfp);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "id3v1-only")) {
+        id3tag_v1_only(gfp);
+        st->id3tag_mode = ID3TAG_MODE_V1_ONLY;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "id3v2-only")) {
+        id3tag_v2_only(gfp);
+        st->id3tag_mode = ID3TAG_MODE_V2_ONLY;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "space-id3v1")) {
+        id3tag_space_v1(gfp);
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "pad-id3v2")) {
+        id3tag_pad_v2(gfp);
+        global_writer.id3v2_padding = 128;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "pad-id3v2-size")) {
+        *argUsed = getIntValue(token, nextArg, &int_value);
+        if (*argUsed) {
+            int_value = int_value <= 128000 ? int_value : 128000;
+            int_value = int_value >= 0      ? int_value : 0;
+            id3tag_set_pad(gfp, int_value);
+            global_writer.id3v2_padding = int_value;
+        }
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "genre-list")) {
+        id3tag_genre_list(genre_list_handler, NULL);
+        return OPT_STOP_OK;
+    }
+    return OPT_NOT_MINE;
+}
+
+/**
+ * @internal
+ * @brief Parses the options for the messages on the screen and for help.
+ *
+ * @param gfp          the encoder instance.
+ * @param token        the option, without the two dashes.
+ * @param nextArg      the next word of the command line, or "".
+ * @param ProgramName  the name of the program, for messages.
+ * @param argUsed      receives how many words after the option it uses.
+ * @return OPT_NOT_MINE for an option of another group, else what the parse does next.
+ */
+static option_result
+parse_info_options(lame_t gfp, char const *token, char *nextArg, char const *ProgramName,
+                   int *argUsed)
+{
+    double  double_value = 0;
+
+    if (0 == local_strcasecmp(token, "nohist")) {
+        global_ui_config.brhist = 0;
+        return OPT_DONE;
+    }
+#if defined(__OS2__) || defined(WIN32)
+    if (0 == local_strcasecmp(token, "priority")) {
+        int     int_value = 0;
+
+        *argUsed = getIntValue(token, nextArg, &int_value);
+        if (*argUsed)
+            setProcessPriority(int_value);
+        return OPT_DONE;
+    }
+#endif
+    /* some more GNU-ish options could be added
+     * brief         => few messages on screen (name, status report)
+     * o/output file => specifies output filename
+     * O             => stdout
+     * i/input file  => specifies input filename
+     * I             => stdin
+     */
+    if (0 == local_strcasecmp(token, "quiet")) {
+        global_ui_config.silent = 10; /* on a scale from 1 to 10 be very silent */
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "silent")) {
+        global_ui_config.silent = 9;
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "brief")) {
+        global_ui_config.silent = -5; /* print few info on screen */
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "verbose")) {
+        global_ui_config.silent = -10; /* print a lot on screen */
+        return OPT_DONE;
+    }
+    if (0 == local_strcasecmp(token, "version") || 0 == local_strcasecmp(token, "license")) {
+        print_license(stdout);
+        return OPT_STOP_OK;
+    }
+    if (0 == local_strcasecmp(token, "help") || 0 == local_strcasecmp(token, "usage")) {
+        if (0 == local_strncasecmp(nextArg, "id3", 3)) {
+            help_id3tag(stdout);
+        }
+        else if (0 == local_strncasecmp(nextArg, "dev", 3)) {
+            help_developer_switches(stdout);
+        }
+        else {
+            short_help(gfp, stdout, ProgramName);
+        }
+        return OPT_STOP_OK;
+    }
+    if (0 == local_strcasecmp(token, "longhelp")) {
+        long_help(gfp, stdout, ProgramName, 0 /* lessmode=NO */ );
+        return OPT_STOP_OK;
+    }
+    if (0 == local_strcasecmp(token, "?")) {
+#ifdef __unix__
+        FILE   *fp = popen("less -Mqc", "w");
+        long_help(gfp, fp, ProgramName, 0 /* lessmode=NO */ );
+        pclose(fp);
+#else
+        long_help(gfp, stdout, ProgramName, 1 /* lessmode=YES */ );
+#endif
+        return OPT_STOP_OK;
+    }
+    if (0 == local_strcasecmp(token, "disptime")) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed)
+            global_ui_config.update_interval = (float) double_value;
+        return OPT_DONE;
+    }
+    return OPT_NOT_MINE;
+}
+
+/**
+ * @internal
+ * @brief Parses --preset and --alt-preset, which read one or more words.
+ *
+ * @param gfp          the encoder instance.
+ * @param token        the option, without the two dashes.
+ * @param nextArg      the next word of the command line, or "".
+ * @param ProgramName  the name of the program, for messages.
+ * @param argc         the number of words of the command line.
+ * @param argv         the words of the command line.
+ * @param i            the position of the option in @p argv.
+ * @param argUsed      receives how many words after the option it uses.
+ * @return OPT_NOT_MINE for another option, else what the parse does next.
+ */
+static option_result
+parse_preset_option(lame_t gfp, char const *token, char *nextArg, char const *ProgramName, int argc,
+                    char **argv, int i, int *argUsed)
+{
+    if (0 == local_strcasecmp(token, "preset") || 0 == local_strcasecmp(token, "alt-preset")) {
+        int     fast = 0, cbr = 0;
+
+        *argUsed = 1;
+        while ((strcmp(nextArg, "fast") == 0) || (strcmp(nextArg, "cbr") == 0)) {
+
+            if ((strcmp(nextArg, "fast") == 0) && (fast < 1))
+                fast = 1;
+            if ((strcmp(nextArg, "cbr") == 0) && (cbr < 1))
+                cbr = 1;
+
+            (*argUsed)++;
+            nextArg = i + *argUsed < argc ? argv[i + *argUsed] : "";
+        }
+
+        {
+            int const ret = presets_set(gfp, fast, cbr, nextArg, ProgramName);
+            if (ret < 0)
+                return ret == -2 ? OPT_STOP_OK : OPT_STOP_ERROR;
+        }
+        return OPT_DONE;
+    }
+    return OPT_NOT_MINE;
+}
+
+/**
+ * @internal
+ * @brief Parses the developer options. A build without them ignores them
+ *        with a warning.
+ *
+ * @param gfp          the encoder instance.
+ * @param token        the option, without the two dashes.
+ * @param nextArg      the next word of the command line, or "".
+ * @param argUsed      receives how many words after the option it uses.
+ * @return OPT_NOT_MINE for an option of another group, else what the parse does next.
+ */
+static option_result
+parse_developer_options(lame_t gfp, char const *token, char *nextArg, int *argUsed)
+{
+    double  double_value = 0;
+    int     int_value = 0;
+    int     argIgnored = 0;
+
+    if (dev_only_without_arg("noshort", token, &argIgnored)) {
+        (void) lame_set_no_short_blocks(gfp, 1);
+        return OPT_DONE;
+    }
+    if (dev_only_without_arg("short", token, &argIgnored)) {
+        (void) lame_set_no_short_blocks(gfp, 0);
+        return OPT_DONE;
+    }
+    if (dev_only_without_arg("allshort", token, &argIgnored)) {
+        (void) lame_set_force_short_blocks(gfp, 1);
+        return OPT_DONE;
+    }
+    if (dev_only_without_arg("notemp", token, &argIgnored)) {
+        (void) lame_set_useTemporal(gfp, 0);
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("interch", token, nextArg, &argIgnored, argUsed)) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed)
+            (void) lame_set_interChRatio(gfp, (float) double_value);
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("temporal-masking", token, nextArg, &argIgnored, argUsed)) {
+        *argUsed = getIntValue(token, nextArg, &int_value);
+        if (*argUsed)
+            (void) lame_set_useTemporal(gfp, int_value ? 1 : 0);
+        return OPT_DONE;
+    }
+    if (dev_only_without_arg("nspsytune", token, &argIgnored)) {
+        ;
+        return OPT_DONE;
+    }
+    if (dev_only_without_arg("nssafejoint", token, &argIgnored)) {
+        lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | 2);
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("nsmsfix", token, nextArg, &argIgnored, argUsed)) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed)
+            (void) lame_set_msfix(gfp, double_value);
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("ns-bass", token, nextArg, &argIgnored, argUsed)) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed) {
+            int     k = (int) (double_value * 4);
+            if (k < -32)
+                k = -32;
+            if (k > 31)
+                k = 31;
+            if (k < 0)
+                k += 64;
+            lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 2));
+        }
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("ns-alto", token, nextArg, &argIgnored, argUsed)) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed) {
+            int     k = (int) (double_value * 4);
+            if (k < -32)
+                k = -32;
+            if (k > 31)
+                k = 31;
+            if (k < 0)
+                k += 64;
+            lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 8));
+        }
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("ns-treble", token, nextArg, &argIgnored, argUsed)) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed) {
+            int     k = (int) (double_value * 4);
+            if (k < -32)
+                k = -32;
+            if (k > 31)
+                k = 31;
+            if (k < 0)
+                k += 64;
+            lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 14));
+        }
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("ns-sfb21", token, nextArg, &argIgnored, argUsed)) {
+        /*  to be compatible with Naoki's original code,
+         *  ns-sfb21 specifies how to change ns-treble for sfb21 */
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed) {
+            int     k = (int) (double_value * 4);
+            if (k < -32)
+                k = -32;
+            if (k > 31)
+                k = 31;
+            if (k < 0)
+                k += 64;
+            lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 20));
+        }
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("tune", token, nextArg, &argIgnored, argUsed)) { /*without helptext */
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed)
+            lame_set_tune(gfp, (float) double_value);
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("shortthreshold", token, nextArg, &argIgnored, argUsed)) {
+        float   x, y;
+        int     n = sscanf(nextArg, "%f,%f", &x, &y);
+        if (n == 1) {
+            y = x;
+        }
+        (void) lame_set_short_threshold(gfp, x, y);
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("maskingadjust", token, nextArg, &argIgnored, argUsed)) {
+        /*without helptext */
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed)
+            (void) lame_set_maskingadjust(gfp, (float) double_value);
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("maskingadjustshort", token, nextArg, &argIgnored, argUsed)) {
+        /*without helptext */
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed)
+            (void) lame_set_maskingadjust_short(gfp, (float) double_value);
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("athcurve", token, nextArg, &argIgnored, argUsed)) { /*without helptext */
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed)
+            (void) lame_set_ATHcurve(gfp, (float) double_value);
+        return OPT_DONE;
+    }
+    if (dev_only_without_arg("no-preset-tune", token, &argIgnored)) { /*without helptext */
+        (void) lame_set_preset_notune(gfp, 0);
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("substep", token, nextArg, &argIgnored, argUsed)) {
+        *argUsed = getIntValue(token, nextArg, &int_value);
+        if (*argUsed)
+            (void) lame_set_substep(gfp, int_value);
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("sbgain", token, nextArg, &argIgnored, argUsed)) { /*without helptext */
+        *argUsed = getIntValue(token, nextArg, &int_value);
+        if (*argUsed)
+            (void) lame_set_subblock_gain(gfp, int_value);
+        return OPT_DONE;
+    }
+    if (dev_only_without_arg("sfscale", token, &argIgnored)) { /*without helptext */
+        (void) lame_set_sfscale(gfp, 1);
+        return OPT_DONE;
+    }
+    if (dev_only_without_arg("noath", token, &argIgnored)) {
+        (void) lame_set_noATH(gfp, 1);
+        return OPT_DONE;
+    }
+    if (dev_only_without_arg("athonly", token, &argIgnored)) {
+        (void) lame_set_ATHonly(gfp, 1);
+        return OPT_DONE;
+    }
+    if (dev_only_without_arg("athshort", token, &argIgnored)) {
+        (void) lame_set_ATHshort(gfp, 1);
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("athlower", token, nextArg, &argIgnored, argUsed)) {
+        *argUsed = getDoubleValue(token, nextArg, &double_value);
+        if (*argUsed)
+            (void) lame_set_ATHlower(gfp, (float) double_value);
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("athtype", token, nextArg, &argIgnored, argUsed)) {
+        *argUsed = getIntValue(token, nextArg, &int_value);
+        if (*argUsed)
+            (void) lame_set_ATHtype(gfp, int_value);
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("athaa-type", token, nextArg, &argIgnored, argUsed)) {
+        /*  switch for developing, no DOCU */
+        /* once was 1:Gaby, 2:Robert, 3:Jon, else:off */
+        *argUsed = getIntValue(token, nextArg, &int_value);
+        if (*argUsed)
+            (void) lame_set_athaa_type(gfp, int_value); /* now: 0:off else:Jon */
+        return OPT_DONE;
+    }
+    if (dev_only_with_arg("debug-file", token, nextArg, &argIgnored, argUsed)) {
+        /* switch for developing, no DOCU */
+        /* file name to print debug info into */
+        set_debug_file(nextArg);
+        return OPT_DONE;
+    }
+    return argIgnored ? OPT_DONE : OPT_NOT_MINE;
+}
+
+/**
+ * @internal
+ * @brief Parses one word of single-letter options, such as -h or -b128.
+ *
+ * @param gfp          the encoder instance.
+ * @param st           the state of the parse.
+ * @param token        the word, without the dash.
+ * @param nextArg      the next word of the command line, or "".
+ * @param ProgramName  the name of the program, for messages.
+ * @param i            the position of the word in the command line. It moves
+ *                     on when an option uses the next word.
+ * @return what the parse does next.
+ */
+static option_result
+parse_short_options(lame_t gfp, parse_state * st, char const *token, char const *nextArg,
+                    char const *ProgramName, int *i)
+{
+    char    c;
+    int     argUsed = 0;
+
+    while ((c = *token++) != '\0') {
+        double double_value = 0;
+        int int_value = 0;
+        char const *arg = *token ? token : nextArg;
+        switch (c) {
+        case 'm':
+            argUsed = 1;
+
+            switch (*arg) {
+            case 's':
+                (void) lame_set_mode(gfp, STEREO);
+                break;
+            case 'd':
+                (void) lame_set_mode(gfp, DUAL_CHANNEL);
+                break;
+            case 'f':
+                lame_set_force_ms(gfp, 1);
+                (void) lame_set_mode(gfp, JOINT_STEREO);
+                break;
+            case 'j':
+                lame_set_force_ms(gfp, 0);
+                (void) lame_set_mode(gfp, JOINT_STEREO);
+                break;
+            case 'm':
+                (void) lame_set_mode(gfp, MONO);
+                break;
+            case 'l':
+                (void) lame_set_mode(gfp, MONO);
+                (void) lame_set_scale_left(gfp, 2);
+                (void) lame_set_scale_right(gfp, 0);
+                break;
+            case 'r':
+                (void) lame_set_mode(gfp, MONO);
+                (void) lame_set_scale_left(gfp, 0);
+                (void) lame_set_scale_right(gfp, 2);
+                break;
+            case 'a': /* same as 'j' ??? */
+                lame_set_force_ms(gfp, 0);
+                (void) lame_set_mode(gfp, JOINT_STEREO);
+                break;
+            default:
+                error_printf("%s: -m mode must be s/d/f/j/m/l/r not %s\n", ProgramName,
+                             arg);
+                return OPT_STOP_ERROR;
+            }
+            break;
+
+        case 'V':
+            argUsed = getDoubleValue("V", arg, &double_value);
+            if (argUsed) {
+                /* vbr_default is set in lame.h; -v below does the same */
+                if (lame_get_VBR(gfp) == vbr_off)
+                    lame_set_VBR(gfp, vbr_default);
+                lame_set_VBR_quality(gfp, (float) double_value);
+            }
+            break;
+        case 'v':
+            if (lame_get_VBR(gfp) == vbr_off)
+                lame_set_VBR(gfp, vbr_default);
+            break;
+
+        case 'q':
+            argUsed = getIntValue("q", arg, &int_value);
+            if (argUsed) 
+                (void) lame_set_quality(gfp, int_value);
+            break;
+        case 'f':
+            (void) lame_set_quality(gfp, 7);
+            break;
+        case 'h':
+            (void) lame_set_quality(gfp, 2);
+            break;
+
+        case 's':
+            argUsed = getDoubleValue("s", arg, &double_value);
+            if (argUsed) {
+                double_value = (int) (double_value * (double_value <= 192 ? 1.e3 : 1.e0) + 0.5);
+                global_reader.input_samplerate = (int)double_value;
+                (void) lame_set_in_samplerate(gfp, (int)double_value);
+            }
+            break;
+        case 'b':
+            argUsed = getIntValue("b", arg, &int_value);
+            if (argUsed) {
+                lame_set_brate(gfp, int_value);
+                lame_set_VBR_min_bitrate_kbps(gfp, lame_get_brate(gfp));
+            }
+            break;
+        case 'B':
+            argUsed = getIntValue("B", arg, &int_value);
+            if (argUsed) {
+                lame_set_VBR_max_bitrate_kbps(gfp, int_value);
+            }
+            break;
+        case 'F':
+            lame_set_VBR_hard_min(gfp, 1);
+            break;
+        case 't': /* dont write VBR tag */
+            (void) lame_set_bWriteVbrTag(gfp, 0);
+            global_decoder.disable_wav_header = 1;
+            break;
+        case 'T': /* do write VBR tag */
+            (void) lame_set_bWriteVbrTag(gfp, 1);
+            st->nogap_tags = 1;
+            global_decoder.disable_wav_header = 0;
+            break;
+        case 'r': /* force raw pcm input file */
+#if defined(LIBSNDFILE)
+            error_printf
+                ("WARNING: libsndfile may ignore -r and perform fseek's on the input.\n"
+                 "Compile without libsndfile if this is a problem.\n");
+#endif
+            global_reader.input_format = sf_raw;
+            break;
+        case 'x': /* force byte swapping */
+            global_reader.swapbytes = 1;
+            break;
+        case 'p': /* (jo) error_protection: add crc16 information to stream */
+            lame_set_error_protection(gfp, 1);
+            break;
+        case 'a': /* autoconvert input file from stereo to mono - for mono mp3 encoding */
+            st->autoconvert = 1;
+            (void) lame_set_mode(gfp, MONO);
+            break;
+        case 'd':   /*(void) lame_set_allow_diff_short( gfp, 1 ); */
+        case 'k':   /*lame_set_lowpassfreq(gfp, -1);
+                      lame_set_highpassfreq(gfp, -1); */
+            error_printf("WARNING: -%c is obsolete.\n", c);
+            break;
+        case 'S':
+            global_ui_config.silent = 5;
+            break;
+        case 'X':
+            /*  experimental switch -X:
+                the differnt types of quant compare are tough
+                to communicate to endusers, so they shouldn't
+                bother to toy around with them
+             */
+            {
+                int     x, y;
+                int     n = sscanf(arg, "%d,%d", &x, &y);
+                if (n == 1) {
+                    y = x;
+                }
+                argUsed = 1;
+                if (internal_opts_enabled) {
+                    lame_set_quant_comp(gfp, x);
+                    lame_set_quant_comp_short(gfp, y);
+                }
+            }
+            break;
+        case 'Y':
+            lame_set_experimentalY(gfp, 1);
+            break;
+        case 'Z':
+            /*  experimental switch -Z:
+             */
+            {
+                int     n = 1;
+                argUsed = sscanf(arg, "%d", &n);
+                /*if (internal_opts_enabled)*/
+                {
+                    lame_set_experimentalZ(gfp, n);
+                }
+            }
+            break;
+        case 'e':
+            argUsed = 1;
+
+            switch (*arg) {
+            case 'n':
+                lame_set_emphasis(gfp, 0);
+                break;
+            case '5':
+                lame_set_emphasis(gfp, 1);
+                break;
+            case 'c':
+                lame_set_emphasis(gfp, 3);
+                break;
+            default:
+                error_printf("%s: -e emp must be n/5/c not %s\n", ProgramName, arg);
+                return OPT_STOP_ERROR;
+            }
+            break;
+        case 'c':
+            lame_set_copyright(gfp, 1);
+            break;
+        case 'o':
+            lame_set_original(gfp, 0);
+            break;
+
+        case '?':
+            long_help(gfp, stdout, ProgramName, 0 /* LESSMODE=NO */ );
+            return OPT_STOP_OK;
+
+        default:
+            error_printf("%s: unrecognized option -%c\n", ProgramName, c);
+            return OPT_STOP_ERROR;
+        }
+        if (argUsed) {
+            if (arg == token)
+                token = ""; /* no more from token */
+            else
+                ++*i; /* skip arg we used */
+            arg = "";
+            argUsed = 0;
+        }
+    }
+    return OPT_DONE;
+}
+
 static int
 parse_args_(lame_global_flags * gfp, int argc, char **argv,
            char *const inPath, char *const outPath, char *const outDir,
@@ -1864,7 +3008,6 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
     for (i = 0; ++i < argc;) {
         char   *token;
         int     argUsed;
-        int     argIgnored=0;
 
         token = argv[i];
         if (*token++ == '-') {
@@ -1878,909 +3021,37 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     strncpy(outPath, argv[i], PATH_MAX + 1);
             }
             if (*token == '-') { /* GNU style */
-                double  double_value = 0;
-                int     int_value = 0;
+                option_result result;
+
                 token++;
-
-                T_IF("resample")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed) 
-                        (void) lame_set_out_samplerate(gfp, resample_rate(double_value));
-
-                T_ELIF("vbr-old")
-                    lame_set_VBR(gfp, vbr_rh);
-
-                T_ELIF("vbr-new")
-                    lame_set_VBR(gfp, vbr_mt);
-
-                T_ELIF("vbr-mtrh")
-                    lame_set_VBR(gfp, vbr_mtrh);
-
-                T_ELIF("cbr")
-                    lame_set_VBR(gfp, vbr_off);
-
-                T_ELIF("abr")
-                    /* values larger than 8000 are bps (like Fraunhofer), so it's strange to get 320000 bps MP3 when specifying 8000 bps MP3 */
-                    argUsed = getIntValue(token, nextArg, &int_value);
-                    if (argUsed) {
-                        if (int_value >= 8000) {
-                            int_value = (int_value + 500) / 1000;
-                        }
-                        if (int_value > 320) {
-                            int_value = 320;
-                        }
-                        if (int_value < 8) {
-                            int_value = 8;
-                        }
-                        lame_set_VBR(gfp, vbr_abr);
-                        lame_set_VBR_mean_bitrate_kbps(gfp, int_value);
-                    }
-
-                T_ELIF("r3mix")
-                    lame_set_preset(gfp, R3MIX);
-
-                T_ELIF("bitwidth")
-                    argUsed = getIntValue(token, nextArg, &int_value);
-                    if (argUsed) 
-                        global_raw_pcm.in_bitwidth = int_value;
-                
-                T_ELIF("signed")
-                    global_raw_pcm.in_signed = 1;
-
-                T_ELIF("unsigned")
-                    global_raw_pcm.in_signed = 0;
-
-                T_ELIF("little-endian")
-                    global_raw_pcm.in_endian = ByteOrderLittleEndian;
-
-                T_ELIF("big-endian")
-                    global_raw_pcm.in_endian = ByteOrderBigEndian;
-
-#ifdef HAVE_MPG123
-                T_ELIF("mp1input")
-                    global_reader.input_format = sf_mp1;
-
-                T_ELIF("mp2input")
-                    global_reader.input_format = sf_mp2;
-
-                T_ELIF("mp3input")
-                    global_reader.input_format = sf_mp3;
-#endif
-
-                T_ELIF("decode")
-                    (void) lame_set_decode_only(gfp, 1);
-
-                T_ELIF("flush")
-                    global_writer.flush_write = 1;
-
-                T_ELIF("preserve-modtime")
-                    global_writer.preserve_modtime = 1;
-
-                T_ELIF("replaygain-id3v2")
-                    global_writer.replaygain_id3v2 = 1;
-
-                T_ELIF("decode-mp3delay")
-                    argUsed = getIntValue(token, nextArg, &int_value);
-                    if (argUsed) {
-                        global_decoder.mp3_delay = int_value;
-                        global_decoder.mp3_delay_set = 1;
-                    }
-
-                T_ELIF("nores")
-                    lame_set_disable_reservoir(gfp, 1);
-
-                T_ELIF("strictly-enforce-ISO")
-                    lame_set_strict_ISO(gfp, MDB_STRICT_ISO);
-
-                T_ELIF("buffer-constraint")
-                  argUsed = 1;
-                if (strcmp(nextArg, "default") == 0)
-                  (void) lame_set_strict_ISO(gfp, MDB_DEFAULT);
-                else if (strcmp(nextArg, "strict") == 0)
-                  (void) lame_set_strict_ISO(gfp, MDB_STRICT_ISO);
-                else if (strcmp(nextArg, "maximum") == 0)
-                  (void) lame_set_strict_ISO(gfp, MDB_MAXIMUM);
-                else {
-                    error_printf("unknown buffer constraint '%s'\n", nextArg);
+                result = parse_encoding_options(gfp, &st, token, nextArg, &argUsed);
+                if (result == OPT_NOT_MINE)
+                    result = parse_filter_options(gfp, token, nextArg, &argUsed);
+                if (result == OPT_NOT_MINE)
+                    result = parse_io_options(gfp, &st, token, nextArg, outDir, ProgramName,
+                                              &argUsed);
+                if (result == OPT_NOT_MINE)
+                    result = parse_id3_options(gfp, &st, token, nextArg, &argUsed);
+                if (result == OPT_NOT_MINE)
+                    result = parse_info_options(gfp, token, nextArg, ProgramName, &argUsed);
+                if (result == OPT_NOT_MINE)
+                    result = parse_preset_option(gfp, token, nextArg, ProgramName, argc, argv, i,
+                                                 &argUsed);
+                if (result == OPT_NOT_MINE)
+                    result = parse_developer_options(gfp, token, nextArg, &argUsed);
+                if (result == OPT_NOT_MINE) {
+                    error_printf("%s: unrecognized option --%s\n", ProgramName, token);
                     return -1;
                 }
-
-                T_ELIF("scale")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed && lame_set_scale(gfp, (float) double_value) != 0)
-                        refuse_number(token, nextArg);
-
-                T_ELIF("scale-l")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed && lame_set_scale_left(gfp, (float) double_value) != 0)
-                        refuse_number(token, nextArg);
-
-                T_ELIF("scale-r")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed && lame_set_scale_right(gfp, (float) double_value) != 0)
-                        refuse_number(token, nextArg);
-
-                T_ELIF("gain")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed) {
-                        double gain = double_value;
-                        gain = gain > -20.f ? gain : -20.f;
-                        gain = gain < 12.f ? gain : 12.f;
-                        gain = pow(10.f, gain*0.05);
-                        (void) lame_set_scale(gfp, (float) gain);
-                    }
-
-                T_ELIF("vector")
-                    argUsed = 1;
-                    if (set_vector_routines(gfp, nextArg) != 0)
-                        return -1;
-                    st.vector_selected = 1;
-
-                T_ELIF("noasm")
-                    argUsed = 1;
-                    if (local_strcasecmp(nextArg, "sse") == 0) {
-                        error_printf("WARNING: --noasm sse is deprecated,"
-                                     " use --vector none instead\n");
-                        if (!st.vector_selected) {
-                            (void) lame_set_vector_routines(gfp, "none");
-                            st.noasm_none = 1;
-                        }
-                    }
-                    else if (local_strcasecmp(nextArg, "avx2") == 0) {
-                        error_printf("WARNING: --noasm avx2 is deprecated,"
-                                     " use --vector sse2 instead\n");
-                        /* The option could be repeated to turn off more than
-                           one tier, so a second mapping may only lower the
-                           selection: "sse" already asked for none. */
-                        if (!st.vector_selected && !st.noasm_none)
-                            (void) lame_set_vector_routines(gfp, "sse2");
-                    }
-                    else {
-                        error_printf("WARNING: --noasm %s is deprecated and selects nothing;"
-                                     " see --vector\n", nextArg);
-                    }
-
-                T_ELIF("freeformat")
-                    lame_set_free_format(gfp, 1);
-
-                T_ELIF("replaygain-fast")
-                    lame_set_findReplayGain(gfp, 1);
-
-#ifdef HAVE_MPG123
-                T_ELIF("replaygain-accurate")
-                    lame_set_decode_on_the_fly(gfp, 1);
-                lame_set_findReplayGain(gfp, 1);
-#endif
-
-                T_ELIF("noreplaygain")
-                    st.noreplaygain = 1;
-                lame_set_findReplayGain(gfp, 0);
-
-
-#ifdef HAVE_MPG123
-                T_ELIF("clipdetect")
-                    global_ui_config.print_clipping_info = 1;
-                    lame_set_decode_on_the_fly(gfp, 1);
-#endif
-
-                T_ELIF("nohist")
-                    global_ui_config.brhist = 0;
-
-#if defined(__OS2__) || defined(WIN32)
-                T_ELIF("priority")
-                    argUsed = getIntValue(token, nextArg, &int_value);
-                    if (argUsed)
-                        setProcessPriority(int_value);
-#endif
-
-                /* options for ID3 tag */
-#ifdef ID3TAGS_EXTENDED
-                T_ELIF2("id3v2-utf16","id3v2-ucs2") /* id3v2-ucs2 for compatibility only */
-                    st.id3_tenc = TENC_UTF16;
-                    id3tag_add_v2(gfp);
-
-                T_ELIF("id3v2-utf8")
-                    st.id3_tenc = TENC_UTF8;
-                    id3tag_add_v2_4_UTF8(gfp);
-
-                T_ELIF("id3v2-latin1")
-                    st.id3_tenc = TENC_LATIN1;
-                    id3tag_add_v2(gfp);
-#endif
-
-                T_ELIF("tt")
-                    argUsed = 1;
-                    id3_tag(gfp, 't', st.id3_tenc, nextArg);
-
-                T_ELIF("ta")
-                    argUsed = 1;
-                    id3_tag(gfp, 'a', st.id3_tenc, nextArg);
-
-                T_ELIF("tl")
-                    argUsed = 1;
-                    id3_tag(gfp, 'l', st.id3_tenc, nextArg);
-
-                T_ELIF("ty")
-                    argUsed = 1;
-                    id3_tag(gfp, 'y', st.id3_tenc, nextArg);
-
-                T_ELIF("tc")
-                    argUsed = 1;
-                    id3_tag(gfp, 'c', st.id3_tenc, nextArg);
-
-                T_ELIF("tn")
-                    int ret = id3_tag(gfp, 'n', st.id3_tenc, nextArg);
-                    argUsed = 1;
-                    if (ret != 0) {
-                        if (0 == st.ignore_tag_errors) {
-                            if (st.id3tag_mode == ID3TAG_MODE_V1_ONLY) {
-                                if (global_ui_config.silent < 9) {
-                                    error_printf("The track number has to be between 1 and 255 for ID3v1.\n");
-                                }
-                                return -1;
-                            }
-                            else if (st.id3tag_mode == ID3TAG_MODE_V2_ONLY) {
-                                /* track will be stored as-is in ID3v2 case, so no problem here */
-                            }
-                            else {
-                                if (global_ui_config.silent < 9) {
-                                    error_printf("The track number has to be between 1 and 255 for ID3v1, ignored for ID3v1.\n");
-                                }
-                            }
-                        }
-                    }
-
-                T_ELIF("tg")
-                    int ret = 0;
-                    argUsed = 1;
-                    if (nextArg != 0 && strlen(nextArg) > 0) {
-                        ret = id3_tag(gfp, 'g', st.id3_tenc, nextArg);
-                    }
-                    if (ret != 0) {
-                        if (0 == st.ignore_tag_errors) {
-                            if (ret == -1) {
-                                error_printf("Unknown ID3v1 genre number: '%s'.\n", nextArg);
-                                return -1;
-                            }
-                            else if (ret == -2) {
-                                if (st.id3tag_mode == ID3TAG_MODE_V1_ONLY) {
-                                    error_printf("Unknown ID3v1 genre: '%s'.\n", nextArg);
-                                    return -1;
-                                }
-                                else if (st.id3tag_mode == ID3TAG_MODE_V2_ONLY) {
-                                    /* genre will be stored as-is in ID3v2 case, so no problem here */
-                                }
-                                else {
-                                    if (global_ui_config.silent < 9) {
-                                        error_printf("Unknown ID3v1 genre: '%s'.  Setting ID3v1 genre to 'Other'\n", nextArg);
-                                    }
-                                }
-                            }
-                            else {
-                                if (global_ui_config.silent < 10)
-                                    error_printf("Internal error.\n");
-                                return -1;
-                            }
-                        }
-                    }
-
-                T_ELIF("tv")
-                    argUsed = 1;
-                    if (id3_tag(gfp, 'v', st.id3_tenc, nextArg)) {
-                        if (global_ui_config.silent < 9) {
-                            error_printf("Invalid field value: '%s'. Ignored\n", nextArg);
-                        }
-                    }
-
-                T_ELIF("ti")
-                    argUsed = 1;
-                    if (set_id3_albumart(gfp, nextArg) != 0) {
-                        if (! st.ignore_tag_errors) {
-                            return -1;
-                        }
-                    }
-
-                T_ELIF("ignore-tag-errors")
-                    st.ignore_tag_errors = 1;
-
-                T_ELIF("add-id3v2")
-                    id3tag_add_v2(gfp);
-
-                T_ELIF("id3v1-only")
-                    id3tag_v1_only(gfp);
-                    st.id3tag_mode = ID3TAG_MODE_V1_ONLY;
-
-                T_ELIF("id3v2-only")
-                    id3tag_v2_only(gfp);
-                    st.id3tag_mode = ID3TAG_MODE_V2_ONLY;
-
-                T_ELIF("space-id3v1")
-                    id3tag_space_v1(gfp);
-
-                T_ELIF("pad-id3v2")
-                    id3tag_pad_v2(gfp);
-                    global_writer.id3v2_padding = 128;
-
-                T_ELIF("pad-id3v2-size")
-                    argUsed = getIntValue(token, nextArg, &int_value);
-                    if (argUsed) {
-                        int_value = int_value <= 128000 ? int_value : 128000;
-                        int_value = int_value >= 0      ? int_value : 0;
-                        id3tag_set_pad(gfp, int_value);
-                        global_writer.id3v2_padding = int_value;
-                    }
-
-                T_ELIF("genre-list")
-                    id3tag_genre_list(genre_list_handler, NULL);
-                    return -2;
-
-
-                T_ELIF("lowpass")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed) {
-                        if (double_value < 0) {
-                            lame_set_lowpassfreq(gfp, -1);
-                        }
-                        else {
-                            /* useful are 0.001 kHz...50 kHz, 50 Hz...50000 Hz */
-                            if (double_value < 0.001 || double_value > 50000.) {
-                                error_printf("Must specify lowpass with --lowpass freq, freq >= 0.001 kHz\n");
-                                return -1;
-                            }
-                            lame_set_lowpassfreq(gfp, (int) (double_value * (double_value < 50. ? 1.e3 : 1.e0) + 0.5));
-                        }
-                    }
-                
-                T_ELIF("lowpass-width")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed) {
-                        /* useful are 0.001 kHz...16 kHz, 16 Hz...50000 Hz */
-                        if (double_value < 0.001 || double_value > 50000.) {
-                            error_printf
-                                ("Must specify lowpass width with --lowpass-width freq, freq >= 0.001 kHz\n");
-                            return -1;
-                        }
-                        lame_set_lowpasswidth(gfp, (int) (double_value * (double_value < 16. ? 1.e3 : 1.e0) + 0.5));
-                    }
-
-                T_ELIF("highpass")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed) {
-                        if (double_value < 0.0) {
-                            lame_set_highpassfreq(gfp, -1);
-                        }
-                        else {
-                            /* useful are 0.001 kHz...16 kHz, 16 Hz...50000 Hz */
-                            if (double_value < 0.001 || double_value > 50000.) {
-                                error_printf("Must specify highpass with --highpass freq, freq >= 0.001 kHz\n");
-                                return -1;
-                            }
-                            lame_set_highpassfreq(gfp, (int) (double_value * (double_value < 16. ? 1.e3 : 1.e0) + 0.5));
-                        }
-                    }
-                    
-                T_ELIF("highpass-width")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed) {
-                        /* useful are 0.001 kHz...16 kHz, 16 Hz...50000 Hz */
-                        if (double_value < 0.001 || double_value > 50000.) {
-                            error_printf
-                                ("Must specify highpass width with --highpass-width freq, freq >= 0.001 kHz\n");
-                            return -1;
-                        }
-                        lame_set_highpasswidth(gfp, (int) (double_value * (double_value < 16. ? 1.e3 : 1.e0) + 0.5));
-                    }
-
-                T_ELIF("comp")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed) {
-                        if (double_value < 1.0) {
-                            error_printf("Must specify compression ratio >= 1.0\n");
-                            return -1;
-                        }
-                        else {
-                            lame_set_compression_ratio(gfp, (float) double_value);
-                        }
-                    }
-    
-                /* some more GNU-ish options could be added
-                 * brief         => few messages on screen (name, status report)
-                 * o/output file => specifies output filename
-                 * O             => stdout
-                 * i/input file  => specifies input filename
-                 * I             => stdin
-                 */
-                T_ELIF("quiet")
-                    global_ui_config.silent = 10; /* on a scale from 1 to 10 be very silent */
-
-                T_ELIF("silent")
-                    global_ui_config.silent = 9;
-
-                T_ELIF("brief")
-                    global_ui_config.silent = -5; /* print few info on screen */
-
-                T_ELIF("verbose")
-                    global_ui_config.silent = -10; /* print a lot on screen */
-                
-                T_ELIF2("version", "license")
-                    print_license(stdout);
-                return -2;
-
-                T_ELIF2("help", "usage")
-                    if (0 == local_strncasecmp(nextArg, "id3", 3)) {
-                        help_id3tag(stdout);
-                    }
-                    else if (0 == local_strncasecmp(nextArg, "dev", 3)) {
-                        help_developer_switches(stdout);
-                    }
-                    else {
-                        short_help(gfp, stdout, ProgramName);
-                    }
-                return -2;
-
-                T_ELIF("longhelp")
-                    long_help(gfp, stdout, ProgramName, 0 /* lessmode=NO */ );
-                return -2;
-
-                T_ELIF("?")
-#ifdef __unix__
-                    FILE   *fp = popen("less -Mqc", "w");
-                    long_help(gfp, fp, ProgramName, 0 /* lessmode=NO */ );
-                    pclose(fp);
-#else
-                    long_help(gfp, stdout, ProgramName, 1 /* lessmode=YES */ );
-#endif
-                return -2;
-
-                T_ELIF2("preset", "alt-preset")
-                    argUsed = 1;
-                {
-                    int     fast = 0, cbr = 0;
-
-                    while ((strcmp(nextArg, "fast") == 0) || (strcmp(nextArg, "cbr") == 0)) {
-
-                        if ((strcmp(nextArg, "fast") == 0) && (fast < 1))
-                            fast = 1;
-                        if ((strcmp(nextArg, "cbr") == 0) && (cbr < 1))
-                            cbr = 1;
-
-                        argUsed++;
-                        nextArg = i + argUsed < argc ? argv[i + argUsed] : "";
-                    }
-
-                    {
-                        int const ret = presets_set(gfp, fast, cbr, nextArg, ProgramName);
-                        if (ret < 0)
-                            return ret;
-                    }
-                }
-
-                T_ELIF("disptime")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed)
-                        global_ui_config.update_interval = (float) double_value;
-
-                T_ELIF("nogaptags")
-                    st.nogap_tags = 1;
-
-                T_ELIF("nogapout")
-                    int const arg_n = (int)lame_strnlen(nextArg, PATH_MAX);
-                    if (arg_n >= PATH_MAX) {
-                        error_printf("%s: %s argument length (%d) exceeds limit (%d)\n", ProgramName, token, arg_n, PATH_MAX);
-                        return -1;
-                    }
-                    strncpy(outDir, nextArg, PATH_MAX);
-                    outDir[PATH_MAX] = '\0';
-                    argUsed = 1;
-
-                T_ELIF("out-dir")
-                    int const arg_n = (int)lame_strnlen(nextArg, PATH_MAX);
-                    if (arg_n >= PATH_MAX) {
-                        error_printf("%s: %s argument length (%d) exceeds limit (%d)\n", ProgramName, token, arg_n, PATH_MAX);
-                        return -1;
-                    }
-                    strncpy(outDir, nextArg, PATH_MAX);
-                    outDir[PATH_MAX] = '\0';
-                    argUsed = 1;
-
-                T_ELIF("nogap")
-                    st.nogap = 1;
-
-                T_ELIF("swap-channel")
-                    global_reader.swap_channel = 1;
-
-                T_ELIF("ignorelength")
-                    global_reader.ignorewavlength = 1;
-
-                T_ELIF ("athaa-sensitivity")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed)
-                        lame_set_athaa_sensitivity(gfp, (float) double_value);
-
-                /* ---------------- lots of dead switches ---------------- */
-
-                T_ELIF_INTERNAL("noshort")
-                    (void) lame_set_no_short_blocks(gfp, 1);
-
-                T_ELIF_INTERNAL("short")
-                    (void) lame_set_no_short_blocks(gfp, 0);
-
-                T_ELIF_INTERNAL("allshort")
-                    (void) lame_set_force_short_blocks(gfp, 1);
-
-                T_ELIF_INTERNAL("notemp")
-                    (void) lame_set_useTemporal(gfp, 0);
-
-                T_ELIF_INTERNAL_WITH_ARG("interch")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed)
-                        (void) lame_set_interChRatio(gfp, (float) double_value);
-
-                T_ELIF_INTERNAL_WITH_ARG("temporal-masking")
-                    argUsed = getIntValue(token, nextArg, &int_value);
-                    if (argUsed) 
-                        (void) lame_set_useTemporal(gfp, int_value ? 1 : 0);
-
-                T_ELIF_INTERNAL("nspsytune")
-                    ;
-
-                T_ELIF_INTERNAL("nssafejoint")
-                    lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | 2);
-
-                T_ELIF_INTERNAL_WITH_ARG("nsmsfix")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed)
-                        (void) lame_set_msfix(gfp, double_value);
-
-                T_ELIF_INTERNAL_WITH_ARG("ns-bass")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed) {
-                        int     k = (int) (double_value * 4);
-                        if (k < -32)
-                            k = -32;
-                        if (k > 31)
-                            k = 31;
-                        if (k < 0)
-                            k += 64;
-                        lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 2));
-                    }
-
-                T_ELIF_INTERNAL_WITH_ARG("ns-alto")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed) {
-                        int     k = (int) (double_value * 4);
-                        if (k < -32)
-                            k = -32;
-                        if (k > 31)
-                            k = 31;
-                        if (k < 0)
-                            k += 64;
-                        lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 8));
-                    }
-
-                T_ELIF_INTERNAL_WITH_ARG("ns-treble")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed) {
-                        int     k = (int) (double_value * 4);
-                        if (k < -32)
-                            k = -32;
-                        if (k > 31)
-                            k = 31;
-                        if (k < 0)
-                            k += 64;
-                        lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 14));
-                    }
-
-                T_ELIF_INTERNAL_WITH_ARG("ns-sfb21")
-                    /*  to be compatible with Naoki's original code,
-                     *  ns-sfb21 specifies how to change ns-treble for sfb21 */
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed) {
-                        int     k = (int) (double_value * 4);
-                        if (k < -32)
-                            k = -32;
-                        if (k > 31)
-                            k = 31;
-                        if (k < 0)
-                            k += 64;
-                        lame_set_exp_nspsytune(gfp, lame_get_exp_nspsytune(gfp) | (k << 20));
-                    }
-
-                T_ELIF_INTERNAL_WITH_ARG("tune") /*without helptext */
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed)
-                        lame_set_tune(gfp, (float) double_value);
-
-                T_ELIF_INTERNAL_WITH_ARG("shortthreshold")
-                {
-                    float   x, y;
-                    int     n = sscanf(nextArg, "%f,%f", &x, &y);
-                    if (n == 1) {
-                        y = x;
-                    }
-                    (void) lame_set_short_threshold(gfp, x, y);
-                }
-                T_ELIF_INTERNAL_WITH_ARG("maskingadjust") /*without helptext */
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed)
-                        (void) lame_set_maskingadjust(gfp, (float) double_value);
-
-                T_ELIF_INTERNAL_WITH_ARG("maskingadjustshort") /*without helptext */
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed)
-                        (void) lame_set_maskingadjust_short(gfp, (float) double_value);
-
-                T_ELIF_INTERNAL_WITH_ARG("athcurve") /*without helptext */
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed)
-                        (void) lame_set_ATHcurve(gfp, (float) double_value);
-
-                T_ELIF_INTERNAL("no-preset-tune") /*without helptext */
-                    (void) lame_set_preset_notune(gfp, 0);
-
-                T_ELIF_INTERNAL_WITH_ARG("substep")
-                    argUsed = getIntValue(token, nextArg, &int_value);
-                    if (argUsed)
-                        (void) lame_set_substep(gfp, int_value);
-
-                T_ELIF_INTERNAL_WITH_ARG("sbgain") /*without helptext */
-                    argUsed = getIntValue(token, nextArg, &int_value);
-                    if (argUsed) 
-                        (void) lame_set_subblock_gain(gfp, int_value);
-
-                T_ELIF_INTERNAL("sfscale") /*without helptext */
-                    (void) lame_set_sfscale(gfp, 1);
-
-                T_ELIF_INTERNAL("noath")
-                    (void) lame_set_noATH(gfp, 1);
-
-                T_ELIF_INTERNAL("athonly")
-                    (void) lame_set_ATHonly(gfp, 1);
-
-                T_ELIF_INTERNAL("athshort")
-                    (void) lame_set_ATHshort(gfp, 1);
-
-                T_ELIF_INTERNAL_WITH_ARG("athlower")
-                    argUsed = getDoubleValue(token, nextArg, &double_value);
-                    if (argUsed)
-                        (void) lame_set_ATHlower(gfp, (float) double_value);
-
-                T_ELIF_INTERNAL_WITH_ARG("athtype")
-                    argUsed = getIntValue(token, nextArg, &int_value);
-                    if (argUsed)
-                        (void) lame_set_ATHtype(gfp, int_value);
-
-                T_ELIF_INTERNAL_WITH_ARG("athaa-type") /*  switch for developing, no DOCU */
-                    /* once was 1:Gaby, 2:Robert, 3:Jon, else:off */
-                    argUsed = getIntValue(token, nextArg, &int_value);
-                    if (argUsed)
-                        (void) lame_set_athaa_type(gfp, int_value); /* now: 0:off else:Jon */
-
-                T_ELIF_INTERNAL_WITH_ARG("debug-file") /* switch for developing, no DOCU */
-                    /* file name to print debug info into */
-                    set_debug_file(nextArg);
-
-                T_ELSE {
-                    if (!argIgnored) {
-                        error_printf("%s: unrecognized option --%s\n", ProgramName, token);
-                        return -1;
-                    }
-                    argIgnored = 0;
-                }
-                T_END   i += argUsed;
-
+                if (result != OPT_DONE)
+                    return result == OPT_STOP_OK ? -2 : -1;
+                i += argUsed;
             }
             else {
-                char    c;
-                while ((c = *token++) != '\0') {
-                    double double_value = 0;
-                    int int_value = 0;
-                    char const *arg = *token ? token : nextArg;
-                    switch (c) {
-                    case 'm':
-                        argUsed = 1;
-
-                        switch (*arg) {
-                        case 's':
-                            (void) lame_set_mode(gfp, STEREO);
-                            break;
-                        case 'd':
-                            (void) lame_set_mode(gfp, DUAL_CHANNEL);
-                            break;
-                        case 'f':
-                            lame_set_force_ms(gfp, 1);
-                            (void) lame_set_mode(gfp, JOINT_STEREO);
-                            break;
-                        case 'j':
-                            lame_set_force_ms(gfp, 0);
-                            (void) lame_set_mode(gfp, JOINT_STEREO);
-                            break;
-                        case 'm':
-                            (void) lame_set_mode(gfp, MONO);
-                            break;
-                        case 'l':
-                            (void) lame_set_mode(gfp, MONO);
-                            (void) lame_set_scale_left(gfp, 2);
-                            (void) lame_set_scale_right(gfp, 0);
-                            break;
-                        case 'r':
-                            (void) lame_set_mode(gfp, MONO);
-                            (void) lame_set_scale_left(gfp, 0);
-                            (void) lame_set_scale_right(gfp, 2);
-                            break;
-                        case 'a': /* same as 'j' ??? */
-                            lame_set_force_ms(gfp, 0);
-                            (void) lame_set_mode(gfp, JOINT_STEREO);
-                            break;
-                        default:
-                            error_printf("%s: -m mode must be s/d/f/j/m/l/r not %s\n", ProgramName,
-                                         arg);
-                            return -1;
-                        }
-                        break;
-
-                    case 'V':
-                        argUsed = getDoubleValue("V", arg, &double_value);
-                        if (argUsed) {
-                            /* to change VBR default look in lame.h */
-                            if (lame_get_VBR(gfp) == vbr_off)
-                                lame_set_VBR(gfp, vbr_default);
-                            lame_set_VBR_quality(gfp, (float) double_value);
-                        }
-                        break;
-                    case 'v':
-                        /* to change VBR default look in lame.h */
-                        if (lame_get_VBR(gfp) == vbr_off)
-                            lame_set_VBR(gfp, vbr_default);
-                        break;
-
-                    case 'q':
-                        argUsed = getIntValue("q", arg, &int_value);
-                        if (argUsed) 
-                            (void) lame_set_quality(gfp, int_value);
-                        break;
-                    case 'f':
-                        (void) lame_set_quality(gfp, 7);
-                        break;
-                    case 'h':
-                        (void) lame_set_quality(gfp, 2);
-                        break;
-
-                    case 's':
-                        argUsed = getDoubleValue("s", arg, &double_value);
-                        if (argUsed) {
-                            double_value = (int) (double_value * (double_value <= 192 ? 1.e3 : 1.e0) + 0.5);
-                            global_reader.input_samplerate = (int)double_value;
-                            (void) lame_set_in_samplerate(gfp, (int)double_value);
-                        }
-                        break;
-                    case 'b':
-                        argUsed = getIntValue("b", arg, &int_value);
-                        if (argUsed) {
-                            lame_set_brate(gfp, int_value);
-                            lame_set_VBR_min_bitrate_kbps(gfp, lame_get_brate(gfp));
-                        }
-                        break;
-                    case 'B':
-                        argUsed = getIntValue("B", arg, &int_value);
-                        if (argUsed) {
-                            lame_set_VBR_max_bitrate_kbps(gfp, int_value);
-                        }
-                        break;
-                    case 'F':
-                        lame_set_VBR_hard_min(gfp, 1);
-                        break;
-                    case 't': /* dont write VBR tag */
-                        (void) lame_set_bWriteVbrTag(gfp, 0);
-                        global_decoder.disable_wav_header = 1;
-                        break;
-                    case 'T': /* do write VBR tag */
-                        (void) lame_set_bWriteVbrTag(gfp, 1);
-                        st.nogap_tags = 1;
-                        global_decoder.disable_wav_header = 0;
-                        break;
-                    case 'r': /* force raw pcm input file */
-#if defined(LIBSNDFILE)
-                        error_printf
-                            ("WARNING: libsndfile may ignore -r and perform fseek's on the input.\n"
-                             "Compile without libsndfile if this is a problem.\n");
-#endif
-                        global_reader.input_format = sf_raw;
-                        break;
-                    case 'x': /* force byte swapping */
-                        global_reader.swapbytes = 1;
-                        break;
-                    case 'p': /* (jo) error_protection: add crc16 information to stream */
-                        lame_set_error_protection(gfp, 1);
-                        break;
-                    case 'a': /* autoconvert input file from stereo to mono - for mono mp3 encoding */
-                        st.autoconvert = 1;
-                        (void) lame_set_mode(gfp, MONO);
-                        break;
-                    case 'd':   /*(void) lame_set_allow_diff_short( gfp, 1 ); */
-                    case 'k':   /*lame_set_lowpassfreq(gfp, -1);
-                                  lame_set_highpassfreq(gfp, -1); */
-                        error_printf("WARNING: -%c is obsolete.\n", c);
-                        break;
-                    case 'S':
-                        global_ui_config.silent = 5;
-                        break;
-                    case 'X':
-                        /*  experimental switch -X:
-                            the differnt types of quant compare are tough
-                            to communicate to endusers, so they shouldn't
-                            bother to toy around with them
-                         */
-                        {
-                            int     x, y;
-                            int     n = sscanf(arg, "%d,%d", &x, &y);
-                            if (n == 1) {
-                                y = x;
-                            }
-                            argUsed = 1;
-                            if (internal_opts_enabled) {
-                                lame_set_quant_comp(gfp, x);
-                                lame_set_quant_comp_short(gfp, y);
-                            }
-                        }
-                        break;
-                    case 'Y':
-                        lame_set_experimentalY(gfp, 1);
-                        break;
-                    case 'Z':
-                        /*  experimental switch -Z:
-                         */
-                        {
-                            int     n = 1;
-                            argUsed = sscanf(arg, "%d", &n);
-                            /*if (internal_opts_enabled)*/
-                            {
-                                lame_set_experimentalZ(gfp, n);
-                            }
-                        }
-                        break;
-                    case 'e':
-                        argUsed = 1;
-
-                        switch (*arg) {
-                        case 'n':
-                            lame_set_emphasis(gfp, 0);
-                            break;
-                        case '5':
-                            lame_set_emphasis(gfp, 1);
-                            break;
-                        case 'c':
-                            lame_set_emphasis(gfp, 3);
-                            break;
-                        default:
-                            error_printf("%s: -e emp must be n/5/c not %s\n", ProgramName, arg);
-                            return -1;
-                        }
-                        break;
-                    case 'c':
-                        lame_set_copyright(gfp, 1);
-                        break;
-                    case 'o':
-                        lame_set_original(gfp, 0);
-                        break;
-
-                    case '?':
-                        long_help(gfp, stdout, ProgramName, 0 /* LESSMODE=NO */ );
-                        return -2;
-
-                    default:
-                        error_printf("%s: unrecognized option -%c\n", ProgramName, c);
-                        return -1;
-                    }
-                    if (argUsed) {
-                        if (arg == token)
-                            token = ""; /* no more from token */
-                        else
-                            ++i; /* skip arg we used */
-                        arg = "";
-                        argUsed = 0;
-                    }
-                }
+                option_result const result =
+                    parse_short_options(gfp, &st, token, nextArg, ProgramName, &i);
+                if (result != OPT_DONE)
+                    return result == OPT_STOP_OK ? -2 : -1;
             }
         }
         else {
