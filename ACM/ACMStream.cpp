@@ -33,6 +33,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <new>
 #include <windows.h>
 
 #include "adebug.h"
@@ -47,7 +48,7 @@ ACMStream * ACMStream::Create()
 {
 	ACMStream * Result;
 
-	Result = new ACMStream;
+	Result = new (std::nothrow) ACMStream;
 
 	return Result;
 }
@@ -91,22 +92,14 @@ void ConfigureDebugFromRegistry(ADbg & dbg)
 }
 
 ACMStream::ACMStream() :
- m_WorkingBufferUseSize(0),
- gfp(NULL)
+ gfp(NULL),
+ my_debug(DEBUG_LEVEL_CREATION)
 {
 	 /// \todo get the debug level from the registry
-my_debug = new ADbg(DEBUG_LEVEL_CREATION);
-	if (my_debug != NULL) {
-		my_debug->setPrefix("LAMEstream"); /// \todo get it from the registry
-		my_debug->setIncludeTime(true);  /// \todo get it from the registry
-		ConfigureDebugFromRegistry(*my_debug);
-		my_debug->OutPut(DEBUG_LEVEL_FUNC_START, "ACMStream Creation (0X%08X)",this);
-	}
-	else {
-		ADbg debug;
-		debug.OutPut("ACMStream::ACMACMStream : Impossible to create my_debug");
-	}
-
+	my_debug.setPrefix("LAMEstream"); /// \todo get it from the registry
+	my_debug.setIncludeTime(true);  /// \todo get it from the registry
+	ConfigureDebugFromRegistry(my_debug);
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "ACMStream Creation (0X%08X)",this);
 }
 
 ACMStream::~ACMStream()
@@ -114,11 +107,7 @@ ACMStream::~ACMStream()
         // release memory - encoding is finished
 	if (gfp) lame_close( gfp );
 
-	if (my_debug != NULL)
-	{
-		my_debug->OutPut(DEBUG_LEVEL_FUNC_START, "ACMStream Deletion (0X%08X)",this);
-		delete my_debug;
-	}
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "ACMStream Deletion (0X%08X)",this);
 }
 
 /// The longest library report line that the debug log keeps whole, in bytes.
@@ -237,21 +226,14 @@ bool ACMStream::open(const AEncodeProperties & the_Properties)
 
 	// The library's messages and the settings, into the debug log of this
 	// stream; lame_init_params() takes the message function over
-	acm_report_target = my_debug;
+	acm_report_target = &my_debug;
 	lame_set_msgf( gfp, acm_report );
 	if (0 == lame_init_params( gfp ))
 	{
-		// One frame of samples per call, for all channels
-		my_SamplesPerBlock = lame_get_framesize( gfp ) * lame_get_num_channels( gfp );
-
 		lame_print_config( gfp );
 		lame_print_internals( gfp );
 	}
 	acm_report_target = NULL;
-
-#ifdef FROM_DLL
-beConfig.format.LHV1.dwReSampleRate		= my_OutSamplesPerSec;	  // force the user resampling
-#endif // FROM_DLL
 
 	bResult = true;
 
@@ -302,7 +284,7 @@ DWORD ACMStream::GetOutputSizeForInput(const DWORD the_SrcLength) const
 //	Result = DWORD(double(the_SrcLength) * OutputInputRatio);
     Result = DWORD(1.25*the_SrcLength + 7200);
 
-my_debug->OutPut(DEBUG_LEVEL_FUNC_CODE, "Result = %d",Result);
+my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Result = %d",Result);
 
 	return Result;
 }
@@ -311,10 +293,7 @@ bool ACMStream::ConvertBuffer(LPACMDRVSTREAMHEADER a_StreamHeader)
 {
 	bool result;
 
-if (my_debug != NULL)
-{
-my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "enter ACMStream::ConvertBuffer");
-}
+my_debug.OutPut(DEBUG_LEVEL_FUNC_DEBUG, "enter ACMStream::ConvertBuffer");
 
 	DWORD InSize = a_StreamHeader->cbSrcLength / 2, OutSize = a_StreamHeader->cbDstLength; // 2 for 8<->16 bits
 
@@ -339,12 +318,9 @@ int dwSamples;
 
 	result = nOutputSamples >= 0 && a_StreamHeader->cbDstLengthUsed <= a_StreamHeader->cbDstLength;
 
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_CODE, "UsedSize = %d / EncodedSize = %d, result = %d (%d <= %d)", InSize, OutSize, result, a_StreamHeader->cbDstLengthUsed, a_StreamHeader->cbDstLength);
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "UsedSize = %d / EncodedSize = %d, result = %d (%d <= %d)", InSize, OutSize, result, a_StreamHeader->cbDstLengthUsed, a_StreamHeader->cbDstLength);
 
-if (my_debug != NULL)
-{
-my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "ACMStream::ConvertBuffer result = %d",result);
-}
+my_debug.OutPut(DEBUG_LEVEL_FUNC_DEBUG, "ACMStream::ConvertBuffer result = %d",result);
 
 	return result;
 }

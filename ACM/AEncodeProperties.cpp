@@ -39,11 +39,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef _MSC_VER
-// no problem with unknown pragmas
-#pragma warning(disable: 4068)
-#endif
-
 #include "resource.h"
 #include <lame.h>
 #include "adebug.h"
@@ -149,90 +144,6 @@ static void SetAttributeDouble(TiXmlElement * the_elt, const std::string & the_s
 	the_elt->SetAttribute(the_string, std::string(the_text));
 }
 
-#if 0
-#pragma argsused
-static UINT CALLBACK DLLFindCallback(
-  HWND hdlg,      // handle to child dialog box
-  UINT uiMsg,     // message identifier
-  WPARAM wParam,  // message parameter
-  LPARAM lParam   // message parameter
-  )
-{
-	UINT result = 0;
-
-	switch (uiMsg)
-	{
-		case WM_NOTIFY:
-			OFNOTIFY * info = (OFNOTIFY *)lParam;
-			if (info->hdr.code == CDN_FILEOK)
-			{
-				result = 1; // by default we don't accept the file
-
-				// Check if the selected file is a valid DLL with all the required functions
-				ALameDLL * tstFile = new ALameDLL;
-				if (tstFile != NULL)
-				{
-					if (tstFile->Load(info->lpOFN->lpstrFile))
-					{
-						result = 0;
-					}
-
-					delete tstFile;
-				}
-
-				if (result == 1)
-				{
-					TCHAR output[250];
-					::LoadString(AOut::GetInstance(),IDS_STRING_DLL_UNRECOGNIZED,output,250);
-					AOut::MyMessageBox( output, MB_OK|MB_ICONEXCLAMATION, hdlg);
-					SetWindowLong(hdlg, DWL_MSGRESULT , -100);
-				}
-			}
-	}
-
-	return result;
-}
-
-#pragma argsused
-static int CALLBACK BrowseFolderCallbackroc(
-    HWND hwnd,
-    UINT uMsg,
-    LPARAM lParam,
-    LPARAM lpData
-    )
-{
-	AEncodeProperties * the_prop;
-	the_prop = (AEncodeProperties *) lpData;
-
-
-	if (uMsg == BFFM_INITIALIZED)
-	{
-//		char FolderName[MAX_PATH];
-//		SHGetPathFromIDList((LPITEMIDLIST) lParam,FolderName);
-//ADbg tst;
-//tst.OutPut("init folder to %s ",the_prop->GetOutputDirectory());
-//		CreateFile();
-		::SendMessage(hwnd, BFFM_SETSELECTION, (WPARAM)TRUE, (LPARAM)the_prop->GetOutputDirectory());
-	}/* else if (uMsg == BFFM_SELCHANGED)
-	{
-		// verify that the folder is writable
-//		::SendMessage(hwnd, BFFM_ENABLEOK, 0, (LPARAM)0); // disable
-		char FolderName[MAX_PATH];
-		SHGetPathFromIDList((LPITEMIDLIST) lParam, FolderName);
-		
-//		if (CreateFile(FolderName,STANDARD_RIGHTS_WRITE,0,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL) == INVALID_HANDLE_VALUE)
-		if ((GetFileAttributes(FolderName) & FILE_ATTRIBUTE_DIRECTORY) != 0)
-			::SendMessage(hwnd, BFFM_ENABLEOK, 0, (LPARAM)1); // enable
-		else
-			::SendMessage(hwnd, BFFM_ENABLEOK, 0, (LPARAM)0); // disable
-//ADbg tst;
-//tst.OutPut("change folder to %s ",FolderName);
-	}*/
-
-	return 0;
-}
-#endif
-#pragma argsused
 static BOOL CALLBACK ConfigProc(
   HWND hwndDlg,  // handle to dialog box
   UINT uMsg,     // message
@@ -317,7 +228,7 @@ static BOOL CALLBACK ConfigProc(
 
 const char * AEncodeProperties::GetChannelModeString(int a_channelID) const
 {
-	assert(a_channelID < sizeof(the_ChannelModes));
+	assert(a_channelID < GetChannelLentgh());
 
 	switch (a_channelID) {
 		case CHANNEL_INDEX_STEREO:
@@ -329,7 +240,6 @@ const char * AEncodeProperties::GetChannelModeString(int a_channelID) const
 		case CHANNEL_INDEX_MONO:
 			return "Mono";
 		default:
-			assert(a_channelID);
 			return NULL;
 	}
 }
@@ -395,116 +305,6 @@ const unsigned int AEncodeProperties::OutputChannels(const unsigned int input_ch
 	return input_channels;
 }
 
-const unsigned int AEncodeProperties::GetBitrateValue() const
-{
-	assert(nMinBitrateIndex < GetBitrateLentgh());
-
-	return the_Bitrates[nMinBitrateIndex];
-}
-
-inline const int AEncodeProperties::GetBitrateValueMPEG2(DWORD & bitrate) const
-{
-	int i;
-
-	for (i=0;i<sizeof(the_MPEG2_Bitrates)/sizeof(unsigned int);i++)
-	{
-		if (the_MPEG2_Bitrates[i] == the_Bitrates[nMinBitrateIndex])
-		{
-			bitrate = the_MPEG2_Bitrates[i];
-			return 0;
-		}
-		else if (the_MPEG2_Bitrates[i] < the_Bitrates[nMinBitrateIndex])
-		{
-			bitrate = the_MPEG2_Bitrates[i];
-			return -1;
-		}
-	}
-	
-	bitrate = 160;
-	return -1;
-}
-
-inline const int AEncodeProperties::GetBitrateValueMPEG1(DWORD & bitrate) const
-{
-	int i;
-
-	for (i=sizeof(the_MPEG1_Bitrates)/sizeof(unsigned int)-1;i>=0;i--)
-	{
-		if (the_MPEG1_Bitrates[i] == the_Bitrates[nMinBitrateIndex])
-		{
-			bitrate = the_MPEG1_Bitrates[i];
-			return 0;
-		}
-		else if (the_MPEG1_Bitrates[i] > the_Bitrates[nMinBitrateIndex])
-		{
-			bitrate = the_MPEG1_Bitrates[i];
-			return 1;
-		}
-	}
-	
-	bitrate = 32;
-	return 1;
-}
-#if 0
-const int AEncodeProperties::GetBitrateValue(DWORD & bitrate, const DWORD MPEG_Version) const
-{
-	assert((MPEG_Version == MPEG1) || (MPEG_Version == MPEG2));
-	assert(nMinBitrateIndex < sizeof(the_Bitrates));
-
-	if (MPEG_Version == MPEG2)
-		return GetBitrateValueMPEG2(bitrate);
-	else
-		return GetBitrateValueMPEG1(bitrate);
-}
-const char * AEncodeProperties::GetPresetModeString(const int a_presetID) const
-{
-	assert(a_presetID < sizeof(the_Presets));
-
-	switch (a_presetID) {
-		case 1:
-			return "r3mix";
-		case 2:
-			return "Normal";
-		case 3:
-			return "Low";
-		case 4:
-			return "High";
-		case 5:
-			return "Very High";
-		case 6:
-			return "Voice";
-		case 7:
-			return "Phone";
-		case 8:
-			return "SW";
-		case 9:
-			return "AM";
-		case 10:
-			return "FM";
-		case 11:
-			return "Voice";
-		case 12:
-			return "Radio";
-		case 13:
-			return "Tape";
-		case 14:
-			return "Hi-Fi";
-		case 15:
-			return "CD";
-		case 16:
-			return "Studio";
-		default:
-			return "None";
-	}
-}
-
-const LAME_QUALTIY_PRESET AEncodeProperties::GetPresetModeValue() const
-{
-	assert(nPresetIndex < sizeof(the_Presets));
-
-	return the_Presets[nPresetIndex];
-}
-#endif
 bool AEncodeProperties::Config(const HINSTANCE Hinstance, const HWND HwndParent)
 {
 	//WM_INITDIALOG ?
@@ -513,7 +313,7 @@ bool AEncodeProperties::Config(const HINSTANCE Hinstance, const HWND HwndParent)
 //	hDllInstance = Hinstance;
 
 	my_debug.OutPut("here");
-	::DialogBoxParam(Hinstance, MAKEINTRESOURCE(IDD_CONFIG), HwndParent, ::ConfigProc, (LPARAM) this);
+	INT_PTR const ret = ::DialogBoxParam(Hinstance, MAKEINTRESOURCE(IDD_CONFIG), HwndParent, ::ConfigProc, (LPARAM) this);
 /*	if (ret == -1)
 	{
 		LPVOID lpMsgBuf;
@@ -537,7 +337,7 @@ bool AEncodeProperties::Config(const HINSTANCE Hinstance, const HWND HwndParent)
 		return false;
 	}
 */	
-	return true;
+	return ret > 0;
 }
 
 bool AEncodeProperties::InitConfigDlg(HWND HwndDlg)
@@ -793,9 +593,6 @@ void AEncodeProperties::ParamsRestore()
 
 	nChannelIndex = CHANNEL_INDEX_JOINT_STEREO;
 	nMinBitrateIndex = 6; // 128 kbps (works for both MPEGI and II)
-	nMaxBitrateIndex = 4; // 160 kbps (works for both MPEGI and II)
-	nPresetIndex = 0; // None
-	VbrQuality = 1; // Quite High
 //	AverageBitrate = 128; // a bit lame
 
 //	OutputDir = "c:\\";
@@ -1181,54 +978,6 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 	}
 }
 
-bool AEncodeProperties::operator !=(const AEncodeProperties & the_instance) const
-{
-/*
-	::OutputDebugString(bCopyright != the_instance.bCopyright?"1":"-");
-	::OutputDebugString(bCRC != the_instance.bCRC            ?"2":"-");
-	::OutputDebugString(bOriginal != the_instance.bOriginal  ?"3":"-");
-	::OutputDebugString(bPrivate != the_instance.bPrivate    ?"4":"-");
-	::OutputDebugString(bNoBitRes != the_instance.bNoBitRes  ?"5":"-");
-	::OutputDebugString(bForceChannel != the_instance.bForceChannel?"8":"-");
-	::OutputDebugString(nChannelIndex != the_instance.nChannelIndex?"10":"-");
-	::OutputDebugString(nMinBitrateIndex != the_instance.nMinBitrateIndex?"11":"-");
-	::OutputDebugString(nMaxBitrateIndex != the_instance.nMaxBitrateIndex?"12":"-");
-	::OutputDebugString(nPresetIndex != the_instance.nPresetIndex?"13":"-");
-	::OutputDebugString(VbrQuality != the_instance.VbrQuality?"14":"-");
-	::OutputDebugString(AverageBitrate != the_instance.AverageBitrate?"15":"-");
-	::OutputDebugString(OutputDir.compare(the_instance.OutputDir) != 0?"17":"-");
-
-	std::string tmp = "";
-	char tmpI[10];
-	_itoa(AverageBitrate,tmpI,10);
-	tmp += tmpI;
-	tmp += " != ";
-	_itoa(the_instance.AverageBitrate,tmpI,10);
-	tmp += tmpI;
-	::OutputDebugString(tmp.c_str());
-*/
-	return ((bCopyright != the_instance.bCopyright)
-		 || (bCRC != the_instance.bCRC)
-		 || (bOriginal != the_instance.bOriginal)
-		 || (bPrivate != the_instance.bPrivate)
-		 || (bSmartOutput != the_instance.bSmartOutput)
-		 || (SmartRatioMax != the_instance.SmartRatioMax)
-		 || (bAbrOutput != the_instance.bAbrOutput)
-		 || (AverageBitrate_Min != the_instance.AverageBitrate_Min)
-		 || (AverageBitrate_Max != the_instance.AverageBitrate_Max)
-		 || (AverageBitrate_Step != the_instance.AverageBitrate_Step)
-		 || (bNoBitRes != the_instance.bNoBitRes)
-		 || (bForceChannel != the_instance.bForceChannel)
-		 || (nChannelIndex != the_instance.nChannelIndex)
-		 || (nMinBitrateIndex != the_instance.nMinBitrateIndex)
-		 || (nMaxBitrateIndex != the_instance.nMaxBitrateIndex)
-		 || (nPresetIndex != the_instance.nPresetIndex)
-		 || (VbrQuality != the_instance.VbrQuality)
-//		 || (AverageBitrate != the_instance.AverageBitrate)
-//		 || (OutputDir.compare(the_instance.OutputDir) != 0)
-		);
-}
-
 void AEncodeProperties::SelectSavedParams(const std::string the_string)
 {
 	// get the values from the saved file if possible
@@ -1380,8 +1129,6 @@ bool AEncodeProperties::HandleDialogCommand(const HWND parentWnd, const WPARAM w
 	{
 	case IDOK :
 	{
-		bool bShouldEnd = true;
-
 		// save parameters
 		char string[MAX_PATH];
 //		::GetWindowText(::GetDlgItem( parentWnd, IDC_COMBO_SETTINGS), string, MAX_PATH);
@@ -1389,56 +1136,6 @@ bool AEncodeProperties::HandleDialogCommand(const HWND parentWnd, const WPARAM w
 		wsprintf(string,"Current"); // only the Current config is supported at the moment
 		
 		my_debug.OutPut("my_hModule = 0x%08X",my_hModule);
-#if 0
-		AEncodeProperties tmpDlgProps(my_hModule);
-		AEncodeProperties tmpSavedProps(my_hModule);
-//#ifdef OLD
-		tmpDlgProps.UpdateValueFromDlg(parentWnd);
-		tmpSavedProps.SelectSavedParams(string);
-		tmpSavedProps.ParamsRestore();
-		// check if the values from the DLG are the same as the one saved in the config file
-		// if yes, just do nothing
-		if (tmpDlgProps != tmpSavedProps)
-		{
-			int save;
-
-			if (strcmp(string,"Current") == 0)
-			{
-				// otherwise, prompt the user if he wants to overwrite the settings
-				TCHAR tmpStr[250];
-				::LoadString(AOut::GetInstance(),IDS_STRING_PROMPT_REPLACE_CURRENT,tmpStr,250);
-
-				save = AOut::MyMessageBox( tmpStr, MB_OKCANCEL|MB_ICONQUESTION, parentWnd);
-			}
-			else
-			{
-				// otherwise, prompt the user if he wants to overwrite the settings
-				TCHAR tmpStr[250];
-				::LoadString(AOut::GetInstance(),IDS_STRING_PROMPT_REPLACE_SETING,tmpStr,250);
-				TCHAR tmpDsp[500];
-				wsprintf(tmpDsp,tmpStr,string);
-
-				save = AOut::MyMessageBox( tmpDsp, MB_YESNOCANCEL|MB_ICONQUESTION, parentWnd);
-			}
-
-			if (save == IDCANCEL)
-				bShouldEnd = false;
-			else if (save == IDNO)
-			{
-				// save the values in 'current'
-				UpdateValueFromDlg(parentWnd);
-				SaveValuesToStringKey("Current");
-				SelectSavedParams("Current");
-			}
-			else
-			{
-				// do so and save in XML
-				UpdateValueFromDlg(parentWnd);
-				SaveValuesToStringKey(string);
-			}
-		}
-#endif
-//#endif // OLD
 my_debug.OutPut("before : nChannelIndex %d, bCRC %d, bCopyright %d, bOriginal %d, bPrivate %d",nChannelIndex, bCRC, bCopyright, bOriginal, bPrivate);
 
 my_debug.OutPut("call UpdateValueFromDlg");
@@ -1456,12 +1153,9 @@ my_debug.OutPut("call ParamsSave");
 
 my_debug.OutPut("finished saving");
 
-		if (bShouldEnd)
-		{
-			RemoveProp(parentWnd, "AEncodeProperties-Config");
-		
-			EndDialog(parentWnd, true);
-		}
+		RemoveProp(parentWnd, "AEncodeProperties-Config");
+
+		EndDialog(parentWnd, true);
 	}
 	break;
 
@@ -1632,79 +1326,6 @@ my_debug.OutPut("finished saving");
     return FALSE;
 }
 
-bool AEncodeProperties::RenameCurrentTo(const std::string & new_config_name)
-{
-	bool bResult = false;
-
-	// get the values from the saved file if possible
-	TiXmlElement* CurrentNode = LoadEncodings();
-
-	if (CurrentNode != NULL)
-	{
-		if (CurrentNode->Attribute("default") != NULL)
-		{
-			std::string CurrentConfigName = *CurrentNode->Attribute("default");
-
-			// no rename possible for Current
-			if (CurrentConfigName == "")
-			{
-				bResult = true;
-			}
-			else if (CurrentConfigName != "Current")
-			{
-				// find the config that correspond to CurrentConfig
-				TiXmlElement* iterateElmt = FindConfig(*CurrentNode, CurrentConfigName);
-				if (iterateElmt != NULL)
-				{
-					iterateElmt->SetAttribute("name",new_config_name);
-					bResult = true;
-				}
-			}
-
-			if (bResult)
-			{
-				CurrentNode->SetAttribute("default",new_config_name);
-
-				my_stored_data.SaveFile(my_store_location);
-			}
-		}
-	}
-
-	return bResult;
-}
-
-bool AEncodeProperties::DeleteConfig(const std::string & config_name)
-{
-	bool bResult = false;
-
-	if (config_name != "Current")
-	{
-		// get the values from the saved file if possible
-		TiXmlElement* CurrentNode = LoadEncodings();
-
-		if (CurrentNode == NULL)
-			return bResult;
-
-		TiXmlElement* iterateElmt = FindConfig(*CurrentNode, config_name);
-		if (iterateElmt != NULL)
-		{
-			CurrentNode->RemoveChild(iterateElmt);
-			bResult = true;
-		}
-
-		if (bResult)
-		{
-			my_stored_data.SaveFile(my_store_location);
-
-			// select a new default config : "Current"
-			SelectSavedParams("Current");
-
-		}
-	}
-
-	return bResult;
-}
-
 void AEncodeProperties::UpdateConfigs(const HWND HwndDlg)
 {
 	// Add User configs
@@ -1793,13 +1414,6 @@ void AEncodeProperties::UpdateDlgFromSlides(HWND hwndDlg) const
 	if (value_min>value_max)
 	{
 		SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_MIN), TBM_SETPOS, TRUE, value_max);
-		UpdateDlgFromSlides(hwndDlg);
-		return;
-	}
-
-	if (value_max<value_min)
-	{
-		SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_MAX), TBM_SETPOS, TRUE, value_min);
 		UpdateDlgFromSlides(hwndDlg);
 		return;
 	}

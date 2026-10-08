@@ -68,20 +68,13 @@ public:
 protected:
 	lame_global_flags * gfp;
 
-	ADbg * my_debug;
+	ADbg my_debug;
 	int my_SamplesPerSec;     // of the input
 	int my_OutSamplesPerSec;  // of the encoded stream
 	int my_Channels;     // of the input
 	int my_OutChannels;  // of the encoded stream
 	int my_AvgBytesPerSec;
 	vbr_mode my_VBRMode;
-	DWORD  my_SamplesPerBlock;
-
-unsigned int m_WorkingBufferUseSize;
-	char m_WorkingBuffer[2304*2]; // should be at least twice my_SamplesPerBlock
-
-inline int GetBytesPerBlock(DWORD bytes_per_sec, DWORD samples_per_sec, int BlockAlign) const;
-
 };
 
 #endif // !defined(_ACMSTREAM_H__INCLUDED_)

@@ -70,11 +70,6 @@ public:
 	*/
 	bool HandleDialogCommand(const HWND parentWnd, const WPARAM wParam, const LPARAM lParam);
 	/**
-		\brief Returns true if the two instances have different encoding parameters
-	*/
-	bool operator != (const AEncodeProperties & the_instance) const;
-
-	/**
 		\brief Returns true if the encoder sets the copyright bit.
 	*/
 	inline const bool GetCopyrightMode() const { return bCopyright; }
@@ -150,40 +145,6 @@ public:
 	*/
 	inline void SetForceChannelMode(const bool bMode) { bForceChannel = bMode; }
 	
-	/**
-		\brief Returns the bitrate for CBR, or the minimum bitrate for VBR.
-	*/
-	const unsigned int GetBitrateValue() const;
-
-	/**
-		\brief Gets the current bitrate (the minimum bitrate for VBR) for the given
-		       MPEG version.
-
-		\param bitrate receives the bitrate
-		\param MPEG_Version the MPEG version (MPEG-1 or MPEG-2)
-
-		\return the result of GetBitrateValueMPEG1() or GetBitrateValueMPEG2()
-	*/
-	const int GetBitrateValue(DWORD & bitrate, const DWORD MPEG_Version) const;
-	/**
-		\brief Gets the current bitrate (the minimum bitrate for VBR) for MPEG-1.
-
-		\param bitrate receives the bitrate
-
-		\return 0 if the bitrate is in the MPEG-1 table. 1 if it is not; then
-		        \a bitrate is the next higher MPEG-1 bitrate.
-	*/
-	const int GetBitrateValueMPEG1(DWORD & bitrate) const;
-	/**
-		\brief Gets the current bitrate (the minimum bitrate for VBR) for MPEG-2.
-
-		\param bitrate receives the bitrate
-
-		\return 0 if the bitrate is in the MPEG-2 table. -1 if it is not; then
-		        \a bitrate is the next lower MPEG-2 bitrate.
-	*/
-	const int GetBitrateValueMPEG2(DWORD & bitrate) const;
-
 	/**
 		\brief Writes the current bitrate (the minimum bitrate for VBR) as text.
 
@@ -263,17 +224,11 @@ public:
 	*/
 	inline const int GetChannelLentgh() const { return sizeof(the_ChannelModes) / sizeof(the_ChannelModes[0]); }
 
-//	const LAME_QUALTIY_PRESET GetPresetModeValue() const;
-	/**
-		\brief Returns the name of the preset with the given index.
-
-		\param a_presetID the preset index
-	*/
-	const char * GetPresetModeString(const int a_presetID) const;
-//	inline const int GetPresetLentgh() const { return sizeof(the_Presets) / sizeof(LAME_QUALTIY_PRESET); }
-
 	/**
 		\brief Shows the configuration dialog box (for the DRV_CONFIGURE message).
+
+		\return true after OK. false after Cancel, or if the dialog box
+		        cannot be shown.
 	*/
 	bool Config(const HINSTANCE hInstance, const HWND HwndParent);
 
@@ -309,15 +264,6 @@ public:
 		\brief Saves the current settings under the given configuration name.
 	*/
 	void SaveValuesToStringKey(const std::string & config_name);
-	/**
-		\brief Renames the current configuration.
-	*/
-	bool RenameCurrentTo(const std::string & new_config_name);
-	/**
-		\brief Deletes the configuration with the given name from the saved
-		       configurations.
-	*/
-	bool DeleteConfig(const std::string & config_name);
 
 	ADbg              my_debug;
 
@@ -338,7 +284,6 @@ private:
 	bool bSmartOutput;
 	bool bAbrOutput;
 
-	int VbrQuality;
 	unsigned int AverageBitrate_Min;
 	unsigned int AverageBitrate_Max;
 	unsigned int AverageBitrate_Step;
@@ -356,10 +301,6 @@ private:
 	static unsigned int the_MPEG2_Bitrates[14];
 	static void FillBitrateTables();
 	int nMinBitrateIndex; // CBR and VBR
-	int nMaxBitrateIndex; // only used in VBR mode
-
-//	static const LAME_QUALTIY_PRESET the_Presets[17];
-	int nPresetIndex;
 
 //	char DllLocation[512];
 //	std::string DllLocation;

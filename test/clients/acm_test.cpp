@@ -25,8 +25,9 @@
  * Second, the program loads the built @c lameACM.acm and drives it through
  * the Audio Compression Manager. These tests cover the driver details, the
  * format list, the suggested format and its name, a conversion, and a
- * destination buffer that is too small. One test creates the configuration
- * dialog from the codec's resources and checks the version text it shows.
+ * destination buffer that is too small. Two tests create the configuration
+ * dialog from the codec's resources. They check the version text it shows,
+ * and what it returns after OK and after Cancel.
  */
 
 #include <windows.h>
@@ -662,6 +663,107 @@ test_config_dialog_version(const char *driver)
         printf("        %s\n", got);
         ::DestroyWindow(dialog);
     }
+    ::FreeLibrary(codec);
+}
+
+/** @brief The button that close_config_dialog() presses: IDOK or IDCANCEL. */
+static WORD config_dialog_button;
+/** @brief Set by close_config_dialog() when it finds the dialog. */
+static int config_dialog_found;
+
+/**
+ * @brief Finds the first dialog window of this thread.
+ * @param window  a top-level window of this thread.
+ * @param found   the HWND that receives the dialog.
+ * @return FALSE once the dialog is found, to stop the enumeration.
+ */
+static BOOL CALLBACK
+find_dialog(HWND window, LPARAM found)
+{
+    static const char DIALOG_CLASS[] = "#32770";
+    char name[sizeof DIALOG_CLASS];
+
+    if (::GetClassNameA(window, name, sizeof name) > 0
+        && strncmp(name, DIALOG_CLASS, sizeof DIALOG_CLASS) == 0) {
+        *(HWND *) found = window;
+        return FALSE;
+    }
+    return TRUE;
+}
+
+/**
+ * @brief Presses config_dialog_button in the dialog of this thread.
+ *
+ * A timer calls it from the message loop of the modal dialog. Once it finds
+ * the dialog, it stops the timer.
+ *
+ * @param window   NULL, the timer has no window.
+ * @param message  WM_TIMER.
+ * @param id       the timer.
+ * @param time     the tick count.
+ */
+static void CALLBACK
+close_config_dialog(HWND window, UINT message, UINT_PTR id, DWORD time)
+{
+    HWND dialog = NULL;
+
+    ::EnumThreadWindows(::GetCurrentThreadId(), find_dialog, (LPARAM) &dialog);
+    if (dialog != NULL) {
+        config_dialog_found = 1;
+        ::KillTimer(NULL, id);
+        ::PostMessageA(dialog, WM_COMMAND, MAKEWPARAM(config_dialog_button, BN_CLICKED), 0);
+    }
+}
+
+/**
+ * @brief Checks what AEncodeProperties::Config() returns after OK and after
+ *        Cancel.
+ *
+ * The codec reports the result to the host of the DRV_CONFIGURE message. OK
+ * saves the configuration, so the test removes the file afterwards.
+ *
+ * @param driver  the path of the built codec.
+ */
+static void
+test_config_dialog_result(const char *driver)
+{
+    static const struct {
+        WORD button;
+        bool result;
+        const char *what;
+    } cases[] = {
+        { IDCANCEL, false, "the configuration dialog returns false after Cancel" },
+        { IDOK, true, "the configuration dialog returns true after OK" },
+    };
+    /* Often enough that the dialog closes soon after it opens. */
+    const UINT TIMER_MS = 200;
+    HMODULE codec;
+    size_t i;
+
+    printf("the result of the configuration dialog\n");
+    codec = ::LoadLibraryExA(driver, NULL, LOAD_LIBRARY_AS_DATAFILE);
+    if (codec == NULL) {
+        CHECK(0, "the codec's resources load");
+        return;
+    }
+
+    AEncodeProperties props(NULL);
+
+    ::DeleteFileA(CONFIG_NAME);
+    props.ParamsRestore();
+    for (i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        UINT_PTR timer;
+        bool result;
+
+        config_dialog_button = cases[i].button;
+        config_dialog_found = 0;
+        timer = ::SetTimer(NULL, 0, TIMER_MS, close_config_dialog);
+        result = props.Config(codec, NULL);
+        ::KillTimer(NULL, timer);
+        CHECK(config_dialog_found, "the configuration dialog opens");
+        CHECK(result == cases[i].result, cases[i].what);
+    }
+    ::DeleteFileA(CONFIG_NAME);
     ::FreeLibrary(codec);
 }
 
@@ -1767,6 +1869,7 @@ main(int argc, char **argv)
         test_under_the_acm(driver);
         test_settings_reach_the_encoder(driver);
         test_config_dialog_version(driver);
+        test_config_dialog_result(driver);
     } else {
         /* Not a skip, with or without --require. The codec is built by the
            same solution as this test, so its absence is a failure of the

@@ -29,40 +29,9 @@
 #define STRICT
 #endif // STRICT
 
+#include <new>
+
 #include <windows.h>
-
-/// The new and delete operators of the codec allocate with LocalAlloc() and
-/// free with LocalFree().
-
-void * operator new( unsigned int cb )
-{
-	return LocalAlloc(LPTR, cb); // VirtualAlloc
-}
-
-void operator delete(void *block) {
-	LocalFree(block);
-}
-
-extern "C" {
-
-	void *acm_Calloc( size_t num, size_t size )
-	{
-		return LocalAlloc(LPTR, num * size); // VirtualAlloc
-	}
-
-	void *acm_Malloc( size_t size )
-	{
-		return LocalAlloc(LPTR, size); // VirtualAlloc
-	}
-
-	void acm_Free( void * mem)
-	{
-		LocalFree(mem);
-	}
-};
-
-////// End of memory instrumentation
-
 #include <mmreg.h>
 #include <msacm.h>
 #include <msacmdrv.h>
@@ -85,7 +54,7 @@ LONG WINAPI DriverProc(DWORD dwDriverId, HDRVR hdrvr, UINT msg, LONG lParam1, LO
 		case DRV_OPEN: // acmDriverOpen
 		{
 			if (debug == NULL) {
-				debug = new ADbg(DEBUG_LEVEL_CREATION);
+				debug = new (std::nothrow) ADbg(DEBUG_LEVEL_CREATION);
 				debug->setPrefix("LAMEdrv");
 			}
 
@@ -115,7 +84,7 @@ LONG WINAPI DriverProc(DWORD dwDriverId, HDRVR hdrvr, UINT msg, LONG lParam1, LO
 				}
 			}
 
-			ACM * ThisACM = new ACM(GetDriverModuleHandle(hdrvr));
+			ACM * ThisACM = new (std::nothrow) ACM(GetDriverModuleHandle(hdrvr));
 
 			if (debug != NULL)
 			{

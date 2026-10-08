@@ -60,19 +60,7 @@ char ACM::VersionString[VERSION_STRING_CHARS];
 /// The codec reports the LAME version that it is built from as its driver version.
 #define LAME_ACM_DRIVER_VERSION MAKE_ACM_VERSION(LAME_MAJOR_VERSION, LAME_MINOR_VERSION, LAME_PATCH_VERSION)
 
-#ifdef WIN32
-//
-//  32-bit versions
-//
 #define VERSION_MSACM MAKE_ACM_VERSION(3, 50, 0)
-
-#else
-//
-//  16-bit versions
-//
-#define VERSION_MSACM MAKE_ACM_VERSION(2, 1, 0)
-
-#endif
 
 #define PERSONAL_FORMAT WAVE_FORMAT_MPEGLAYER3
 #define SIZE_FORMAT_STRUCT sizeof(MPEGLAYER3WAVEFORMAT)
@@ -177,50 +165,6 @@ bool bitrate_item::operator<(const bitrate_item & other_bitrate) const
 }
 
 //////////////////////////////////////////////////////////////////////
-// Configuration Dialog
-//////////////////////////////////////////////////////////////////////
-/*
-static CALLBACK ConfigProc(
-  HWND hwndDlg,  // handle to dialog box
-UINT uMsg,     // message
-WPARAM wParam, // first message parameter
-LPARAM lParam  // second message parameter
-)
-{
-	BOOL bResult;
-
-	switch (uMsg) {
-		case WM_COMMAND:
-			UINT command;
-			command = GET_WM_COMMAND_ID(wParam, lParam);
-            if (IDOK == command)
-            {
-                EndDialog(hwndDlg, (IDOK == command));
-            } else if (IDCANCEL == command)
-            {
-                EndDialog(hwndDlg, (IDOK == command));
-            }
-            bResult = FALSE;
-			break;
-		default:
-			bResult = FALSE; // will be treated by DefWindowProc
-}
-	return bResult;
-}
-
-
-inline DWORD ACM::Configure(HWND hParentWindow, LPDRVCONFIGINFO pConfig)
-{
-	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "ACM : Configure (Parent Window = 0x%08X)",hParentWindow);
-
-	DialogBoxParam( my_hModule, MAKEINTRESOURCE(IDD_CONFIG), hParentWindow, ::ConfigProc , (LPARAM)this);
-
-	return DRVCNF_OK; // Can also return
-					// DRVCNF_CANCEL
-					// and DRVCNF_RESTART
-}
-*/
-//////////////////////////////////////////////////////////////////////
 // About Dialog
 //////////////////////////////////////////////////////////////////////
 
@@ -231,9 +175,6 @@ WPARAM wParam, // first message parameter
 LPARAM lParam  // second message parameter
 )
 {
-	static HBRUSH hBrushStatic = NULL;
-//	static LOGFONT lf;  // structure for font information  
-//	static HFONT hfnt;
 	static HCURSOR hcOverCursor = NULL;
 	BOOL bResult = FALSE;
 
@@ -242,35 +183,12 @@ LPARAM lParam  // second message parameter
 			char tmp[150];
 			wsprintf(tmp,"LAME MP3 codec v%s", ACM::GetVersionString());
 			::SetWindowText(GetDlgItem( hwndDlg, IDC_STATIC_ABOUT_TITLE), tmp);
-
-/*
-			::GetObject(::GetStockObject(DEFAULT_GUI_FONT), sizeof(LOGFONT), &lf); 
-			lf.lfUnderline = TRUE;
-
-			hfnt = ::CreateFontIndirect(&lf);
-
-			::SendMessage(::GetDlgItem(hwndDlg,IDC_STATIC_ABOUT_URL), WM_SETFONT, (WPARAM) hfnt, TRUE);
-* /
-			hBrushStatic = ::CreateSolidBrush(::GetSysColor (COLOR_BTNFACE));
-*/			hcOverCursor = ::LoadCursor(NULL,(LPCTSTR)IDC_HAND); 
+			hcOverCursor = ::LoadCursor(NULL,(LPCTSTR)IDC_HAND); 
 			if (hcOverCursor == NULL)
 				hcOverCursor = ::LoadCursor(NULL,(LPCTSTR)IDC_CROSS); 
 
 			bResult = TRUE;
 			break;
-/*
-		case WM_CTLCOLORSTATIC:
-			/// \todo only if there are URLs
-			if ((HWND)lParam == ::GetDlgItem(hwndDlg,IDC_STATIC_ABOUT_URL))
-			{
-				::SetTextColor((HDC)wParam, ::GetSysColor (COLOR_HIGHLIGHT));
-				::SetBkColor((HDC)wParam, ::GetSysColor (COLOR_BTNFACE));
-
-				return (LRESULT) hBrushStatic;
-			}
-			else
-				return (LRESULT) NULL;
-*/
 		case WM_MOUSEMOVE:
 			{
 				POINT pnt;
@@ -322,8 +240,6 @@ LPARAM lParam  // second message parameter
             bResult = FALSE;
 			break;
 
-		case IDC_STATIC_ABOUT_URL:
-			break;
 		default:
 			bResult = FALSE; // will be treated by DefWindowProc
 }
@@ -1427,18 +1343,6 @@ void ACM::BuildBitrateTable()
 
 	// sorting by frequency/bitrate/channel
 	std::sort(bitrate_table.begin(), bitrate_table.end());
-
-/*	{
-		// display test
-		int i=0;
-		for (i=0; i<bitrate_table.size();i++)
-		{
-			my_debug.OutPut("bitrate_table[%d].frequency = %d",i,bitrate_table[i].frequency);
-			my_debug.OutPut("bitrate_table[%d].bitrate = %d",i,bitrate_table[i].bitrate);
-			my_debug.OutPut("bitrate_table[%d].channel = %d",i,bitrate_table[i].channels);
-			my_debug.OutPut("bitrate_table[%d].ABR = %s\n",i,(bitrate_table[i].mode == vbr_abr)?"ABR":"CBR");
-		}
-	}*/
 
 	my_debug.OutPut("leaving BuildBitrateTable");
 }
