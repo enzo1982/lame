@@ -659,6 +659,8 @@ test_unknown_vbr_method_refused(const blade_exports *be)
  *
  * - An output rate that MP3 does not have, 96000 Hz. 48000 Hz is the control.
  * - An input rate of 0 Hz.
+ * - An input rate of 50 Hz, which the setter takes and lame_init_params()
+ *   rejects.
  *
  * A VBR quality above 9 is no such setting: the DLL encodes it as 9, as it
  * always has, since the old Blade structure carries qualities up to 14.
@@ -687,6 +689,13 @@ test_rejected_setting_refused(const blade_exports *be)
     cfg.format.LHV1.dwSampleRate = 0;
     CHECK_EQ_U(be->init(&cfg, &samples, &room, &hbe), BE_ERR_INVALID_FORMAT_PARAMETERS,
                "an input rate of 0 Hz is refused");
+
+    /* The setter takes 50 Hz. lame_init_params() rejects it, and reports
+       why: the lowest MP3 rate is more than 128 times as high. */
+    make_config(&cfg, 0);
+    cfg.format.LHV1.dwSampleRate = 50;
+    CHECK(be->init(&cfg, &samples, &room, &hbe) != BE_ERR_SUCCESSFUL,
+          "an input rate of 50 Hz, which LAME rejects, is refused");
 
     make_config(&cfg, 0);
     cfg.format.LHV1.bEnableVBR = TRUE;
@@ -915,6 +924,7 @@ main(int argc, char **argv)
     int     require;
     int     frames;
     ctest_component found;
+    ctest_stderr dll_stderr;
     HMODULE mod;
     blade_exports be;
     BE_VERSION ver;
@@ -942,13 +952,13 @@ main(int argc, char **argv)
         return 0;
     }
 
-    mod = LoadLibraryA(dll);
-    if (mod == NULL) {
+    if (!ctest_load_with_stderr_file(dll, &dll_stderr)) {
         sprintf(detail, "Win32 error %lu", GetLastError());
-        ctest_record(0, "the DLL image loads", detail);
+        ctest_record(0, "the DLL image loads, with its stderr going to a file", detail);
         return ctest_summary("blade_test");
     }
-    CHECK(mod != NULL, "the DLL image loads");
+    mod = dll_stderr.module;
+    CHECK(mod != NULL, "the DLL image loads, with its stderr going to a file");
     if (!load_exports(mod, &be)) {
         return ctest_summary("blade_test");
     }
@@ -1000,6 +1010,9 @@ main(int argc, char **argv)
     test_abr_preset_above_range(&be, dir);
     test_abr_bitrate_rounds(&be, dir);
     test_released_stream(&be, dir);
+    /* LAME reports why it rejects the 50 Hz stream of
+       test_rejected_setting_refused(). */
+    ctest_stderr_empty(&dll_stderr, "the DLL writes nothing to the stderr of its host");
 
     FreeLibrary(mod);
     return ctest_summary("blade_test");

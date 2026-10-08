@@ -648,6 +648,10 @@
 			    <li>The ACM codec no longer offers to decode MP3, which it
 			        cannot do, so Windows can pick another codec for MP3
 			        input.</li>
+			    <li>The ACM codec, <i>lame_enc.dll</i> and the DirectShow
+			        filter no longer write LAME's messages into the standard
+			        error of the program that uses them; the messages go to
+			        the debug output.</li>
 			    <li><i>lame_enc.dll</i> rejects a stream that asks for a
 			        VBR method it does not support.</li>
 			    <li>When LAME rejects a setting, such as an output sample

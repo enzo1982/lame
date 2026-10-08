@@ -117,22 +117,24 @@ ACMStream::~ACMStream()
 /// The longest library report line that the debug log keeps whole, in bytes.
 static const size_t REPORT_LINE_BYTES = 1000;
 
-/// The debug log that acm_report() writes to. Set around the calls that
+/// The debug log that acm_report_at() writes to. Set around the calls that
 /// report, per thread, so two streams opened at once keep their own logs.
 static thread_local const ADbg *acm_report_target = NULL;
 
 /**
  * \brief Writes one report of the library into the debug log of the stream
- *        that is reporting. It has the type of a libmp3lame report function.
+ *        that is reporting.
  *
  * The log ends each entry itself, so a line break at the end of the report is
- * dropped.
+ * dropped. acm_report() and acm_report_error(), the report functions that the
+ * stream gives libmp3lame, call it.
  *
+ * \param level   the debug level of the entry.
  * \param format  the printf format.
  * \param ap      its arguments.
  */
 static void
-acm_report(const char *format, va_list ap)
+acm_report_at(int level, const char *format, va_list ap)
 {
 	char line[REPORT_LINE_BYTES];
 	size_t len;
@@ -142,7 +144,33 @@ acm_report(const char *format, va_list ap)
 	len = strnlen(line, sizeof(line));
 	while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
 		line[--len] = '\0';
-	acm_report_target->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "%s", line);
+	acm_report_target->OutPut(level, "%s", line);
+}
+
+/**
+ * \brief The report function for messages and debug reports, at the debug
+ *        level.
+ *
+ * \param format  the printf format.
+ * \param ap      its arguments.
+ */
+static void
+acm_report(const char *format, va_list ap)
+{
+	acm_report_at(DEBUG_LEVEL_FUNC_DEBUG, format, ap);
+}
+
+/**
+ * \brief The report function for errors, at the level of the log's own
+ *        messages.
+ *
+ * \param format  the printf format.
+ * \param ap      its arguments.
+ */
+static void
+acm_report_error(const char *format, va_list ap)
+{
+	acm_report_at(DEBUG_LEVEL_MSG, format, ap);
 }
 
 /**
@@ -314,10 +342,13 @@ bool ACMStream::start()
 		return false;
 	}
 
-	// The library's messages and the settings, into the debug log of this
-	// stream; lame_init_params() takes the message function over
+	// The library's messages, errors and the settings, into the debug log of
+	// this stream and not onto the stderr of the host; lame_init_params()
+	// takes the report functions over
 	acm_report_target = &my_debug;
 	lame_set_msgf( gfp, acm_report );
+	lame_set_debugf( gfp, acm_report );
+	lame_set_errorf( gfp, acm_report_error );
 	init_result = lame_init_params( gfp );
 	if (init_result == 0)
 	{
@@ -465,6 +496,8 @@ int dwSamples;
 		}
 	}
 
+	// The encode and flush calls report too
+	acm_report_target = &my_debug;
 	if ( 1 == lame_get_num_channels( gfp ) )
 	{
 		nOutputSamples = lame_encode_buffer(gfp,(PSHORT)a_StreamHeader->pbSrc,(PSHORT)a_StreamHeader->pbSrc,dwSamples,a_StreamHeader->pbDst,a_StreamHeader->cbDstLength);
@@ -485,6 +518,7 @@ int dwSamples;
 		nOutputSamples = flushed < 0 ? flushed : nOutputSamples + flushed;
 		my_Ended = true;
 	}
+	acm_report_target = NULL;
 
 	// A partial sample frame at the end is not encoded
 	a_StreamHeader->cbSrcLengthUsed = (DWORD) dwSamples * lame_get_num_channels( gfp ) * sizeof(short);

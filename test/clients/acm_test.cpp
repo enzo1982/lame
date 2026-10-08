@@ -2326,19 +2326,20 @@ suggested_channels(const char *driver)
 }
 
 /**
- * @brief Tries to open a stream at one sample rate, from stereo PCM to MP3,
- *        on a driver opened for this call alone.
+ * @brief Tries to open a stream from stereo PCM to MP3, on a driver opened for
+ *        this call alone.
  *
  * The driver reads its configuration when it is opened, so the caller writes
  * the configuration file before this call.
  *
  * @param driver      the path of the codec.
- * @param rate        the sample rate of both formats, in Hz.
+ * @param rate        the sample rate of the PCM format, in Hz.
+ * @param mp3_rate    the sample rate of the MP3 format, in Hz.
  * @param open_flags  the flags for acmStreamOpen().
  * @return the result of acmStreamOpen().
  */
 static MMRESULT
-stream_open_result(const char *driver, DWORD rate, DWORD open_flags)
+stream_open_result(const char *driver, DWORD rate, DWORD mp3_rate, DWORD open_flags)
 {
     HMODULE mod = LoadLibraryA(driver);
     FARPROC proc = (mod != NULL) ? GetProcAddress(mod, "DriverProc") : NULL;
@@ -2358,7 +2359,7 @@ stream_open_result(const char *driver, DWORD rate, DWORD open_flags)
     }
     if (mr == MMSYSERR_NOERROR) {
         fill_pcm_format(&pcm, rate, 2);
-        fill_mp3_format(&mp3, rate, 2, 128000);
+        fill_mp3_format(&mp3, mp3_rate, 2, 128000);
         mr = acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) &mp3, NULL, 0, 0, open_flags);
         if (mr == MMSYSERR_NOERROR && has != NULL) {
             acmStreamClose(has, 0);
@@ -2584,6 +2585,8 @@ test_settings_on_start(const char *driver)
  *   stream, in CBR and in ABR. Every frame is 11025 Hz, and the frames last as
  *   long as the input. A 44100 Hz stream is the control for the length. The
  *   ABR stream uses the MPEG-2.5 range, so some frames are below 32 kbit/s.
+ *   A 50 Hz stream, which Smart Output gives 8000 Hz, does not open: LAME
+ *   rejects the ratio of the two rates.
  * - Without Smart Output, the 11025 Hz stream does not open, nor does a stream
  *   that LAME rejects: one at 50 Hz, or at 96000 Hz, which MP3 does not have.
  *
@@ -2709,6 +2712,11 @@ test_settings_reach_the_encoder(const char *driver)
            CBR. Index 0 of the table is free format. */
         CHECK(c.min_kbps < mp3_bitrate_kbps[1],
               "the 11025 Hz ABR stream goes below 32 kbit/s, the lowest MPEG-1 rate");
+        /* For 50 Hz PCM Smart Output picks the lowest MP3 rate, 8000 Hz.
+           Every setter takes that, and lame_init_params() rejects it and
+           reports why: 8000 Hz is more than 128 times as high. */
+        CHECK_EQ_U(stream_open_result(driver, 50, 8000, 0), ACMERR_NOTPOSSIBLE,
+                   "with Smart Output, a 50 Hz to 8000 Hz stream, which LAME rejects, does not open");
     }
 
     if (!write_settings("            <Smart use=\"false\" />\n")) {
@@ -2718,17 +2726,17 @@ test_settings_reach_the_encoder(const char *driver)
         CHECK(mr != MMSYSERR_NOERROR, "without Smart Output, a 44100 Hz to 11025 Hz stream does not open");
         /* The codec accepts the formats of a 50 Hz stream, and LAME rejects
            it: MP3 has no such rate. 48000 Hz is the control. */
-        CHECK_EQ_U(stream_open_result(driver, 50, 0), ACMERR_NOTPOSSIBLE,
+        CHECK_EQ_U(stream_open_result(driver, 50, 50, 0), ACMERR_NOTPOSSIBLE,
                    "a 50 Hz stream, which LAME rejects, does not open");
-        CHECK_EQ_U(stream_open_result(driver, 50, ACM_STREAMOPENF_QUERY), ACMERR_NOTPOSSIBLE,
+        CHECK_EQ_U(stream_open_result(driver, 50, 50, ACM_STREAMOPENF_QUERY), ACMERR_NOTPOSSIBLE,
                    "a query for a 50 Hz stream fails");
-        CHECK_MM(stream_open_result(driver, 48000, 0), "a 48000 Hz stream opens");
+        CHECK_MM(stream_open_result(driver, 48000, 48000, 0), "a 48000 Hz stream opens");
         /* MP3 has no 96000 Hz rate, so lame_set_out_samplerate() rejects
            it. LAME would otherwise pick 48000 Hz for a stream whose format
            says 96000 Hz. */
-        CHECK_EQ_U(stream_open_result(driver, 96000, 0), ACMERR_NOTPOSSIBLE,
+        CHECK_EQ_U(stream_open_result(driver, 96000, 96000, 0), ACMERR_NOTPOSSIBLE,
                    "a 96000 Hz stream, whose rate MP3 does not have, does not open");
-        CHECK_EQ_U(stream_open_result(driver, 96000, ACM_STREAMOPENF_QUERY), ACMERR_NOTPOSSIBLE,
+        CHECK_EQ_U(stream_open_result(driver, 96000, 96000, ACM_STREAMOPENF_QUERY), ACMERR_NOTPOSSIBLE,
                    "a query for a 96000 Hz stream fails");
     }
 
@@ -2766,10 +2774,17 @@ main(int argc, char **argv)
 
     if (ctest_component_path(argc, argv, "lameACM.acm", driver, sizeof(driver), &require)
         == CTEST_FOUND) {
+        ctest_stderr codec_stderr;
+
+        CHECK(ctest_load_with_stderr_file(driver, &codec_stderr),
+              "the codec loads with its stderr going to a file");
         test_under_the_acm(driver);
         test_settings_reach_the_encoder(driver);
         test_config_dialog_version(driver);
         test_config_dialog_result(driver);
+        /* LAME reports why it rejects the 50 Hz to 8000 Hz stream of
+           test_settings_reach_the_encoder(). */
+        ctest_stderr_empty(&codec_stderr, "the codec writes nothing to the stderr of its host");
     } else {
         /* Not a skip, with or without --require. The codec is built by the
            same solution as this test, so its absence is a failure of the

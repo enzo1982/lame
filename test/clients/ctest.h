@@ -235,6 +235,87 @@ ctest_component_path(int argc, char **argv, const char *name,
     return GetFileAttributesA(out) == INVALID_FILE_ATTRIBUTES ? CTEST_ABSENT : CTEST_FOUND;
 }
 
+/** @brief What a component wrote to its standard error, and where it went. */
+typedef struct {
+    char    path[MAX_PATH];     /**< the file that receives it */
+    HMODULE module;             /**< the component, loaded with that file as its stderr */
+} ctest_stderr;
+
+/**
+ * @brief Loads a component so that its standard error goes to a file.
+ *
+ * Each component links the C runtime statically, so its stderr is its own.
+ * That runtime takes the process's standard error handle when the component
+ * loads. The function points the handle at a new file for the load and puts
+ * it back afterwards. The component stays loaded until the process ends, so a
+ * later LoadLibrary() of the same file gets this copy and its stderr.
+ *
+ * It must be the first load of the component that runs its code. A load as a
+ * data file does not count.
+ *
+ * @param dll  the path of the component.
+ * @param err  receives the file and the module.
+ * @return 1 if the file was made and the component loaded, else 0.
+ */
+static int
+ctest_load_with_stderr_file(const char *dll, ctest_stderr *err)
+{
+    char    dir[MAX_PATH];
+    HANDLE  file, before;
+
+    err->module = NULL;
+    if (GetTempPathA(MAX_PATH, dir) == 0 || GetTempFileNameA(dir, "lst", 0, err->path) == 0) {
+        return 0;
+    }
+    file = CreateFileA(err->path, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                       NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (file == INVALID_HANDLE_VALUE) {
+        return 0;
+    }
+    before = GetStdHandle(STD_ERROR_HANDLE);
+    SetStdHandle(STD_ERROR_HANDLE, file);
+    err->module = LoadLibraryA(dll);
+    SetStdHandle(STD_ERROR_HANDLE, before);
+    return err->module != NULL;
+}
+
+/**
+ * @brief Checks that a component has written nothing to its standard error.
+ *
+ * The detail of a failure starts with what was written.
+ *
+ * @param err   the file, from ctest_load_with_stderr_file().
+ * @param what  the description of the check.
+ */
+static void
+ctest_stderr_empty(const ctest_stderr *err, const char *what)
+{
+    char    detail[CTEST_DETAIL_CHARS] = "";
+    char    head[CTEST_DETAIL_CHARS / 2] = "";
+    long    size = -1;
+    FILE   *f = fopen(err->path, "rb");
+    char   *p;
+
+    if (f != NULL) {
+        size_t got;
+
+        if (fseek(f, 0, SEEK_END) == 0) {
+            size = ftell(f);
+        }
+        rewind(f);
+        got = fread(head, 1, sizeof(head) - 1, f);
+        head[got] = '\0';
+        fclose(f);
+    }
+    for (p = head; *p != '\0'; p++) {
+        if (*p == '\r' || *p == '\n') {
+            *p = ' ';
+        }
+    }
+    snprintf(detail, sizeof detail, "%ld bytes: %s", size, head);
+    ctest_record(size == 0, what, detail);
+}
+
 /**
  * @brief Prints the summary and returns the program's exit status.
  *

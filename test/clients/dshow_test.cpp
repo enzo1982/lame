@@ -1378,6 +1378,7 @@ main(int argc, char **argv)
     const double seconds = 2.0;
 
     HMODULE mod = NULL;
+    ctest_stderr filter_stderr;
     PFN_DllGetClassObject get_class = NULL;
     IClassFactory *cf = NULL;
     IGraphBuilder *graph = NULL;
@@ -1435,15 +1436,15 @@ main(int argc, char **argv)
         return ctest_summary("dshow_test");
     }
 
-    mod = LoadLibraryA(filter);
-    if (mod == NULL) {
+    if (!ctest_load_with_stderr_file(filter, &filter_stderr)) {
         char detail[CTEST_DETAIL_CHARS];
 
         sprintf(detail, "Win32 error %lu", GetLastError());
-        ctest_record(0, "the filter image loads", detail);
+        ctest_record(0, "the filter image loads, with its stderr going to a file", detail);
         goto out;
     }
-    CHECK(mod != NULL, "the filter image loads");
+    mod = filter_stderr.module;
+    CHECK(mod != NULL, "the filter image loads, with its stderr going to a file");
 
     get_class = (PFN_DllGetClassObject) GetProcAddress(mod, "DllGetClassObject");
     CHECK(get_class != NULL, "DllGetClassObject resolves");
@@ -1569,6 +1570,9 @@ main(int argc, char **argv)
     test_refused_setting_fails_run(lame, mc);
     test_aligned_stream_end(cf, wavw);
     test_rejected_delivery(cf, wavw);
+    /* LAME reports why it rejects the VBR range of
+       test_refused_setting_fails_run(). */
+    ctest_stderr_empty(&filter_stderr, "the filter writes nothing to the stderr of its host");
 
 out:
     if (wr_in) wr_in->Release();

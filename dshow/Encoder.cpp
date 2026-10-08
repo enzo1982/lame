@@ -114,6 +114,27 @@ static const DWORD VBR_Q_BEST = 0;
 /** The lowest VBR quality that lame_set_VBR_q() takes. */
 static const DWORD VBR_Q_LOWEST = 9;
 
+/** The longest library report that the debugger output keeps whole, in bytes. */
+static const size_t REPORT_LINE_BYTES = 1000;
+
+/**
+ * Writes one report of the library to the debugger output, where Windows
+ * collects the debug output of every program. It has the type of a libmp3lame
+ * report function, with the calling convention of the library: the filter is
+ * built with another default.
+ *
+ * @param format  the printf format.
+ * @param ap      its arguments.
+ */
+static void CDECL
+dshow_report(const char *format, va_list ap)
+{
+    char line[REPORT_LINE_BYTES];
+
+    if (vsnprintf(line, sizeof(line), format, ap) >= 0)
+        OutputDebugStringA(line);
+}
+
 /**
  * Writes a setting that LAME rejected into the debug log.
  *
@@ -167,6 +188,12 @@ HRESULT CEncoder::Init()
             // nearest one
             DWORD const vbr_q = m_mabsi.dwVBRq > VBR_Q_LOWEST ? VBR_Q_LOWEST : m_mabsi.dwVBRq;
             MPEG_mode mode = MONO;
+
+            // The library's messages, errors and debug reports, to the
+            // debugger output and not onto the stderr of the host
+            lame_set_msgf(pgf, dshow_report);
+            lame_set_errorf(pgf, dshow_report);
+            lame_set_debugf(pgf, dshow_report);
 
             // A setting that LAME rejects fails the start: LAME would encode
             // with another value than the settings say

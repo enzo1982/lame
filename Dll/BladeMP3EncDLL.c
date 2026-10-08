@@ -742,8 +742,11 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
         return BE_ERR_INVALID_FORMAT_PARAMETERS;
     }
 
-    // The library's messages, into the log; lame_init_params() takes them over
+    // The library's messages, errors and debug reports, into the log and not
+    // onto the stderr of the host; lame_init_params() takes them over
     lame_set_msgf( gfp, DebugVPrintf );
+    lame_set_errorf( gfp, DebugVPrintf );
+    lame_set_debugf( gfp, DebugVPrintf );
 
     if ( 0 != ( nInitReturn = lame_init_params( gfp ) ) )
     {
