@@ -1498,9 +1498,8 @@ vbrpsy_compute_MS_thresholds(const FLOAT eb[4][CBANDS], FLOAT thr[4][CBANDS],
  * \param[out] percep_MS_entropy  perceptual entropy, mid/side.
  * \param[out] energy             per-channel granule energy.
  * \param[out] blocktype_d        the settled block type per channel.
- * \return 0.
  */
-int
+void
 L3psycho_anal_vbr(lame_internal_flags * gfc,
                   const sample_t * const buffer[2], int gr_out,
                   III_psy_ratio masking_ratio[2][2],
@@ -1699,7 +1698,6 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
             plt->pe[gr_out][chn] = ppe[chn];
         }
     }
-    return 0;
 }
 
 

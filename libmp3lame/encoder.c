@@ -385,7 +385,6 @@ lame_encode_mp3_frame(       /* Output */
          * psy model has a 1 granule (576) delay that we must compensate for
          * (mt 6/99).
          */
-        int     ret;
         const sample_t *bufp[2] = {0, 0}; /* address of beginning of left & right granule */
         int     blocktype[2];
 
@@ -394,11 +393,9 @@ lame_encode_mp3_frame(       /* Output */
             for (ch = 0; ch < cfg->channels_out; ch++) {
                 bufp[ch] = &inbuf[ch][576 + gr * 576 - FFTOFFSET];
             }
-            ret = L3psycho_anal_vbr(gfc, bufp, gr,
-                                    masking_LR, masking_MS,
-                                    pe[gr], pe_MS[gr], tot_ener[gr], blocktype);
-            if (ret != 0)
-                return -4;
+            L3psycho_anal_vbr(gfc, bufp, gr,
+                              masking_LR, masking_MS,
+                              pe[gr], pe_MS[gr], tot_ener[gr], blocktype);
 
             if (cfg->mode == JOINT_STEREO) {
                 ms_ener_ratio[gr] = tot_ener[gr][2] + tot_ener[gr][3];

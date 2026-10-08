@@ -31,7 +31,7 @@
 #define LAME_PSYMODEL_H
 
 
-int     L3psycho_anal_vbr(lame_internal_flags * gfc,
+void    L3psycho_anal_vbr(lame_internal_flags * gfc,
                           const sample_t *const buffer[2], int gr,
                           III_psy_ratio ratio[2][2],
                           III_psy_ratio MS_ratio[2][2],
