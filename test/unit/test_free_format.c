@@ -39,17 +39,9 @@
 #include <cmocka.h>
 
 #include "test_unused.h"
+#include "test_report.h"
 
 #include "lame.h"
-
-/** Number of messages that the library reported through its error callback. */
-static int error_messages;
-
-static void
-count_error_message(LAME_UNUSED const char *format, LAME_UNUSED va_list ap)
-{
-    error_messages++;
-}
 
 /**
  * @brief Creates an encoder instance with the settings that the cases below
@@ -69,8 +61,8 @@ try_settings(int samplerate, int channels, int kbps, int free_format, int crc)
     int     rc;
 
     assert_non_null(gfp);
-    error_messages = 0;
-    assert_int_equal(lame_set_errorf(gfp, count_error_message), 0);
+    report_reset();
+    assert_int_equal(lame_set_errorf(gfp, report_capture), 0);
     assert_int_equal(lame_set_num_channels(gfp, channels), 0);
     assert_int_equal(lame_set_mode(gfp, channels == 1 ? MONO : STEREO), 0);
     assert_int_equal(lame_set_in_samplerate(gfp, samplerate), 0);
@@ -101,7 +93,7 @@ test_bitrate_below_the_floor_is_refused(LAME_UNUSED void **state)
     assert_int_not_equal(try_settings(48000, 2, 8, 1, 1), 0);
     /* Refusing in silence would be its own defect - a caller that does not
        check the return value would be no better off than before. */
-    assert_true(error_messages > 0);
+    assert_true(report_calls > 0);
 }
 
 /**
@@ -117,7 +109,7 @@ static void
 test_the_floor_follows_the_channel_count(LAME_UNUSED void **state)
 {
     assert_int_not_equal(try_settings(48000, 1, 8, 1, 1), 0);
-    assert_true(error_messages > 0);
+    assert_true(report_calls > 0);
     /* and one step up is enough for mono, where stereo would still be refused */
     assert_int_equal(try_settings(48000, 1, 9, 1, 1), 0);
 }
@@ -132,7 +124,7 @@ static void
 test_a_workable_free_format_bitrate_is_accepted(LAME_UNUSED void **state)
 {
     assert_int_equal(try_settings(48000, 2, 14, 1, 1), 0);
-    assert_int_equal(error_messages, 0);
+    assert_int_equal(report_calls, 0);
 }
 
 /**
@@ -147,7 +139,7 @@ static void
 test_the_floor_follows_the_sample_rate(LAME_UNUSED void **state)
 {
     assert_int_equal(try_settings(24000, 2, 8, 1, 1), 0);
-    assert_int_equal(error_messages, 0);
+    assert_int_equal(report_calls, 0);
 }
 
 /**
@@ -164,7 +156,7 @@ static void
 test_the_tightest_tabulated_stream_is_accepted(LAME_UNUSED void **state)
 {
     assert_int_equal(try_settings(24000, 2, 8, 0, 1), 0);
-    assert_int_equal(error_messages, 0);
+    assert_int_equal(report_calls, 0);
 }
 
 int

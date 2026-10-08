@@ -42,6 +42,8 @@
 
 #include <cmocka.h>
 
+#include "test_report.h"
+
 #include "test_unused.h"
 
 #include "lame.h"
@@ -56,28 +58,6 @@
 #define MP3BUF_SIZE       (5 * SAMPLES_PER_FRAME / 4 + 7200)
 /** Buffer size for the whole encode, with a large margin. The 128 kbit/s control produces the largest stream. */
 #define STREAM_SIZE       (256 * 1024)
-
-/** Messages the encoder reported through its error callback. */
-static int error_messages;
-/** The first message. A failing test prints it. */
-static char first_message[200];
-
-/**
- * @brief Records that the encoder reported something.
- *
- * The messages under test take no arguments. So the format string is the
- * whole text. The callback stores the format string as it is and does not
- * format it. So the callback needs no varargs handling.
- */
-static void
-count_error_message(const char *format, LAME_UNUSED va_list ap)
-{
-    if (error_messages == 0 && format != NULL) {
-        strncpy(first_message, format, sizeof first_message - 1);
-        first_message[sizeof first_message - 1] = '\0';
-    }
-    error_messages++;
-}
 
 /** The layer III bitrates in kbit/s, in the order of the bitrate index in the header. */
 static int const bitrate_mpeg1[15] = {
@@ -192,17 +172,16 @@ encode(lame_t gfp, int silent, int loud, unsigned char *mp3, int mp3_size)
 
 /**
  * @brief Creates an encoder instance that reports errors through
- *        #count_error_message.
+ *        report_capture().
  */
 static lame_t
 new_encoder(void)
 {
     lame_t  gfp = lame_init();
 
-    error_messages = 0;
-    first_message[0] = '\0';
+    report_reset();
     assert_non_null(gfp);
-    assert_int_equal(lame_set_errorf(gfp, count_error_message), 0);
+    assert_int_equal(lame_set_errorf(gfp, report_capture), 0);
     assert_int_equal(lame_set_num_channels(gfp, 2), 0);
     assert_int_equal(lame_set_in_samplerate(gfp, 24000), 0);
     /* The tag frame is written by the caller, not by the encoder, so asking
@@ -238,9 +217,8 @@ test_silent_lead_in_keeps_the_framing(LAME_UNUSED void **state)
     len = encode(gfp, SILENT_FRAMES, SIGNAL_FRAMES, mp3, (int) sizeof mp3);
     walked = walk_frames(mp3, len, &frames);
 
-    if (error_messages != 0)
-        fail_msg("the encoder reported %d message(s), the first being: %s",
-                 error_messages, first_message);
+    if (report_calls != 0)
+        fail_msg("the encoder reported %d message(s): %s", report_calls, report_text);
     /* Every byte belongs to a frame, and there are as many frames as were
        encoded - the second half of that is what a stream of the right length
        carrying no headers would fail. */
@@ -269,9 +247,8 @@ test_ordinary_encode_keeps_the_framing(LAME_UNUSED void **state)
     len = encode(gfp, SILENT_FRAMES, SIGNAL_FRAMES, mp3, (int) sizeof mp3);
     walked = walk_frames(mp3, len, &frames);
 
-    if (error_messages != 0)
-        fail_msg("the encoder reported %d message(s), the first being: %s",
-                 error_messages, first_message);
+    if (report_calls != 0)
+        fail_msg("the encoder reported %d message(s): %s", report_calls, report_text);
     assert_int_equal(walked, len);
     assert_true(frames >= SILENT_FRAMES);
     assert_int_equal(lame_close(gfp), 0);

@@ -50,6 +50,7 @@
 #include <cmocka.h>
 
 #include "test_mem.h"
+#include "test_report.h"
 
 #include "test_unused.h"
 
@@ -88,41 +89,6 @@ extern int lame_encode_finish(lame_global_flags *, unsigned char *, int);
 static short pcm_l[NSAMPLES * NCALLS];
 /** @brief Right channel of the shared test signal. */
 static short pcm_r[NSAMPLES * NCALLS];
-
-/** @brief Text that capture_report() collected. */
-static char capture[65536];
-/** @brief Number of bytes in #capture. */
-static size_t caplen;
-/** @brief Number of calls of capture_report(). */
-static int  capcalls;
-
-/**
- * @brief Collects what the library writes. This is a report callback.
- * @param format printf format string.
- * @param ap     the arguments for @p format.
- */
-static void
-capture_report(const char *format, va_list ap)
-{
-    char    line[1024];
-    int     n = vsnprintf(line, sizeof line, format, ap);
-
-    capcalls++;
-    if (n > 0 && caplen + (size_t) n + 1 < sizeof capture) {
-        memcpy(capture + caplen, line, (size_t) n);
-        caplen += (size_t) n;
-        capture[caplen] = '\0';
-    }
-}
-
-/** @brief Empties the capture buffer before a call that must fill it. */
-static void
-capture_reset(void)
-{
-    caplen = 0;
-    capcalls = 0;
-    capture[0] = '\0';
-}
 
 /**
  * @brief Fills #pcm_l and #pcm_r with a deterministic stereo signal.
@@ -1060,19 +1026,19 @@ test_print_config_routes_through_callback(LAME_UNUSED void **state)
     lame_t  gfp = lame_init();
 
     assert_non_null(gfp);
-    assert_int_equal(lame_set_msgf(gfp, capture_report), 0);
+    assert_int_equal(lame_set_msgf(gfp, report_capture), 0);
     assert_int_equal(lame_set_num_channels(gfp, 2), 0);
     assert_int_equal(lame_set_in_samplerate(gfp, RATE), 0);
     assert_int_equal(lame_set_VBR(gfp, vbr_off), 0);
     assert_int_equal(lame_set_brate(gfp, CBR_KBPS), 0);
     assert_int_equal(lame_init_params(gfp), 0);
 
-    capture_reset();
-    assert_int_equal(capcalls, 0);
+    report_reset();
+    assert_int_equal(report_calls, 0);
     lame_print_config(gfp);
-    assert_true(capcalls > 0);
-    assert_true(caplen > 0);
-    assert_true(mem_contains((const unsigned char *) capture, caplen, "LAME "));
+    assert_true(report_calls > 0);
+    assert_true(report_len > 0);
+    assert_true(mem_contains((const unsigned char *) report_text, report_len, "LAME "));
     lame_close(gfp);
 }
 
@@ -1092,19 +1058,19 @@ test_print_internals_routes_through_callback(LAME_UNUSED void **state)
     lame_t  gfp = lame_init();
 
     assert_non_null(gfp);
-    assert_int_equal(lame_set_msgf(gfp, capture_report), 0);
+    assert_int_equal(lame_set_msgf(gfp, report_capture), 0);
     assert_int_equal(lame_set_num_channels(gfp, 2), 0);
     assert_int_equal(lame_set_in_samplerate(gfp, RATE), 0);
     assert_int_equal(lame_set_VBR(gfp, vbr_off), 0);
     assert_int_equal(lame_set_brate(gfp, CBR_KBPS), 0);
     assert_int_equal(lame_init_params(gfp), 0);
 
-    capture_reset();
-    assert_int_equal(capcalls, 0);
+    report_reset();
+    assert_int_equal(report_calls, 0);
     lame_print_internals(gfp);
-    assert_true(capcalls > 0);
-    assert_true(caplen > 0);
-    assert_true(mem_contains((const unsigned char *) capture, caplen, "stream format:"));
+    assert_true(report_calls > 0);
+    assert_true(report_len > 0);
+    assert_true(mem_contains((const unsigned char *) report_text, report_len, "stream format:"));
     lame_close(gfp);
 }
 
