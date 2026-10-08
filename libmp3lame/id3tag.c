@@ -604,7 +604,6 @@ local_strdup(char **dst, const char *src)
         for (n = 0; src[n] != 0; ++n) { /* calc src string length */
         }
         if (n > 0) {    /* string length without zero termination */
-            assert(sizeof(*src) == sizeof(**dst));
             *dst = lame_calloc(char, n + 1);
             if (*dst != 0) {
                 memcpy(*dst, src, n * sizeof(**dst));
@@ -630,7 +629,6 @@ local_ucs2_strdup(unsigned short **dst, unsigned short const *src)
         }
         if (n > 0) {    /* string length without zero termination */
             assert(sizeof(*src) >= 2);
-            assert(sizeof(*src) == sizeof(**dst));
             *dst = lame_calloc(unsigned short, n + 1);
             if (*dst != 0) {
                 memcpy(*dst, src, n * sizeof(**dst));
@@ -750,7 +748,9 @@ local_strdup_utf16_to_latin1(unsigned short const* utf16)
 {
     size_t  len = local_ucs2_strlen(utf16);
     unsigned char* latin1 = lame_calloc(unsigned char, len+1);
-    writeLoBytes(latin1, utf16, len);
+    if (latin1 != 0) {
+        writeLoBytes(latin1, utf16, len);
+    }
     return (char*)latin1;
 }
 
@@ -794,7 +794,11 @@ id3tag_set_genre_utf16(lame_t gfp, unsigned short const* text)
     }
     if (maybeLatin1(text)) {
         char*   latin1 = local_strdup_utf16_to_latin1(text);
-        int     num = lookupGenre(latin1);
+        int     num;
+        if (latin1 == 0) {
+            return -254; /* memory problem */
+        }
+        num = lookupGenre(latin1);
         free(latin1);
         if (num == -1) return -1; /* number out of range */
         if (num >= 0) {           /* common genre found  */
