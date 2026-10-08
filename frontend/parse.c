@@ -1820,6 +1820,94 @@ typedef enum {
     OPT_STOP_ERROR              /**< the parse stops with an error */
 } option_result;
 
+/** @internal @brief An option without an argument that sets an int setting. */
+typedef struct {
+    char const *name;           /**< the option, without the two dashes */
+    int    *field;              /**< the setting */
+    int     value;              /**< the value the option gives it */
+} int_flag_option;
+
+/**
+ * @internal
+ * @brief Sets the setting of the row of @p table that is named @p token.
+ *
+ * @param table  the rows.
+ * @param n      the number of rows.
+ * @param token  the option, without the two dashes.
+ * @return 1 when a row has that name, 0 otherwise.
+ */
+static int
+set_int_flag(int_flag_option const *table, size_t n, char const *token)
+{
+    size_t  k;
+
+    for (k = 0; k < n; ++k) {
+        if (0 == local_strcasecmp(token, table[k].name)) {
+            *table[k].field = table[k].value;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/** The input and output options that set one int setting. */
+static int_flag_option const io_flags[] = {
+    { "signed", &global_raw_pcm.in_signed, 1 },
+    { "unsigned", &global_raw_pcm.in_signed, 0 },
+    { "flush", &global_writer.flush_write, 1 },
+    { "preserve-modtime", &global_writer.preserve_modtime, 1 },
+    { "replaygain-id3v2", &global_writer.replaygain_id3v2, 1 },
+    { "swap-channel", &global_reader.swap_channel, 1 },
+    { "ignorelength", &global_reader.ignorewavlength, 1 }
+};
+
+/** The options for the messages on the screen that set one int setting. */
+static int_flag_option const info_flags[] = {
+    { "nohist", &global_ui_config.brhist, 0 },
+    { "quiet", &global_ui_config.silent, 10 },  /* on a scale from 1 to 10 be very silent */
+    { "silent", &global_ui_config.silent, 9 },
+    { "brief", &global_ui_config.silent, -5 },  /* print few info on screen */
+    { "verbose", &global_ui_config.silent, -10 } /* print a lot on screen */
+};
+
+/** @internal @brief An ID3 option that sets one text field of the tag. */
+typedef struct {
+    char const *name;           /**< the option, without the two dashes */
+    int     field;              /**< the field, as the letter id3_tag() takes */
+} tag_text_option;
+
+/** The ID3 options that set one text field. */
+static tag_text_option const tag_text_options[] = {
+    { "tt", 't' }, { "ta", 'a' }, { "tl", 'l' }, { "ty", 'y' }, { "tc", 'c' }
+};
+
+/** @internal @brief A developer option without an argument that calls one setter. */
+typedef struct {
+    char const *name;           /**< the option, without the two dashes */
+    int     (CDECL * setter) (lame_global_flags *, int); /**< the setter, NULL in a build without
+                                                      the developer options */
+    int     value;              /**< the value the option passes */
+} dev_flag_option;
+
+#if (INTERNAL_OPTS!=0)
+# define DEV_SETTER(f) f
+#else
+# define DEV_SETTER(f) NULL
+#endif
+
+/** The developer options without an argument that call one setter with a constant. */
+static dev_flag_option const dev_flags[] = {
+    { "noshort", lame_set_no_short_blocks, 1 },
+    { "short", lame_set_no_short_blocks, 0 },
+    { "allshort", lame_set_force_short_blocks, 1 },
+    { "notemp", lame_set_useTemporal, 0 },
+    { "no-preset-tune", DEV_SETTER(lame_set_preset_notune), 0 },
+    { "sfscale", DEV_SETTER(lame_set_sfscale), 1 },
+    { "noath", lame_set_noATH, 1 },
+    { "athonly", lame_set_ATHonly, 1 },
+    { "athshort", lame_set_ATHshort, 1 }
+};
+
 /**
  * @internal
  * @brief Parses the options that choose how the audio is encoded.
@@ -2110,18 +2198,12 @@ parse_io_options(lame_t gfp, parse_state * st, char const *token, char *nextArg,
 {
     int     int_value = 0;
 
+    if (set_int_flag(io_flags, dimension_of(io_flags), token))
+        return OPT_DONE;
     if (0 == local_strcasecmp(token, "bitwidth")) {
         *argUsed = getIntValue(token, nextArg, &int_value);
         if (*argUsed)
             global_raw_pcm.in_bitwidth = int_value;
-        return OPT_DONE;
-    }
-    if (0 == local_strcasecmp(token, "signed")) {
-        global_raw_pcm.in_signed = 1;
-        return OPT_DONE;
-    }
-    if (0 == local_strcasecmp(token, "unsigned")) {
-        global_raw_pcm.in_signed = 0;
         return OPT_DONE;
     }
     if (0 == local_strcasecmp(token, "little-endian")) {
@@ -2148,18 +2230,6 @@ parse_io_options(lame_t gfp, parse_state * st, char const *token, char *nextArg,
 #endif
     if (0 == local_strcasecmp(token, "decode")) {
         (void) lame_set_decode_only(gfp, 1);
-        return OPT_DONE;
-    }
-    if (0 == local_strcasecmp(token, "flush")) {
-        global_writer.flush_write = 1;
-        return OPT_DONE;
-    }
-    if (0 == local_strcasecmp(token, "preserve-modtime")) {
-        global_writer.preserve_modtime = 1;
-        return OPT_DONE;
-    }
-    if (0 == local_strcasecmp(token, "replaygain-id3v2")) {
-        global_writer.replaygain_id3v2 = 1;
         return OPT_DONE;
     }
     if (0 == local_strcasecmp(token, "decode-mp3delay")) {
@@ -2200,14 +2270,6 @@ parse_io_options(lame_t gfp, parse_state * st, char const *token, char *nextArg,
         st->nogap = 1;
         return OPT_DONE;
     }
-    if (0 == local_strcasecmp(token, "swap-channel")) {
-        global_reader.swap_channel = 1;
-        return OPT_DONE;
-    }
-    if (0 == local_strcasecmp(token, "ignorelength")) {
-        global_reader.ignorewavlength = 1;
-        return OPT_DONE;
-    }
     return OPT_NOT_MINE;
 }
 
@@ -2225,6 +2287,7 @@ parse_io_options(lame_t gfp, parse_state * st, char const *token, char *nextArg,
 static option_result
 parse_id3_options(lame_t gfp, parse_state * st, char const *token, char *nextArg, int *argUsed)
 {
+    size_t  k;
     int     int_value = 0;
 
 #ifdef ID3TAGS_EXTENDED
@@ -2245,30 +2308,12 @@ parse_id3_options(lame_t gfp, parse_state * st, char const *token, char *nextArg
         return OPT_DONE;
     }
 #endif
-    if (0 == local_strcasecmp(token, "tt")) {
-        *argUsed = 1;
-        id3_tag(gfp, 't', st->id3_tenc, nextArg);
-        return OPT_DONE;
-    }
-    if (0 == local_strcasecmp(token, "ta")) {
-        *argUsed = 1;
-        id3_tag(gfp, 'a', st->id3_tenc, nextArg);
-        return OPT_DONE;
-    }
-    if (0 == local_strcasecmp(token, "tl")) {
-        *argUsed = 1;
-        id3_tag(gfp, 'l', st->id3_tenc, nextArg);
-        return OPT_DONE;
-    }
-    if (0 == local_strcasecmp(token, "ty")) {
-        *argUsed = 1;
-        id3_tag(gfp, 'y', st->id3_tenc, nextArg);
-        return OPT_DONE;
-    }
-    if (0 == local_strcasecmp(token, "tc")) {
-        *argUsed = 1;
-        id3_tag(gfp, 'c', st->id3_tenc, nextArg);
-        return OPT_DONE;
+    for (k = 0; k < dimension_of(tag_text_options); ++k) {
+        if (0 == local_strcasecmp(token, tag_text_options[k].name)) {
+            *argUsed = 1;
+            id3_tag(gfp, tag_text_options[k].field, st->id3_tenc, nextArg);
+            return OPT_DONE;
+        }
     }
     if (0 == local_strcasecmp(token, "tn")) {
         int ret = id3_tag(gfp, 'n', st->id3_tenc, nextArg);
@@ -2407,10 +2452,8 @@ parse_info_options(lame_t gfp, char const *token, char *nextArg, char const *Pro
 {
     double  double_value = 0;
 
-    if (0 == local_strcasecmp(token, "nohist")) {
-        global_ui_config.brhist = 0;
+    if (set_int_flag(info_flags, dimension_of(info_flags), token))
         return OPT_DONE;
-    }
 #if defined(__OS2__) || defined(WIN32)
     if (0 == local_strcasecmp(token, "priority")) {
         int     int_value = 0;
@@ -2428,22 +2471,6 @@ parse_info_options(lame_t gfp, char const *token, char *nextArg, char const *Pro
      * i/input file  => specifies input filename
      * I             => stdin
      */
-    if (0 == local_strcasecmp(token, "quiet")) {
-        global_ui_config.silent = 10; /* on a scale from 1 to 10 be very silent */
-        return OPT_DONE;
-    }
-    if (0 == local_strcasecmp(token, "silent")) {
-        global_ui_config.silent = 9;
-        return OPT_DONE;
-    }
-    if (0 == local_strcasecmp(token, "brief")) {
-        global_ui_config.silent = -5; /* print few info on screen */
-        return OPT_DONE;
-    }
-    if (0 == local_strcasecmp(token, "verbose")) {
-        global_ui_config.silent = -10; /* print a lot on screen */
-        return OPT_DONE;
-    }
     if (0 == local_strcasecmp(token, "version") || 0 == local_strcasecmp(token, "license")) {
         print_license(stdout);
         return OPT_STOP_OK;
@@ -2543,22 +2570,13 @@ parse_developer_options(lame_t gfp, char const *token, char *nextArg, int *argUs
     double  double_value = 0;
     int     int_value = 0;
     int     argIgnored = 0;
+    size_t  row;
 
-    if (dev_only_without_arg("noshort", token, &argIgnored)) {
-        (void) lame_set_no_short_blocks(gfp, 1);
-        return OPT_DONE;
-    }
-    if (dev_only_without_arg("short", token, &argIgnored)) {
-        (void) lame_set_no_short_blocks(gfp, 0);
-        return OPT_DONE;
-    }
-    if (dev_only_without_arg("allshort", token, &argIgnored)) {
-        (void) lame_set_force_short_blocks(gfp, 1);
-        return OPT_DONE;
-    }
-    if (dev_only_without_arg("notemp", token, &argIgnored)) {
-        (void) lame_set_useTemporal(gfp, 0);
-        return OPT_DONE;
+    for (row = 0; row < dimension_of(dev_flags); ++row) {
+        if (dev_only_without_arg(dev_flags[row].name, token, &argIgnored)) {
+            (void) dev_flags[row].setter(gfp, dev_flags[row].value);
+            return OPT_DONE;
+        }
     }
     if (dev_only_with_arg("interch", token, nextArg, &argIgnored, argUsed)) {
         *argUsed = getDoubleValue(token, nextArg, &double_value);
@@ -2679,10 +2697,6 @@ parse_developer_options(lame_t gfp, char const *token, char *nextArg, int *argUs
             (void) lame_set_ATHcurve(gfp, (float) double_value);
         return OPT_DONE;
     }
-    if (dev_only_without_arg("no-preset-tune", token, &argIgnored)) { /*without helptext */
-        (void) lame_set_preset_notune(gfp, 0);
-        return OPT_DONE;
-    }
     if (dev_only_with_arg("substep", token, nextArg, &argIgnored, argUsed)) {
         *argUsed = getIntValue(token, nextArg, &int_value);
         if (*argUsed)
@@ -2693,22 +2707,6 @@ parse_developer_options(lame_t gfp, char const *token, char *nextArg, int *argUs
         *argUsed = getIntValue(token, nextArg, &int_value);
         if (*argUsed)
             (void) lame_set_subblock_gain(gfp, int_value);
-        return OPT_DONE;
-    }
-    if (dev_only_without_arg("sfscale", token, &argIgnored)) { /*without helptext */
-        (void) lame_set_sfscale(gfp, 1);
-        return OPT_DONE;
-    }
-    if (dev_only_without_arg("noath", token, &argIgnored)) {
-        (void) lame_set_noATH(gfp, 1);
-        return OPT_DONE;
-    }
-    if (dev_only_without_arg("athonly", token, &argIgnored)) {
-        (void) lame_set_ATHonly(gfp, 1);
-        return OPT_DONE;
-    }
-    if (dev_only_without_arg("athshort", token, &argIgnored)) {
-        (void) lame_set_ATHshort(gfp, 1);
         return OPT_DONE;
     }
     if (dev_only_with_arg("athlower", token, nextArg, &argIgnored, argUsed)) {
