@@ -1444,6 +1444,191 @@ lame_print_config(const lame_global_flags * gfp)
 }
 
 
+/** \internal \brief Names the Huffman table search for lame_print_internals().
+    \param use_best_huffman  the setting.
+    \return the name. */
+static const char *
+huffman_search_name(int use_best_huffman)
+{
+    switch (use_best_huffman) {
+    case 1:
+        return "best (outside loop)";
+    case 2:
+        return "best (inside loop, slow)";
+    default:
+        return "normal";
+    }
+}
+
+/** \internal \brief Names the MPEG version for lame_print_internals().
+    MPEG-2.5 is the extension below 16 kHz that the frame header marks.
+    \param cfg  the session configuration.
+    \return "1", "2" or "2.5". */
+static const char *
+mpeg_version_name(SessionConfig_t const *cfg)
+{
+    if (cfg->version == 1)
+        return "1";
+    if (cfg->samplerate_out < 16000)
+        return "2.5";
+    return "2";
+}
+
+/** \internal \brief Names the channel mode for lame_print_internals().
+    \param mode  the mode.
+    \return the name. */
+static const char *
+channel_mode_name(MPEG_mode mode)
+{
+    switch (mode) {
+    case JOINT_STEREO:
+        return "joint stereo";
+    case STEREO:
+        return "stereo";
+    case DUAL_CHANNEL:
+        return "dual channel";
+    case MONO:
+        return "mono";
+    case NOT_SET:
+        return "not set (error)";
+    default:
+        return "unknown (error)";
+    }
+}
+
+/** \internal \brief Describes the bitrate mode for lame_print_internals().
+    \param vbr  the mode.
+    \return the description, or NULL for a mode this function does not know. */
+static const char *
+bitrate_mode_name(vbr_mode vbr)
+{
+    switch (vbr) {
+    case vbr_off:
+        return "constant bitrate - CBR";
+    case vbr_abr:
+        return "variable bitrate - ABR";
+    case vbr_rh:
+        return "variable bitrate - VBR rh";
+    case vbr_mt:
+        return "variable bitrate - VBR mt";
+    case vbr_mtrh:
+        return "variable bitrate - VBR mtrh";
+    default:
+        return NULL;
+    }
+}
+
+/** \internal \brief Names the short block setting for lame_print_internals().
+    \param short_blocks  the setting.
+    \return the name. */
+static const char *
+short_blocks_name(short_block_t short_blocks)
+{
+    switch (short_blocks) {
+    case short_block_allowed:
+        return "allowed";
+    case short_block_coupled:
+        return "channel coupled";
+    case short_block_dispensed:
+        return "dispensed";
+    case short_block_forced:
+        return "forced";
+    default:
+        return "?";
+    }
+}
+
+/** \internal \brief Describes how the ATH is used, for lame_print_internals().
+    \param cfg  the session configuration.
+    \return the description. */
+static const char *
+ath_use_name(SessionConfig_t const *cfg)
+{
+    if (cfg->noATH)
+        return "not used";
+    if (cfg->ATHonly)
+        return "the only masking";
+    if (cfg->ATHshort)
+        return "the only masking for short blocks";
+    return "using";
+}
+
+/** \internal \brief Prints the scaling and search settings of lame_print_internals().
+    \param gfp  the encoder instance.
+    \param gfc  its internal state. */
+static void
+print_internals_misc(const lame_global_flags * gfp, lame_internal_flags const *gfc)
+{
+    MSGF(gfc, "\nmisc:\n\n");
+    MSGF(gfc, "\tscaling: %g\n", gfp->scale);
+    MSGF(gfc, "\tch0 (left) scaling: %g\n", gfp->scale_left);
+    MSGF(gfc, "\tch1 (right) scaling: %g\n", gfp->scale_right);
+    MSGF(gfc, "\thuffman search: %s\n", huffman_search_name(gfc->cfg.use_best_huffman));
+    MSGF(gfc, "\texperimental Y=%d\n", gfp->experimentalY);
+    MSGF(gfc, "\t...\n");
+}
+
+/** \internal \brief Prints the stream format section of lame_print_internals().
+    \param gfc  the internal state. */
+static void
+print_internals_stream_format(lame_internal_flags const *gfc)
+{
+    SessionConfig_t const *const cfg = &gfc->cfg;
+    const char *mode = bitrate_mode_name(cfg->vbr);
+    const char *note = "";
+
+    MSGF(gfc, "\nstream format:\n\n");
+    MSGF(gfc, "\tMPEG-%s Layer 3\n", mpeg_version_name(cfg));
+    MSGF(gfc, "\t%d channel - %s\n", cfg->channels_out, channel_mode_name(cfg->mode));
+    MSGF(gfc, "\tpadding: %s\n", cfg->vbr == vbr_off ? "off" : "all");
+    if (vbr_default == cfg->vbr)
+        note = "(default)";
+    else if (cfg->free_format)
+        note = "(free format)";
+    if (mode != NULL)
+        MSGF(gfc, "\t%s %s\n", mode, note);
+    else
+        MSGF(gfc, "\t ?? oops, some new one ?? \n");
+    if (cfg->write_lame_tag)
+        MSGF(gfc, "\tusing LAME Tag\n");
+    MSGF(gfc, "\t...\n");
+}
+
+/** \internal \brief Prints the psychoacoustic section of lame_print_internals().
+    \param gfc  the internal state. */
+static void
+print_internals_psychoacoustic(lame_internal_flags const *gfc)
+{
+    SessionConfig_t const *const cfg = &gfc->cfg;
+
+    MSGF(gfc, "\npsychoacoustic:\n\n");
+    MSGF(gfc, "\tusing short blocks: %s\n", short_blocks_name(cfg->short_blocks));
+    MSGF(gfc, "\tsubblock gain: %d\n", cfg->subblock_gain);
+    MSGF(gfc, "\tadjust masking: %g dB\n", gfc->sv_qnt.mask_adjust);
+    MSGF(gfc, "\tadjust masking short: %g dB\n", gfc->sv_qnt.mask_adjust_short);
+    MSGF(gfc, "\tquantization comparison: %d\n", cfg->quant_comp);
+    MSGF(gfc, "\t ^ comparison short blocks: %d\n", cfg->quant_comp_short);
+    MSGF(gfc, "\tnoise shaping: %d\n", cfg->noise_shaping);
+    MSGF(gfc, "\t ^ amplification: %d\n", cfg->noise_shaping_amp);
+    MSGF(gfc, "\t ^ stopping: %d\n", cfg->noise_shaping_stop);
+    MSGF(gfc, "\tATH: %s\n", ath_use_name(cfg));
+    MSGF(gfc, "\t ^ type: %d\n", cfg->ATHtype);
+    MSGF(gfc, "\t ^ shape: %g%s\n", cfg->ATHcurve, " (only for type 4)");
+    MSGF(gfc, "\t ^ level adjustement: %g dB\n", cfg->ATH_offset_db);
+    MSGF(gfc, "\t ^ adjust type: %d\n", gfc->ATH->use_adjust);
+    MSGF(gfc, "\t ^ adjust sensitivity power: %f\n", gfc->ATH->aa_sensitivity_p);
+
+    MSGF(gfc, "\texperimental psy tunings by Naoki Shibata\n");
+    MSGF(gfc, "\t   adjust masking bass=%g dB, alto=%g dB, treble=%g dB, sfb21=%g dB\n",
+         10 * log10(gfc->sv_qnt.longfact[0]),
+         10 * log10(gfc->sv_qnt.longfact[7]),
+         10 * log10(gfc->sv_qnt.longfact[14]), 10 * log10(gfc->sv_qnt.longfact[21]));
+
+    MSGF(gfc, "\tusing temporal masking effect: %s\n", cfg->use_temporal_masking_effect ? "yes" : "no");
+    MSGF(gfc, "\tinterchannel masking ratio: %g\n", cfg->interChRatio);
+    MSGF(gfc, "\t...\n");
+}
+
 /*! Report the full internal encoder configuration. */
 /*!
   \ingroup api_encoding
@@ -1466,170 +1651,15 @@ void
 lame_print_internals(const lame_global_flags * gfp)
 {
     lame_internal_flags const *gfc;
-    SessionConfig_t const *cfg;
-    const char *pc = "";
 
     if (!is_lame_global_flags_valid(gfp) || gfp->internal_flags == 0) {
         return;
     }
     gfc = gfp->internal_flags;
-    cfg = &gfc->cfg;
-
-    /*  compiler/processor optimizations, operational, etc.
-     */
-    MSGF(gfc, "\nmisc:\n\n");
-
-    MSGF(gfc, "\tscaling: %g\n", gfp->scale);
-    MSGF(gfc, "\tch0 (left) scaling: %g\n", gfp->scale_left);
-    MSGF(gfc, "\tch1 (right) scaling: %g\n", gfp->scale_right);
-    switch (cfg->use_best_huffman) {
-    default:
-        pc = "normal";
-        break;
-    case 1:
-        pc = "best (outside loop)";
-        break;
-    case 2:
-        pc = "best (inside loop, slow)";
-        break;
-    }
-    MSGF(gfc, "\thuffman search: %s\n", pc);
-    MSGF(gfc, "\texperimental Y=%d\n", gfp->experimentalY);
-    MSGF(gfc, "\t...\n");
-
-    /*  everything controlling the stream format
-     */
-    MSGF(gfc, "\nstream format:\n\n");
-    if (cfg->version == 1)
-        pc = "1";
-    else if (cfg->samplerate_out < 16000)
-        pc = "2.5";
-    else
-        pc = "2";
-    MSGF(gfc, "\tMPEG-%s Layer 3\n", pc);
-    switch (cfg->mode) {
-    case JOINT_STEREO:
-        pc = "joint stereo";
-        break;
-    case STEREO:
-        pc = "stereo";
-        break;
-    case DUAL_CHANNEL:
-        pc = "dual channel";
-        break;
-    case MONO:
-        pc = "mono";
-        break;
-    case NOT_SET:
-        pc = "not set (error)";
-        break;
-    default:
-        pc = "unknown (error)";
-        break;
-    }
-    MSGF(gfc, "\t%d channel - %s\n", cfg->channels_out, pc);
-
-    switch (cfg->vbr) {
-    case vbr_off:
-        pc = "off";
-        break;
-    default:
-        pc = "all";
-        break;
-    }
-    MSGF(gfc, "\tpadding: %s\n", pc);
-
-    if (vbr_default == cfg->vbr)
-        pc = "(default)";
-    else if (cfg->free_format)
-        pc = "(free format)";
-    else
-        pc = "";
-    switch (cfg->vbr) {
-    case vbr_off:
-        MSGF(gfc, "\tconstant bitrate - CBR %s\n", pc);
-        break;
-    case vbr_abr:
-        MSGF(gfc, "\tvariable bitrate - ABR %s\n", pc);
-        break;
-    case vbr_rh:
-        MSGF(gfc, "\tvariable bitrate - VBR rh %s\n", pc);
-        break;
-    case vbr_mt:
-        MSGF(gfc, "\tvariable bitrate - VBR mt %s\n", pc);
-        break;
-    case vbr_mtrh:
-        MSGF(gfc, "\tvariable bitrate - VBR mtrh %s\n", pc);
-        break;
-    default:
-        MSGF(gfc, "\t ?? oops, some new one ?? \n");
-        break;
-    }
-    if (cfg->write_lame_tag)
-        MSGF(gfc, "\tusing LAME Tag\n");
-    MSGF(gfc, "\t...\n");
-
-    /*  everything controlling psychoacoustic settings, like ATH, etc.
-     */
-    MSGF(gfc, "\npsychoacoustic:\n\n");
-
-    switch (cfg->short_blocks) {
-    default:
-    case short_block_not_set:
-        pc = "?";
-        break;
-    case short_block_allowed:
-        pc = "allowed";
-        break;
-    case short_block_coupled:
-        pc = "channel coupled";
-        break;
-    case short_block_dispensed:
-        pc = "dispensed";
-        break;
-    case short_block_forced:
-        pc = "forced";
-        break;
-    }
-    MSGF(gfc, "\tusing short blocks: %s\n", pc);
-    MSGF(gfc, "\tsubblock gain: %d\n", cfg->subblock_gain);
-    MSGF(gfc, "\tadjust masking: %g dB\n", gfc->sv_qnt.mask_adjust);
-    MSGF(gfc, "\tadjust masking short: %g dB\n", gfc->sv_qnt.mask_adjust_short);
-    MSGF(gfc, "\tquantization comparison: %d\n", cfg->quant_comp);
-    MSGF(gfc, "\t ^ comparison short blocks: %d\n", cfg->quant_comp_short);
-    MSGF(gfc, "\tnoise shaping: %d\n", cfg->noise_shaping);
-    MSGF(gfc, "\t ^ amplification: %d\n", cfg->noise_shaping_amp);
-    MSGF(gfc, "\t ^ stopping: %d\n", cfg->noise_shaping_stop);
-
-    pc = "using";
-    if (cfg->ATHshort)
-        pc = "the only masking for short blocks";
-    if (cfg->ATHonly)
-        pc = "the only masking";
-    if (cfg->noATH)
-        pc = "not used";
-    MSGF(gfc, "\tATH: %s\n", pc);
-    MSGF(gfc, "\t ^ type: %d\n", cfg->ATHtype);
-    MSGF(gfc, "\t ^ shape: %g%s\n", cfg->ATHcurve, " (only for type 4)");
-    MSGF(gfc, "\t ^ level adjustement: %g dB\n", cfg->ATH_offset_db);
-    MSGF(gfc, "\t ^ adjust type: %d\n", gfc->ATH->use_adjust);
-    MSGF(gfc, "\t ^ adjust sensitivity power: %f\n", gfc->ATH->aa_sensitivity_p);
-
-    MSGF(gfc, "\texperimental psy tunings by Naoki Shibata\n");
-    MSGF(gfc, "\t   adjust masking bass=%g dB, alto=%g dB, treble=%g dB, sfb21=%g dB\n",
-         10 * log10(gfc->sv_qnt.longfact[0]),
-         10 * log10(gfc->sv_qnt.longfact[7]),
-         10 * log10(gfc->sv_qnt.longfact[14]), 10 * log10(gfc->sv_qnt.longfact[21]));
-
-    pc = cfg->use_temporal_masking_effect ? "yes" : "no";
-    MSGF(gfc, "\tusing temporal masking effect: %s\n", pc);
-    MSGF(gfc, "\tinterchannel masking ratio: %g\n", cfg->interChRatio);
-    MSGF(gfc, "\t...\n");
-
-    /*  that's all ?
-     */
+    print_internals_misc(gfp, gfc);
+    print_internals_stream_format(gfc);
+    print_internals_psychoacoustic(gfc);
     MSGF(gfc, "\n");
-    return;
 }
 
 
