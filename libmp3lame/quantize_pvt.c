@@ -850,16 +850,12 @@ calc_noise(gr_info const *const cod_info,
     FLOAT   tot_noise_db = 0; /*    0 dB relative to masking */
     FLOAT   max_noise = -20.0; /* -200 dB relative to masking */
     int     j = 0;
-    const int *scalefac = cod_info->scalefac;
 
     res->over_SSD = 0;
 
 
     for (sfb = 0; sfb < cod_info->psymax; sfb++) {
-        int const s =
-            cod_info->global_gain - (((*scalefac++) + (cod_info->preflag ? pretab[sfb] : 0))
-                                     << (cod_info->scalefac_scale + 1))
-            - cod_info->subblock_gain[cod_info->window[sfb]] * 8;
+        int const s = sfb_quant_step(cod_info, sfb);
         FLOAT const r_l3_xmin = 1.f / *l3_xmin++;
         FLOAT   distort_ = 0.0f;
         FLOAT   noise = 0.0f;

@@ -44,13 +44,28 @@ extern FLOAT adj43asm[PRECALC_SIZE];
 extern FLOAT adj43[PRECALC_SIZE];
 #endif
 
-#define Q_MAX (256+1)
-#define Q_MAX2 116      /* minimum possible number of
-                           -cod_info->global_gain
-                           + ((scalefac[] + (cod_info->preflag ? pretab[sfb] : 0))
-                           << (cod_info->scalefac_scale + 1))
-                           + cod_info->subblock_gain[cod_info->window[sfb]] * 8;
+/**
+ * \internal
+ * \brief Returns the quantizer step of scalefactor band \a sfb.
+ *
+ * The step is the global gain, less the band's scalefactor with its
+ * preemphasis, scaled by 2 or 4 as scalefac_scale selects, and less 8 times
+ * the subblock gain of the band's window.
+ *
+ * \param gi   the granule.
+ * \param sfb  the scalefactor band.
+ * \return the step, as POW20() takes it.
+ */
+static inline int
+sfb_quant_step(gr_info const *gi, int sfb)
+{
+    return gi->global_gain
+        - (gi->scalefac[sfb] + (gi->preflag ? pretab[sfb] : 0)) * (1 << (gi->scalefac_scale + 1))
+        - gi->subblock_gain[gi->window[sfb]] * 8;
+}
 
+#define Q_MAX (256+1)
+#define Q_MAX2 116      /* the largest global_gain - sfb_quant_step():
                            for long block, 0+((15+3)<<2) = 18*4 = 72
                            for short block, 0+(15<<2)+7*8 = 15*4+56 = 116
                          */

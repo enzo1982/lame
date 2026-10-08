@@ -542,7 +542,6 @@ quantize_x34(const algo_t * that)
     DOUBLEX x[4];
     const FLOAT *xr34_orig = that->xr34orig;
     gr_info *const cod_info = that->cod_info;
-    int const ifqstep = (cod_info->scalefac_scale == 0) ? 2 : 4;
     int    *l3 = cod_info->l3_enc;
     unsigned int j = 0, sfb = 0;
     unsigned int const max_nonzero_coeff = (unsigned int) cod_info->max_nonzero_coeff;
@@ -551,16 +550,14 @@ quantize_x34(const algo_t * that)
     assert(cod_info->max_nonzero_coeff < 576);
 
     while (j <= max_nonzero_coeff) {
-        int const s =
-            (cod_info->scalefac[sfb] + (cod_info->preflag ? pretab[sfb] : 0)) * ifqstep
-            + cod_info->subblock_gain[cod_info->window[sfb]] * 8;
-        uint8_t const sfac = (uint8_t) (cod_info->global_gain - s);
+        int const step = sfb_quant_step(cod_info, sfb);
+        uint8_t const sfac = (uint8_t) step;
         FLOAT const sfpow34 = ipow20[sfac];
         unsigned int const w = (unsigned int) cod_info->width[sfb];
         unsigned int const m = (unsigned int) (max_nonzero_coeff - j + 1);
         unsigned int i, remaining;
 
-        assert((cod_info->global_gain - s) >= 0);
+        assert(step >= 0);
         assert(cod_info->width[sfb] >= 0);
         j += w;
         ++sfb;
@@ -771,15 +768,9 @@ set_scalefacs(gr_info * cod_info, const int *vbrsfmin, int sf[], const uint8_t *
 static int
 checkScalefactor(const gr_info * cod_info, const int vbrsfmin[SFBMAX])
 {
-    int const ifqstep = cod_info->scalefac_scale == 0 ? 2 : 4;
     int     sfb;
     for (sfb = 0; sfb < cod_info->psymax; ++sfb) {
-        const int s =
-            ((cod_info->scalefac[sfb] +
-              (cod_info->preflag ? pretab[sfb] : 0)) * ifqstep) +
-            cod_info->subblock_gain[cod_info->window[sfb]] * 8;
-
-        if ((cod_info->global_gain - s) < vbrsfmin[sfb]) {
+        if (sfb_quant_step(cod_info, sfb) < vbrsfmin[sfb]) {
             /*
                fprintf( stdout, "sf %d\n", sfb );
                fprintf( stdout, "min %d\n", vbrsfmin[sfb] );

@@ -392,11 +392,7 @@ quantize_xrpow(const FLOAT * xp, int *pi, FLOAT istep, gr_info const *const cod_
         int     step = -1;
 
         if (prev_data_use || cod_info->block_type == NORM_TYPE) {
-            step =
-                cod_info->global_gain
-                - ((cod_info->scalefac[sfb] + (cod_info->preflag ? pretab[sfb] : 0))
-                   << (cod_info->scalefac_scale + 1))
-                - cod_info->subblock_gain[cod_info->window[sfb]] * 8;
+            step = sfb_quant_step(cod_info, sfb);
         }
         assert(cod_info->width[sfb] >= 0);
         if (prev_data_use && (prev_noise->step[sfb] == step)) {
