@@ -228,6 +228,30 @@ ATHmdct(SessionConfig_t const *cfg, FLOAT f)
     return ath;
 }
 
+/**
+ * \internal
+ * \brief The lowest absolute threshold over the MDCT lines of one band.
+ * \param cfg         the session; selects the threshold formula.
+ * \param start       the first line of the band.
+ * \param end         the line after the band.
+ * \param samp_freq   the output sample rate, in Hz.
+ * \param half_block  the number of lines of the block: 576 long, 192 short.
+ * \return the threshold, as ATHmdct() returns it.
+ */
+static FLOAT
+ath_band_min(SessionConfig_t const *cfg, int start, int end, FLOAT samp_freq, int half_block)
+{
+    FLOAT   ath = FLOAT_MAX;
+    int     i;
+
+    for (i = start; i < end; i++) {
+        FLOAT const freq = i * samp_freq / (2 * half_block);
+        FLOAT const ATH_f = ATHmdct(cfg, freq); /* freq in kHz */
+        ath = Min(ath, ATH_f);
+    }
+    return ath;
+}
+
 static void
 compute_ath(lame_internal_flags const* gfc)
 {
@@ -236,53 +260,32 @@ compute_ath(lame_internal_flags const* gfc)
     FLOAT  *const ATH_psfb21 = gfc->ATH->psfb21;
     FLOAT  *const ATH_s = gfc->ATH->s;
     FLOAT  *const ATH_psfb12 = gfc->ATH->psfb12;
-    int     sfb, i, start, end;
-    FLOAT   ATH_f;
+    int     sfb, start, end;
     FLOAT const samp_freq = cfg->samplerate_out;
 
     for (sfb = 0; sfb < SBMAX_l; sfb++) {
         start = gfc->scalefac_band.l[sfb];
         end = gfc->scalefac_band.l[sfb + 1];
-        ATH_l[sfb] = FLOAT_MAX;
-        for (i = start; i < end; i++) {
-            FLOAT const freq = i * samp_freq / (2 * 576);
-            ATH_f = ATHmdct(cfg, freq); /* freq in kHz */
-            ATH_l[sfb] = Min(ATH_l[sfb], ATH_f);
-        }
+        ATH_l[sfb] = ath_band_min(cfg, start, end, samp_freq, 576);
     }
 
     for (sfb = 0; sfb < PSFB21; sfb++) {
         start = gfc->scalefac_band.psfb21[sfb];
         end = gfc->scalefac_band.psfb21[sfb + 1];
-        ATH_psfb21[sfb] = FLOAT_MAX;
-        for (i = start; i < end; i++) {
-            FLOAT const freq = i * samp_freq / (2 * 576);
-            ATH_f = ATHmdct(cfg, freq); /* freq in kHz */
-            ATH_psfb21[sfb] = Min(ATH_psfb21[sfb], ATH_f);
-        }
+        ATH_psfb21[sfb] = ath_band_min(cfg, start, end, samp_freq, 576);
     }
 
     for (sfb = 0; sfb < SBMAX_s; sfb++) {
         start = gfc->scalefac_band.s[sfb];
         end = gfc->scalefac_band.s[sfb + 1];
-        ATH_s[sfb] = FLOAT_MAX;
-        for (i = start; i < end; i++) {
-            FLOAT const freq = i * samp_freq / (2 * 192);
-            ATH_f = ATHmdct(cfg, freq); /* freq in kHz */
-            ATH_s[sfb] = Min(ATH_s[sfb], ATH_f);
-        }
+        ATH_s[sfb] = ath_band_min(cfg, start, end, samp_freq, 192);
         ATH_s[sfb] *= (gfc->scalefac_band.s[sfb + 1] - gfc->scalefac_band.s[sfb]);
     }
 
     for (sfb = 0; sfb < PSFB12; sfb++) {
         start = gfc->scalefac_band.psfb12[sfb];
         end = gfc->scalefac_band.psfb12[sfb + 1];
-        ATH_psfb12[sfb] = FLOAT_MAX;
-        for (i = start; i < end; i++) {
-            FLOAT const freq = i * samp_freq / (2 * 192);
-            ATH_f = ATHmdct(cfg, freq); /* freq in kHz */
-            ATH_psfb12[sfb] = Min(ATH_psfb12[sfb], ATH_f);
-        }
+        ATH_psfb12[sfb] = ath_band_min(cfg, start, end, samp_freq, 192);
         /*not sure about the following */
         ATH_psfb12[sfb] *= (gfc->scalefac_band.s[13] - gfc->scalefac_band.s[12]);
     }

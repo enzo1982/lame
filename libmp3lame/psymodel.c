@@ -2126,6 +2126,36 @@ init_s3_values(FLOAT ** p, int (*s3ind)[2], int npart,
 
 /**
  * \internal
+ * \brief The lowest absolute threshold over the FFT lines of one partition,
+ *        as an energy over the whole partition.
+ * \param cfg       the session; selects the threshold formula.
+ * \param sfreq     the output sample rate, in Hz.
+ * \param blksize   the FFT size of the block type.
+ * \param first     the first line of the partition.
+ * \param numlines  the number of lines of the partition.
+ * \return the threshold, in FFT energy units.
+ */
+static double
+partition_ath(SessionConfig_t const *cfg, FLOAT sfreq, int blksize, int first, int numlines)
+{
+    double  x = FLOAT_MAX;
+    int     k;
+
+    for (k = 0; k < numlines; k++) {
+        FLOAT const freq = sfreq * (first + k) / (1000.0 * blksize);
+        FLOAT   level;
+        level = ATHformula(cfg, freq * 1000) - 20; /* scale to FFT units; returned value is in dB */
+        level = pow(10., 0.1 * level); /* convert from dB -> energy */
+        level *= numlines;
+        if (x > level)
+            x = level;
+    }
+    return x;
+}
+
+
+/**
+ * \internal
  * \brief Build the per-session constant tables the model needs.
  *
  * Called once per encoder instance. It lays out the partition bands for both
@@ -2143,7 +2173,7 @@ psymodel_init(lame_global_flags const *gfp)
     SessionConfig_t *const cfg = &gfc->cfg;
     PsyStateVar_t *const psv = &gfc->sv_psy;
     PsyConst_t *gd;
-    int     i, j, b, sb, k;
+    int     i, j, b, sb;
     FLOAT   bvl_a = 13, bvl_b = 24;
     FLOAT   snr_l_a = 0, snr_l_b = 0;
     FLOAT   snr_s_a = -8.25, snr_s_b = -4.5;
@@ -2224,18 +2254,8 @@ psymodel_init(lame_global_flags const *gfp)
         double  x;
 
         /* ATH */
-        x = FLOAT_MAX;
-        for (k = 0; k < gd->l.numlines[i]; k++, j++) {
-            FLOAT const freq = sfreq * j / (1000.0 * BLKSIZE);
-            FLOAT   level;
-            /* freq = Min(.1,freq); *//* ATH below 100 Hz constant, not further climbing */
-            level = ATHformula(cfg, freq * 1000) - 20; /* scale to FFT units; returned value is in dB */
-            level = pow(10., 0.1 * level); /* convert from dB -> energy */
-            level *= gd->l.numlines[i];
-            if (x > level)
-                x = level;
-        }
-        gfc->ATH->cb_l[i] = x;
+        gfc->ATH->cb_l[i] = partition_ath(cfg, sfreq, BLKSIZE, j, gd->l.numlines[i]);
+        j += gd->l.numlines[i];
 
         /* MINVAL.
            For low freq, the strength of the masking is limited by minval
@@ -2277,18 +2297,8 @@ psymodel_init(lame_global_flags const *gfp)
         norm[i] = pow(10.0, snr / 10.0);
 
         /* ATH */
-        x = FLOAT_MAX;
-        for (k = 0; k < gd->s.numlines[i]; k++, j++) {
-            FLOAT const freq = sfreq * j / (1000.0 * BLKSIZE_s);
-            FLOAT   level;
-            /* freq = Min(.1,freq); *//* ATH below 100 Hz constant, not further climbing */
-            level = ATHformula(cfg, freq * 1000) - 20; /* scale to FFT units; returned value is in dB */
-            level = pow(10., 0.1 * level); /* convert from dB -> energy */
-            level *= gd->s.numlines[i];
-            if (x > level)
-                x = level;
-        }
-        gfc->ATH->cb_s[i] = x;
+        gfc->ATH->cb_s[i] = partition_ath(cfg, sfreq, BLKSIZE_s, j, gd->s.numlines[i]);
+        j += gd->s.numlines[i];
 
         /* MINVAL.
            For low freq, the strength of the masking is limited by minval
