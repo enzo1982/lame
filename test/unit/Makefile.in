@@ -144,12 +144,14 @@ host_triplet = @host@
 # the frontend is built.
 @ENABLE_UNIT_TESTS_TRUE@@WITH_LAME_FRONTEND_TRUE@am__append_4 = test_exit_status.sh \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_LAME_FRONTEND_TRUE@	test_swap_channel.sh
-@ENABLE_UNIT_TESTS_TRUE@@INTERNAL_OPTS_TRUE@am__append_5 = -D_ALLOW_INTERNAL_OPTIONS
-@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_6 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
+# The exit status of mp3rtp. It skips where mp3rtp is not built.
+@ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@am__append_5 = test_mp3rtp_status.sh
+@ENABLE_UNIT_TESTS_TRUE@@INTERNAL_OPTS_TRUE@am__append_6 = -D_ALLOW_INTERNAL_OPTIONS
 @ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_7 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
-@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX512_TRUE@@WITH_XMM_TRUE@am__append_8 = $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
-@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_9 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
-@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX512_TRUE@@WITH_XMM_TRUE@am__append_10 = $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
+@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_8 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
+@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX512_TRUE@@WITH_XMM_TRUE@am__append_9 = $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
+@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_10 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
+@ENABLE_UNIT_TESTS_TRUE@@WITH_AVX512_TRUE@@WITH_XMM_TRUE@am__append_11 = $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
 subdir = test/unit
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/host-cpu-c-abi.m4 \
@@ -198,8 +200,8 @@ test_calc_sfb_noise_vector_OBJECTS =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_calc_sfb_noise_vector_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_9) \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_10)
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_10) \
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_11)
 am__test_choose_table_neon_SOURCES_DIST = test_choose_table_neon.c
 @ENABLE_UNIT_TESTS_TRUE@@WITH_NEON_TRUE@am_test_choose_table_neon_OBJECTS = test_choose_table_neon-test_choose_table_neon.$(OBJEXT)
 test_choose_table_neon_OBJECTS = $(am_test_choose_table_neon_OBJECTS)
@@ -214,7 +216,7 @@ test_choose_table_vector_OBJECTS =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_choose_table_vector_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_6)
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_7)
 am__test_classify_suffix_SOURCES_DIST = test_classify_suffix.c \
 	parse_test_stubs.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_classify_suffix_OBJECTS = test_classify_suffix-test_classify_suffix.$(OBJEXT) \
@@ -408,8 +410,8 @@ test_quantize_lines_vector_OBJECTS =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_quantize_lines_vector_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_7) \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_8)
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_8) \
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_9)
 am__test_quantize_pe_SOURCES_DIST = test_quantize_pe.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_quantize_pe_OBJECTS = test_quantize_pe-test_quantize_pe.$(OBJEXT)
 test_quantize_pe_OBJECTS = $(am_test_quantize_pe_OBJECTS)
@@ -1032,7 +1034,7 @@ AM_CPPFLAGS = @LAME_CPPFLAGS@
 TEST_EXTENSIONS = .sh
 SH_LOG_COMPILER = $(SHELL)
 @ENABLE_UNIT_TESTS_TRUE@TESTS = $(check_PROGRAMS) test_pkgconfig.sh \
-@ENABLE_UNIT_TESTS_TRUE@	$(am__append_4)
+@ENABLE_UNIT_TESTS_TRUE@	$(am__append_4) $(am__append_5)
 
 # Every test here links libmp3lame, and every one of them has to load the copy
 # this build just produced - not one the host happens to have installed. That
@@ -1477,7 +1479,7 @@ SH_LOG_COMPILER = $(SHELL)
 @ENABLE_UNIT_TESTS_TRUE@	$(CMOCKA_CFLAGS) \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
-@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir) $(am__append_5)
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir) $(am__append_6)
 @ENABLE_UNIT_TESTS_TRUE@@INTERNAL_OPTS_TRUE@test_set_get_LDFLAGS = -static
 @ENABLE_UNIT_TESTS_TRUE@test_set_get_LDADD = $(CMOCKA_LIBS) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
@@ -1497,7 +1499,7 @@ SH_LOG_COMPILER = $(SHELL)
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_choose_table_vector_LDADD =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(CMOCKA_LIBS) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_6)
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_7)
 
 # Same arrangement for the quantization loop, and for the same reason.
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_quantize_lines_vector_SOURCES = test_quantize_lines_vector.c
@@ -1509,8 +1511,8 @@ SH_LOG_COMPILER = $(SHELL)
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_quantize_lines_vector_LDADD =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(CMOCKA_LIBS) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	-lm $(am__append_7) \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_8)
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	-lm $(am__append_8) \
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_9)
 
 # The VBR scalefactor-band noise gets the same arrangement, minus the AVX-512
 # library: that routine was measured on hardware that has AVX-512, found to cost
@@ -1524,8 +1526,8 @@ SH_LOG_COMPILER = $(SHELL)
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@test_calc_sfb_noise_vector_LDADD =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(CMOCKA_LIBS) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	-lm $(am__append_9) \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_10)
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	-lm $(am__append_10) \
+@ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_11)
 
 # The ARM tier carries one routine, so it gets one test program rather than an
 # arm of the x86 file, which tests four. The escape cases that both programs run
@@ -1607,7 +1609,7 @@ EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
 	test_rtp_socket.c test_unused.h test_fixture.h test_mem.h \
 	test_esc_cases.h test_cpu_probe.h test_bytes.h test_report.h \
 	test_float_bits.h test_encode.h test_pkgconfig.sh \
-	test_exit_status.sh test_swap_channel.sh
+	test_exit_status.sh test_swap_channel.sh test_mp3rtp_status.sh
 all: all-am
 
 .SUFFIXES:

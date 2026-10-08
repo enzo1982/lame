@@ -245,8 +245,12 @@ lame_main(lame_t gf, int argc, char **argv)
         for (i = 2+arg; i < argc; ++i) { /* leaving out argument number 1, parsed above */
             argv_mod[i-arg-1] = argv[i];
         }
-        parse_args(gf, argc_mod, argv_mod, inPath, outPath, outDir, NULL, NULL);
+        ret = parse_args(gf, argc_mod, argv_mod, inPath, outPath, outDir, NULL, NULL);
         free(argv_mod);
+        if (ret < 0) {
+            rtp_deinitialization();
+            return ret == -2 ? 0 : 1;
+        }
     }
 
     /* open the output file.  Filename parsed into gf.inPath */
@@ -315,6 +319,14 @@ lame_main(lame_t gf, int argc, char **argv)
         }
         rtp_output(mp3buffer, mp3bytes); /* write MP3 output to RTP port */
         fwrite(mp3buffer, 1, mp3bytes, outf); /* write the MP3 output to file */
+    }
+    if (wavsamples < 0) {
+        if (global_ui_config.silent < 10)
+            error_printf("Error reading input file\n");
+        rtp_deinitialization();
+        fclose(outf);
+        close_infile();
+        return 1;
     }
 
     mp3bytes = lame_encode_flush(gf, /* may return one or more mp3 frame */

@@ -60,6 +60,10 @@ if WITH_LAME_FRONTEND
 TESTS += test_exit_status.sh
 TESTS += test_swap_channel.sh
 endif
+# The exit status of mp3rtp. It skips where mp3rtp is not built.
+if HAVE_SOCKETS
+TESTS += test_mp3rtp_status.sh
+endif
 
 # Every test here links libmp3lame, and every one of them has to load the copy
 # this build just produced - not one the host happens to have installed. That
@@ -588,4 +592,4 @@ EXTRA_DIST += test_unused.h test_fixture.h test_mem.h test_esc_cases.h \
 EXTRA_DIST += test_pkgconfig.sh
 
 # And the frontend tests, for the same two reasons.
-EXTRA_DIST += test_exit_status.sh test_swap_channel.sh
+EXTRA_DIST += test_exit_status.sh test_swap_channel.sh test_mp3rtp_status.sh
