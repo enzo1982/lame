@@ -313,15 +313,6 @@ compute_ath(lame_internal_flags const* gfc)
     /*  work in progress, don't rely on it too much
      */
     gfc->ATH->floor = 10. * log10(ATHmdct(cfg, -1.));
-
-    /*
-       {   FLOAT g=10000, t=1e30, x;
-       for ( f = 100; f < 10000; f++ ) {
-       x = ATHmdct( cfg, f );
-       if ( t > x ) t = x, g = f;
-       }
-       printf("min=%g\n", g);
-       } */
 }
 
 
@@ -633,11 +624,7 @@ calc_xmin(lame_internal_flags const *gfc,
 
         width = cod_info->width[gsfb];
         rh1 = xmin / width;
-#ifdef DBL_EPSILON
         rh2 = DBL_EPSILON;
-#else
-        rh2 = 2.2204460492503131e-016;
-#endif
         en0 = 0.0;
         for (l = 0; l < width; ++l) {
             FLOAT const xa = xr[j++];
@@ -727,11 +714,7 @@ calc_xmin(lame_internal_flags const *gfc,
             FLOAT   rh1, rh2, rh3;
 
             rh1 = tmpATH / width;
-#ifdef DBL_EPSILON
             rh2 = DBL_EPSILON;
-#else
-            rh2 = 2.2204460492503131e-016;
-#endif
             for (l = 0; l < width; ++l) {
                 FLOAT const xa = xr[j++];
                 FLOAT const x2 = xa * xa;

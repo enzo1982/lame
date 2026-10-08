@@ -51,9 +51,6 @@
 
 
 
-#ifdef DEBUG
-static int hogege;
-#endif
 
 
 
@@ -135,9 +132,6 @@ putheader_bits(lame_internal_flags * gfc)
     SessionConfig_t const *const cfg = &gfc->cfg;
     EncStateVar_t *const esv = &gfc->sv_enc;
     Bit_stream_struc *bs = &gfc->bs;
-#ifdef DEBUG
-    hogege += cfg->sideinfo_len * 8;
-#endif
     memcpy(&bs->buf[bs->buf_byte_idx], esv->header[esv->w_ptr].buf, cfg->sideinfo_len);
     bs->buf_byte_idx += cfg->sideinfo_len;
     bs->totbit += cfg->sideinfo_len * 8;
@@ -479,9 +473,6 @@ huffman_coder_count1(lame_internal_flags * gfc, gr_info const *gi)
     /* Write count1 area */
     struct huffcodetab const *const h = &ht[gi->count1table_select + 32];
     int     i, bits = 0;
-#ifdef DEBUG
-    int     gegebo = gfc->bs.totbit;
-#endif
 
     int const *ix = &gi->l3_enc[gi->big_values];
     FLOAT const *xr = &gi->xr[gi->big_values];
@@ -531,10 +522,6 @@ huffman_coder_count1(lame_internal_flags * gfc, gr_info const *gi)
         putbits2(gfc, huffbits + h->table[p], h->hlen[p]);
         bits += h->hlen[p];
     }
-#ifdef DEBUG
-    DEBUGF(gfc, "count1: real: %ld counted:%d (bigv %d count1len %d)\n",
-           gfc->bs.totbit - gegebo, gi->count1bits, gi->big_values, gi->count1);
-#endif
     return bits;
 }
 
@@ -684,9 +671,6 @@ writeMainData(lame_internal_flags * const gfc)
                 int const slen1 = slen1_tab[gi->scalefac_compress];
                 int const slen2 = slen2_tab[gi->scalefac_compress];
                 data_bits = 0;
-#ifdef DEBUG
-                hogege = gfc->bs.totbit;
-#endif
                 for (sfb = 0; sfb < gi->sfbdivide; sfb++) {
                     if (gi->scalefac[sfb] == -1)
                         continue; /* scfsi is used */
@@ -708,9 +692,6 @@ writeMainData(lame_internal_flags * const gfc)
                     data_bits += LongHuffmancodebits(gfc, gi);
                 }
                 data_bits += huffman_coder_count1(gfc, gi);
-#ifdef DEBUG
-                DEBUGF(gfc, "<%ld> ", gfc->bs.totbit - hogege);
-#endif
                 /* does bitcount in quantize.c agree with actual bit count? */
                 assert(data_bits == gi->part2_3_length + gi->part2_length);
                 tot_bits += data_bits;
@@ -725,9 +706,6 @@ writeMainData(lame_internal_flags * const gfc)
             int     i, sfb_partition, scale_bits = 0;
             assert(gi->sfb_partition_table);
             data_bits = 0;
-#ifdef DEBUG
-            hogege = gfc->bs.totbit;
-#endif
             sfb = 0;
             sfb_partition = 0;
 
@@ -756,9 +734,6 @@ writeMainData(lame_internal_flags * const gfc)
                 data_bits += LongHuffmancodebits(gfc, gi);
             }
             data_bits += huffman_coder_count1(gfc, gi);
-#ifdef DEBUG
-            DEBUGF(gfc, "<%ld> ", gfc->bs.totbit - hogege);
-#endif
             /* does bitcount in quantize.c agree with actual bit count? */
             assert(data_bits == gi->part2_3_length);
             assert(scale_bits == gi->part2_length);
@@ -828,18 +803,6 @@ compute_flushbits(const lame_internal_flags * gfc, int *total_bytes_output)
 
 
     if (flushbits < 0) {
-#if 0
-        /* if flushbits < 0, this would mean that the buffer looks like:
-         * (data...)  last_header  (data...)  (extra data that should not be here...)
-         */
-        DEBUGF(gfc, "last header write_timing = %i \n", esv->header[last_ptr].write_timing);
-        DEBUGF(gfc, "first header write_timing = %i \n", esv->header[first_ptr].write_timing);
-        DEBUGF(gfc, "bs.totbit:                 %i \n", gfc->bs.totbit);
-        DEBUGF(gfc, "first_ptr, last_ptr        %i %i \n", first_ptr, last_ptr);
-        DEBUGF(gfc, "remaining_headers =        %i \n", remaining_headers);
-        DEBUGF(gfc, "bitsperframe:              %i \n", bitsPerFrame);
-        DEBUGF(gfc, "sidelen:                   %i \n", cfg->sideinfo_len);
-#endif
         ERRORF(gfc, "strange error flushing buffer ... \n");
     }
     return flushbits;

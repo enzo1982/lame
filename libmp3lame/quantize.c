@@ -503,14 +503,6 @@ trancate_smallspectrums(lame_internal_flags const *gfc,
         if (EQ(trancateThreshold, 0.0))
             continue;
 
-/*      printf("%e %e %e\n", */
-/*             trancateThreshold/l3_xmin[sfb], */
-/*             trancateThreshold/(l3_xmin[sfb]*start), */
-/*             trancateThreshold/(l3_xmin[sfb]*(start+width)) */
-/*          ); */
-/*      if (trancateThreshold > 1000*l3_xmin[sfb]*start) */
-/*          trancateThreshold = 1000*l3_xmin[sfb]*start; */
-
         do {
             if (fabs(gi->xr[j - width]) <= trancateThreshold)
                 gi->l3_enc[j - width] = 0;
@@ -1760,14 +1752,6 @@ VBR_new_iteration_loop(lame_internal_flags * gfc, const FLOAT pe[2][2],
         }
     }
     else {
-#if 0
-        static int mmm = 0;
-        int     fff = getFramesize_kbps(gfc, used_bits);
-        int     hhh = getFramesize_kbps(gfc, MAX_BITS_PER_GRANULE * cfg->mode_gr);
-        if (mmm < fff)
-            mmm = fff;
-        printf("demand=%3d kbps  max=%3d kbps   limit=%3d kbps\n", fff, mmm, hhh);
-#endif
         eov->bitrate_index = 0;
     }
     if (used_bits <= frameBits[eov->bitrate_index]) {

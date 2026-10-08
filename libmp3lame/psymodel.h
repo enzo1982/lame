@@ -54,18 +54,6 @@ int     psymodel_init(lame_global_flags const* gfp);
 #define rpelev 2
 #define rpelev2 16      /**< \brief \copybrief rpelev */
 
-/**
- * \brief The short-block counterparts of #rpelev and #rpelev2.
- *
- * Used only by the disabled partition-band branch in
- * vbrpsy_compute_masking_s(). Short-block pre-echo control happens after the
- * mapping to scalefactor bands, where the position of the attack in the
- * granule is known. That code uses #NS_PREECHO_ATT0 and the two values after
- * it, not these.
- */
-#define rpelev_s 2
-#define rpelev2_s 16    /**< \brief \copybrief rpelev_s */
-
 /** \brief Width of a partition band, in barks. \see init_numline() */
 #define DELBARK .34
 

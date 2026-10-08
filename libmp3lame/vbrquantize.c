@@ -771,17 +771,6 @@ checkScalefactor(const gr_info * cod_info, const int vbrsfmin[SFBMAX])
     int     sfb;
     for (sfb = 0; sfb < cod_info->psymax; ++sfb) {
         if (sfb_quant_step(cod_info, sfb) < vbrsfmin[sfb]) {
-            /*
-               fprintf( stdout, "sf %d\n", sfb );
-               fprintf( stdout, "min %d\n", vbrsfmin[sfb] );
-               fprintf( stdout, "ggain %d\n", cod_info->global_gain );
-               fprintf( stdout, "scalefac %d\n", cod_info->scalefac[sfb] );
-               fprintf( stdout, "pretab %d\n", (cod_info->preflag ? pretab[sfb] : 0) );
-               fprintf( stdout, "scale %d\n", (cod_info->scalefac_scale + 1) );
-               fprintf( stdout, "subgain %d\n", cod_info->subblock_gain[cod_info->window[sfb]] * 8 );
-               fflush( stdout );
-               exit(-1);
-             */
             return 0;
         }
     }
@@ -1315,11 +1304,7 @@ rebalance_pair(int m[2], int const use[2], int slack)
 
 
 static int
-reduce_bit_usage(lame_internal_flags * gfc, int gr, int ch
-#if 0
-                 , const FLOAT xr34orig[576], const FLOAT l3_xmin[SFBMAX], int maxbits
-#endif
-    )
+reduce_bit_usage(lame_internal_flags * gfc, int gr, int ch)
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     gr_info *const cod_info = &gfc->l3_side.tt[gr][ch];

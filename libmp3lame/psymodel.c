@@ -1179,22 +1179,7 @@ vbrpsy_compute_masking_s(lame_internal_flags * gfc, const FLOAT(*fftenergy_s)[HB
         dd = (1 + 2 * dd) / (2 * dd_n);
         avg_mask = tab[dd] * 0.5f;
         ecb *= avg_mask;
-#if 0                   /* we can do PRE ECHO control now here, or do it later */
-        if (psv->blocktype_old[chn & 0x01] == SHORT_TYPE) {
-            /* limit calculated threshold by even older granule */
-            FLOAT const t1 = rpelev_s * psv->nb_s1[chn][b];
-            FLOAT const t2 = rpelev2_s * psv->nb_s2[chn][b];
-            FLOAT const tm = (t2 > 0) ? Min(ecb, t2) : ecb;
-            thr[b] = (t1 > 0) ? NS_INTERP(Min(tm, t1), ecb, 0.6) : ecb;
-        }
-        else {
-            /* limit calculated threshold by older granule */
-            FLOAT const t1 = rpelev_s * psv->nb_s1[chn][b];
-            thr[b] = (t1 > 0) ? NS_INTERP(Min(ecb, t1), ecb, 0.6) : ecb;
-        }
-#else /* we do it later */
         thr[b] = ecb;
-#endif
         psv->nb_s2[chn][b] = psv->nb_s1[chn][b];
         psv->nb_s1[chn][b] = ecb;
         thr[b] = bound_threshold(thr[b], max[b], gds->minval[b], avg_mask, masking_lower, eb[b]);
@@ -1261,14 +1246,7 @@ vbrpsy_compute_masking_l(lame_internal_flags * gfc, const FLOAT fftenergy[HBLKSI
             dd_n += 1;
             x = gdl->s3[k] * eb_l[kk] * tab[mask_idx_l[kk]];
             t = vbrpsy_mask_add(ecb, x, kk - b, delta);
-#if 0
-            ecb += eb_l[kk];
-            if (ecb > t) {
-                ecb = t;
-            }
-#else
             ecb = t;
-#endif
             ++k, ++kk;
         }
         dd = (1 + 2 * dd) / (2 * dd_n);
@@ -1778,56 +1756,6 @@ s3_func(FLOAT bark)
     tempx /= .6609193;
     return tempx;
 }
-
-#if 0
-static  FLOAT
-norm_s3_func(void)
-{
-    double  lim_a = 0, lim_b = 0;
-    double  x = 0, l, h;
-    for (x = 0; s3_func(x) > 1e-20; x -= 1);
-    l = x;
-    h = 0;
-    while (fabs(h - l) > 1e-12) {
-        x = (h + l) / 2;
-        if (s3_func(x) > 0) {
-            h = x;
-        }
-        else {
-            l = x;
-        }
-    }
-    lim_a = l;
-    for (x = 0; s3_func(x) > 1e-20; x += 1);
-    l = 0;
-    h = x;
-    while (fabs(h - l) > 1e-12) {
-        x = (h + l) / 2;
-        if (s3_func(x) > 0) {
-            l = x;
-        }
-        else {
-            h = x;
-        }
-    }
-    lim_b = h;
-    {
-        double  sum = 0;
-        int const m = 1000;
-        int     i;
-        for (i = 0; i <= m; ++i) {
-            double  x = lim_a + i * (lim_b - lim_a) / m;
-            double  y = s3_func(x);
-            sum += y;
-        }
-        {
-            double  norm = (m + 1) / (sum * (lim_b - lim_a));
-            /*printf( "norm = %lf\n",norm); */
-            return norm;
-        }
-    }
-}
-#endif
 
 /**
  * \brief Weight that vbrpsy_compute_MS_thresholds() uses to move masking
