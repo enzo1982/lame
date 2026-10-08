@@ -178,6 +178,8 @@ bool ACMStream::open(const AEncodeProperties & the_Properties)
 	lame_set_error_protection( gfp, the_Properties.GetCRCMode()?1:0 );
 	// Set private bit?
 	lame_set_extension( gfp, the_Properties.GetPrivateMode()?1:0 );
+	// Use the bit reservoir?
+	lame_set_disable_reservoir( gfp, the_Properties.GetNoBiResMode()?1:0 );
 	// INFO tag support not possible in ACM - it requires rewinding 
         // output stream to the beginning after encoding is finished.   
 	lame_set_bWriteVbrTag( gfp, 0 );

@@ -88,6 +88,38 @@ mp3_padding_bytes(const unsigned char *h)
     return (h[MP3_HEADER_BITRATE_BYTE] >> MP3_PADDING_SHIFT) & MP3_PADDING_MASK;
 }
 
+/** @brief The version bits of an MPEG-1 frame, in the second header byte. */
+#define MP3_VERSION_MPEG1           0x18
+/** @brief Mask for the two version bits in the second header byte. */
+#define MP3_VERSION_MASK            0x18
+/** @brief A clear protection bit means that a 2-byte CRC follows the header. */
+#define MP3_PROTECTION_MASK         0x01
+/** @brief Length of the CRC after the header, when the frame has one. */
+#define MP3_CRC_BYTES               2
+
+/**
+ * @brief Returns the main_data_begin field of the Layer III frame at @a h.
+ *
+ * The field is the first field of the side information, after the header and
+ * the CRC, if the frame has one. It is 9 bits long in an MPEG-1 frame and 8
+ * bits long in an MPEG-2 or MPEG-2.5 frame.
+ *
+ * @param h the frame. The header, the CRC if there is one, and the first two
+ *          bytes of the side information must be readable.
+ * @return the number of bytes of this frame's data that are in earlier
+ *         frames. 0 when the frame uses no bit reservoir.
+ */
+static inline int
+mp3_main_data_begin(const unsigned char *h)
+{
+    const unsigned char *s = h + MP3_HEADER_BYTES
+        + ((h[MP3_HEADER_SYNC_BYTE] & MP3_PROTECTION_MASK) ? 0 : MP3_CRC_BYTES);
+
+    if ((h[MP3_HEADER_SYNC_BYTE] & MP3_VERSION_MASK) == MP3_VERSION_MPEG1)
+        return (s[0] << 1) | (s[1] >> 7);
+    return s[0];
+}
+
 /**
  * @brief Returns the length in bytes of a frame, padding included.
  *

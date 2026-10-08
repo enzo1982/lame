@@ -1133,6 +1133,223 @@ out:
     }
 }
 
+/** @brief Length of each encode in the bit reservoir test. */
+#define RESERVOIR_TEST_SECONDS 2
+
+/**
+ * @brief Encodes two seconds of a stereo tone through the ACM and counts the
+ *        frames that use the bit reservoir.
+ *
+ * The driver reads its configuration when it is opened, so the caller writes
+ * the configuration file before this call.
+ *
+ * @param driver   the path of the codec.
+ * @param frames   receives the number of frames in the output.
+ * @param borrowed receives the number of frames whose main_data_begin is not
+ *                 0, that is, frames that use bytes of earlier frames.
+ * @return 1 if the encode ran, 0 if a step failed. The failed step is
+ *         recorded as a check.
+ */
+static int
+encode_counting_reservoir(const char *driver, int *frames, int *borrowed)
+{
+    const DWORD rate = 44100;
+    const WORD channels = 2;
+    const DWORD samples = rate * RESERVOIR_TEST_SECONDS;
+    HMODULE mod;
+    FARPROC proc;
+    HACMDRIVERID hadid = NULL;
+    HACMDRIVER had = NULL;
+    HACMSTREAM has = NULL;
+    WAVEFORMATEX pcm;
+    MPEGLAYER3WAVEFORMAT mp3;
+    ACMSTREAMHEADER hdr;
+    DWORD src_bytes, dst_bytes = 0, off = 0, i;
+    short *src = NULL;
+    BYTE *dst = NULL;
+    int ran = 0;
+    MMRESULT mr;
+
+    *frames = 0;
+    *borrowed = 0;
+    mod = LoadLibraryA(driver);
+    proc = (mod != NULL) ? GetProcAddress(mod, "DriverProc") : NULL;
+    if (proc == NULL) {
+        CHECK(0, "the driver loads for the bit reservoir encode");
+        return 0;
+    }
+    mr = acmDriverAdd(&hadid, (HINSTANCE) mod, (LPARAM) proc, 0, ACM_DRIVERADDF_FUNCTION);
+    if (mr == MMSYSERR_NOERROR) {
+        mr = acmDriverOpen(&had, hadid, 0);
+    }
+    fill_pcm_format(&pcm, rate, channels);
+    fill_mp3_format(&mp3, rate, channels, 128000);
+    if (mr == MMSYSERR_NOERROR) {
+        mr = acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) &mp3, NULL, 0, 0, 0);
+    }
+    CHECK_MM(mr, "the driver opens a 44100/16/stereo to 128 kbps stream");
+    if (mr != MMSYSERR_NOERROR) {
+        goto out;
+    }
+    src_bytes = samples * pcm.nBlockAlign;
+    src = (short *) calloc(1, src_bytes);
+    if (src == NULL || acmStreamSize(has, src_bytes, &dst_bytes, ACM_STREAMSIZEF_SOURCE)
+        != MMSYSERR_NOERROR || (dst = (BYTE *) calloc(1, dst_bytes)) == NULL) {
+        CHECK(0, "the buffers for the bit reservoir encode are ready");
+        goto out;
+    }
+    for (i = 0; i < samples; i++) {
+        short v = (short) (TONE_AMPLITUDE * sin(TWO_PI * TONE_HZ * (double) i / (double) rate));
+        src[2 * i] = v;
+        src[2 * i + 1] = v;
+    }
+    memset(&hdr, 0, sizeof(hdr));
+    hdr.cbStruct = sizeof(hdr);
+    hdr.pbSrc = (BYTE *) src;
+    hdr.cbSrcLength = src_bytes;
+    hdr.pbDst = dst;
+    hdr.cbDstLength = dst_bytes;
+    mr = acmStreamPrepareHeader(has, &hdr, 0);
+    if (mr != MMSYSERR_NOERROR) {
+        CHECK_MM(mr, "the header for the bit reservoir encode is prepared");
+        goto out;
+    }
+    mr = acmStreamConvert(has, &hdr, ACM_STREAMCONVERTF_BLOCKALIGN | ACM_STREAMCONVERTF_END);
+    CHECK_MM(mr, "the bit reservoir encode converts");
+    if (mr != MMSYSERR_NOERROR) {
+        acmStreamUnprepareHeader(has, &hdr, 0);
+        goto out;
+    }
+    /* Walk the frames before the header is unprepared: the unprepare flushes
+       the encoder into the same buffer. The side information follows the
+       header and the CRC, so a frame is read only when that much of it is in
+       the buffer. */
+    while (off + MP3_HEADER_BYTES + MP3_CRC_BYTES + 2 <= hdr.cbDstLengthUsed) {
+        const BYTE *h = dst + off;
+        int index, framelen;
+
+        if (!mp3_is_frame_sync(h)) {
+            ++off;
+            continue;
+        }
+        index = mp3_bitrate_index(h);
+        if (index == MP3_BITRATE_FREE_FORMAT || index == MP3_BITRATE_INVALID) {
+            break;
+        }
+        framelen = mp3_frame_bytes(index, mp3_padding_bytes(h), rate);
+        if (framelen <= 0) {
+            break;
+        }
+        ++*frames;
+        if (mp3_main_data_begin(h) != 0) {
+            ++*borrowed;
+        }
+        off += (DWORD) framelen;
+    }
+    acmStreamUnprepareHeader(has, &hdr, 0);
+    ran = 1;
+
+out:
+    free(src);
+    free(dst);
+    if (has != NULL) {
+        acmStreamClose(has, 0);
+    }
+    if (had != NULL) {
+        acmDriverClose(had, 0);
+    }
+    if (hadid != NULL) {
+        acmDriverRemove(hadid, 0);
+    }
+    return ran;
+}
+
+/**
+ * @brief Checks that the bit reservoir setting reaches the encoder.
+ *
+ * With the default setting, some frames use bytes of earlier frames. With
+ * @c Bit_reservoir set to false, no frame does.
+ *
+ * An installed codec reads its configuration file from its own folder. Here
+ * the test adds the codec with @c ACM_DRIVERADDF_FUNCTION, and then the codec
+ * gets no module handle and reads the file from the current directory. So the
+ * test writes the file there. It keeps a file that was there before, and puts
+ * it back at the end.
+ *
+ * @param driver the path of the codec.
+ */
+static void
+test_bit_reservoir_setting(const char *driver)
+{
+    const char *const config = CONFIG_NAME;
+    char *saved = NULL;
+    long saved_len = -1;
+    FILE *f;
+    int frames, borrowed;
+    /* The first and the last frame may be missing, as in test_under_the_acm(). */
+    const int expected_frames =
+        (int) (mp3_frames_per_second(44100) * RESERVOIR_TEST_SECONDS) - 2;
+
+    printf("the bit reservoir setting\n");
+
+    /* Keep a file that is already there. */
+    f = fopen(config, "rb");
+    if (f != NULL) {
+        if (fseek(f, 0, SEEK_END) == 0 && (saved_len = ftell(f)) >= 0
+            && fseek(f, 0, SEEK_SET) == 0
+            && (saved = (char *) malloc((size_t) saved_len + 1)) != NULL) {
+            saved_len = (long) fread(saved, 1, (size_t) saved_len, f);
+        } else {
+            saved_len = -1;
+        }
+        fclose(f);
+        if (saved_len < 0) {
+            CHECK(0, "the existing configuration file can be kept");
+            free(saved);
+            return;
+        }
+    }
+
+    /* The control: the default setting uses the reservoir. */
+    ::DeleteFileA(config);
+    if (encode_counting_reservoir(driver, &frames, &borrowed)) {
+        printf("        default: %d frame(s), %d use earlier bytes\n", frames, borrowed);
+        CHECK(frames >= expected_frames, "the default encode has all of its frames");
+        CHECK(borrowed > 0, "with the default setting, some frames use the bit reservoir");
+    }
+
+    f = fopen(config, "wb");
+    if (f == NULL) {
+        CHECK(0, "the configuration file can be written");
+    } else {
+        fprintf(f,
+                "<lame_acm>\n"
+                "    <encodings default=\"Current\">\n"
+                "        <config name=\"Current\">\n"
+                "            <Bit_reservoir use=\"false\" />\n"
+                "        </config>\n"
+                "    </encodings>\n"
+                "</lame_acm>\n");
+        fclose(f);
+        if (encode_counting_reservoir(driver, &frames, &borrowed)) {
+            printf("        switched off: %d frame(s), %d use earlier bytes\n", frames, borrowed);
+            CHECK(frames >= expected_frames, "the encode without the reservoir has all of its frames");
+            CHECK_EQ_U(borrowed, 0, "with the reservoir switched off, no frame uses it");
+        }
+    }
+
+    ::DeleteFileA(config);
+    if (saved != NULL) {
+        f = fopen(config, "wb");
+        CHECK(f != NULL && fwrite(saved, 1, (size_t) saved_len, f) == (size_t) saved_len,
+              "the configuration file that was there before is put back");
+        if (f != NULL) {
+            fclose(f);
+        }
+        free(saved);
+    }
+}
+
 /**
  * @brief Looks for the codec in the directory of this executable. The build
  *        writes both files there.
@@ -1176,7 +1393,9 @@ main(int argc, char **argv)
         strncpy(driver, argv[1], sizeof(driver) - 1);
         driver[sizeof(driver) - 1] = '\0';
         test_under_the_acm(driver);
+        test_bit_reservoir_setting(driver);
     } else if (driver_beside_us(driver, sizeof(driver))) {
+        test_bit_reservoir_setting(driver);
         test_under_the_acm(driver);
     } else {
         /* Not a skip. The codec is built by the same solution as this test, so

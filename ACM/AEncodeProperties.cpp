@@ -66,12 +66,13 @@ const unsigned int AEncodeProperties::the_ChannelModes[3] = { STEREO, JOINT_STER
 //const LAME_QUALTIY_PRESET AEncodeProperties::the_Presets[] = {LQP_NOPRESET, LQP_R3MIX_QUALITY, LQP_NORMAL_QUALITY, LQP_LOW_QUALITY, LQP_HIGH_QUALITY, LQP_VERYHIGH_QUALITY, LQP_VOICE_QUALITY, LQP_PHONE, LQP_SW, LQP_AM, LQP_FM, LQP_VOICE, LQP_RADIO, LQP_TAPE, LQP_HIFI, LQP_CD, LQP_STUDIO};
 //const unsigned int AEncodeProperties::the_SamplingFreqs[9] = { 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000 };
 
-ToolTipItem AEncodeProperties::Tooltips[13]={
+ToolTipItem AEncodeProperties::Tooltips[14]={
 	{ IDC_CHECK_ENC_ABR, "Allow encoding with an average bitrate\r\ninstead of a constant one.\r\n\r\nIt can improve the quality for the same bitrate." },
 	{ IDC_CHECK_COPYRIGHT, "Mark the encoded data as copyrighted." },
 	{ IDC_CHECK_CHECKSUM, "Put a checksum in the encoded data.\r\n\r\nThis can make the file less sensitive to data loss." },
 	{ IDC_CHECK_ORIGINAL, "Mark the encoded data as an original file." },
 	{ IDC_CHECK_PRIVATE, "Mark the encoded data as private." },
+	{ IDC_CHECK_RESERVOIR, "Use the bit reservoir.\r\n\r\nA frame can then use bits that earlier frames left over.\r\nWithout it, every frame contains all of its own data." },
 	{ IDC_COMBO_ENC_STEREO, "Select the type of stereo mode used for encoding:\r\n\r\n- Stereo : the usual one\r\n- Joint-Stereo : mix both channel to achieve better compression\r\n- Dual Channel : treat both channel as separate" },
 	{ IDC_STATIC_DECODING, "Decoding not supported for the moment by the codec." },
 	{ IDC_CHECK_ENC_SMART, "Disable bitrate when there is too much compression.\r\n(default 1:15 ratio)" },
@@ -618,7 +619,7 @@ bool AEncodeProperties::UpdateDlgFromValue(HWND HwndDlg)
 	::CheckDlgButton( HwndDlg, IDC_CHECK_COPYRIGHT,    GetCopyrightMode()  ?BST_CHECKED:BST_UNCHECKED );
 	::CheckDlgButton( HwndDlg, IDC_CHECK_ENC_SMART,    GetSmartOutputMode()?BST_CHECKED:BST_UNCHECKED );
 	::CheckDlgButton( HwndDlg, IDC_CHECK_ENC_ABR,      GetAbrOutputMode()  ?BST_CHECKED:BST_UNCHECKED );
-//	::CheckDlgButton( HwndDlg, IDC_CHECK_RESERVOIR,    !GetNoBiResMode() ?BST_CHECKED:BST_UNCHECKED );
+	::CheckDlgButton( HwndDlg, IDC_CHECK_RESERVOIR,    !GetNoBiResMode() ?BST_CHECKED:BST_UNCHECKED );
 //	::CheckDlgButton( HwndDlg, IDC_CHECK_XINGVBR,      GetXingFrameMode()?BST_CHECKED:BST_UNCHECKED );
 //	::CheckDlgButton( HwndDlg, IDC_CHECK_RESAMPLE,     GetResampleMode() ?BST_CHECKED:BST_UNCHECKED );
 //	::CheckDlgButton( HwndDlg, IDC_CHECK_CHANNELFORCE, bForceChannel     ?BST_CHECKED:BST_UNCHECKED );
@@ -727,7 +728,7 @@ bool AEncodeProperties::UpdateValueFromDlg(HWND HwndDlg)
 	bPrivate      = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_PRIVATE)      == BST_CHECKED);
 	bSmartOutput  = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_ENC_SMART)    == BST_CHECKED);
 	bAbrOutput    = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_ENC_ABR)      == BST_CHECKED);
-//	bNoBitRes     =!(::IsDlgButtonChecked( HwndDlg, IDC_CHECK_RESERVOIR)    == BST_CHECKED);
+	bNoBitRes     =!(::IsDlgButtonChecked( HwndDlg, IDC_CHECK_RESERVOIR)    == BST_CHECKED);
 //	bXingFrame    = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_XINGVBR)      == BST_CHECKED);
 //	bResample     = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_RESAMPLE)     == BST_CHECKED);
 //	bForceChannel = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_CHANNELFORCE) == BST_CHECKED);
@@ -1165,8 +1166,7 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 			if (tmpname != NULL)
 				bPrivate = (tmpname->compare("true") == 0);
 		}
-/*
-		// Copyright parameter
+		// Bit reservoir parameter
 		tmpElt = iterateElmt->FirstChildElement("Bit_reservoir");
 		if (tmpElt != NULL)
 		{
@@ -1174,7 +1174,7 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 			if (tmpname != NULL)
 				bNoBitRes = !(tmpname->compare("true") == 0);
 		}
-
+/*
 		// bitrates
 		tmpElt = iterateElmt->FirstChildElement("bitrate");
 		tmpname = tmpElt->Attribute("min");
@@ -1405,7 +1405,6 @@ void AEncodeProperties::SaveValuesToElement(TiXmlElement * the_element) const
 	TiXmlElement * tmpElt;
 
 	// Bit Reservoir parameter
-/*
 	tmpElt = the_element->FirstChildElement("Bit_reservoir");
 	if (tmpElt == NULL)
 	{
@@ -1417,7 +1416,6 @@ void AEncodeProperties::SaveValuesToElement(TiXmlElement * the_element) const
 	{
 		SetAttributeBool(tmpElt, "use", !bNoBitRes);
 	}
-*/
 	// Copyright parameter
 	tmpElt = the_element->FirstChildElement("Copyright");
 	if (tmpElt == NULL)

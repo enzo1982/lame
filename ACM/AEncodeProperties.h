@@ -107,7 +107,6 @@ public:
 
 	/**
 		\brief Returns true if the settings switch off the bit reservoir.
-		\todo The encoder does not use this setting.
 	*/
 	inline const bool GetNoBiResMode() const { return bNoBitRes; }
 
@@ -369,7 +368,7 @@ public:
 	*/
 	void UpdateDlgFromSlides(HWND parent_window) const;
 
-	static ToolTipItem Tooltips[13];
+	static ToolTipItem Tooltips[14];
 private:
 
 	bool bCopyright;
