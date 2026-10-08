@@ -324,7 +324,7 @@ quantize_lines_xrpow(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix)
  */
 static void
 quantize_lines_xrpow_v(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix,
-                       vector_impl_t impl)
+                       LAME_UNUSED vector_impl_t impl)
 {
 #if !TAKEHIRO_IEEE754_HACK
 #if defined( HAVE_AVX512_INTRINSICS )
@@ -346,7 +346,6 @@ quantize_lines_xrpow_v(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix,
     }
 #endif
 #endif
-    (void) impl;
     quantize_lines_xrpow(l, istep, xr, ix);
 }
 
@@ -522,7 +521,7 @@ ix_max(const int *ix, const int *end)
  * which is also what an architecture without any of this gets.
  */
 static int
-ix_max_v(const int *ix, const int *const end, vector_impl_t impl)
+ix_max_v(const int *ix, const int *const end, LAME_UNUSED vector_impl_t impl)
 {
 #if defined( HAVE_SSE2_INTRINSICS )
     if (end - ix >= TABLE_SEARCH_VECTOR_MIN) {
@@ -533,8 +532,6 @@ ix_max_v(const int *ix, const int *const end, vector_impl_t impl)
         if (impl >= VECTOR_IMPL_SSE2)
             return ix_max_sse2(ix, end);
     }
-#else
-    (void) impl;
 #endif
     return ix_max(ix, end);
 }
@@ -548,7 +545,7 @@ ix_max_v(const int *ix, const int *const end, vector_impl_t impl)
 
 static int
 count_bit_ESC(const int *ix, const int *const end, int t1, const int t2,
-              unsigned int *const s, vector_impl_t impl)
+              unsigned int *const s, LAME_UNUSED vector_impl_t impl)
 {
     /* ESC-table is used */
     unsigned int const linbits = ht[t1].xlen * 65536u + ht[t2].xlen;
@@ -570,8 +567,6 @@ count_bit_ESC(const int *ix, const int *const end, int t1, const int t2,
         sum += nclamped * linbits;
     }
     else
-#else
-    (void) impl;
 #endif
     do {
         unsigned int x = *ix++;
@@ -604,13 +599,12 @@ count_bit_ESC(const int *ix, const int *const end, int t1, const int t2,
 
 
 static int
-count_bit_noESC(const int *ix, const int *end, int mx, unsigned int *s, vector_impl_t impl)
+count_bit_noESC(const int *ix, const int *end, LAME_UNUSED int mx, unsigned int *s,
+                LAME_UNUSED vector_impl_t impl)
 {
     /* No ESC-words */
     unsigned int sum1 = 0;
     const uint8_t *const hlen1 = ht[1].hlen;
-    (void) mx;
-    (void) impl;
 
     do {
         unsigned int const x0 = *ix++;
@@ -629,14 +623,14 @@ static const int huf_tbl_noESC[] = {
 
 
 static int
-count_bit_noESC_from2(const int *ix, const int *end, int max, unsigned int *s, vector_impl_t impl)
+count_bit_noESC_from2(const int *ix, const int *end, int max, unsigned int *s,
+                      LAME_UNUSED vector_impl_t impl)
 {
     int t1 = huf_tbl_noESC[max - 1];
     /* No ESC-words */
     const unsigned int xlen = ht[t1].xlen;
     uint32_t const* table = (t1 == 2) ? &table23[0] : &table56[0];
     unsigned int sum = 0, sum2;
-    (void) impl;
 
     do {
         unsigned int const x0 = *ix++;
@@ -658,7 +652,8 @@ count_bit_noESC_from2(const int *ix, const int *end, int max, unsigned int *s, v
 
 
 inline static int
-count_bit_noESC_from3(const int *ix, const int *end, int max, unsigned int * s, vector_impl_t impl)
+count_bit_noESC_from3(const int *ix, const int *end, int max, unsigned int * s,
+                      LAME_UNUSED vector_impl_t impl)
 {
     int t1 = huf_tbl_noESC[max - 1];
     /* No ESC-words */
@@ -681,8 +676,6 @@ count_bit_noESC_from3(const int *ix, const int *end, int max, unsigned int * s, 
         sum3 = sums[2];
     }
     else
-#else
-    (void) impl;
 #endif
     do {
         unsigned int x0 = *ix++;
@@ -720,13 +713,10 @@ count_bit_noESC_from3(const int *ix, const int *end, int max, unsigned int * s, 
   of the Huffman tables as defined in the IS (Table B.7), and will not work
   with any arbitrary tables.
 */
-static int count_bit_null(const int* ix, const int* end, int max, unsigned int* s, vector_impl_t impl)
+static int count_bit_null(LAME_UNUSED const int* ix, LAME_UNUSED const int* end,
+                          LAME_UNUSED int max, LAME_UNUSED unsigned int* s,
+                          LAME_UNUSED vector_impl_t impl)
 {
-    (void) ix;
-    (void) end;
-    (void) max;
-    (void) s;
-    (void) impl;
     return 0;
 }
 
@@ -1308,7 +1298,7 @@ static const int scale_long[16] = {
 /* Also calculates the number of bits necessary to code the scalefactors. */
 
 static int
-mpeg1_scale_bitcount(const lame_internal_flags * gfc, gr_info * const cod_info)
+mpeg1_scale_bitcount(LAME_UNUSED const lame_internal_flags * gfc, gr_info * const cod_info)
 {
     int     k, sfb, max_slen1 = 0, max_slen2 = 0;
 
@@ -1316,7 +1306,6 @@ mpeg1_scale_bitcount(const lame_internal_flags * gfc, gr_info * const cod_info)
     const int *tab;
     int    *const scalefac = cod_info->scalefac;
 
-    (void) gfc;
     assert(all_scalefactors_not_negative(scalefac, cod_info->sfbmax));
 
     if (cod_info->block_type == SHORT_TYPE) {

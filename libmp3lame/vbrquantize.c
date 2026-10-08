@@ -238,7 +238,7 @@ k_34_4(DOUBLEX x[4], int l3[4])
  */
 static  FLOAT
 calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, unsigned int bw, uint8_t sf,
-                   vector_impl_t impl)
+                   LAME_UNUSED vector_impl_t impl)
 {
     DOUBLEX x[4];
     int     l3[4];
@@ -257,7 +257,6 @@ calc_sfb_noise_x34(const FLOAT * xr, const FLOAT * xr34, unsigned int bw, uint8_
     }
 #endif
 #endif
-    (void) impl;
     unsigned int i = bw >> 2u;
     unsigned int const remaining = (bw & 0x03u);
 
@@ -357,15 +356,12 @@ calc_scalefac(FLOAT l3_xmin, int bw)
 }
 
 static uint8_t
-guess_scalefac_x34(const FLOAT * xr, const FLOAT * xr34, FLOAT l3_xmin, unsigned int bw,
-                   uint8_t sf_min, vector_impl_t impl)
+guess_scalefac_x34(LAME_UNUSED const FLOAT * xr, LAME_UNUSED const FLOAT * xr34, FLOAT l3_xmin,
+                   unsigned int bw, uint8_t sf_min, LAME_UNUSED vector_impl_t impl)
 {
     int const guess = calc_scalefac(l3_xmin, bw);
     if (guess < sf_min) return sf_min;
     if (guess >= 255) return 255;
-    (void) xr;
-    (void) xr34;
-    (void) impl;
     return guess;
 }
 

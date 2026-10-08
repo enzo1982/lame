@@ -1677,7 +1677,7 @@ VBR_new_prepare(lame_internal_flags * gfc,
 
 void
 VBR_new_iteration_loop(lame_internal_flags * gfc, const FLOAT pe[2][2],
-                       const FLOAT ms_ener_ratio[2], const III_psy_ratio ratio[2][2])
+                       LAME_UNUSED const FLOAT ms_ener_ratio[2], const III_psy_ratio ratio[2][2])
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     EncResult_t *const eov = &gfc->ov_enc;
@@ -1693,8 +1693,6 @@ VBR_new_iteration_loop(lame_internal_flags * gfc, const FLOAT pe[2][2],
     const FLOAT (*const_l3_xmin)[2][SFBMAX] = (const FLOAT (*)[2][SFBMAX])l3_xmin;
     const FLOAT (*const_xrpow)[2][576] = (const FLOAT (*)[2][576])xrpow;
     const int (*const_max_bits)[2] = (const int (*)[2])max_bits;
-    
-    (void) ms_ener_ratio; /* not used */
 
     memset(xrpow, 0, sizeof(xrpow));
 
