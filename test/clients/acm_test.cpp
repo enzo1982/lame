@@ -828,62 +828,6 @@ test_suggest_unencodable_rate(HACMDRIVER had)
 }
 
 /**
- * @brief Counts the MPEG frames in an encoded buffer, and the distinct
- *        bitrates.
- *
- * A low byte total has three possible causes:
- * - the codec did not flush a tail,
- * - the codec silently replaced the bitrate,
- * - the codec used a variable bitrate.
- *
- * The total cannot tell them apart. The frame headers can.
- */
-static int
-count_frames(const BYTE *buf, DWORD len, DWORD rate, int *distinct, int *sole_kbps)
-{
-    int seen = 0;
-    int rates[MP3_BITRATE_INDEX_COUNT];
-    int j;
-    DWORD off = 0;
-
-    memset(rates, 0, sizeof(rates));
-    *distinct = 0;
-    *sole_kbps = 0;
-    while (off + MP3_HEADER_BYTES <= len) {
-        const BYTE *h = buf + off;
-        int index, padding, framelen;
-
-        if (!mp3_is_frame_sync(h)) {
-            ++off;
-            continue;
-        }
-        index = mp3_bitrate_index(h);
-        padding = mp3_padding_bytes(h);
-        if (index == MP3_BITRATE_FREE_FORMAT || index == MP3_BITRATE_INVALID) {
-            break;
-        }
-        framelen = mp3_frame_bytes(index, padding, rate);
-        if (framelen <= 0) {
-            break;
-        }
-        if (!rates[index]) {
-            rates[index] = 1;
-            ++*distinct;
-        }
-        ++seen;
-        off += (DWORD) framelen;
-    }
-    if (*distinct == 1) {
-        for (j = MP3_BITRATE_FREE_FORMAT + 1; j < MP3_BITRATE_INVALID; j++) {
-            if (rates[j]) {
-                *sole_kbps = mp3_bitrate_kbps[j];
-            }
-        }
-    }
-    return seen;
-}
-
-/**
  * @brief Checks that the codec returns an error for a destination buffer that
  *        is too small for its output, and never writes past the buffer.
  *
@@ -1116,9 +1060,9 @@ test_under_the_acm(const char *driver)
                           ACM_STREAMCONVERTF_BLOCKALIGN | ACM_STREAMCONVERTF_END);
     CHECK_MM(mr, "a second of audio is converted");
     if (mr == MMSYSERR_NOERROR) {
-        int distinct = 0;
-        int sole_kbps = 0;
-        int seen = count_frames(dst, hdr.cbDstLengthUsed, rate, &distinct, &sole_kbps);
+        mp3_scan scan;
+
+        mp3_scan_frames(dst, (long) hdr.cbDstLengthUsed, rate, &scan);
 
         CHECK(hdr.cbDstLengthUsed > 0, "the conversion produced output");
         CHECK_EQ_U(hdr.cbSrcLengthUsed, src_bytes, "all of the PCM was consumed");
@@ -1128,20 +1072,20 @@ test_under_the_acm(const char *driver)
         CHECK(hdr.cbDstLengthUsed >= MP3_HEADER_BYTES && mp3_is_frame_sync(dst),
               "the output begins with an MPEG frame sync");
         printf("        %lu bytes, %d frame(s), %d distinct bitrate(s)\n",
-               (unsigned long) hdr.cbDstLengthUsed, seen, distinct);
+               (unsigned long) hdr.cbDstLengthUsed, scan.frames, scan.distinct);
         /* The first and the last frame are allowed to be missing: the encoder
            may hold one back, and the tail is only as long as what is left. */
-        CHECK(seen >= (int) (mp3_frames_per_second(rate) * seconds) - 2,
+        CHECK(scan.frames >= (int) (mp3_frames_per_second(rate) * seconds) - 2,
               "the whole second is there in frames, tail included");
         /* More than one bitrate means the encoder chose a variable rate, where
            the average is expected to differ from the nominal one. A single rate
            that is not the requested one is a substitution, and the byte total
            alone cannot tell the two apart. */
-        if (distinct == 1) {
-            CHECK_EQ_U(sole_kbps, 128,
+        if (scan.distinct == 1) {
+            CHECK_EQ_U(scan.sole_kbps, 128,
                        "a constant rate is the 128 kbps that was asked for");
         } else {
-            CHECK(distinct > 1, "a variable rate, so no single rate to check");
+            CHECK(scan.distinct > 1, "a variable rate, so no single rate to check");
         }
         acmStreamUnprepareHeader(has, &hdr, 0);
     }

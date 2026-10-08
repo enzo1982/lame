@@ -166,6 +166,71 @@ mp3_frames_per_second(unsigned long rate)
     return (double) rate / (double) MP3_SAMPLES_PER_FRAME;
 }
 
+/** @brief What mp3_scan_frames() found in a stream. */
+typedef struct {
+    int frames;         /**< the MPEG-1 frames in the run */
+    int distinct;       /**< the distinct bitrates among them */
+    int sole_kbps;      /**< the bitrate when there is one, in kbit/s, else 0 */
+    long first_off;     /**< the offset of the first frame */
+    long first_len;     /**< the length of the first frame, 0 when there is none */
+} mp3_scan;
+
+/**
+ * @brief Counts the MPEG-1 frames in a stream, and the distinct bitrates.
+ *
+ * The scan skips bytes up to the first frame sync. From there it steps from
+ * frame to frame by the length that each header gives. It stops at the end of
+ * the stream, at a free format or reserved bitrate, or at a frame with no
+ * length.
+ *
+ * @param buf   the stream.
+ * @param len   its length, in bytes.
+ * @param rate  the sample rate of the stream, in Hz.
+ * @param s     receives the counts.
+ * @return the number of frames, as in @c s->frames.
+ */
+static inline int
+mp3_scan_frames(const unsigned char *buf, long len, unsigned long rate, mp3_scan *s)
+{
+    int seen_rate[MP3_BITRATE_INDEX_COUNT];
+    long off = 0;
+
+    memset(seen_rate, 0, sizeof(seen_rate));
+    memset(s, 0, sizeof(*s));
+    while (off + MP3_HEADER_BYTES <= len) {
+        const unsigned char *h = buf + off;
+        int index, framelen;
+
+        if (!mp3_is_frame_sync(h)) {
+            ++off;
+            continue;
+        }
+        index = mp3_bitrate_index(h);
+        if (index == MP3_BITRATE_FREE_FORMAT || index == MP3_BITRATE_INVALID) {
+            break;
+        }
+        framelen = mp3_frame_bytes(index, mp3_padding_bytes(h), rate);
+        if (framelen <= 0) {
+            break;
+        }
+        if (!seen_rate[index]) {
+            seen_rate[index] = 1;
+            ++s->distinct;
+            s->sole_kbps = mp3_bitrate_kbps[index];
+        }
+        if (s->frames == 0) {
+            s->first_off = off;
+            s->first_len = framelen;
+        }
+        ++s->frames;
+        off += framelen;
+    }
+    if (s->distinct != 1) {
+        s->sole_kbps = 0;
+    }
+    return s->frames;
+}
+
 /** @brief The version bits of an MPEG-2 frame, in the second header byte. */
 #define MP3_VERSION_MPEG2           0x10
 /** @brief The version bits of an MPEG-2.5 frame, in the second header byte. */

@@ -233,14 +233,8 @@ inspect_mp3(const char *path, double seconds, DWORD rate, int nominal_kbps)
     FILE *f = fopen(path, "rb");
     unsigned char *buf;
     long size;
-    long off = 0;
-    int seen = 0;
-    int distinct = 0;
-    int sole_kbps = 0;
-    int rates[MP3_BITRATE_INDEX_COUNT];
+    mp3_scan scan;
     int want;
-    long first_off = 0;
-    long first_frame = 0;
     int lowpass;
 
     if (f == NULL) {
@@ -264,56 +258,27 @@ inspect_mp3(const char *path, double seconds, DWORD rate, int nominal_kbps)
     }
     fclose(f);
 
-    memset(rates, 0, sizeof(rates));
-    while (off + MP3_HEADER_BYTES <= size) {
-        unsigned char *h = buf + off;
-        int index, padding, len;
-
-        if (!mp3_is_frame_sync(h)) {
-            ++off;
-            continue;
-        }
-        index = mp3_bitrate_index(h);
-        padding = mp3_padding_bytes(h);
-        if (index == MP3_BITRATE_FREE_FORMAT || index == MP3_BITRATE_INVALID) {
-            break;
-        }
-        len = mp3_frame_bytes(index, padding, rate);
-        if (len <= 0) {
-            break;
-        }
-        if (!rates[index]) {
-            rates[index] = 1;
-            ++distinct;
-            sole_kbps = mp3_bitrate_kbps[index];
-        }
-        if (seen == 0) {
-            first_off = off;
-            first_frame = len;
-        }
-        ++seen;
-        off += len;
-    }
+    mp3_scan_frames(buf, size, rate, &scan);
     printf("        %ld bytes, %d frame(s), %d distinct bitrate(s)\n",
-           size, seen, distinct);
+           size, scan.frames, scan.distinct);
     CHECK(size >= MP3_HEADER_BYTES && mp3_is_frame_sync(buf),
           "the file begins with an MPEG frame sync");
     /* Allow the first frame and the last: the encoder may hold one back, and
        the tail is only as long as what is left of the input. */
     want = (int) (seconds * mp3_frames_per_second(rate)) - 2;
-    CHECK(seen >= want, "the whole input is present as MPEG frames");
-    if (distinct == 1) {
-        CHECK_EQ_U(sole_kbps, nominal_kbps,
+    CHECK(scan.frames >= want, "the whole input is present as MPEG frames");
+    if (scan.distinct == 1) {
+        CHECK_EQ_U(scan.sole_kbps, nominal_kbps,
                    "a constant rate is the one the properties were left set to");
     }
     else {
-        CHECK(distinct > 1, "a variable rate, so no single rate to check");
+        CHECK(scan.distinct > 1, "a variable rate, so no single rate to check");
     }
     /* The two switches the property test left set: the tag has to be there,
        and with keep-all-frequencies it has to say the encoder applied no
        lowpass. The tag is the encoder's own record of the filter it ran with,
        so this reads what reached the encoder, not what the filter stored. */
-    lowpass = mp3_lame_tag_lowpass_hz(buf + first_off, first_frame);
+    lowpass = mp3_lame_tag_lowpass_hz(buf + scan.first_off, scan.first_len);
     printf("        LAME tag lowpass: %d Hz\n", lowpass);
     CHECK(lowpass != MP3_TAG_ABSENT, "the first frame carries a LAME tag");
     if (lowpass != MP3_TAG_ABSENT) {
