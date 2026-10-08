@@ -30,26 +30,13 @@
 
 #include <cmocka.h>
 
+#include "test_mem.h"
+
 #include "test_fixture.h"
 
 #include "parse.c"
 
 static unsigned char tagbuf[8192];
-
-/** @brief Returns 1 if the byte string @p needle occurs unchanged in @p hay, 0 otherwise. */
-static int
-mem_contains(const unsigned char *hay, size_t hn, const char *needle)
-{
-    size_t nn = strlen(needle);
-    size_t i;
-    if (nn == 0 || nn > hn)
-        return 0;
-    for (i = 0; i + nn <= hn; ++i) {
-        if (memcmp(hay + i, needle, nn) == 0)
-            return 1;
-    }
-    return 0;
-}
 
 /** @brief Checks that a UTF-8 text tag goes to the correct frame (the #524 path). */
 static void

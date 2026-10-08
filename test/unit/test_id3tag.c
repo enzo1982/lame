@@ -51,6 +51,8 @@
 
 #include <cmocka.h>
 
+#include "test_mem.h"
+
 #include "test_fixture.h"
 
 #include "lame.h"
@@ -73,66 +75,6 @@ extern int id3tag_set_fieldvalue_ucs2(lame_t gfp, const unsigned short *fieldval
 
 /** Scratch buffer for a built tag. It is larger than any tag these tests make. */
 static unsigned char tagbuf[8192];
-
-/** @brief Returns true if the byte string @p needle occurs in @p hay. */
-static int
-mem_contains(const unsigned char *hay, size_t hn, const char *needle)
-{
-    size_t nn = strlen(needle);
-    size_t i;
-    if (nn == 0 || nn > hn)
-        return 0;
-    for (i = 0; i + nn <= hn; ++i) {
-        if (memcmp(hay + i, needle, nn) == 0)
-            return 1;
-    }
-    return 0;
-}
-
-/** @brief Returns how many times the byte string @p needle occurs in @p hay. */
-static size_t
-mem_count(const unsigned char *hay, size_t hn, const char *needle)
-{
-    size_t nn = strlen(needle);
-    size_t i, n = 0;
-    if (nn == 0 || nn > hn)
-        return 0;
-    for (i = 0; i + nn <= hn; ++i) {
-        if (memcmp(hay + i, needle, nn) == 0)
-            ++n;
-    }
-    return n;
-}
-
-/**
- * @brief Returns true if the ASCII @p needle occurs in @p hay as UTF-16 code
- *        units.
- *
- * UTF-16 text uses two bytes per character. So an ASCII needle never appears
- * as one run of bytes. The function searches for its wide form instead, in
- * little-endian or big-endian order: each character together with a zero
- * byte.
- */
-static int
-mem_contains_wide(const unsigned char *hay, size_t hn, const char *needle)
-{
-    size_t nn = strlen(needle), wn = nn * 2, i, j;
-    if (nn == 0 || wn > hn)
-        return 0;
-    for (i = 0; i + wn <= hn; ++i) {
-        int le = 1, be = 1;
-        for (j = 0; j < nn; ++j) {
-            unsigned char c = (unsigned char) needle[j];
-            if (hay[i + 2 * j] != c || hay[i + 2 * j + 1] != 0)
-                le = 0;
-            if (hay[i + 2 * j] != 0 || hay[i + 2 * j + 1] != c)
-                be = 0;
-        }
-        if (le || be)
-            return 1;
-    }
-    return 0;
-}
 
 /** @brief Builds the ID3v2 tag in ::tagbuf and returns its size. */
 static size_t

@@ -49,6 +49,8 @@
 
 #include <cmocka.h>
 
+#include "test_mem.h"
+
 #include "test_unused.h"
 
 #include "lame.h"
@@ -120,28 +122,6 @@ capture_reset(void)
     caplen = 0;
     capcalls = 0;
     capture[0] = '\0';
-}
-
-/**
- * @brief Searches a byte range for a NUL-terminated string.
- * @param hay  start of the range to search.
- * @param n    length of the range.
- * @param what the string to search for.
- * @return Nonzero if @p what occurs in the range.
- *
- * memmem() is not standard C, and this suite builds on three platforms.
- */
-static int
-mem_contains(const unsigned char *hay, size_t n, const char *what)
-{
-    size_t  len = strlen(what), i;
-
-    if (len > n)
-        return 0;
-    for (i = 0; i + len <= n; i++)
-        if (memcmp(hay + i, what, len) == 0)
-            return 1;
-    return 0;
 }
 
 /**

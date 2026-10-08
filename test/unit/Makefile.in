@@ -1474,7 +1474,7 @@ SH_LOG_COMPILER = $(SHELL)
 # And the exit-status test, for the same two reasons.
 EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
 	test_calc_sfb_noise_vector.c test_choose_table_neon.c \
-	test_rtp_socket.c test_unused.h test_fixture.h \
+	test_rtp_socket.c test_unused.h test_fixture.h test_mem.h \
 	test_pkgconfig.sh test_exit_status.sh
 all: all-am
 
