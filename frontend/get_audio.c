@@ -1670,12 +1670,60 @@ static uint16_t const WAVE_FORMAT_IEEE_FLOAT = 0x0003;
 #ifndef WAVE_FORMAT_EXTENSIBLE
 static uint16_t const WAVE_FORMAT_EXTENSIBLE = 0xFFFE;
 #endif
+#ifndef WAVE_FORMAT_MPEG
+static uint16_t const WAVE_FORMAT_MPEG = 0x0050;
+#endif
+#ifndef WAVE_FORMAT_MPEGLAYER3
+static uint16_t const WAVE_FORMAT_MPEGLAYER3 = 0x0055;
+#endif
+
+/** The number of chunks the WAV reader reads at most to find the data chunk. */
+#define WAV_MAX_CHUNKS 20
 
 
 static uint32_t
 make_even_number_of_bytes_in_length(uint32_t x)
 {
     return x + (x & 0x01);
+}
+
+/**
+ * @internal
+ * @brief Reads the size field of a chunk, and rounds the size up to an even
+ *        number of bytes.
+ *
+ * @param sf          the input file, at the size field.
+ * @param big_endian  1 for an AIFF file, 0 for a WAV file.
+ * @param size        receives the size of the chunk body, padding included.
+ * @return 0, or -1 when the field cannot be read.
+ */
+static int
+read_chunk_size(FILE * sf, int big_endian, uint32_t * size)
+{
+    if (big_endian ? read_32_bits_high_low(sf, size) : read_32_bits_low_high(sf, size))
+        return -1;
+    *size = make_even_number_of_bytes_in_length(*size);
+    return 0;
+}
+
+/**
+ * @internal
+ * @brief Takes the size field and the body of an AIFF chunk from the bytes of
+ *        the FORM chunk that are left.
+ *
+ * @param remaining  the bytes left in the FORM chunk, at least 4.
+ * @param size       the size of the chunk body, padding included.
+ * @param min_size   the smallest body this chunk type can have.
+ * @return 0, or -1 when the body is too small or does not fit.
+ */
+static int
+take_chunk(uint32_t * remaining, uint32_t size, uint32_t min_size)
+{
+    *remaining -= 4;
+    if (size < min_size || *remaining < size)
+        return -1;
+    *remaining -= size;
+    return 0;
 }
 
 
@@ -1708,7 +1756,7 @@ parse_wave_header(lame_global_flags * gfp, FILE * sf)
     if (ui32_WAVEID != WAV_ID_WAVE || ui32_chunkSize < 1)
         return -1;
 
-    for (loop_sanity = 0; loop_sanity < 20; ++loop_sanity) {
+    for (loop_sanity = 0; loop_sanity < WAV_MAX_CHUNKS; ++loop_sanity) {
         uint32_t ui32_ckID = 0;
         if (read_32_bits_high_low(sf, &ui32_ckID))
             return -1;
@@ -1717,9 +1765,8 @@ parse_wave_header(lame_global_flags * gfp, FILE * sf)
             uint32_t ui32_cksize = 0;
             uint16_t ui16_nBlockAlign = 0;
 
-            if (read_32_bits_low_high(sf, &ui32_cksize))
+            if (read_chunk_size(sf, 0, &ui32_cksize))
                 return -1;
-            ui32_cksize = make_even_number_of_bytes_in_length(ui32_cksize);
             if (ui32_cksize < 16u) {
                 /*DEBUGF("'fmt' chunk too short (only %ld bytes)!", ui32_cksize);*/
                 return -1;
@@ -1783,16 +1830,15 @@ parse_wave_header(lame_global_flags * gfp, FILE * sf)
         }
         else {
             uint32_t ui32_cksize = 0;
-            if (read_32_bits_low_high(sf, &ui32_cksize))
+            if (read_chunk_size(sf, 0, &ui32_cksize))
                 return -1;
-            ui32_cksize = make_even_number_of_bytes_in_length(ui32_cksize);
             if (fskip_uint32(sf, ui32_cksize) != 0) {
                 return -1;
             }
         }
     }
     if (is_wav) {
-        if (ui16_wFormatTag == 0x0050 || ui16_wFormatTag == 0x0055) {
+        if (ui16_wFormatTag == WAVE_FORMAT_MPEG || ui16_wFormatTag == WAVE_FORMAT_MPEGLAYER3) {
             return sf_mp123;
         }
         if (ui16_wFormatTag != WAVE_FORMAT_PCM && ui16_wFormatTag != WAVE_FORMAT_IEEE_FLOAT) {
@@ -1930,13 +1976,9 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
             uint16_t ui16_numChannels = 0, ui16_sampleSize = 0;
             uint32_t ui32_numSampleFrames = 0;
 
-            if (read_32_bits_high_low(sf, &ui32_cksize))
+            if (read_chunk_size(sf, 1, &ui32_cksize)
+                || take_chunk(&ui32_ChunkSize, ui32_cksize, 18))
                 return -1;
-            ui32_ChunkSize -= 4;
-            ui32_cksize = make_even_number_of_bytes_in_length(ui32_cksize);
-            if (ui32_cksize < 18 || ui32_ChunkSize < ui32_cksize)
-                return -1;
-            ui32_ChunkSize -= ui32_cksize;
             seen_comm_chunk = seen_ssnd_chunk + 1;
 
             if (read_16_bits_high_low(sf, &ui16_numChannels)
@@ -1967,13 +2009,9 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
         }
         else if (ui32_type == IFF_ID_SSND) {
             uint32_t ui32_cksize = 0;
-            if (read_32_bits_high_low(sf, &ui32_cksize))
+            if (read_chunk_size(sf, 1, &ui32_cksize)
+                || take_chunk(&ui32_ChunkSize, ui32_cksize, 8))
                 return -1;
-            ui32_ChunkSize -= 4;
-            ui32_cksize = make_even_number_of_bytes_in_length(ui32_cksize);
-            if (ui32_cksize < 8 || ui32_ChunkSize < ui32_cksize)
-                return -1;
-            ui32_ChunkSize -= ui32_cksize;
             seen_ssnd_chunk = 1;
 
             aiff_info.sampleType = IFF_ID_SSND;
@@ -1996,13 +2034,9 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
         }
         else {
             uint32_t ui32_cksize = 0;
-            if (read_32_bits_high_low(sf, &ui32_cksize))
+            if (read_chunk_size(sf, 1, &ui32_cksize)
+                || take_chunk(&ui32_ChunkSize, ui32_cksize, 0))
                 return -1;
-            ui32_ChunkSize -= 4;
-            ui32_cksize = make_even_number_of_bytes_in_length(ui32_cksize);
-            if (ui32_ChunkSize < ui32_cksize)
-                return -1;
-            ui32_ChunkSize -= ui32_cksize;
             if (fskip_uint32(sf, ui32_cksize) != 0)
                 return -1;
         }
