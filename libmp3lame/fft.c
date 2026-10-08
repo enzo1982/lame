@@ -43,21 +43,11 @@
 #include "encoder.h"
 #include "util.h"
 #include "fft.h"
+#include "fft_pvt.h"
 
 #include "vector/lame_intrin.h"
 
 
-
-#define TRI_SIZE (5-1)  /* 1024 =  4**5 */
-
-/* fft.c    */
-
-static const FLOAT costab[TRI_SIZE * 2] = {
-    9.238795325112867e-01, 3.826834323650898e-01,
-    9.951847266721969e-01, 9.801714032956060e-02,
-    9.996988186962042e-01, 2.454122852291229e-02,
-    9.999811752826011e-01, 6.135884649154475e-03
-};
 
 static void
 fht(FLOAT * fz, int n)
@@ -78,29 +68,7 @@ fht(FLOAT * fz, int n)
         k2 = k4 << 1;
         k3 = k2 + k1;
         k4 = k2 << 1;
-        fi = fz;
-        gi = fi + kx;
-        do {
-            FLOAT   f0, f1, f2, f3;
-            f1 = fi[0] - fi[k1];
-            f0 = fi[0] + fi[k1];
-            f3 = fi[k2] - fi[k3];
-            f2 = fi[k2] + fi[k3];
-            fi[k2] = f0 - f2;
-            fi[0] = f0 + f2;
-            fi[k3] = f1 - f3;
-            fi[k1] = f1 + f3;
-            f1 = gi[0] - gi[k1];
-            f0 = gi[0] + gi[k1];
-            f3 = SQRT2 * gi[k3];
-            f2 = SQRT2 * gi[k2];
-            gi[k2] = f0 - f2;
-            gi[0] = f0 + f2;
-            gi[k3] = f1 - f3;
-            gi[k1] = f1 + f3;
-            gi += k4;
-            fi += k4;
-        } while (fi < fn);
+        fht_pass_head(fz, fn, k1, k2, k3, k4, kx);
         c1 = tri[0];
         s1 = tri[1];
         for (i = 1; i < kx; i++) {
@@ -166,6 +134,30 @@ static const unsigned char rv_tbl[] = {
     0x1e, 0x9e, 0x5e, 0xde, 0x3e, 0xbe, 0x7e, 0xfe
 };
 
+/**
+ * \internal
+ * \brief The first radix-4 butterfly of the transform, on four windowed input
+ *        samples.
+ * \param x   receives the four outputs.
+ * \param a   the first windowed sample.
+ * \param b   the sample paired with \a a.
+ * \param c   the third windowed sample.
+ * \param d   the sample paired with \a c.
+ */
+static inline void
+butterfly4(FLOAT * x, FLOAT a, FLOAT b, FLOAT c, FLOAT d)
+{
+    FLOAT const f1 = a - b;
+    FLOAT const f0 = a + b;
+    FLOAT const f3 = c - d;
+    FLOAT const f2 = c + d;
+
+    x[0] = f0 + f2;
+    x[2] = f0 - f2;
+    x[1] = f1 + f3;
+    x[3] = f1 - f3;
+}
+
 #define ch01(index)  (buffer[chn][index])
 
 #define ml00(f) (window[i        ] * f(i))
@@ -204,38 +196,10 @@ fft_short(lame_internal_flags const *const gfc,
         short const k = (576 / 3) * (b + 1);
         j = BLKSIZE_s / 8 - 1;
         do {
-            FLOAT   f0, f1, f2, f3, w;
-
             i = rv_tbl[j << 2];
-
-            f0 = ms00(ch01);
-            w = ms10(ch01);
-            f1 = f0 - w;
-            f0 = f0 + w;
-            f2 = ms20(ch01);
-            w = ms30(ch01);
-            f3 = f2 - w;
-            f2 = f2 + w;
-
             x -= 4;
-            x[0] = f0 + f2;
-            x[2] = f0 - f2;
-            x[1] = f1 + f3;
-            x[3] = f1 - f3;
-
-            f0 = ms01(ch01);
-            w = ms11(ch01);
-            f1 = f0 - w;
-            f0 = f0 + w;
-            f2 = ms21(ch01);
-            w = ms31(ch01);
-            f3 = f2 - w;
-            f2 = f2 + w;
-
-            x[BLKSIZE_s / 2 + 0] = f0 + f2;
-            x[BLKSIZE_s / 2 + 2] = f0 - f2;
-            x[BLKSIZE_s / 2 + 1] = f1 + f3;
-            x[BLKSIZE_s / 2 + 3] = f1 - f3;
+            butterfly4(x, ms00(ch01), ms10(ch01), ms20(ch01), ms30(ch01));
+            butterfly4(x + BLKSIZE_s / 2, ms01(ch01), ms11(ch01), ms21(ch01), ms31(ch01));
         } while (--j >= 0);
 
 #undef window
@@ -257,37 +221,10 @@ fft_long(lame_internal_flags const *const gfc,
 #define window gfc->cd_psy->window
 
     do {
-        FLOAT   f0, f1, f2, f3, w;
-
         i = rv_tbl[jj];
-        f0 = ml00(ch01);
-        w = ml10(ch01);
-        f1 = f0 - w;
-        f0 = f0 + w;
-        f2 = ml20(ch01);
-        w = ml30(ch01);
-        f3 = f2 - w;
-        f2 = f2 + w;
-
         x -= 4;
-        x[0] = f0 + f2;
-        x[2] = f0 - f2;
-        x[1] = f1 + f3;
-        x[3] = f1 - f3;
-
-        f0 = ml01(ch01);
-        w = ml11(ch01);
-        f1 = f0 - w;
-        f0 = f0 + w;
-        f2 = ml21(ch01);
-        w = ml31(ch01);
-        f3 = f2 - w;
-        f2 = f2 + w;
-
-        x[BLKSIZE / 2 + 0] = f0 + f2;
-        x[BLKSIZE / 2 + 2] = f0 - f2;
-        x[BLKSIZE / 2 + 1] = f1 + f3;
-        x[BLKSIZE / 2 + 3] = f1 - f3;
+        butterfly4(x, ml00(ch01), ml10(ch01), ml20(ch01), ml30(ch01));
+        butterfly4(x + BLKSIZE / 2, ml01(ch01), ml11(ch01), ml21(ch01), ml31(ch01));
     } while (--jj >= 0);
 
 #undef window

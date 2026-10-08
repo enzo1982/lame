@@ -77,6 +77,7 @@ noinst_HEADERS= \
 	bitstream.h \
 	encoder.h \
 	fft.h \
+	fft_pvt.h \
 	gain_analysis.h \
 	id3tag.h \
 	l3side.h \

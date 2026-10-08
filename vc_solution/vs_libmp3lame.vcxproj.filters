@@ -103,6 +103,9 @@
     <ClInclude Include="..\libmp3lame\fft.h">
       <Filter>Include</Filter>
     </ClInclude>
+    <ClInclude Include="..\libmp3lame\fft_pvt.h">
+      <Filter>Include</Filter>
+    </ClInclude>
     <ClInclude Include="..\libmp3lame\gain_analysis.h">
       <Filter>Include</Filter>
     </ClInclude>
