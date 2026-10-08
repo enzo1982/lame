@@ -1376,10 +1376,17 @@ lame_init_params(lame_global_flags * gfp)
 void
 lame_print_config(const lame_global_flags * gfp)
 {
-    lame_internal_flags const *const gfc = gfp->internal_flags;
-    SessionConfig_t const *const cfg = &gfc->cfg;
-    double const out_samplerate = cfg->samplerate_out;
-    double const in_samplerate = cfg->samplerate_in;
+    lame_internal_flags const *gfc;
+    SessionConfig_t const *cfg;
+    double  out_samplerate, in_samplerate;
+
+    if (!is_lame_global_flags_valid(gfp) || gfp->internal_flags == 0) {
+        return;
+    }
+    gfc = gfp->internal_flags;
+    cfg = &gfc->cfg;
+    out_samplerate = cfg->samplerate_out;
+    in_samplerate = cfg->samplerate_in;
 
     MSGF(gfc, "LAME %s %s (%s)\n", get_lame_version(), get_lame_os_bitness(), get_lame_url());
 
@@ -1464,9 +1471,15 @@ lame_print_config(const lame_global_flags * gfp)
 void
 lame_print_internals(const lame_global_flags * gfp)
 {
-    lame_internal_flags const *const gfc = gfp->internal_flags;
-    SessionConfig_t const *const cfg = &gfc->cfg;
+    lame_internal_flags const *gfc;
+    SessionConfig_t const *cfg;
     const char *pc = "";
+
+    if (!is_lame_global_flags_valid(gfp) || gfp->internal_flags == 0) {
+        return;
+    }
+    gfc = gfp->internal_flags;
+    cfg = &gfc->cfg;
 
     /*  compiler/processor optimizations, operational, etc.
      */

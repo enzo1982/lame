@@ -1024,6 +1024,20 @@ test_print_internals_routes_through_callback(LAME_UNUSED void **state)
 }
 
 /**
+ * @brief Checks that the two print calls do nothing for a NULL instance.
+ * @param state cmocka fixture state (unused).
+ *
+ * Every other entry point checks the instance first. Without the check,
+ * this test crashes.
+ */
+static void
+test_print_calls_ignore_a_null_instance(LAME_UNUSED void **state)
+{
+    lame_print_config(NULL);
+    lame_print_internals(NULL);
+}
+
+/**
  * @brief Builds the shared signal once for the whole group.
  * @param state cmocka group state (unused).
  * @return 0.
@@ -1063,6 +1077,7 @@ main(void)
         cmocka_unit_test(test_mp3_tags_fid_noop_without_tag),
         cmocka_unit_test(test_print_config_routes_through_callback),
         cmocka_unit_test(test_print_internals_routes_through_callback),
+        cmocka_unit_test(test_print_calls_ignore_a_null_instance),
     };
     return cmocka_run_group_tests(tests, group_setup, NULL);
 }

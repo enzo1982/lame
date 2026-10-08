@@ -462,6 +462,10 @@
 			    <li>Code that the library, the frontends, the Windows
 			        components and the tests carried in several copies is
 			        written once and shared.</li>
+			    <li><i>lame_print_config()</i> and
+			        <i>lame_print_internals()</i> no longer crash on an
+			        invalid instance; they do nothing, as the other calls
+			        do.</li>
 			    <li>New library function
 			        <i>lame_get_asm_optimizations()</i>, which reports
 			        whether an encoder instance still allows a given
