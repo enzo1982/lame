@@ -359,20 +359,63 @@ freePcmBuffer(PcmBuffer * b)
     }
 }
 
+/**
+ * @internal
+ * @brief Grows both channels of a sample buffer.
+ *
+ * @param b      the buffer.
+ * @param n      the number of samples per channel it must hold.
+ * @param bytes  the size of @p n samples of one channel, in bytes.
+ * @return 0, or -1 when memory runs out. The buffer then keeps its samples.
+ */
 static int
-addPcmBuffer(PcmBuffer * b, void *a0, void *a1, int read)
+growPcmBuffer(PcmBuffer * b, int n, int bytes)
+{
+    void   *ch;
+
+    ch = realloc(b->ch[0], bytes);
+    if (ch == NULL)
+        return -1;
+    b->ch[0] = ch;
+    ch = realloc(b->ch[1], bytes);
+    if (ch == NULL)
+        return -1;
+    b->ch[1] = ch;
+    b->n = n;
+    return 0;
+}
+
+/**
+ * @internal
+ * @brief Adds the samples of one read to a sample buffer.
+ *
+ * The samples to skip at the start are dropped first.
+ *
+ * @param b     the buffer, or NULL.
+ * @param a0    the first channel of the read, or NULL.
+ * @param a1    the second channel of the read, or NULL.
+ * @param read  the number of samples per channel that were read. Negative
+ *              after a read error.
+ * @param used  receives the number of samples that the buffer can hand out.
+ * @return 0, or -1 when memory runs out.
+ */
+static int
+addPcmBuffer(PcmBuffer * b, void *a0, void *a1, int read, int *used)
 {
     int     a_n;
 
+    *used = 0;
     if (b == 0) {
         return 0;
     }
     if (read < 0) {
-        return b->u - b->skip_end;
+        *used = b->u - b->skip_end;
+        return 0;
     }
     if (b->skip_start >= read) {
         b->skip_start -= read;
-        return b->u - b->skip_end;
+        *used = b->u - b->skip_end;
+        return 0;
     }
     a_n = read - b->skip_start;
 
@@ -383,9 +426,8 @@ addPcmBuffer(PcmBuffer * b, void *a0, void *a1, int read)
         int const b_have = b->w * b->n;
         int const b_need = b->w * (b->u + a_n);
         if (b_have < b_need) {
-            b->n = b->u + a_n;
-            b->ch[0] = realloc(b->ch[0], b_need);
-            b->ch[1] = realloc(b->ch[1], b_need);
+            if (growPcmBuffer(b, b->u + a_n, b_need) < 0)
+                return -1;
         }
         b->u += a_n;
         if (b->ch[0] != 0 && a0 != 0) {
@@ -400,7 +442,8 @@ addPcmBuffer(PcmBuffer * b, void *a0, void *a1, int read)
         }
     }
     b->skip_start = 0;
-    return b->u - b->skip_end;
+    *used = b->u - b->skip_end;
+    return 0;
 }
 
 static int
@@ -945,7 +988,8 @@ read_frame(lame_t gfp, PcmBuffer * pcm, int buffer[2][1152], short buffer16[2][1
     int     used = 0, read = 0;
     do {
         read = get_audio_common(gfp, buffer, buffer16, bufferf);
-        used = addPcmBuffer(pcm, left, right, read);
+        if (addPcmBuffer(pcm, left, right, read, &used) < 0)
+            return -1;
     } while (used <= 0 && read > 0);
     if (read < 0) {
         return read;

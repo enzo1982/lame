@@ -15,6 +15,7 @@
  *   encoder.
  * - The 16 bit conversion that @c --decode writes matches the integer path
  *   for every 16 bit value.
+ * - A read whose samples do not fit into memory returns an error.
  *
  * The helpers of the reader are static. So the test compiles @c get_audio.c
  * directly, as @c test_get_audio_wav.c does. The file tests use the reader of
@@ -39,10 +40,30 @@
 #include <string.h>
 #include <cmocka.h>
 
+#include <stdlib.h>
+
 #include "test_bytes.h"
 
+/** @brief While set, ::failing_realloc() fails. */
+static int realloc_fails = 0;
+
+/**
+ * @brief The realloc() of the reader under test. It fails while
+ *        ::realloc_fails is set, as realloc() does when memory runs out.
+ * @param p  the block to resize, or NULL.
+ * @param n  the new size in bytes.
+ * @return the resized block, or NULL.
+ */
+static void *
+failing_realloc(void *p, size_t n)
+{
+    return realloc_fails ? NULL : realloc(p, n);
+}
+
 /* the code under test (pulls in the static helpers) */
+#define realloc failing_realloc
 #include "get_audio.c"
+#undef realloc
 
 /**
  * @brief The largest 32-bit float below 1.0.
@@ -554,6 +575,31 @@ test_decode_reader_refuses_nan(void **state)
     close_reader(gfp);
 }
 
+/**
+ * @brief Checks that the reader returns an error when its sample buffer
+ *        cannot grow.
+ *
+ * The first read grows the buffer. Here realloc() fails, so the read must
+ * return a negative value and not a count of samples it did not store.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_buffer_growth_failure_is_an_error(LAME_UNUSED void **state)
+{
+    float   buffer[2][1152];
+    lame_t  gfp = lame_init();
+    int     got;
+
+    assert_non_null(gfp);
+    open_reader(gfp, float_wave(1, odd_samples, 7, 0), 0);
+    realloc_fails = 1;
+    got = get_audio_float(gfp, buffer);
+    realloc_fails = 0;
+    assert_true(got < 0);
+    close_reader(gfp);
+}
+
 /** @brief Registers the tests of the floating point reader and runs them. */
 int
 main(void)
@@ -575,6 +621,7 @@ main(void)
         cmocka_unit_test(test_integer_reader_refuses_float_file),
         cmocka_unit_test(test_decode_reader_converts),
         cmocka_unit_test(test_decode_reader_refuses_nan),
+        cmocka_unit_test(test_buffer_growth_failure_is_an_error),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
