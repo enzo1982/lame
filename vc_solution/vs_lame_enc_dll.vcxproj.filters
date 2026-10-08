@@ -23,6 +23,9 @@
     <ClInclude Include="..\Dll\BladeMP3EncDLL.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\Dll\lametag_scan.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Dll\BladeMP3EncDLL.def">

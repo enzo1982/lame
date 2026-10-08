@@ -140,6 +140,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Dll\BladeMP3EncDLL.h" />
+    <ClInclude Include="..\Dll\lametag_scan.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="vs_libmp3lame_nodec.vcxproj">

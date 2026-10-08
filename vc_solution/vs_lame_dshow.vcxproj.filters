@@ -52,6 +52,9 @@
     <ClInclude Include="..\DShow\Encoder.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\Dll\lametag_scan.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\DShow\iaudioprops.h">
       <Filter>Header Files</Filter>
     </ClInclude>

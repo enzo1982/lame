@@ -6,6 +6,7 @@ EXTRA_DIST = BladeMP3EncDLL.c \
 	BladeMP3EncDLL.def \
 	BladeMP3EncDLL.h \
 	Example.cpp \
+	lametag_scan.h \
 	LameDLLInterface.htm \
 	MP3export.pas \
 	Makefile.mingw32

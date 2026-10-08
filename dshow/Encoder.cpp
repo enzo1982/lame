@@ -22,6 +22,7 @@
 
 #include <streams.h>
 #include "Encoder.h"
+#include "lametag_scan.h"
 
 
 /**
@@ -472,11 +473,8 @@ HRESULT CEncoder::maybeSyncWord(IStream *pStream)
     if ( nbytes != sizeof(mp3_frame_header) ) {
         return E_FAIL;
     }
-    if ( mp3_frame_header[0] != 0xffu ) {
+    if ( !lametag_is_frame_sync(mp3_frame_header) ) {
         return S_FALSE; /* doesn't look like a sync word */
-    }
-    if ( (mp3_frame_header[1] & 0xE0u) != 0xE0u ) {
-		return S_FALSE; /* doesn't look like a sync word */
     }
     return S_OK;
 }
@@ -486,7 +484,7 @@ HRESULT CEncoder::skipId3v2(IStream *pStream, size_t lametag_frame_size)
 	HRESULT hr = S_OK;
     ULONG  nbytes;
     size_t  id3v2TagSize = 0;
-    unsigned char id3v2Header[10];
+    unsigned char id3v2Header[ID3V2_HEADER_BYTES];
 	LARGE_INTEGER seekTo;
 
     /* seek to the beginning of the stream */
@@ -501,17 +499,7 @@ HRESULT CEncoder::skipId3v2(IStream *pStream, size_t lametag_frame_size)
 	if(nbytes != sizeof(id3v2Header)) {
         return E_FAIL;  /* not readable, maybe opened Write-Only */
     }
-    /* does the stream begin with the ID3 version 2 file identifier? */
-    if (!strncmp((char *) id3v2Header, "ID3", 3)) {
-        /* the tag size (minus the 10-byte header) is encoded into four
-        * bytes where the most significant bit is clear in each byte
-        */
-        id3v2TagSize = (((id3v2Header[6] & 0x7f) << 21)
-            | ((id3v2Header[7] & 0x7f) << 14)
-            | ((id3v2Header[8] & 0x7f) << 7)
-            | (id3v2Header[9] & 0x7f))
-            + sizeof id3v2Header;
-    }
+    id3v2TagSize = (size_t) lametag_audio_offset(id3v2Header);
     /* Seek to the beginning of the audio stream */
 	seekTo.QuadPart = id3v2TagSize;
 	if (FAILED(hr = pStream->Seek(seekTo, STREAM_SEEK_SET, NULL))) {

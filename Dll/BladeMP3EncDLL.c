@@ -26,6 +26,7 @@
 #include <windows.h>
 #include <Windef.h>
 #include "BladeMP3EncDLL.h"
+#include "lametag_scan.h"
 #include <limits.h>
 #include <stdio.h>
 
@@ -806,10 +807,7 @@ maybeSyncWord(FILE* fpStream)
     if ( nbytes != sizeof(mp3_frame_header) ) {
         return -1;
     }
-    if ( mp3_frame_header[0] != 0xffu ) {
-        return -1; /* doesn't look like a sync word */
-    }
-    if ( (mp3_frame_header[1] & 0xE0u) != 0xE0u ) {
+    if ( !lametag_is_frame_sync(mp3_frame_header) ) {
         return -1; /* doesn't look like a sync word */
     }
     return 0;
@@ -823,7 +821,7 @@ skipId3v2(FILE * fpStream, size_t lametag_frame_size)
        size is, so the offset is held in one. The tag size field is 28 bits,
        so it fits. */
     long    id3v2TagSize = 0;
-    unsigned char id3v2Header[10];
+    unsigned char id3v2Header[ID3V2_HEADER_BYTES];
 
     /* seek to the beginning of the stream */
     if (fseek(fpStream, 0, SEEK_SET) != 0) {
@@ -834,17 +832,7 @@ skipId3v2(FILE * fpStream, size_t lametag_frame_size)
     if (nbytes != sizeof(id3v2Header)) {
         return -3;  /* not readable, maybe opened Write-Only */
     }
-    /* does the stream begin with the ID3 version 2 file identifier? */
-    if (!memcmp(id3v2Header, "ID3", 3)) {
-        /* the tag size (minus the 10-byte header) is encoded into four
-        * bytes where the most significant bit is clear in each byte
-        */
-        id3v2TagSize = (((id3v2Header[6] & 0x7f) << 21)
-            | ((id3v2Header[7] & 0x7f) << 14)
-            | ((id3v2Header[8] & 0x7f) << 7)
-            | (id3v2Header[9] & 0x7f))
-            + sizeof id3v2Header;
-    }
+    id3v2TagSize = lametag_audio_offset(id3v2Header);
     /* Seek to the beginning of the audio stream */
     if ( fseek(fpStream, id3v2TagSize, SEEK_SET) != 0 ) {
         return -2;
