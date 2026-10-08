@@ -30,6 +30,7 @@ char   *strchr(), *strrchr();
 
 #include <stdio.h>
 #include <stdarg.h>
+#include "lame.h"
 #include "console.h"
 #include "main.h"
 
@@ -335,6 +336,20 @@ set_debug_file(const char *fn)
             }
         }
     }
+}
+
+/**
+ * @internal
+ * @brief Sends the messages, the errors and the debug output of an encoder
+ *        instance to the frontend's console.
+ * @param gfp  the encoder instance.
+ */
+void
+frontend_attach_reporting(lame_global_flags * gfp)
+{
+    lame_set_msgf(gfp, &frontend_msgf);
+    lame_set_errorf(gfp, &frontend_errorf);
+    lame_set_debugf(gfp, &frontend_debugf);
 }
 
 /* end of console.c */

@@ -223,9 +223,7 @@ lame_main(lame_t gf, int argc, char **argv)
         return 1;
     }
 
-    lame_set_errorf(gf, &frontend_errorf);
-    lame_set_debugf(gf, &frontend_debugf);
-    lame_set_msgf(gf, &frontend_msgf);
+    frontend_attach_reporting(gf);
 
     /* Remove the argumets that are rtp related, and then 
      * parse the command line arguments, setting various flags in the
@@ -281,10 +279,8 @@ lame_main(lame_t gf, int argc, char **argv)
     /* Now that all the options are set, lame needs to analyze them and
      * set some more options 
      */
-    ret = lame_init_params(gf);
+    ret = frontend_init_params(gf);
     if (ret < 0) {
-        if (ret == -1)
-            display_bitrates(stderr);
         rtp_deinitialization();
         fclose(outf);
         close_infile();

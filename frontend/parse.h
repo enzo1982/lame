@@ -10,6 +10,7 @@ int     short_help(const lame_global_flags * gfp, FILE * const fp, const char *P
 int     long_help(const lame_global_flags * gfp, FILE * const fp, const char *ProgramName,
                   int lessmode);
 int     display_bitrates(FILE * const fp);
+int     frontend_init_params(lame_global_flags * gfp);
 
 int     parse_args(lame_global_flags * gfp, int argc, char **argv, char *const inPath,
                    char *const outPath, char *const outDir, char **nogap_inPath, int *num_nogap);

@@ -1104,6 +1104,25 @@ display_bitrates(FILE * const fp)
     return 0;
 }
 
+/**
+ * @internal
+ * @brief Calls lame_init_params(), and prints the table of valid bitrates
+ *        when it rejects the bitrate.
+ * @param gfp  the encoder instance.
+ * @return the result of lame_init_params(). -1 is the result that the table
+ *         goes with.
+ */
+int
+frontend_init_params(lame_global_flags * gfp)
+{
+    int const ret = lame_init_params(gfp);
+
+    if (ret == -1) {
+        display_bitrates(stderr);
+    }
+    return ret;
+}
+
 
 /*  note: for presets it would be better to externalize them in a file.
     suggestion:  lame --preset <file-name> ...

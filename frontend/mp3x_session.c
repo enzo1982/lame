@@ -405,6 +405,39 @@ mp3x_session_reset_fields(Mp3xSession *s)
 }
 
 
+/**
+ * \internal
+ * \brief Opens the input file of a session, initializes its encoder and
+ *        brings the analyzer up.
+ *
+ * Calls init_infile(), then lame_init_params() through
+ * frontend_init_params(), then mp3x_core_init(), which closes any decoder
+ * handle that it may still hold.
+ *
+ * \param s     the session, with its encoder set up.
+ * \param path  the input file.
+ * \param err   receives the error of the step that failed.
+ * \return TRUE on success. FALSE when a step fails; the caller then closes
+ *         the input file.
+ */
+static gboolean
+mp3x_session_open_input(Mp3xSession *s, const char *path, GError **err)
+{
+    if (init_infile(s->gf, path) < 0) {
+        g_set_error(err, MP3X_OPEN_ERROR, MP3X_OPEN_ERR_INIT_INFILE,
+                    "mp3x: unable to initialize input file '%s'", path);
+        return FALSE;
+    }
+    if (frontend_init_params(s->gf) < 0) {
+        g_set_error(err, MP3X_OPEN_ERROR, MP3X_OPEN_ERR_INIT_PARAMS,
+                    "mp3x: fatal error during initialization");
+        return FALSE;
+    }
+    mp3x_core_init();
+    return TRUE;
+}
+
+
 /* Internal: the post-prevalidation common path. Assumes path is heap-owned
    and transferable. Takes ownership of `path` on success; frees it on
    failure. */
@@ -423,9 +456,7 @@ mp3x_session_install(Mp3xSession *s,
     }
 
     /* Standard reporting hooks so LAME's diagnostics reach the frontend. */
-    lame_set_errorf(s->gf, &frontend_errorf);
-    lame_set_debugf(s->gf, &frontend_debugf);
-    lame_set_msgf(s->gf, &frontend_msgf);
+    frontend_attach_reporting(s->gf);
 
     /* 2. Turn on the analyzer hooks. */
     (void) lame_set_analysis(s->gf, 1);
@@ -438,35 +469,16 @@ mp3x_session_install(Mp3xSession *s,
     if (s->input_format != sf_unknown)
         global_reader.input_format = s->input_format;
 
-    if (init_infile(s->gf, path) < 0) {
-        g_set_error(err, MP3X_OPEN_ERROR, MP3X_OPEN_ERR_INIT_INFILE,
-                    "mp3x: unable to initialize input file '%s'", path);
+    /* 4. Open the input, initialize the encoder and the analyzer. */
+    if (!mp3x_session_open_input(s, path, err))
         goto fail_with_infile;
-    }
 
-    /* 4. lame_init_params. On failure (-1 specifically) LAME documents a
-          bitrate-table dump; we mirror the existing frontend behavior. */
-    {
-        int ret = lame_init_params(s->gf);
-        if (ret < 0) {
-            if (ret == -1)
-                display_bitrates(stderr);
-            g_set_error(err, MP3X_OPEN_ERROR, MP3X_OPEN_ERR_INIT_PARAMS,
-                        "mp3x: fatal error during initialization");
-            goto fail_with_infile;
-        }
-    }
-
-    /* 5. Bring the analyzer engine up. mp3x_core_init is idempotent and
-          closes any prior decoder handle it may still hold. */
-    mp3x_core_init();
-
-    /* 6. Install the path. */
+    /* 5. Install the path. */
     s->in_path      = path;
     s->display_name = display_name;
     s->is_open      = TRUE;
 
-    /* 7. Recompute the source default from the actual format. MP3 input
+    /* 6. Recompute the source default from the actual format. MP3 input
           defaults to mpg123-side analysis; PCM (WAV/AIFF) to LAME-side. */
     s->source = is_mpeg_file_format(global_reader.input_format) ? 1 : 0;
 
@@ -535,9 +547,7 @@ mp3x_session_open_cli_initial(Mp3xSession *s, Mp3xDriver *d,
                     "mp3x: lame_init() failed; out of memory");
         return MP3X_CLI_OPEN_ERROR;
     }
-    lame_set_errorf(s->gf, &frontend_errorf);
-    lame_set_debugf(s->gf, &frontend_debugf);
-    lame_set_msgf(s->gf, &frontend_msgf);
+    frontend_attach_reporting(s->gf);
 
     /* parse_args runs against the FULL original argv. It sets Cat-1
        encoder/analyzer options, applies any input-specific options
@@ -584,27 +594,8 @@ mp3x_session_open_cli_initial(Mp3xSession *s, Mp3xDriver *d,
     /* Turn on the analyzer hooks (parse_args may not have). */
     (void) lame_set_analysis(s->gf, 1);
 
-    /* init_infile from the actual path. */
-    if (init_infile(s->gf, pre.fs_path) < 0) {
-        g_set_error(err, MP3X_OPEN_ERROR, MP3X_OPEN_ERR_INIT_INFILE,
-                    "mp3x: unable to initialize input file '%s'", pre.fs_path);
+    if (!mp3x_session_open_input(s, pre.fs_path, err))
         goto fail_with_infile;
-    }
-
-    /* lame_init_params. */
-    {
-        int ret = lame_init_params(s->gf);
-        if (ret < 0) {
-            if (ret == -1)
-                display_bitrates(stderr);
-            g_set_error(err, MP3X_OPEN_ERROR, MP3X_OPEN_ERR_INIT_PARAMS,
-                        "mp3x: fatal error during initialization");
-            goto fail_with_infile;
-        }
-    }
-
-    /* Analyzer engine up. */
-    mp3x_core_init();
 
     /* Take ownership of the prepared path and display metadata. */
     s->in_path      = g_steal_pointer(&pre.fs_path);

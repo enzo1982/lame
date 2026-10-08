@@ -13,6 +13,8 @@
 # include <windows.h>
 #endif
 
+#include "lame.h"
+
 /* Mark a function that takes a printf format: a variadic one as printf itself
    is, a va_list one with no argument index. Expands to nothing where the
    compiler has no such attribute, including MSVC. */
@@ -55,6 +57,7 @@ extern void frontend_msgf(const char *format, va_list ap) CONSOLE_PRINTF(1, 0);
 extern void frontend_debugf(const char *format, va_list ap) CONSOLE_PRINTF(1, 0);
 extern void frontend_errorf(const char *format, va_list ap) CONSOLE_PRINTF(1, 0);
 extern void frontend_print_null(const char *format, va_list ap) CONSOLE_PRINTF(1, 0);
+extern void frontend_attach_reporting(lame_global_flags * gfp);
 
 int     console_printf(const char *format, ...) CONSOLE_PRINTF(1, 2);
 int     error_printf(const char *format, ...) CONSOLE_PRINTF(1, 2);

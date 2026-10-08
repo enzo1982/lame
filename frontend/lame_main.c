@@ -832,9 +832,7 @@ lame_main(lame_t gf, int argc, char **argv)
     int     i;
     FILE   *outf = NULL;
 
-    lame_set_msgf(gf, &frontend_msgf);
-    lame_set_errorf(gf, &frontend_errorf);
-    lame_set_debugf(gf, &frontend_debugf);
+    frontend_attach_reporting(gf);
     if (argc <= 1) {
         usage(stderr, argv[0]); /* no command-line args, print usage, exit  */
         return 1;
@@ -894,11 +892,8 @@ lame_main(lame_t gf, int argc, char **argv)
     /* Now that all the options are set, lame needs to analyze them and
      * set some more internal options and check for problems
      */
-    ret = lame_init_params(gf);
+    ret = frontend_init_params(gf);
     if (ret < 0) {
-        if (ret == -1) {
-            display_bitrates(stderr);
-        }
         error_printf("fatal error during initialization\n");
         fclose(outf);
         close_infile();
