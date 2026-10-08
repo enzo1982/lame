@@ -200,6 +200,9 @@ private:
     CMpegAudEnc(LPUNKNOWN lpunk, HRESULT *phr);
 
     HRESULT FlushEncodedSamples();
+    HRESULT FlushStream();
+    HRESULT FlushFrames();
+    IStream * DownstreamStream();
 
     void ReadPresetSettings(MPEG_ENCODER_CONFIG *pmec);
     HRESULT GetConfigField(DWORD MPEG_ENCODER_CONFIG::*field, DWORD *value, LPCTSTR name);

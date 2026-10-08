@@ -291,6 +291,26 @@ LPAMOVIESETUP_FILTER CMpegAudEnc::GetSetupData()
 }
 
 
+/**
+ * A gap between the time stamp of an input sample and the end of the input
+ * before it, larger than this, makes a resync point: 1 ms.
+ */
+static const REFERENCE_TIME RESYNC_THRESHOLD = UNITS / MILLISECONDS;
+
+/**
+ * Returns the index of the resync point after the given one, in the ring of
+ * RESYNC_COUNT points.
+ *
+ * \param idx  the index of a resync point.
+ * \return the index of the next one.
+ */
+static int
+ring_next(int idx)
+{
+    return idx < RESYNC_COUNT - 1 ? idx + 1 : 0;
+}
+
+
 HRESULT CMpegAudEnc::Receive(IMediaSample * pSample)
 {
     CAutoLock lock(&m_cs);
@@ -328,7 +348,7 @@ HRESULT CMpegAudEnc::Receive(IMediaSample * pSample)
 
                 // if old sync data is applied and gap is greater than 1 ms
                 // then make a new synchronization point
-                if (rtGap > 10000 || (m_allowOverlap && rtGap < -10000))
+                if (rtGap > RESYNC_THRESHOLD || (m_allowOverlap && rtGap < -RESYNC_THRESHOLD))
                 {
                     sync->sample    = m_samplesIn;
                     sync->delta     = rtGap;
@@ -336,10 +356,7 @@ HRESULT CMpegAudEnc::Receive(IMediaSample * pSample)
 
                     m_rtEstimated  += sync->delta;
 
-                    if (m_sync_in_idx < (RESYNC_COUNT - 1))
-                        m_sync_in_idx++;
-                    else
-                        m_sync_in_idx = 0;
+                    m_sync_in_idx = ring_next(m_sync_in_idx);
                 }
             }
         }
@@ -367,42 +384,70 @@ HRESULT CMpegAudEnc::Receive(IMediaSample * pSample)
 
 
 
+/**
+ * Sends the encoded data that is ready downstream, in the output mode of the
+ * filter: blocks of a byte stream, or MP3 frames.
+ *
+ * \return S_OK.
+ */
 HRESULT CMpegAudEnc::FlushEncodedSamples()
+{
+    return m_bStreamOutput ? FlushStream() : FlushFrames();
+}
+
+
+/**
+ * Sends the encoded data downstream in one block of the stream alignment of
+ * the downstream filter, stamped with its byte position, if a block is ready.
+ *
+ * \return S_OK.
+ */
+HRESULT CMpegAudEnc::FlushStream()
 {
     IMediaSample * pOutSample = NULL;
     BYTE * pDst = NULL;
+    HRESULT hr = S_OK;
+    const unsigned char *   pblock      = NULL;
+    int iBufferSize;
+    int iBlockLength = m_Encoder.GetBlockAligned(&pblock, &iBufferSize, m_cbStreamAlignment);
 
-    if(m_bStreamOutput)
-    {
-        HRESULT hr = S_OK;
-        const unsigned char *   pblock      = NULL;
-        int iBufferSize;
-        int iBlockLength = m_Encoder.GetBlockAligned(&pblock, &iBufferSize, m_cbStreamAlignment);
-
-        if(!iBlockLength)
-            return S_OK;
-
-        hr = m_pOutput->GetDeliveryBuffer(&pOutSample, NULL, NULL, 0);
-        if (hr == S_OK && pOutSample)
-        {
-            hr = pOutSample->GetPointer(&pDst);
-            if (hr == S_OK && pDst)
-            {
-                CopyMemory(pDst, pblock, iBlockLength);
-                if (iBufferSize > pOutSample->GetSize())
-                    iBufferSize = pOutSample->GetSize();
-                if (iBufferSize > iBlockLength)
-                    ZeroMemory(pDst + iBlockLength, iBufferSize - iBlockLength);
-                REFERENCE_TIME rtEndPos = m_rtBytePos + iBufferSize;
-                EXECUTE_ASSERT(S_OK == pOutSample->SetTime(&m_rtBytePos, &rtEndPos));
-                pOutSample->SetActualDataLength(iBufferSize);
-                m_rtBytePos += iBlockLength;
-                m_pOutput->Deliver(pOutSample);
-            }
-            pOutSample->Release();
-        }
+    if(!iBlockLength)
         return S_OK;
+
+    hr = m_pOutput->GetDeliveryBuffer(&pOutSample, NULL, NULL, 0);
+    if (hr == S_OK && pOutSample)
+    {
+        hr = pOutSample->GetPointer(&pDst);
+        if (hr == S_OK && pDst)
+        {
+            CopyMemory(pDst, pblock, iBlockLength);
+            if (iBufferSize > pOutSample->GetSize())
+                iBufferSize = pOutSample->GetSize();
+            if (iBufferSize > iBlockLength)
+                ZeroMemory(pDst + iBlockLength, iBufferSize - iBlockLength);
+            REFERENCE_TIME rtEndPos = m_rtBytePos + iBufferSize;
+            EXECUTE_ASSERT(S_OK == pOutSample->SetTime(&m_rtBytePos, &rtEndPos));
+            pOutSample->SetActualDataLength(iBufferSize);
+            m_rtBytePos += iBlockLength;
+            m_pOutput->Deliver(pOutSample);
+        }
+        pOutSample->Release();
     }
+    return S_OK;
+}
+
+
+/**
+ * Sends each MP3 frame that is ready downstream in a media sample of its
+ * own, stamped with its time. A resync point that the output has reached
+ * moves the time first.
+ *
+ * \return S_OK.
+ */
+HRESULT CMpegAudEnc::FlushFrames()
+{
+    IMediaSample * pOutSample = NULL;
+    BYTE * pDst = NULL;
 
     if (m_rtStreamTime < 0)
         m_rtStreamTime = 0;
@@ -420,10 +465,7 @@ HRESULT CMpegAudEnc::FlushEncodedSamples()
             m_rtStreamTime += m_sync[m_sync_out_idx].delta;
             m_sync[m_sync_out_idx].applied = TRUE;
 
-            if (m_sync_out_idx < (RESYNC_COUNT - 1))
-                m_sync_out_idx++;
-            else
-                m_sync_out_idx = 0;
+            m_sync_out_idx = ring_next(m_sync_out_idx);
         }
 
         REFERENCE_TIME rtStart = m_rtStreamTime;
@@ -472,7 +514,7 @@ HRESULT CMpegAudEnc::StartStreaming()
     {
         dwOutSampleRate = ((WAVEFORMATEX *) m_pOutput->CurrentMediaType().Format())->nSamplesPerSec;
     }
-    m_samplesPerFrame   = (dwOutSampleRate >= 32000) ? 1152 : 576;
+    m_samplesPerFrame   = (dwOutSampleRate >= 32000) ? MPEG1_SAMPLES_PER_FRAME : MPEG2_SAMPLES_PER_FRAME;
     m_rtFrameTime = MulDiv(10000000, m_samplesPerFrame, dwOutSampleRate);
     m_samplesIn = m_samplesOut = 0;
     m_rtStreamTime = -1;
@@ -502,9 +544,17 @@ HRESULT CMpegAudEnc::StartStreaming()
 }
 
 
-HRESULT CMpegAudEnc::StopStreaming()
+/**
+ * Returns the IStream interface of the downstream input pin, for stream
+ * output. The caller releases it.
+ *
+ * \return the interface. NULL if the output is not a byte stream, is not
+ *         connected, or the pin has no IStream interface.
+ */
+IStream * CMpegAudEnc::DownstreamStream()
 {
-  IStream *pStream = NULL;
+    IStream *pStream = NULL;
+
     if(m_bStreamOutput && m_pOutput->IsConnected() != FALSE)
     {
         IPin * pDwnstrmInputPin = m_pOutput->GetConnected();
@@ -513,7 +563,13 @@ HRESULT CMpegAudEnc::StopStreaming()
             pStream = NULL;
         }
     }
-    
+    return pStream;
+}
+
+
+HRESULT CMpegAudEnc::StopStreaming()
+{
+    IStream *pStream = DownstreamStream();
 
     m_Encoder.Close(pStream);
 
@@ -537,18 +593,7 @@ HRESULT CMpegAudEnc::EndOfStream()
     m_Encoder.Finish();
     FlushEncodedSamples();
 
-    IStream *pStream = NULL;
-    if(m_bStreamOutput && m_pOutput->IsConnected() != FALSE)
-    {
-        IPin * pDwnstrmInputPin = m_pOutput->GetConnected();
-        if(pDwnstrmInputPin)
-        {
-            if(FAILED(pDwnstrmInputPin->QueryInterface(IID_IStream, (LPVOID*)(&pStream))))
-            {
-                pStream = NULL;	
-            }
-        }
-    }
+    IStream *pStream = DownstreamStream();
 
     if(pStream)
     {
@@ -585,17 +630,13 @@ HRESULT CMpegAudEnc::BeginFlush()
         m_Encoder.Finish();
         FlushEncodedSamples();
 
-        IStream *pStream = NULL;
-        if(m_bStreamOutput && m_pOutput->IsConnected() != FALSE)
+        IStream *pStream = DownstreamStream();
+        if(pStream)
         {
-            IPin * pDwnstrmInputPin = m_pOutput->GetConnected();
-            if(pDwnstrmInputPin && SUCCEEDED(pDwnstrmInputPin->QueryInterface(IID_IStream, (LPVOID*)(&pStream))))
-            {
-                ULARGE_INTEGER size;
-                size.QuadPart = m_rtBytePos;
-                pStream->SetSize(size);	
-                pStream->Release();
-            }
+            ULARGE_INTEGER size;
+            size.QuadPart = m_rtBytePos;
+            pStream->SetSize(size);
+            pStream->Release();
         }
         m_rtStreamTime = -1;
         m_rtBytePos = 0;

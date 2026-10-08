@@ -42,6 +42,9 @@ inline unsigned int BitRateValue(int lsf, int index)
 {
     return (unsigned int) lame_get_bitrate(lsf ? 0 : 1, index + 1);
 }
+
+/** \brief Samples in one Layer III frame of MPEG-1, and of MPEG-2 and MPEG-2.5. */
+enum { MPEG1_SAMPLES_PER_FRAME = 1152, MPEG2_SAMPLES_PER_FRAME = 576 };
 /*
 #define STEREO           0
 #define JOINT_STEREO     1

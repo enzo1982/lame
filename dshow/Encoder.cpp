@@ -350,9 +350,6 @@ enum {
     EMPHASIS_RESERVED = 2       /**< the emphasis value that is reserved */
 };
 
-/** \brief Samples in one Layer III frame of MPEG-1, and of MPEG-2 and MPEG-2.5. */
-enum { MPEG1_SAMPLES_PER_FRAME = 1152, MPEG2_SAMPLES_PER_FRAME = 576 };
-
 /**
  * \brief The library's MPEG version for each value of the header's version
  *        field: 0 is MPEG-2.5, 1 is reserved, 2 is MPEG-2, 3 is MPEG-1.
