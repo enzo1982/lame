@@ -19,6 +19,7 @@
  *
  * Two tests check the other direction: the data size that the decoder writes
  * into the header of a WAV file (@c wav_data_size(), @c WriteWaveHeader()).
+ * Two more check the byte order of the samples it writes (@c put_audio16()).
  *
  * @c parse_wave_header() is static. So the test compiles the reader directly
  * into the test, in the same way as @c test_get_audio_aiff.c.
@@ -475,6 +476,97 @@ test_header_size_capped(LAME_UNUSED void **state)
                      WAV_DATA_SIZE_MAX + WAV_RIFF_SIZE_EXTRA);
 }
 
+/** @brief The number of samples per channel in the writer tests. */
+#define WRITER_SAMPLES 4
+/** @brief The largest number of bytes the writer tests read back. */
+#define WRITER_BYTES_MAX (2 * 2 * WRITER_SAMPLES)
+
+/**
+ * @brief Writes ::WRITER_SAMPLES samples per channel with @c put_audio16()
+ *        to a temporary stream and compares the bytes with @p expected.
+ *
+ * The first channel holds 0x1234, -2, -32768 and 32767. The second channel
+ * holds 0x0102, -256, 1 and -1.
+ *
+ * @param nch       the number of channels, 1 or 2.
+ * @param raw       1 for raw output (-t), 0 for WAV output.
+ * @param swap      1 for -x, 0 without.
+ * @param expected  the bytes the file must hold.
+ * @param n         the size of @p expected.
+ */
+static void
+expect_samples(int nch, int raw, int swap, const unsigned char *expected, size_t n)
+{
+    static const short left[WRITER_SAMPLES] = { 0x1234, -2, -32768, 32767 };
+    static const short right[WRITER_SAMPLES] = { 0x0102, -256, 1, -1 };
+    static short buffer[2][FRAME_BUFFER_SAMPLES];
+    unsigned char out[WRITER_BYTES_MAX];
+    FILE   *f = tmpfile();
+
+    assert_non_null(f);
+    memcpy(buffer[0], left, sizeof(left));
+    memcpy(buffer[1], right, sizeof(right));
+    global_decoder.disable_wav_header = raw;
+    global_reader.swapbytes = swap;
+    global_writer.flush_write = 0;
+    assert_int_equal(put_audio16(f, buffer, WRITER_SAMPLES, nch), 0);
+    global_decoder.disable_wav_header = 0;
+    global_reader.swapbytes = 0;
+    rewind(f);
+    assert_int_equal(fread(out, 1, sizeof(out), f), n);
+    fclose(f);
+    assert_memory_equal(out, expected, n);
+}
+
+/** @brief What ::expect_samples() writes for one channel, little endian. */
+static const unsigned char mono_le[] = {
+    0x34, 0x12, 0xfe, 0xff, 0x00, 0x80, 0xff, 0x7f
+};
+/** @brief Two interleaved channels, little endian. */
+static const unsigned char stereo_le[] = {
+    0x34, 0x12, 0x02, 0x01, 0xfe, 0xff, 0x00, 0xff,
+    0x00, 0x80, 0x01, 0x00, 0xff, 0x7f, 0xff, 0xff
+};
+/** @brief Big endian bytes for one channel. */
+static const unsigned char mono_be[] = {
+    0x12, 0x34, 0xff, 0xfe, 0x80, 0x00, 0x7f, 0xff
+};
+/** @brief Big endian bytes for two interleaved channels. */
+static const unsigned char stereo_be[] = {
+    0x12, 0x34, 0x01, 0x02, 0xff, 0xfe, 0xff, 0x00,
+    0x80, 0x00, 0x00, 0x01, 0x7f, 0xff, 0xff, 0xff
+};
+
+/**
+ * @brief Checks that WAV output and raw output without -x are little endian.
+ *
+ * A WAV file is little endian with -x too.
+ *
+ * @param state unused.
+ */
+static void
+test_writer_little_endian(LAME_UNUSED void **state)
+{
+    expect_samples(1, 0, 0, mono_le, sizeof(mono_le));
+    expect_samples(2, 0, 0, stereo_le, sizeof(stereo_le));
+    expect_samples(1, 0, 1, mono_le, sizeof(mono_le));
+    expect_samples(2, 0, 1, stereo_le, sizeof(stereo_le));
+    expect_samples(1, 1, 0, mono_le, sizeof(mono_le));
+    expect_samples(2, 1, 0, stereo_le, sizeof(stereo_le));
+}
+
+/**
+ * @brief Checks that raw output with -x is big endian.
+ *
+ * @param state unused.
+ */
+static void
+test_writer_big_endian(LAME_UNUSED void **state)
+{
+    expect_samples(1, 1, 1, mono_be, sizeof(mono_be));
+    expect_samples(2, 1, 1, stereo_be, sizeof(stereo_be));
+}
+
 /* --- fixture ----------------------------------------------------------- */
 
 /** @brief Per-test setup: stores a new encoder instance in @p state. */
@@ -512,6 +604,8 @@ main(void)
                                         setup_lame, lame_fixture_teardown),
         cmocka_unit_test(test_header_above_2gib),
         cmocka_unit_test(test_header_size_capped),
+        cmocka_unit_test(test_writer_little_endian),
+        cmocka_unit_test(test_writer_big_endian),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

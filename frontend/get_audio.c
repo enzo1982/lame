@@ -2464,59 +2464,47 @@ is_mpeg_file_format(int input_file_format)
 }
 
 
-#define LOW__BYTE(x) (x & 0x00ff)
-#define HIGH_BYTE(x) ((x >> 8) & 0x00ff)
-
+/**
+ * @internal
+ * @brief Writes decoded 16-bit samples to the output file.
+ *
+ * Two channels are written interleaved. A WAV file is little endian. Raw
+ * output (-t) is little endian, or big endian with -x.
+ *
+ * @param outf    the output file.
+ * @param Buffer  the samples of the first and the second channel.
+ * @param iread   the number of samples per channel.
+ * @param nch     the number of channels, 1 or 2.
+ * @return 0, or -1 when the write or the flush fails.
+ */
 int
 put_audio16(FILE * outf, short Buffer[2][FRAME_BUFFER_SAMPLES], int iread, int nch)
 {
-    char    data[2 * FRAME_BUFFER_SAMPLES * 2];
-    int     i, m = 0;
+    unsigned short data[2 * FRAME_BUFFER_SAMPLES];
+    enum ByteOrder const out_order =
+        (global_decoder.disable_wav_header && global_reader.swapbytes)
+        ? ByteOrderBigEndian : ByteOrderLittleEndian;
+    int const count = nch == 1 ? iread : 2 * iread;
+    int     i;
 
-    if (global_decoder.disable_wav_header && global_reader.swapbytes) {
-        if (nch == 1) {
-            for (i = 0; i < iread; i++) {
-                short   x = Buffer[0][i];
-                /* write 16 Bits High Low */
-                data[m++] = HIGH_BYTE(x);
-                data[m++] = LOW__BYTE(x);
-            }
-        }
-        else {
-            for (i = 0; i < iread; i++) {
-                short   x = Buffer[0][i], y = Buffer[1][i];
-                /* write 16 Bits High Low */
-                data[m++] = HIGH_BYTE(x);
-                data[m++] = LOW__BYTE(x);
-                /* write 16 Bits High Low */
-                data[m++] = HIGH_BYTE(y);
-                data[m++] = LOW__BYTE(y);
-            }
+    if (nch == 1) {
+        for (i = 0; i < iread; i++) {
+            data[i] = (unsigned short) Buffer[0][i];
         }
     }
     else {
-        if (nch == 1) {
-            for (i = 0; i < iread; i++) {
-                short   x = Buffer[0][i];
-                /* write 16 Bits Low High */
-                data[m++] = LOW__BYTE(x);
-                data[m++] = HIGH_BYTE(x);
-            }
-        }
-        else {
-            for (i = 0; i < iread; i++) {
-                short   x = Buffer[0][i], y = Buffer[1][i];
-                /* write 16 Bits Low High */
-                data[m++] = LOW__BYTE(x);
-                data[m++] = HIGH_BYTE(x);
-                /* write 16 Bits Low High */
-                data[m++] = LOW__BYTE(y);
-                data[m++] = HIGH_BYTE(y);
-            }
+        for (i = 0; i < iread; i++) {
+            data[2 * i] = (unsigned short) Buffer[0][i];
+            data[2 * i + 1] = (unsigned short) Buffer[1][i];
         }
     }
-    if (m > 0) {
-        if (fwrite(data, 1, m, outf) != (size_t) m)
+    if (out_order != machine_byte_order()) {
+        for (i = 0; i < count; i++) {
+            data[i] = (unsigned short) ((data[i] << 8) | (data[i] >> 8));
+        }
+    }
+    if (count > 0) {
+        if (fwrite(data, sizeof(data[0]), (size_t) count, outf) != (size_t) count)
             return -1;
     }
     if (global_writer.flush_write == 1) {
