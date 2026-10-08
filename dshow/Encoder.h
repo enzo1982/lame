@@ -160,7 +160,7 @@ protected:
     BOOL                m_bFinished;
     int                 m_frameCount;
 
-    unsigned char *     m_outFrameBuf;
+    unsigned char       m_outFrameBuf[OUT_BUFFER_SIZE];
     int                 m_outOffset;
     int                 m_outReadOffset;
 

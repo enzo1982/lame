@@ -20,6 +20,9 @@
  * Boston, MA 02111-1307, USA.
  */
 
+#include <new>
+#include <vector>
+
 #include <streams.h>
 #include "Encoder.h"
 #include "lametag_scan.h"
@@ -38,15 +41,11 @@ CEncoder::CEncoder() :
     m_outOffset(0),
     m_outReadOffset(0)
 {
-    m_outFrameBuf = new unsigned char[OUT_BUFFER_SIZE];
 }
 
 CEncoder::~CEncoder()
 {
     Close(NULL);
-
-    if (m_outFrameBuf)
-        delete [] m_outFrameBuf;
 }
 
 /**
@@ -202,20 +201,19 @@ HRESULT CEncoder::Init()
 
             // encoder delay compensation
             {
+                enum { START_PADDING_SAMPLES = 48 };
                 int const nch = lame_get_num_channels(pgf);
-                short * start_padd = (short *)calloc(48, nch * sizeof(short));
+                short start_padd[2 * START_PADDING_SAMPLES] = { 0 };
 
 				int out_bytes = 0;
 
                 if (nch == 2)
-                    out_bytes = lame_encode_buffer_interleaved(pgf, start_padd, 48, m_outFrameBuf, OUT_BUFFER_SIZE);
+                    out_bytes = lame_encode_buffer_interleaved(pgf, start_padd, START_PADDING_SAMPLES, m_outFrameBuf, OUT_BUFFER_SIZE);
                 else
-                    out_bytes = lame_encode_buffer(pgf, start_padd, start_padd, 48, m_outFrameBuf, OUT_BUFFER_SIZE);
+                    out_bytes = lame_encode_buffer(pgf, start_padd, start_padd, START_PADDING_SAMPLES, m_outFrameBuf, OUT_BUFFER_SIZE);
 
 				if (out_bytes > 0)
 					m_outOffset += out_bytes;
-
-                free(start_padd);
             }
 
             return S_OK;
@@ -259,7 +257,7 @@ int CEncoder::Encode(const short * pdata, int data_size)
 {
     CAutoLock l(&m_lock);
 
-    if (!pgf || !m_outFrameBuf || !pdata || data_size < 0 || (data_size & (sizeof(short) - 1)))
+    if (!pgf || !pdata || data_size < 0 || (data_size & (sizeof(short) - 1)))
         return -1;
 
     // some data left in the buffer, shift to start
@@ -328,10 +326,12 @@ HRESULT CEncoder::Finish()
 {
     CAutoLock l(&m_lock);
 
-    if (!pgf || !m_outFrameBuf || (m_outOffset >= OUT_BUFFER_MAX))
+    if (!pgf || (m_outOffset >= OUT_BUFFER_MAX))
         return E_FAIL;
 
-    m_outOffset += lame_encode_flush(pgf, m_outFrameBuf + m_outOffset, OUT_BUFFER_SIZE - m_outOffset);
+    int const flushed = lame_encode_flush(pgf, m_outFrameBuf + m_outOffset, OUT_BUFFER_SIZE - m_outOffset);
+    if (flushed > 0)
+        m_outOffset += flushed;
 
     m_bFinished = TRUE;
 
@@ -391,7 +391,7 @@ static int getFrameLength(const unsigned char * pdata)
 
 int CEncoder::GetFrame(const unsigned char ** pframe)
 {
-    if (!pgf || !m_outFrameBuf || !pframe)
+    if (!pgf || !pframe)
         return -1;
 
 	while ((m_outOffset - m_outReadOffset) > 4)
@@ -430,7 +430,7 @@ int CEncoder::GetFrame(const unsigned char ** pframe)
 int CEncoder::GetBlockAligned(const unsigned char ** pblock, int* piBufferSize, const long& cbAlign)
 {
 	ASSERT(piBufferSize);
-    if (!pgf || !m_outFrameBuf || !pblock)
+    if (!pgf || !pblock)
         return -1;
 
 	int iBlockLen = m_outOffset - m_outReadOffset;
@@ -535,7 +535,7 @@ HRESULT CEncoder::updateLameTagFrame(IStream* pStream)
 
     if ( n > 0 )
     {
-        unsigned char* buffer = 0;
+        std::vector<unsigned char> buffer;
         ULONG m = n;
 
         if ( FAILED(hr = skipId3v2(pStream, n) )) 
@@ -545,9 +545,11 @@ HRESULT CEncoder::updateLameTagFrame(IStream* pStream)
             return hr;
         }
 
-        buffer = (unsigned char*)malloc( n );
-
-        if ( buffer == 0 ) 
+        try
+        {
+            buffer.resize( n );
+        }
+        catch ( const std::bad_alloc & )
         {
             /*DispErr( "Error updating LAME-tag frame:\n\n"
                      "can't allocate frame buffer\n" );*/
@@ -555,12 +557,11 @@ HRESULT CEncoder::updateLameTagFrame(IStream* pStream)
         }
 
         /* Put it all to disk again */
-        n = lame_get_lametag_frame( pgf, buffer, n );
+        n = lame_get_lametag_frame( pgf, &buffer[0], n );
         if ( n > 0 ) 
         {
-			hr = pStream->Write(buffer, n, &m);        
+			hr = pStream->Write(&buffer[0], n, &m);        
         }
-        free( buffer );
 
         if ( m != n ) 
         {
