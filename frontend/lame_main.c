@@ -695,6 +695,11 @@ update_replaygain_frames(lame_global_flags * gf, FILE * outf, size_t id3v2_size)
 }
 
 
+/** @internal @brief Result of an encode: reading the input failed. */
+#define ENCODE_INPUT_FAILED (-1)
+/** @internal @brief Result of an encode: the encoder or writing the output failed. */
+#define ENCODE_OUTPUT_FAILED 1
+
 static int
 lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char *outPath)
 {
@@ -710,7 +715,7 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
     if (write_id3v2_tag(gf, outf, &id3v2_size) != 0) {
         encoder_progress_end(gf);
         error_printf("Error writing ID3v2 tag \n");
-        return 1;
+        return ENCODE_OUTPUT_FAILED;
     }
     flush_if_asked(outf);
 
@@ -746,20 +751,20 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
                 /* was our output buffer big enough? */
                 if (imp3 < 0) {
                     error_printf("Error: %s (error %d)\n", frontend_encode_error_text(imp3), imp3);
-                    return 1;
+                    return ENCODE_OUTPUT_FAILED;
                 }
                 brhist_add_encoded_bytes(imp3);
                 owrite = (int) fwrite(mp3buffer, 1, imp3, outf);
                 if (owrite != imp3) {
                     error_printf("Error writing mp3 output \n");
-                    return 1;
+                    return ENCODE_OUTPUT_FAILED;
                 }
             } while (done < iread);
         }
         else {
             if (global_ui_config.silent < 10)
                 error_printf("Error reading input file\n");
-            return -1;
+            return ENCODE_INPUT_FAILED;
         }
         flush_if_asked(outf);
     } while (iread > 0);
@@ -771,7 +776,7 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
 
     if (imp3 < 0) {
         error_printf("Error: %s (error %d)\n", frontend_encode_error_text(imp3), imp3);
-        return 1;
+        return ENCODE_OUTPUT_FAILED;
     }
 
     /*  Before the closing display, not after the write below it: the flush is
@@ -784,13 +789,13 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
     owrite = (int) fwrite(mp3buffer, 1, imp3, outf);
     if (owrite != imp3) {
         error_printf("Error writing mp3 output \n");
-        return 1;
+        return ENCODE_OUTPUT_FAILED;
     }
     flush_if_asked(outf);
     imp3 = write_id3v1_tag(gf, outf);
     flush_if_asked(outf);
     if (imp3) {
-        return 1;
+        return ENCODE_OUTPUT_FAILED;
     }
     write_xing_frame(gf, outf, id3v2_size);
     update_replaygain_frames(gf, outf, id3v2_size);
@@ -912,6 +917,9 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
     }
     else {
         /* encode multiple input files using nogap option */
+        int     failed = 0;
+        int     first_failure = 0;
+
         for (i = 0; i < max_nogap; ++i) {
             int     use_flush_nogap = (i != (max_nogap - 1));
             if (i > 0) {
@@ -929,6 +937,26 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
             lame_set_nogap_total(gf, max_nogap);
             lame_set_nogap_currentindex(gf, i);
             ret = lame_encoder(gf, outf, use_flush_nogap, nogap_inPath[i], nogap_outPath[i]);
+            if (ret != 0) {
+                ++failed;
+                if (first_failure == 0) {
+                    first_failure = ret;
+                }
+                /* after an input failure, go on with the next file */
+                if (ret != ENCODE_INPUT_FAILED) {
+                    if (i + 1 < max_nogap && global_ui_config.silent < 10) {
+                        error_printf("Stopping: %d of %d files are not encoded\n",
+                                     max_nogap - (i + 1), max_nogap);
+                    }
+                    break;
+                }
+            }
+        }
+        if (failed > 0) {
+            if (global_ui_config.silent < 10) {
+                error_printf("%d of %d files failed\n", failed, max_nogap);
+            }
+            ret = first_failure;
         }
     }
     return ret;

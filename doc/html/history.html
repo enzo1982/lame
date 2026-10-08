@@ -424,6 +424,11 @@
 			        it does for each bitrate of a VBR encode: the frame
 			        count, and a bar split into left/right and mid/side
 			        frames.</li>
+			    <li>In a <i>--nogap</i> run, <i>lame</i> goes on with
+			        the next file when an input file cannot be read. It
+			        stops when the encoder fails or the output cannot be
+			        written. At the end it prints how many files failed,
+			        and the exit status is not zero.</li>
 			    <li>The documented unknown-length sentinel is recognized
 			        when reporting the total frame count, so an
 			        unknown-length stream no longer shows a bogus total
