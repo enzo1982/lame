@@ -623,6 +623,14 @@
 			        longer leaks memory for each buffer an application
 			        prepares. Opening a stream fails when LAME rejects its
 			        settings.</li>
+			    <li>The ACM codec no longer frees memory that belongs to an
+			        application that only asked whether it can do a
+			        conversion. It no longer drops the partial sample at the
+			        end of a source buffer, or the end of the audio when the
+			        buffer for it is too small: such a conversion converts
+			        nothing and can be repeated with a larger buffer. An
+			        application can ask how much input fits into an output
+			        buffer.</li>
 			    <li><i>lame_enc.dll</i> rejects a stream that asks for a
 			        VBR method it does not support.</li>
 			    <li><i>lame_enc.dll</i> no longer leaks an encoder when

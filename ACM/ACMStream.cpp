@@ -30,6 +30,7 @@
 #endif // STRICT
 
 #include <assert.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -316,6 +317,18 @@ bool ACMStream::start()
 	return true;
 }
 
+/// Destination bytes per source byte, in GetOutputSizeForInput().
+static const double OUTPUT_BYTES_PER_INPUT_BYTE = 1.25;
+/// What lame_encode_buffer() returns at most per input sample of one channel
+/// (lame.h).
+static const double LAME_BYTES_PER_SAMPLE = 1.25;
+/// What lame_encode_buffer() returns at most beyond that, and what
+/// lame_encode_flush() returns at most, at the standard bitrates (lame.h).
+static const DWORD LAME_MARGIN_BYTES = 7200;
+/// The margin of GetOutputSizeForInput(), in bytes: room for the encode and
+/// for the flush of a conversion with ACM_STREAMCONVERTF_END.
+static const DWORD OUTPUT_MARGIN_BYTES = 2 * LAME_MARGIN_BYTES;
+
 DWORD ACMStream::GetOutputSizeForInput(const DWORD the_SrcLength) const
 {
 /*	double OutputInputRatio;
@@ -330,9 +343,33 @@ DWORD ACMStream::GetOutputSizeForInput(const DWORD the_SrcLength) const
     DWORD Result;
 
 //	Result = DWORD(double(the_SrcLength) * OutputInputRatio);
-    Result = DWORD(1.25*the_SrcLength + 7200);
+    Result = DWORD(OUTPUT_BYTES_PER_INPUT_BYTE*the_SrcLength + OUTPUT_MARGIN_BYTES);
 
 my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Result = %d",Result);
+
+	return Result;
+}
+
+/**
+	\brief Returns the largest source size whose output fits into a
+	destination buffer of the given size, in whole sample frames.
+
+	GetOutputSizeForInput() of the result is not larger than
+	\a the_DstLength.
+
+	\param the_DstLength the size of the destination buffer, in bytes.
+	\return the source size, in bytes. 0 if not even one sample frame fits.
+*/
+DWORD ACMStream::GetInputSizeForOutput(const DWORD the_DstLength) const
+{
+	DWORD const frame_bytes = (DWORD) my_Channels * sizeof(short);
+	DWORD Result = 0;
+
+	if (the_DstLength > OUTPUT_MARGIN_BYTES)
+		Result = DWORD((the_DstLength - OUTPUT_MARGIN_BYTES) / OUTPUT_BYTES_PER_INPUT_BYTE);
+	Result -= Result % frame_bytes;
+
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Result = %d",Result);
 
 	return Result;
 }
@@ -354,7 +391,8 @@ my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Result = %d",Result);
 	\param a_StreamHeader the buffers and the conversion flags. The function
 	       sets the bytes used of both buffers.
 	\return false if the encoder cannot start, or if the destination buffer
-	        is too small.
+	        is too small. A conversion that ends the MP3 stream into a buffer
+	        too small for the flush converts nothing.
 */
 bool ACMStream::ConvertBuffer(LPACMDRVSTREAMHEADER a_StreamHeader)
 {
@@ -387,6 +425,26 @@ int dwSamples;
 
 	dwSamples = InSize / lame_get_num_channels( gfp );
 
+	// A conversion that ends the MP3 stream needs room for the encoded data
+	// and for the flush. With less, nothing is converted, so the client can
+	// try again with a larger buffer.
+	if (ending)
+	{
+		double const out_per_in = my_OutSamplesPerSec > my_SamplesPerSec
+			? double(my_OutSamplesPerSec) / double(my_SamplesPerSec) : 1.0;
+		DWORD const needed = DWORD(ceil(LAME_BYTES_PER_SAMPLE * dwSamples * out_per_in))
+			+ 2 * LAME_MARGIN_BYTES;
+
+		if (a_StreamHeader->cbDstLength < needed)
+		{
+			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "the end of the stream needs %u bytes, the buffer has %u",
+			                (unsigned) needed, (unsigned) a_StreamHeader->cbDstLength);
+			a_StreamHeader->cbSrcLengthUsed = 0;
+			a_StreamHeader->cbDstLengthUsed = 0;
+			return false;
+		}
+	}
+
 	if ( 1 == lame_get_num_channels( gfp ) )
 	{
 		nOutputSamples = lame_encode_buffer(gfp,(PSHORT)a_StreamHeader->pbSrc,(PSHORT)a_StreamHeader->pbSrc,dwSamples,a_StreamHeader->pbDst,a_StreamHeader->cbDstLength);
@@ -408,7 +466,8 @@ int dwSamples;
 		my_Ended = true;
 	}
 
-	a_StreamHeader->cbSrcLengthUsed = a_StreamHeader->cbSrcLength;
+	// A partial sample frame at the end is not encoded
+	a_StreamHeader->cbSrcLengthUsed = (DWORD) dwSamples * lame_get_num_channels( gfp ) * sizeof(short);
 	/* a negative answer is an error, not a byte count */
 	a_StreamHeader->cbDstLengthUsed = nOutputSamples < 0 ? 0 : nOutputSamples;
 

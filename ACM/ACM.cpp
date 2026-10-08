@@ -914,6 +914,10 @@ inline DWORD ACM::OnStreamOpen(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 {
 	DWORD Result = ACMERR_NOTPOSSIBLE;
 
+	// dwDriver holds a stream only when this open creates one, so a close
+	// deletes nothing else
+	a_StreamInstance->dwDriver = 0;
+
 	// The settings as the settings file holds them now: the configuration
 	// dialog may have changed them in another program since this driver
 	// instance read them
@@ -978,7 +982,7 @@ inline DWORD ACM::OnStreamOpen(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 							Result = MMSYSERR_NOERROR;
 
 						if (Result == MMSYSERR_NOERROR && (a_StreamInstance->fdwOpen & ACM_STREAMOPENF_QUERY) == 0)
-							a_StreamInstance->dwInstance = (DWORD) the_stream;
+							a_StreamInstance->dwDriver = (DWORD_PTR) the_stream;
 						else
 							ACMStream::Erase( the_stream );
 					}
@@ -1002,13 +1006,24 @@ inline DWORD ACM::OnStreamSize(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACMDRV
     {
 	case ACM_STREAMSIZEF_DESTINATION:
 		my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Get source buffer size for destination size = %d",the_StreamSize->cbDstLength);
+		if (WAVE_FORMAT_PCM == a_StreamInstance->pwfxSrc->wFormatTag &&
+			PERSONAL_FORMAT == a_StreamInstance->pwfxDst->wFormatTag)
+		{
+			ACMStream * the_stream = (ACMStream *) a_StreamInstance->dwDriver;
+			if (the_stream != NULL)
+			{
+				the_StreamSize->cbSrcLength = the_stream->GetInputSizeForOutput(the_StreamSize->cbDstLength);
+				if (the_StreamSize->cbSrcLength > 0)
+					Result = MMSYSERR_NOERROR;
+			}
+		}
 		break;
 	case ACM_STREAMSIZEF_SOURCE:
 		my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Get destination buffer size for source size = %d",the_StreamSize->cbSrcLength);
         if (WAVE_FORMAT_PCM == a_StreamInstance->pwfxSrc->wFormatTag &&
 			PERSONAL_FORMAT == a_StreamInstance->pwfxDst->wFormatTag)
         {
-			ACMStream * the_stream = (ACMStream *) a_StreamInstance->dwInstance;
+			ACMStream * the_stream = (ACMStream *) a_StreamInstance->dwDriver;
 			if (the_stream != NULL)
 			{
 				the_StreamSize->cbDstLength = the_stream->GetOutputSizeForInput(the_StreamSize->cbSrcLength);
@@ -1028,11 +1043,11 @@ inline DWORD ACM::OnStreamClose(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 {
 	DWORD Result = ACMERR_NOTPOSSIBLE;
 
-	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "OnStreamClose the stream 0x%X",a_StreamInstance->dwInstance);
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "OnStreamClose the stream 0x%X",a_StreamInstance->dwDriver);
     if (WAVE_FORMAT_PCM == a_StreamInstance->pwfxSrc->wFormatTag &&
 		PERSONAL_FORMAT == a_StreamInstance->pwfxDst->wFormatTag)
     {
-	ACMStream::Erase( (ACMStream *) a_StreamInstance->dwInstance );
+	ACMStream::Erase( (ACMStream *) a_StreamInstance->dwDriver );
 	}
 
 	// nothing to do yet
@@ -1088,7 +1103,7 @@ inline DWORD ACM::OnStreamConvert(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACM
 	{
 		my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "OnStreamConvert SRC = PCM (encode)");
 
-		ACMStream * the_stream = (ACMStream *) a_StreamInstance->dwInstance;
+		ACMStream * the_stream = (ACMStream *) a_StreamInstance->dwDriver;
 		if (the_stream != NULL)
 		{
 			if (the_stream->ConvertBuffer( a_StreamHeader ))

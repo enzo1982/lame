@@ -59,6 +59,7 @@ public:
 	bool open(const AEncodeProperties & the_Properties);
 
 	DWORD GetOutputSizeForInput(const DWORD the_SrcLength) const;
+	DWORD GetInputSizeForOutput(const DWORD the_DstLength) const;
 	bool  ConvertBuffer(LPACMDRVSTREAMHEADER a_StreamHeader);
 
 	static unsigned int GetOutputSampleRate(int samples_per_sec, int bitrate, int channels);

@@ -1536,6 +1536,265 @@ test_stream_lifetime(HACMDRIVER had)
 }
 
 /**
+ * @brief Checks that the codec returns buffer sizes in both directions.
+ *
+ * For a destination size, the codec returns a source size in whole sample
+ * frames. The destination size that the codec asks for that source is not
+ * larger than the one the application has.
+ *
+ * @param had the opened driver
+ */
+static void
+test_size_both_directions(HACMDRIVER had)
+{
+    const DWORD dst_bytes = 65536;
+    const DWORD frame_bytes = LIFETIME_CHANNELS * sizeof(short);
+    HACMSTREAM has;
+    DWORD src_bytes = 0, back = 0;
+    MMRESULT mr;
+
+    printf("the size of a source buffer for a destination buffer\n");
+    mr = open_lifetime_stream(had, &has);
+    CHECK_MM(mr, "a stream for the size query opens");
+    if (mr != MMSYSERR_NOERROR) {
+        return;
+    }
+    mr = acmStreamSize(has, dst_bytes, &src_bytes, ACM_STREAMSIZEF_DESTINATION);
+    CHECK_MM(mr, "the codec sizes the source for a destination size");
+    printf("        %lu destination bytes take %lu source bytes\n", (unsigned long) dst_bytes,
+           (unsigned long) src_bytes);
+    if (mr == MMSYSERR_NOERROR) {
+        CHECK(src_bytes > 0 && src_bytes % frame_bytes == 0,
+              "the source size is a whole number of sample frames");
+        CHECK_MM(acmStreamSize(has, src_bytes, &back, ACM_STREAMSIZEF_SOURCE),
+                 "the codec sizes the destination for that source");
+        CHECK(back <= dst_bytes, "that source needs no larger destination buffer");
+    }
+    acmStreamClose(has, 0);
+}
+
+/**
+ * @brief Prepares a header for part of a stereo source, with a destination
+ *        buffer of the given size.
+ * @param has        the stream
+ * @param part       receives the header. Release it with release_part().
+ * @param src        the first sample frame of the part
+ * @param frames     the sample frames of the part
+ * @param dst_bytes  the size of the destination buffer
+ * @return the result of acmStreamPrepareHeader(), or MMSYSERR_NOMEM
+ */
+static MMRESULT
+prepare_part_with_room(HACMSTREAM has, stream_part *part, const short *src, DWORD frames,
+                       DWORD dst_bytes)
+{
+    MMRESULT mr;
+
+    memset(part, 0, sizeof(*part));
+    part->hdr.cbStruct = sizeof(part->hdr);
+    part->hdr.pbSrc = (BYTE *) src;
+    part->hdr.cbSrcLength = frames * LIFETIME_CHANNELS * sizeof(short);
+    part->hdr.pbDst = (BYTE *) malloc(dst_bytes);
+    part->hdr.cbDstLength = dst_bytes;
+    if (part->hdr.pbDst == NULL) {
+        return MMSYSERR_NOMEM;
+    }
+    mr = acmStreamPrepareHeader(has, &part->hdr, 0);
+    part->prepared = (mr == MMSYSERR_NOERROR);
+    return mr;
+}
+
+/**
+ * @brief Checks that a conversion that ends the MP3 stream into a buffer too
+ *        small for the flush converts nothing, so that a retry with a larger
+ *        buffer continues the stream.
+ *
+ * One second, in two halves on one stream. A dry run gives the bytes that the
+ * second half returns without END. The END conversion of the second half gets
+ * a buffer of that size and 100 bytes more: its frames fit, its flush does
+ * not. It must fail with nothing used. The retry, with the buffer the codec
+ * asks for, must give the bytes of the one-header encode.
+ *
+ * @param had the opened driver
+ */
+static void
+test_flush_room(HACMDRIVER had)
+{
+    const DWORD half = LIFETIME_FRAMES / 2;
+    std::vector<short> src(LIFETIME_FRAMES * LIFETIME_CHANNELS);
+    std::vector<BYTE> whole, joined, dry;
+    HACMSTREAM has;
+    stream_part a, b;
+    DWORD second_bytes = 0, i;
+    MMRESULT mr;
+    char detail[CTEST_DETAIL_CHARS];
+    int ok;
+
+    printf("the room for the end of a stream\n");
+    memset(&a, 0, sizeof(a));
+    memset(&b, 0, sizeof(b));
+    for (i = 0; i < LIFETIME_FRAMES; i++) {
+        short v = ctest_tone(i, LIFETIME_RATE, TONE_HZ, TONE_AMPLITUDE);
+        src[LIFETIME_CHANNELS * i] = v;
+        src[LIFETIME_CHANNELS * i + 1] = v;
+    }
+    CHECK(encode_whole(had, &src[0], LIFETIME_FRAMES, &whole), "one second is encoded with one header");
+
+    /* the dry run: the second half without END */
+    ok = open_lifetime_stream(had, &has) == MMSYSERR_NOERROR;
+    if (ok) {
+        ok = prepare_part(has, &a, &src[0], half) == MMSYSERR_NOERROR
+            && prepare_part(has, &b, &src[half * LIFETIME_CHANNELS], half) == MMSYSERR_NOERROR
+            && convert_part(has, &a, 0, &dry) == MMSYSERR_NOERROR
+            && convert_part(has, &b, 0, &dry) == MMSYSERR_NOERROR;
+        if (ok) {
+            second_bytes = b.hdr.cbDstLengthUsed;
+        }
+        release_part(has, &a);
+        release_part(has, &b);
+        acmStreamClose(has, 0);
+    }
+    CHECK(ok && second_bytes > 0, "the second half alone returns its frames");
+
+    ok = open_lifetime_stream(had, &has) == MMSYSERR_NOERROR;
+    CHECK(ok, "a stream for the room test opens");
+    if (!ok) {
+        return;
+    }
+    ok = prepare_part(has, &a, &src[0], half) == MMSYSERR_NOERROR
+        && convert_part(has, &a, 0, &joined) == MMSYSERR_NOERROR;
+    CHECK(ok, "the first half is converted");
+    mr = prepare_part_with_room(has, &b, &src[half * LIFETIME_CHANNELS], half, second_bytes + 100);
+    if (mr == MMSYSERR_NOERROR) {
+        mr = acmStreamConvert(has, &b.hdr, ACM_STREAMCONVERTF_BLOCKALIGN | ACM_STREAMCONVERTF_END);
+    }
+    sprintf(detail, "mmresult %u, %lu bytes of the source used, %lu returned, buffer %lu", mr,
+            (unsigned long) b.hdr.cbSrcLengthUsed, (unsigned long) b.hdr.cbDstLengthUsed,
+            (unsigned long) (second_bytes + 100));
+    ctest_record(mr != MMSYSERR_NOERROR && b.hdr.cbSrcLengthUsed == 0 && b.hdr.cbDstLengthUsed == 0,
+                 "an END conversion without room for the flush converts nothing", detail);
+    release_part(has, &b);
+    ok = prepare_part(has, &b, &src[half * LIFETIME_CHANNELS], half) == MMSYSERR_NOERROR
+        && convert_part(has, &b, ACM_STREAMCONVERTF_END, &joined) == MMSYSERR_NOERROR;
+    CHECK(ok, "the retry with the buffer the codec asks for is converted");
+    sprintf(detail, "%lu bytes, one header %lu", (unsigned long) joined.size(), (unsigned long) whole.size());
+    ctest_record(joined == whole, "the retry continues the stream", detail);
+    release_part(has, &a);
+    release_part(has, &b);
+    acmStreamClose(has, 0);
+}
+
+/**
+ * @brief Checks that a partial sample frame at the end of the source is
+ *        reported as not used.
+ *
+ * The source holds whole stereo sample frames and two bytes more. The
+ * conversion has no ACM_STREAMCONVERTF_BLOCKALIGN, so the codec gets the
+ * partial frame. The application continues from the used length, so the two
+ * bytes must not be counted.
+ *
+ * @param had the opened driver
+ */
+static void
+test_partial_sample_frame(HACMDRIVER had)
+{
+    const DWORD frames = LIFETIME_FRAMES / 4;
+    const DWORD whole_bytes = frames * LIFETIME_CHANNELS * sizeof(short);
+    const DWORD partial_bytes = sizeof(short);
+    std::vector<short> src(frames * LIFETIME_CHANNELS + 1);
+    HACMSTREAM has;
+    stream_part part;
+    MMRESULT mr;
+
+    printf("a partial sample frame at the end of the source\n");
+    mr = open_lifetime_stream(had, &has);
+    CHECK_MM(mr, "a stream for the partial frame opens");
+    if (mr != MMSYSERR_NOERROR) {
+        return;
+    }
+    memset(&part, 0, sizeof(part));
+    part.hdr.cbStruct = sizeof(part.hdr);
+    part.hdr.pbSrc = (BYTE *) &src[0];
+    part.hdr.cbSrcLength = whole_bytes + partial_bytes;
+    mr = acmStreamSize(has, part.hdr.cbSrcLength, &part.hdr.cbDstLength, ACM_STREAMSIZEF_SOURCE);
+    if (mr == MMSYSERR_NOERROR) {
+        part.hdr.pbDst = (BYTE *) malloc(part.hdr.cbDstLength);
+        mr = part.hdr.pbDst != NULL ? acmStreamPrepareHeader(has, &part.hdr, 0) : MMSYSERR_NOMEM;
+        part.prepared = (mr == MMSYSERR_NOERROR);
+    }
+    if (mr == MMSYSERR_NOERROR) {
+        mr = acmStreamConvert(has, &part.hdr, ACM_STREAMCONVERTF_END);
+    }
+    CHECK_MM(mr, "a source with a partial sample frame at its end is converted");
+    if (mr == MMSYSERR_NOERROR) {
+        CHECK_EQ_U(part.hdr.cbSrcLengthUsed, whole_bytes,
+                   "the used length stops at the last whole sample frame");
+    }
+    release_part(has, &part);
+    acmStreamClose(has, 0);
+}
+
+/** @brief A stream object that records that it was deleted. */
+class DeleteProbe : public ACMStream
+{
+public:
+    /**
+     * @brief Creates the object.
+     * @param flag  set to 1 when the object is deleted.
+     */
+    explicit DeleteProbe(int *flag) : deleted(flag) {}
+
+    /** @brief Sets the flag. */
+    ~DeleteProbe() { *deleted = 1; }
+
+private:
+    int *deleted;   /**< the flag */
+};
+
+/**
+ * @brief Checks that the close of a stream that a query opened deletes
+ *        nothing.
+ *
+ * Wine's ACM sends ACMDM_STREAM_CLOSE after a successful query open. A query
+ * creates no stream. So the close must not delete what the application put
+ * into dwInstance, nor what dwDriver held before the open. The test sends
+ * the two messages to a codec object compiled into it. Each of the two
+ * fields holds an object that records its deletion.
+ */
+static void
+test_close_after_query(void)
+{
+    ACM codec(NULL);
+    ACMDRVSTREAMINSTANCE inst;
+    WAVEFORMATEX pcm;
+    MPEGLAYER3WAVEFORMAT mp3;
+    int app_deleted = 0, driver_deleted = 0;
+    DeleteProbe *app = new DeleteProbe(&app_deleted);
+    DeleteProbe *before = new DeleteProbe(&driver_deleted);
+
+    printf("a close after a query open\n");
+    fill_pcm_format(&pcm, LIFETIME_RATE, LIFETIME_CHANNELS);
+    fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 128000);
+    memset(&inst, 0, sizeof(inst));
+    inst.cbStruct = sizeof(inst);
+    inst.pwfxSrc = &pcm;
+    inst.pwfxDst = (WAVEFORMATEX *) &mp3;
+    inst.fdwOpen = ACM_STREAMOPENF_QUERY;
+    inst.dwInstance = (DWORD_PTR) app;
+    inst.dwDriver = (DWORD_PTR) before;
+    CHECK_EQ_U(codec.DriverProcedure(NULL, ACMDM_STREAM_OPEN, (LONG) &inst, 0), MMSYSERR_NOERROR,
+               "the query open succeeds");
+    codec.DriverProcedure(NULL, ACMDM_STREAM_CLOSE, (LONG) &inst, 0);
+    CHECK(!app_deleted, "the close keeps the object in dwInstance");
+    CHECK(!driver_deleted, "the close keeps the object that dwDriver held before the open");
+    if (!app_deleted) {
+        delete app;
+    }
+    if (!driver_deleted) {
+        delete before;
+    }
+}
+
+/**
  * @brief Drives the built codec through the Audio Compression Manager.
  *
  * The smoke test checks that the DLL loads and exports what it should. This
@@ -1719,6 +1978,9 @@ test_under_the_acm(const char *driver)
 
     test_small_destination_buffer(had);
     test_stream_lifetime(had);
+    test_size_both_directions(had);
+    test_flush_room(had);
+    test_partial_sample_frame(had);
 
 out:
     free(src);
@@ -2378,6 +2640,7 @@ main(int argc, char **argv)
     test_bitrate_list();
     test_save_without_a_file();
     test_save_keeps_no_memory();
+    test_close_after_query();
 
     if (ctest_component_path(argc, argv, "lameACM.acm", driver, sizeof(driver), &require)
         == CTEST_FOUND) {
