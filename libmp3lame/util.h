@@ -313,8 +313,9 @@ extern  "C" {
         int     mf_samples_to_encode;
         int     mf_size;
 
-        /* set when the quantization could not fit a frame into its bits; every
-           later encode call then fails with LAME_INTERNALERROR */
+        /* set when the quantization could not fit a frame into its bits, or the
+           bits written disagree with the bit reservoir; every later encode call
+           then fails with LAME_INTERNALERROR */
         int     internal_error;
 
     } EncStateVar_t;

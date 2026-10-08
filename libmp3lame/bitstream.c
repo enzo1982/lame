@@ -863,6 +863,9 @@ add_dummy_byte(lame_internal_flags * gfc, unsigned char val, unsigned int n)
   a series of main_data() blocks, with header and side information
   inserted at the proper locations to maintain framing. (See Figure A.7
   in the IS).
+
+  Returns 0, or LAME_INTERNALERROR when the bits written disagree with the
+  bit reservoir. The error is kept: every later encode call fails too.
   */
 int
 format_bitstream(lame_internal_flags * gfc)
@@ -870,6 +873,7 @@ format_bitstream(lame_internal_flags * gfc)
     SessionConfig_t const *const cfg = &gfc->cfg;
     EncStateVar_t *const esv = &gfc->sv_enc;
     int     bits, nbytes;
+    int     consistent = 1;
     III_side_info_t *l3_side;
     int     bitsPerFrame;
     l3_side = &gfc->l3_side;
@@ -889,6 +893,7 @@ format_bitstream(lame_internal_flags * gfc)
      * with what we think the resvsize is: */
     if (compute_flushbits(gfc, &nbytes) != esv->ResvSize) {
         ERRORF(gfc, "Internal buffer inconsistency. flushbits <> ResvSize");
+        consistent = 0;
     }
 
 
@@ -918,7 +923,8 @@ format_bitstream(lame_internal_flags * gfc)
         ERRORF(gfc, " 1%%  bug in LAME encoding library");
 
         esv->ResvSize = l3_side->main_data_begin * 8;
-    };
+        consistent = 0;
+    }
     assert(gfc->bs.totbit % 8 == 0);
 
     if (gfc->bs.totbit > 1000000000) {
@@ -929,7 +935,10 @@ format_bitstream(lame_internal_flags * gfc)
         gfc->bs.totbit = 0;
     }
 
-
+    if (!consistent) {
+        esv->internal_error = 1;
+        return LAME_INTERNALERROR;
+    }
     return 0;
 }
 

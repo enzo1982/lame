@@ -468,6 +468,11 @@
 			        do.</li>
 			    <li><i>lame --verbose</i> and <i>lame_print_internals()</i>
 			        no longer name an MPEG-2 stream MPEG-2.5.</li>
+			    <li>When the encoder finds that the bits it has written
+			        disagree with its bit reservoir, <i>lame</i> stops with
+			        an error instead of finishing with a damaged file. The
+			        encode call fails with <i>LAME_INTERNALERROR</i>, and so
+			        does every later encode or flush call.</li>
 			    <li>New library function
 			        <i>lame_get_asm_optimizations()</i>, which reports
 			        whether an encoder instance still allows a given

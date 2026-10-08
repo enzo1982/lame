@@ -574,7 +574,8 @@ lame_encode_mp3_frame(       /* Output */
 
 
     /*  write the frame to the bitstream  */
-    (void) format_bitstream(gfc);
+    if (format_bitstream(gfc) != 0)
+        return LAME_INTERNALERROR;
 
     /* copy mp3 bit buffer into array */
     mp3count = copy_buffer(gfc, mp3buf, mp3buf_size, 1);

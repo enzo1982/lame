@@ -29,7 +29,7 @@ check_PROGRAMS = test_sanity test_get_audio_aiff test_get_audio_wav \
 	test_huffman_tables test_help_exit test_bitstream_headers \
 	test_free_format test_encode_api test_resample_decision \
 	test_file_times test_decode_scale test_quantize_pe test_gain_analysis \
-	test_decoder_init_fail
+	test_decoder_init_fail test_bitstream_reservoir
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -225,6 +225,17 @@ test_decoder_init_fail_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_decoder_init_fail_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The reservoir test changes an encoder's internal state, so it reads the
+# library's internal headers.
+test_bitstream_reservoir_SOURCES = test_bitstream_reservoir.c
+test_bitstream_reservoir_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_builddir)
+test_bitstream_reservoir_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 

@@ -801,7 +801,8 @@ void CDECL lame_print_internals( const lame_global_flags *gfp);
  *             louder than 4096 times full scale after lame_set_scale() and
  *             the per-channel scales. Nothing of the call is encoded.
  *         @li #LAME_INTERNALERROR the encoder could not fit a frame into its
- *             bits. This call and every later encode or flush call fail.
+ *             bits, or the bits it wrote disagree with its bit reservoir. This
+ *             call and every later encode or flush call fail.
  */
 int CDECL lame_encode_buffer (
         lame_global_flags*  gfp,           /* encoder instance              */

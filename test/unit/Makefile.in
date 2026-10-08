@@ -122,6 +122,7 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_quantize_pe$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_gain_analysis$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_decoder_init_fail$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_bitstream_reservoir$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_1) $(am__EXEEXT_2) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_3)
 
@@ -181,6 +182,14 @@ AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+am__test_bitstream_reservoir_SOURCES_DIST =  \
+	test_bitstream_reservoir.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_bitstream_reservoir_OBJECTS = test_bitstream_reservoir-test_bitstream_reservoir.$(OBJEXT)
+test_bitstream_reservoir_OBJECTS =  \
+	$(am_test_bitstream_reservoir_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_bitstream_reservoir_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 am__test_calc_sfb_noise_vector_SOURCES_DIST =  \
 	test_calc_sfb_noise_vector.c
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@am_test_calc_sfb_noise_vector_OBJECTS = test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.$(OBJEXT)
@@ -483,6 +492,7 @@ am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Po \
 	$(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Po \
 	./$(DEPDIR)/test_bitstream_headers-test_bitstream_headers.Po \
+	./$(DEPDIR)/test_bitstream_reservoir-test_bitstream_reservoir.Po \
 	./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po \
 	./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po \
 	./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po \
@@ -547,6 +557,7 @@ am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
 SOURCES = $(test_bitstream_headers_SOURCES) \
+	$(test_bitstream_reservoir_SOURCES) \
 	$(test_calc_sfb_noise_vector_SOURCES) \
 	$(test_choose_table_neon_SOURCES) \
 	$(test_choose_table_vector_SOURCES) \
@@ -569,6 +580,7 @@ SOURCES = $(test_bitstream_headers_SOURCES) \
 	$(test_set_get_SOURCES) $(test_totalframes_SOURCES) \
 	$(test_vector_ladder_SOURCES) $(test_vector_routines_SOURCES)
 DIST_SOURCES = $(am__test_bitstream_headers_SOURCES_DIST) \
+	$(am__test_bitstream_reservoir_SOURCES_DIST) \
 	$(am__test_calc_sfb_noise_vector_SOURCES_DIST) \
 	$(am__test_choose_table_neon_SOURCES_DIST) \
 	$(am__test_choose_table_vector_SOURCES_DIST) \
@@ -1211,6 +1223,19 @@ SH_LOG_COMPILER = $(SHELL)
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
 
+# The reservoir test changes an encoder's internal state, so it reads the
+# library's internal headers.
+@ENABLE_UNIT_TESTS_TRUE@test_bitstream_reservoir_SOURCES = test_bitstream_reservoir.c
+@ENABLE_UNIT_TESTS_TRUE@test_bitstream_reservoir_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_bitstream_reservoir_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
+
 # The frontend ID3 dispatch (id3_tag/set_id3v2tag_*) is static in parse.c, so
 # this test compiles parse.c in directly; same include/link setup as the other
 # parse.c tests.
@@ -1626,6 +1651,10 @@ test_bitstream_headers$(EXEEXT): $(test_bitstream_headers_OBJECTS) $(test_bitstr
 	@rm -f test_bitstream_headers$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_bitstream_headers_OBJECTS) $(test_bitstream_headers_LDADD) $(LIBS)
 
+test_bitstream_reservoir$(EXEEXT): $(test_bitstream_reservoir_OBJECTS) $(test_bitstream_reservoir_DEPENDENCIES) $(EXTRA_test_bitstream_reservoir_DEPENDENCIES) 
+	@rm -f test_bitstream_reservoir$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_bitstream_reservoir_OBJECTS) $(test_bitstream_reservoir_LDADD) $(LIBS)
+
 test_calc_sfb_noise_vector$(EXEEXT): $(test_calc_sfb_noise_vector_OBJECTS) $(test_calc_sfb_noise_vector_DEPENDENCIES) $(EXTRA_test_calc_sfb_noise_vector_DEPENDENCIES) 
 	@rm -f test_calc_sfb_noise_vector$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_calc_sfb_noise_vector_OBJECTS) $(test_calc_sfb_noise_vector_LDADD) $(LIBS)
@@ -1788,6 +1817,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@$(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@$(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_bitstream_headers-test_bitstream_headers.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_bitstream_reservoir-test_bitstream_reservoir.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po@am__quote@ # am--include-marker
@@ -1876,6 +1906,20 @@ test_bitstream_headers-test_bitstream_headers.obj: test_bitstream_headers.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_bitstream_headers.c' object='test_bitstream_headers-test_bitstream_headers.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_bitstream_headers_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_bitstream_headers-test_bitstream_headers.obj `if test -f 'test_bitstream_headers.c'; then $(CYGPATH_W) 'test_bitstream_headers.c'; else $(CYGPATH_W) '$(srcdir)/test_bitstream_headers.c'; fi`
+
+test_bitstream_reservoir-test_bitstream_reservoir.o: test_bitstream_reservoir.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_bitstream_reservoir_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_bitstream_reservoir-test_bitstream_reservoir.o -MD -MP -MF $(DEPDIR)/test_bitstream_reservoir-test_bitstream_reservoir.Tpo -c -o test_bitstream_reservoir-test_bitstream_reservoir.o `test -f 'test_bitstream_reservoir.c' || echo '$(srcdir)/'`test_bitstream_reservoir.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_bitstream_reservoir-test_bitstream_reservoir.Tpo $(DEPDIR)/test_bitstream_reservoir-test_bitstream_reservoir.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_bitstream_reservoir.c' object='test_bitstream_reservoir-test_bitstream_reservoir.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_bitstream_reservoir_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_bitstream_reservoir-test_bitstream_reservoir.o `test -f 'test_bitstream_reservoir.c' || echo '$(srcdir)/'`test_bitstream_reservoir.c
+
+test_bitstream_reservoir-test_bitstream_reservoir.obj: test_bitstream_reservoir.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_bitstream_reservoir_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_bitstream_reservoir-test_bitstream_reservoir.obj -MD -MP -MF $(DEPDIR)/test_bitstream_reservoir-test_bitstream_reservoir.Tpo -c -o test_bitstream_reservoir-test_bitstream_reservoir.obj `if test -f 'test_bitstream_reservoir.c'; then $(CYGPATH_W) 'test_bitstream_reservoir.c'; else $(CYGPATH_W) '$(srcdir)/test_bitstream_reservoir.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_bitstream_reservoir-test_bitstream_reservoir.Tpo $(DEPDIR)/test_bitstream_reservoir-test_bitstream_reservoir.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_bitstream_reservoir.c' object='test_bitstream_reservoir-test_bitstream_reservoir.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_bitstream_reservoir_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_bitstream_reservoir-test_bitstream_reservoir.obj `if test -f 'test_bitstream_reservoir.c'; then $(CYGPATH_W) 'test_bitstream_reservoir.c'; else $(CYGPATH_W) '$(srcdir)/test_bitstream_reservoir.c'; fi`
 
 test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.o: test_calc_sfb_noise_vector.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_calc_sfb_noise_vector_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.o -MD -MP -MF $(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Tpo -c -o test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.o `test -f 'test_calc_sfb_noise_vector.c' || echo '$(srcdir)/'`test_calc_sfb_noise_vector.c
@@ -2962,6 +3006,13 @@ test_decoder_init_fail.log: test_decoder_init_fail$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_bitstream_reservoir.log: test_bitstream_reservoir$(EXEEXT)
+	@p='test_bitstream_reservoir$(EXEEXT)'; \
+	b='test_bitstream_reservoir'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 test_choose_table_vector.log: test_choose_table_vector$(EXEEXT)
 	@p='test_choose_table_vector$(EXEEXT)'; \
 	b='test_choose_table_vector'; \
@@ -3096,6 +3147,7 @@ distclean: distclean-am
 	-rm -f $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Po
 	-rm -f $(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Po
 	-rm -f ./$(DEPDIR)/test_bitstream_headers-test_bitstream_headers.Po
+	-rm -f ./$(DEPDIR)/test_bitstream_reservoir-test_bitstream_reservoir.Po
 	-rm -f ./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po
@@ -3188,6 +3240,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametime.Po
 	-rm -f $(top_builddir)/frontend/$(DEPDIR)/test_rtp_socket-rtp.Po
 	-rm -f ./$(DEPDIR)/test_bitstream_headers-test_bitstream_headers.Po
+	-rm -f ./$(DEPDIR)/test_bitstream_reservoir-test_bitstream_reservoir.Po
 	-rm -f ./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po
