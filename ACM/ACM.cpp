@@ -845,12 +845,12 @@ my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed A");
 			//
 			if (ACM_FORMATSUGGESTF_NCHANNELS & fdwSuggest)
             {
-                if (a_FormatSuggest->pwfxSrc->nChannels != a_FormatSuggest->pwfxDst->nChannels)
+                if (a_FormatSuggest->pwfxDst->nChannels != my_EncodingProperties.OutputChannels(a_FormatSuggest->pwfxSrc->nChannels))
                     return (ACMERR_NOTPOSSIBLE);
             }
             else
 			{
-                a_FormatSuggest->pwfxDst->nChannels = a_FormatSuggest->pwfxSrc->nChannels;
+                a_FormatSuggest->pwfxDst->nChannels = (WORD) my_EncodingProperties.OutputChannels(a_FormatSuggest->pwfxSrc->nChannels);
             }
 
 			if (a_FormatSuggest->pwfxSrc->nChannels != 1 && a_FormatSuggest->pwfxSrc->nChannels != 2)
@@ -1047,7 +1047,7 @@ inline DWORD ACM::OnStreamOpen(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 				/// \todo only do the test on OutputFrequency in "Smart Output" mode
 				if (a_StreamInstance->pwfxDst->nSamplesPerSec != OutputFrequency ||
 //					a_StreamInstance->pwfxSrc->nSamplesPerSec != a_StreamInstance->pwfxDst->nSamplesPerSec ||
-					a_StreamInstance->pwfxSrc->nChannels != a_StreamInstance->pwfxDst->nChannels ||
+					a_StreamInstance->pwfxDst->nChannels != my_EncodingProperties.OutputChannels(a_StreamInstance->pwfxSrc->nChannels) ||
 					a_StreamInstance->pwfxSrc->wBitsPerSample != 16)
 				{
 					Result = ACMERR_NOTPOSSIBLE;
@@ -1063,6 +1063,7 @@ inline DWORD ACM::OnStreamOpen(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 							vbr_mode a_mode = (casted->fdwFlags-2 == 0)?vbr_abr:vbr_off;
 							if (the_stream->init(a_StreamInstance->pwfxDst->nSamplesPerSec,
 												 OutputFrequency,
+												 a_StreamInstance->pwfxSrc->nChannels,
 												 a_StreamInstance->pwfxDst->nChannels,
 												 a_StreamInstance->pwfxDst->nAvgBytesPerSec,
 												 a_mode))

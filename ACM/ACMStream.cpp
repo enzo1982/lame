@@ -105,13 +105,14 @@ ACMStream::~ACMStream()
 	}
 }
 
-bool ACMStream::init(const int nSamplesPerSec, const int nOutputSamplesPerSec, const int nChannels, const int nAvgBytesPerSec, const vbr_mode mode)
+bool ACMStream::init(const int nSamplesPerSec, const int nOutputSamplesPerSec, const int nChannels, const int nOutputChannels, const int nAvgBytesPerSec, const vbr_mode mode)
 {
 	bool bResult = false;
 
 	my_SamplesPerSec  = nSamplesPerSec;
 	my_OutBytesPerSec = nOutputSamplesPerSec;
 	my_Channels       = nChannels;
+	my_OutChannels    = nOutputChannels;
 	my_AvgBytesPerSec = nAvgBytesPerSec;
 	my_VBRMode = mode;
 
@@ -136,8 +137,11 @@ bool ACMStream::open(const AEncodeProperties & the_Properties)
 	lame_set_out_samplerate( gfp, my_OutBytesPerSec );
 
 	lame_set_num_channels( gfp, my_Channels );
-	if (my_Channels == 1)
+	// LAME mixes a stereo input down when the mode is MONO.
+	if (my_OutChannels == 1)
 		lame_set_mode( gfp, MONO );
+	else if (the_Properties.GetChannelModeValue() == MONO)
+		lame_set_mode( gfp, JOINT_STEREO ); // Mono without Force: a stereo stream stays stereo
 	else
 		lame_set_mode( gfp, (MPEG_mode_e)the_Properties.GetChannelModeValue()) ; /// \todo Get the mode from the default configuration
 

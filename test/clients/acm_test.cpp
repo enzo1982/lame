@@ -1133,30 +1133,37 @@ out:
     }
 }
 
-/** @brief Length of each encode in the bit reservoir test. */
-#define RESERVOIR_TEST_SECONDS 2
+/** @brief Length of each encode in the settings test. */
+#define SETTINGS_TEST_SECONDS 2
+
+/** @brief What one encode through the ACM produced. */
+typedef struct {
+    int frames;     /**< frames in the output */
+    int borrowed;   /**< frames whose main_data_begin is not 0 */
+    int joint;      /**< frames in joint stereo mode */
+    int mono;       /**< frames in mono mode */
+} frame_counts;
 
 /**
- * @brief Encodes two seconds of a stereo tone through the ACM and counts the
- *        frames that use the bit reservoir.
+ * @brief Encodes two seconds of a stereo tone through the ACM, and counts the
+ *        frames by what they use.
  *
  * The driver reads its configuration when it is opened, so the caller writes
  * the configuration file before this call.
  *
- * @param driver   the path of the codec.
- * @param frames   receives the number of frames in the output.
- * @param borrowed receives the number of frames whose main_data_begin is not
- *                 0, that is, frames that use bytes of earlier frames.
- * @param joint    receives the number of frames in joint stereo mode.
- * @return 1 if the encode ran, 0 if a step failed. The failed step is
- *         recorded as a check.
+ * @param driver        the path of the codec.
+ * @param out_channels  the number of channels of the MP3 format to open.
+ * @param bps           the bitrate of that format, in bit/s.
+ * @param c             receives the counts. They are 0 if the encode did not
+ *                      run.
+ * @return the result of acmStreamOpen(). If the stream opens and a later step
+ *         fails, the step is recorded as a failed check.
  */
-static int
-encode_counting_reservoir(const char *driver, int *frames, int *borrowed, int *joint)
+static MMRESULT
+encode_stereo_tone(const char *driver, WORD out_channels, DWORD bps, frame_counts *c)
 {
     const DWORD rate = 44100;
-    const WORD channels = 2;
-    const DWORD samples = rate * RESERVOIR_TEST_SECONDS;
+    const DWORD samples = rate * SETTINGS_TEST_SECONDS;
     HMODULE mod;
     FARPROC proc;
     HACMDRIVERID hadid = NULL;
@@ -1168,36 +1175,36 @@ encode_counting_reservoir(const char *driver, int *frames, int *borrowed, int *j
     DWORD src_bytes, dst_bytes = 0, off = 0, i;
     short *src = NULL;
     BYTE *dst = NULL;
-    int ran = 0;
+    MMRESULT opened = MMSYSERR_ERROR;
     MMRESULT mr;
 
-    *frames = 0;
-    *borrowed = 0;
-    *joint = 0;
+    memset(c, 0, sizeof(*c));
     mod = LoadLibraryA(driver);
     proc = (mod != NULL) ? GetProcAddress(mod, "DriverProc") : NULL;
     if (proc == NULL) {
-        CHECK(0, "the driver loads for the bit reservoir encode");
-        return 0;
+        CHECK(0, "the driver loads for the settings encode");
+        return opened;
     }
     mr = acmDriverAdd(&hadid, (HINSTANCE) mod, (LPARAM) proc, 0, ACM_DRIVERADDF_FUNCTION);
     if (mr == MMSYSERR_NOERROR) {
         mr = acmDriverOpen(&had, hadid, 0);
     }
-    fill_pcm_format(&pcm, rate, channels);
-    fill_mp3_format(&mp3, rate, channels, 128000);
-    if (mr == MMSYSERR_NOERROR) {
-        mr = acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) &mp3, NULL, 0, 0, 0);
-    }
-    CHECK_MM(mr, "the driver opens a 44100/16/stereo to 128 kbps stream");
+    CHECK_MM(mr, "the driver opens for the settings encode");
     if (mr != MMSYSERR_NOERROR) {
+        goto out;
+    }
+    fill_pcm_format(&pcm, rate, 2);
+    fill_mp3_format(&mp3, rate, out_channels, bps);
+    opened = acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) &mp3, NULL, 0, 0, 0);
+    if (opened != MMSYSERR_NOERROR) {
+        has = NULL;
         goto out;
     }
     src_bytes = samples * pcm.nBlockAlign;
     src = (short *) calloc(1, src_bytes);
     if (src == NULL || acmStreamSize(has, src_bytes, &dst_bytes, ACM_STREAMSIZEF_SOURCE)
         != MMSYSERR_NOERROR || (dst = (BYTE *) calloc(1, dst_bytes)) == NULL) {
-        CHECK(0, "the buffers for the bit reservoir encode are ready");
+        CHECK(0, "the buffers for the settings encode are ready");
         goto out;
     }
     for (i = 0; i < samples; i++) {
@@ -1213,11 +1220,11 @@ encode_counting_reservoir(const char *driver, int *frames, int *borrowed, int *j
     hdr.cbDstLength = dst_bytes;
     mr = acmStreamPrepareHeader(has, &hdr, 0);
     if (mr != MMSYSERR_NOERROR) {
-        CHECK_MM(mr, "the header for the bit reservoir encode is prepared");
+        CHECK_MM(mr, "the header for the settings encode is prepared");
         goto out;
     }
     mr = acmStreamConvert(has, &hdr, ACM_STREAMCONVERTF_BLOCKALIGN | ACM_STREAMCONVERTF_END);
-    CHECK_MM(mr, "the bit reservoir encode converts");
+    CHECK_MM(mr, "the settings encode converts");
     if (mr != MMSYSERR_NOERROR) {
         acmStreamUnprepareHeader(has, &hdr, 0);
         goto out;
@@ -1242,17 +1249,19 @@ encode_counting_reservoir(const char *driver, int *frames, int *borrowed, int *j
         if (framelen <= 0) {
             break;
         }
-        ++*frames;
+        ++c->frames;
         if (mp3_main_data_begin(h) != 0) {
-            ++*borrowed;
+            ++c->borrowed;
         }
         if (mp3_channel_mode(h) == MP3_MODE_JOINT_STEREO) {
-            ++*joint;
+            ++c->joint;
+        }
+        if (mp3_channel_mode(h) == MP3_MODE_MONO) {
+            ++c->mono;
         }
         off += (DWORD) framelen;
     }
     acmStreamUnprepareHeader(has, &hdr, 0);
-    ran = 1;
 
 out:
     free(src);
@@ -1266,16 +1275,95 @@ out:
     if (hadid != NULL) {
         acmDriverRemove(hadid, 0);
     }
-    return ran;
+    return opened;
 }
 
 /**
- * @brief Checks that the defaults and the bit reservoir setting reach the
- *        encoder.
+ * @brief Returns the number of channels that the codec suggests for stereo PCM.
  *
- * Without a configuration file, every frame is joint stereo, and some frames
- * use bytes of earlier frames. With @c Bit_reservoir set to false, no frame
- * does.
+ * The driver reads its configuration when it is opened, so the caller writes
+ * the configuration file before this call.
+ *
+ * @param driver the path of the codec.
+ * @return the channel count of the suggested MP3 format. 0 if a step fails.
+ */
+static WORD
+suggested_channels(const char *driver)
+{
+    HMODULE mod = LoadLibraryA(driver);
+    FARPROC proc = (mod != NULL) ? GetProcAddress(mod, "DriverProc") : NULL;
+    HACMDRIVERID hadid = NULL;
+    HACMDRIVER had = NULL;
+    WAVEFORMATEX pcm;
+    MPEGLAYER3WAVEFORMAT sug;
+    WORD channels = 0;
+    MMRESULT mr;
+
+    if (proc == NULL) {
+        return 0;
+    }
+    mr = acmDriverAdd(&hadid, (HINSTANCE) mod, (LPARAM) proc, 0, ACM_DRIVERADDF_FUNCTION);
+    if (mr == MMSYSERR_NOERROR) {
+        mr = acmDriverOpen(&had, hadid, 0);
+    }
+    if (mr == MMSYSERR_NOERROR) {
+        fill_pcm_format(&pcm, 44100, 2);
+        memset(&sug, 0, sizeof(sug));
+        sug.wfx.wFormatTag = WAVE_FORMAT_MPEGLAYER3;
+        mr = acmFormatSuggest(had, &pcm, (WAVEFORMATEX *) &sug, sizeof(sug),
+                              ACM_FORMATSUGGESTF_WFORMATTAG);
+        if (mr == MMSYSERR_NOERROR) {
+            channels = sug.wfx.nChannels;
+        }
+    }
+    if (had != NULL) {
+        acmDriverClose(had, 0);
+    }
+    if (hadid != NULL) {
+        acmDriverRemove(hadid, 0);
+    }
+    return channels;
+}
+
+/**
+ * @brief Writes a configuration file with the given elements in its current
+ *        configuration.
+ * @param elements the XML elements, one or more lines.
+ * @return 1 on success, 0 if the file cannot be written.
+ */
+static int
+write_settings(const char *elements)
+{
+    FILE *f = fopen(CONFIG_NAME, "wb");
+
+    if (f == NULL) {
+        return 0;
+    }
+    fprintf(f,
+            "<lame_acm>\n"
+            "    <encodings default=\"Current\">\n"
+            "        <config name=\"Current\">\n"
+            "%s"
+            "        </config>\n"
+            "    </encodings>\n"
+            "</lame_acm>\n",
+            elements);
+    fclose(f);
+    return 1;
+}
+
+/**
+ * @brief Checks that the defaults, the bit reservoir setting and the forced
+ *        Mono setting reach the encoder.
+ *
+ * - Without a configuration file, every frame is joint stereo, and some frames
+ *   use bytes of earlier frames.
+ * - With @c Bit_reservoir set to false, no frame uses bytes of earlier frames.
+ * - With Mono forced, the codec suggests mono for stereo input, opens a stereo
+ *   to mono stream, and writes mono frames.
+ * - With Mono not forced, the control: the codec suggests stereo, does not
+ *   open the stereo to mono stream, and encodes a stereo stream as joint
+ *   stereo.
  *
  * An installed codec reads its configuration file from its own folder. Here
  * the test adds the codec with @c ACM_DRIVERADDF_FUNCTION, and then the codec
@@ -1292,10 +1380,11 @@ test_settings_reach_the_encoder(const char *driver)
     char *saved = NULL;
     long saved_len = -1;
     FILE *f;
-    int frames, borrowed, joint;
+    frame_counts c;
+    MMRESULT mr;
     /* The first and the last frame may be missing, as in test_under_the_acm(). */
     const int expected_frames =
-        (int) (mp3_frames_per_second(44100) * RESERVOIR_TEST_SECONDS) - 2;
+        (int) (mp3_frames_per_second(44100) * SETTINGS_TEST_SECONDS) - 2;
 
     printf("the settings that reach the encoder\n");
 
@@ -1317,38 +1406,53 @@ test_settings_reach_the_encoder(const char *driver)
         }
     }
 
-    /* The control: the default setting uses the reservoir. */
+    /* The defaults: joint stereo, and the reservoir in use. */
     ::DeleteFileA(config);
-    if (encode_counting_reservoir(driver, &frames, &borrowed, &joint)) {
-        printf("        default: %d frame(s), %d use earlier bytes\n", frames, borrowed);
-        CHECK(frames >= expected_frames, "the default encode has all of its frames");
-        CHECK(borrowed > 0, "with the default setting, some frames use the bit reservoir");
-        CHECK_EQ_U(joint, frames, "without a configuration file, every frame is joint stereo");
-    }
+    mr = encode_stereo_tone(driver, 2, 128000, &c);
+    CHECK_MM(mr, "the default settings open a stereo stream");
+    printf("        default: %d frame(s), %d use earlier bytes, %d joint stereo\n",
+           c.frames, c.borrowed, c.joint);
+    CHECK(c.frames >= expected_frames, "the default encode has all of its frames");
+    CHECK(c.borrowed > 0, "with the default setting, some frames use the bit reservoir");
+    CHECK_EQ_U(c.joint, c.frames, "without a configuration file, every frame is joint stereo");
 
-    f = fopen(config, "wb");
-    if (f == NULL) {
+    /* The resampling and VBR keys are settings the codec does not have. A
+       file from an older release can carry them, and the codec must still
+       load the rest of it. */
+    if (!write_settings("            <resampling use=\"true\" freq=\"22050\" />\n"
+                        "            <VBR use=\"true\" header=\"false\" quality=\"2\" />\n"
+                        "            <Bit_reservoir use=\"false\" />\n")) {
         CHECK(0, "the configuration file can be written");
     } else {
-        /* The resampling and VBR keys are settings the codec does not have.
-           A file from an older release can carry them, and the codec must
-           still load the rest of it. */
-        fprintf(f,
-                "<lame_acm>\n"
-                "    <encodings default=\"Current\">\n"
-                "        <config name=\"Current\">\n"
-                "            <resampling use=\"true\" freq=\"22050\" />\n"
-                "            <VBR use=\"true\" header=\"false\" quality=\"2\" />\n"
-                "            <Bit_reservoir use=\"false\" />\n"
-                "        </config>\n"
-                "    </encodings>\n"
-                "</lame_acm>\n");
-        fclose(f);
-        if (encode_counting_reservoir(driver, &frames, &borrowed, &joint)) {
-            printf("        switched off: %d frame(s), %d use earlier bytes\n", frames, borrowed);
-            CHECK(frames >= expected_frames, "the encode without the reservoir has all of its frames");
-            CHECK_EQ_U(borrowed, 0, "with the reservoir switched off, no frame uses it");
-        }
+        mr = encode_stereo_tone(driver, 2, 128000, &c);
+        CHECK_MM(mr, "a stereo stream opens with the reservoir switched off");
+        printf("        switched off: %d frame(s), %d use earlier bytes\n", c.frames, c.borrowed);
+        CHECK(c.frames >= expected_frames, "the encode without the reservoir has all of its frames");
+        CHECK_EQ_U(c.borrowed, 0, "with the reservoir switched off, no frame uses it");
+    }
+
+    if (!write_settings("            <Channel mode=\"Mono\" force=\"true\" />\n")) {
+        CHECK(0, "the configuration file can be written");
+    } else {
+        CHECK_EQ_U(suggested_channels(driver), 1, "with Mono forced, the codec suggests mono for stereo");
+        mr = encode_stereo_tone(driver, 1, 64000, &c);
+        CHECK_MM(mr, "with Mono forced, a stereo to mono stream opens");
+        printf("        Mono forced: %d frame(s), %d mono\n", c.frames, c.mono);
+        CHECK(c.frames >= expected_frames, "the forced mono encode has all of its frames");
+        CHECK_EQ_U(c.mono, c.frames, "with Mono forced, every frame is mono");
+    }
+
+    if (!write_settings("            <Channel mode=\"Mono\" force=\"false\" />\n")) {
+        CHECK(0, "the configuration file can be written");
+    } else {
+        CHECK_EQ_U(suggested_channels(driver), 2, "with Mono not forced, the codec suggests stereo");
+        mr = encode_stereo_tone(driver, 1, 64000, &c);
+        CHECK(mr != MMSYSERR_NOERROR, "with Mono not forced, a stereo to mono stream does not open");
+        mr = encode_stereo_tone(driver, 2, 128000, &c);
+        CHECK_MM(mr, "with Mono not forced, a stereo stream opens");
+        printf("        Mono not forced: %d frame(s), %d joint stereo\n", c.frames, c.joint);
+        CHECK(c.frames >= expected_frames, "the stereo encode has all of its frames");
+        CHECK_EQ_U(c.joint, c.frames, "with Mono not forced, a stereo stream is joint stereo");
     }
 
     ::DeleteFileA(config);

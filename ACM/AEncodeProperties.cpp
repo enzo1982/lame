@@ -61,18 +61,19 @@ static const unsigned int ABR_BITRATE_LIMIT = 320;
 const unsigned int AEncodeProperties::the_Bitrates[18] = {320, 256, 224, 192, 160, 144, 128, 112, 96, 80, 64, 56, 48, 40, 32, 24, 16, 8 };
 const unsigned int AEncodeProperties::the_MPEG1_Bitrates[14] = {320, 256, 224, 192, 160, 128, 112, 96, 80, 64, 56, 48, 40, 32 };
 const unsigned int AEncodeProperties::the_MPEG2_Bitrates[14] = {160, 144, 128, 112, 96, 80, 64, 56, 48, 40, 32, 24, 16, 8};
-const unsigned int AEncodeProperties::the_ChannelModes[3] = { STEREO, JOINT_STEREO, DUAL_CHANNEL };
+const unsigned int AEncodeProperties::the_ChannelModes[4] = { STEREO, JOINT_STEREO, DUAL_CHANNEL, MONO };
 //const char         AEncodeProperties::the_Presets[][13] = {"None", "CD", "Studio", "Hi-Fi", "Phone", "Voice", "Radio", "Tape", "FM", "AM", "SW"};
 //const LAME_QUALTIY_PRESET AEncodeProperties::the_Presets[] = {LQP_NOPRESET, LQP_R3MIX_QUALITY, LQP_NORMAL_QUALITY, LQP_LOW_QUALITY, LQP_HIGH_QUALITY, LQP_VERYHIGH_QUALITY, LQP_VOICE_QUALITY, LQP_PHONE, LQP_SW, LQP_AM, LQP_FM, LQP_VOICE, LQP_RADIO, LQP_TAPE, LQP_HIFI, LQP_CD, LQP_STUDIO};
 
-ToolTipItem AEncodeProperties::Tooltips[14]={
+ToolTipItem AEncodeProperties::Tooltips[15]={
 	{ IDC_CHECK_ENC_ABR, "Allow encoding with an average bitrate\r\ninstead of a constant one.\r\n\r\nIt can improve the quality for the same bitrate." },
 	{ IDC_CHECK_COPYRIGHT, "Mark the encoded data as copyrighted." },
 	{ IDC_CHECK_CHECKSUM, "Put a checksum in the encoded data.\r\n\r\nThis can make the file less sensitive to data loss." },
 	{ IDC_CHECK_ORIGINAL, "Mark the encoded data as an original file." },
 	{ IDC_CHECK_PRIVATE, "Mark the encoded data as private." },
 	{ IDC_CHECK_RESERVOIR, "Use the bit reservoir.\r\n\r\nA frame can then use bits that earlier frames left over.\r\nWithout it, every frame contains all of its own data." },
-	{ IDC_COMBO_ENC_STEREO, "Select the type of stereo mode used for encoding:\r\n\r\n- Stereo : the usual one\r\n- Joint-Stereo : mix both channel to achieve better compression\r\n- Dual Channel : treat both channel as separate" },
+	{ IDC_COMBO_ENC_STEREO, "Select the type of stereo mode used for encoding:\r\n\r\n- Stereo : the usual one\r\n- Joint-Stereo : mix both channel to achieve better compression\r\n- Dual Channel : treat both channel as separate\r\n- Mono : one channel" },
+	{ IDC_CHECK_CHANNELFORCE, "Use the selected mode even when the input has another number of channels.\r\n\r\nOnly Mono can be forced: stereo input is then encoded as mono." },
 	{ IDC_STATIC_DECODING, "Decoding not supported for the moment by the codec." },
 	{ IDC_CHECK_ENC_SMART, "Disable bitrate when there is too much compression.\r\n(default 1:15 ratio)" },
 	{ IDC_STATIC_CONFIG_VERSION, "Version of this codec.\r\n\r\nvX.X.X is the version of the codec interface.\r\nX.XX is the version of the encoding engine." },
@@ -315,12 +316,14 @@ const char * AEncodeProperties::GetChannelModeString(int a_channelID) const
 	assert(a_channelID < sizeof(the_ChannelModes));
 
 	switch (a_channelID) {
-		case 0:
+		case CHANNEL_INDEX_STEREO:
 			return "Stereo";
-		case 1:
+		case CHANNEL_INDEX_JOINT_STEREO:
 			return "Joint-stereo";
-		case 2:
+		case CHANNEL_INDEX_DUAL_CHANNEL:
 			return "Dual Channel";
+		case CHANNEL_INDEX_MONO:
+			return "Mono";
 		default:
 			assert(a_channelID);
 			return NULL;
@@ -340,9 +343,16 @@ const int AEncodeProperties::GetBitrateString(char * string, int string_size, in
 
 const unsigned int AEncodeProperties::GetChannelModeValue() const
 {
-	assert(nChannelIndex < sizeof(the_ChannelModes));
+	assert(nChannelIndex < GetChannelLentgh());
 
 	return the_ChannelModes[nChannelIndex];
+}
+
+const unsigned int AEncodeProperties::OutputChannels(const unsigned int input_channels) const
+{
+	if (bForceChannel && GetChannelModeValue() == MONO && input_channels == 2)
+		return 1;
+	return input_channels;
 }
 
 const unsigned int AEncodeProperties::GetBitrateValue() const
@@ -609,7 +619,7 @@ bool AEncodeProperties::UpdateDlgFromValue(HWND HwndDlg)
 	::CheckDlgButton( HwndDlg, IDC_CHECK_ENC_SMART,    GetSmartOutputMode()?BST_CHECKED:BST_UNCHECKED );
 	::CheckDlgButton( HwndDlg, IDC_CHECK_ENC_ABR,      GetAbrOutputMode()  ?BST_CHECKED:BST_UNCHECKED );
 	::CheckDlgButton( HwndDlg, IDC_CHECK_RESERVOIR,    !GetNoBiResMode() ?BST_CHECKED:BST_UNCHECKED );
-//	::CheckDlgButton( HwndDlg, IDC_CHECK_CHANNELFORCE, bForceChannel     ?BST_CHECKED:BST_UNCHECKED );
+	::CheckDlgButton( HwndDlg, IDC_CHECK_CHANNELFORCE, bForceChannel     ?BST_CHECKED:BST_UNCHECKED );
 	
 	// Add required channel modes
 	for (i=0;i<GetChannelLentgh();i++)
@@ -701,7 +711,7 @@ bool AEncodeProperties::UpdateValueFromDlg(HWND HwndDlg)
 	bSmartOutput  = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_ENC_SMART)    == BST_CHECKED);
 	bAbrOutput    = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_ENC_ABR)      == BST_CHECKED);
 	bNoBitRes     =!(::IsDlgButtonChecked( HwndDlg, IDC_CHECK_RESERVOIR)    == BST_CHECKED);
-//	bForceChannel = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_CHANNELFORCE) == BST_CHECKED);
+	bForceChannel = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_CHANNELFORCE) == BST_CHECKED);
 
 	AverageBitrate_Min  = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MIN), TBM_GETPOS , NULL, NULL);
 	AverageBitrate_Max  = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MAX), TBM_GETPOS , NULL, NULL);
@@ -1096,11 +1106,9 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 					}
 				}
 			}
-/*
 			tmpname = tmpElt->Attribute("force");
 			if (tmpname != NULL)
 				bForceChannel = (tmpname->compare("true") == 0);
-*/
 		}
 //#endif // OLD
 
@@ -1312,13 +1320,13 @@ void AEncodeProperties::SaveValuesToElement(TiXmlElement * the_element) const
 	{
 		tmpElt = new TiXmlElement("Channel");
 		tmpElt->SetAttribute("mode", GetChannelModeString(nChannelIndex));
-//		SetAttributeBool( tmpElt, "force", bForceChannel);
+		SetAttributeBool( tmpElt, "force", bForceChannel);
 		the_element->InsertEndChild(*tmpElt);
 	}
 	else
 	{
 		tmpElt->SetAttribute("mode", GetChannelModeString(nChannelIndex));
-//		SetAttributeBool( tmpElt, "force", bForceChannel);
+		SetAttributeBool( tmpElt, "force", bForceChannel);
 	}
 /*
 	// Preset parameter

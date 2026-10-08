@@ -108,60 +108,63 @@ IDI_ICON                ICON    DISCARDABLE     "lame.ico"
 // Dialog
 //
 
-IDD_CONFIG DIALOGEX 0, 0, 231, 220
+IDD_CONFIG DIALOGEX 0, 0, 231, 232
 STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Lame MP3 codec : About"
 FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,65,199,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,125,199,50,14
-    GROUPBOX        "Encoding",IDC_STATIC,7,7,142,182
+    DEFPUSHBUTTON   "OK",IDOK,65,211,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,125,211,50,14
+    GROUPBOX        "Encoding",IDC_STATIC,7,7,142,194
     GROUPBOX        "Decoding",IDC_STATIC_DECODING,154,7,70,113,WS_DISABLED
-    GROUPBOX        "Bits",IDC_STATIC,16,121,124,58
+    GROUPBOX        "Bits",IDC_STATIC,16,133,124,58
     CONTROL         "Copyright",IDC_CHECK_COPYRIGHT,"Button",BS_AUTOCHECKBOX | 
-                    BS_FLAT | WS_GROUP | WS_TABSTOP,23,132,45,10
+                    BS_FLAT | WS_GROUP | WS_TABSTOP,23,144,45,10
     CONTROL         "Checksum",IDC_CHECK_CHECKSUM,"Button",BS_AUTOCHECKBOX | 
-                    BS_FLAT | WS_GROUP | WS_TABSTOP,84,132,49,10
+                    BS_FLAT | WS_GROUP | WS_TABSTOP,84,144,49,10
     CONTROL         "Original",IDC_CHECK_ORIGINAL,"Button",BS_AUTOCHECKBOX | 
-                    BS_FLAT | WS_GROUP | WS_TABSTOP,23,148,39,10
+                    BS_FLAT | WS_GROUP | WS_TABSTOP,23,160,39,10
     CONTROL         "Private",IDC_CHECK_PRIVATE,"Button",BS_AUTOCHECKBOX | 
-                    BS_FLAT | WS_GROUP | WS_TABSTOP,84,148,38,10
+                    BS_FLAT | WS_GROUP | WS_TABSTOP,84,160,38,10
     CONTROL         "Bit reservoir",IDC_CHECK_RESERVOIR,"Button",
-                    BS_AUTOCHECKBOX | BS_FLAT | WS_GROUP | WS_TABSTOP,23,164,
+                    BS_AUTOCHECKBOX | BS_FLAT | WS_GROUP | WS_TABSTOP,23,176,
                     60,10
     COMBOBOX        IDC_COMBO_ENC_STEREO,70,21,60,53,CBS_DROPDOWNLIST | 
                     WS_VSCROLL | WS_GROUP | WS_TABSTOP
-    LTEXT           "Stereo mode",IDC_STATIC,23,24,41,8
+    LTEXT           "Channel mode",IDC_STATIC,21,24,47,8
+    CONTROL         "Force mode",IDC_CHECK_CHANNELFORCE,"Button",
+                    BS_AUTOCHECKBOX | BS_FLAT | WS_GROUP | WS_TABSTOP,70,36,
+                    60,10
     CONTROL         "Smart Encode",IDC_CHECK_ENC_SMART,"Button",
-                    BS_AUTOCHECKBOX | BS_FLAT | WS_GROUP | WS_TABSTOP,49,39,
+                    BS_AUTOCHECKBOX | BS_FLAT | WS_GROUP | WS_TABSTOP,49,51,
                     61,10
     ICON            IDI_ICON,IDC_STATIC_ENC_ICON,179,129,20,20
     CTEXT           "v0.0.0 - 0.00",IDC_STATIC_CONFIG_VERSION,168,155,43,17
     CONTROL         "Average BitRate",IDC_CHECK_ENC_ABR,"Button",
-                    BS_AUTOCHECKBOX | BS_FLAT | WS_GROUP | WS_TABSTOP,49,53,
+                    BS_AUTOCHECKBOX | BS_FLAT | WS_GROUP | WS_TABSTOP,49,65,
                     68,10
-    LTEXT           "Min",IDC_STATIC_AVERAGE_MIN,19,67,12,8
-    LTEXT           "Max",IDC_STATIC_AVERAGE_MAX,17,79,14,8
-    LTEXT           "Step",IDC_STATIC_AVERAGE_STEP,15,91,16,8
-    LTEXT           "test",IDC_STATIC_AVERAGE_SAMPLE,19,105,12,8
+    LTEXT           "Min",IDC_STATIC_AVERAGE_MIN,19,79,12,8
+    LTEXT           "Max",IDC_STATIC_AVERAGE_MAX,17,91,14,8
+    LTEXT           "Step",IDC_STATIC_AVERAGE_STEP,15,103,16,8
+    LTEXT           "test",IDC_STATIC_AVERAGE_SAMPLE,19,117,12,8
     CONTROL         "Slider2",IDC_SLIDER_AVERAGE_MIN,"msctls_trackbar32",
                     TBS_AUTOTICKS | TBS_BOTH | TBS_NOTICKS | WS_GROUP | 
-                    WS_TABSTOP,33,67,92,11
+                    WS_TABSTOP,33,79,92,11
     CONTROL         "Slider3",IDC_SLIDER_AVERAGE_MAX,"msctls_trackbar32",
                     TBS_AUTOTICKS | TBS_BOTH | TBS_NOTICKS | WS_GROUP | 
-                    WS_TABSTOP,33,79,92,11
+                    WS_TABSTOP,33,91,92,11
     CONTROL         "Slider1",IDC_SLIDER_AVERAGE_STEP,"msctls_trackbar32",
                     TBS_AUTOTICKS | TBS_BOTH | TBS_NOTICKS | WS_GROUP | 
-                    WS_TABSTOP,33,91,92,11
+                    WS_TABSTOP,33,103,92,11
     CONTROL         "Slider4",IDC_SLIDER_AVERAGE_SAMPLE,"msctls_trackbar32",
-                    WS_TABSTOP,33,104,92,12
-    CTEXT           "000",IDC_STATIC_AVERAGE_SAMPLE_VALUE,125,105,15,9,0,
+                    WS_TABSTOP,33,116,92,12
+    CTEXT           "000",IDC_STATIC_AVERAGE_SAMPLE_VALUE,125,117,15,9,0,
                     WS_EX_STATICEDGE
-    CTEXT           "000",IDC_STATIC_AVERAGE_STEP_VALUE,125,92,15,9,0,
+    CTEXT           "000",IDC_STATIC_AVERAGE_STEP_VALUE,125,104,15,9,0,
                     WS_EX_STATICEDGE
-    CTEXT           "000",IDC_STATIC_AVERAGE_MAX_VALUE,125,80,15,9,0,
+    CTEXT           "000",IDC_STATIC_AVERAGE_MAX_VALUE,125,92,15,9,0,
                     WS_EX_STATICEDGE
-    CTEXT           "000",IDC_STATIC_AVERAGE_MIN_VALUE,125,67,15,9,0,
+    CTEXT           "000",IDC_STATIC_AVERAGE_MIN_VALUE,125,79,15,9,0,
                     WS_EX_STATICEDGE
 END
 
@@ -193,7 +196,7 @@ BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 224
         TOPMARGIN, 7
-        BOTTOMMARGIN, 213
+        BOTTOMMARGIN, 225
     END
 
     IDD_ABOUT, DIALOG

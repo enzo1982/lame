@@ -54,7 +54,7 @@ public:
 	static ACMStream * Create();
 	static const bool Erase(const ACMStream * a_ACMStream);
 
-	bool init(const int nSamplesPerSec, const int nOutputSamplesPerSec, const int nChannels, const int nAvgBytesPerSec, const vbr_mode mode);
+	bool init(const int nSamplesPerSec, const int nOutputSamplesPerSec, const int nChannels, const int nOutputChannels, const int nAvgBytesPerSec, const vbr_mode mode);
 	bool open(const AEncodeProperties & the_Properties);
 	bool close(LPBYTE pOutputBuffer, DWORD *pOutputSize);
 
@@ -68,7 +68,8 @@ protected:
 
 	ADbg * my_debug;
 	int my_SamplesPerSec;
-	int my_Channels;
+	int my_Channels;     // of the input
+	int my_OutChannels;  // of the encoded stream
 	int my_AvgBytesPerSec;
 	int my_OutBytesPerSec;
 	vbr_mode my_VBRMode;

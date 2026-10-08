@@ -105,9 +105,10 @@ public:
 	inline const bool GetNoBiResMode() const { return bNoBitRes; }
 
 	/**
-		\brief Returns true if the settings force the selected channel mode, with
-		a conversion from stereo to mono or from mono to stereo.
-		\todo The encoder does not use this setting.
+		\brief Returns true if the settings force the selected channel mode.
+
+		Only Mono can be forced: then the codec encodes stereo input as mono.
+		See OutputChannels().
 	*/
 	inline const bool GetForceChannelMode() const { return bForceChannel; }
 
@@ -238,6 +239,14 @@ public:
 	*/
 	const unsigned int GetChannelModeValue() const;
 	/**
+		\brief Returns the number of channels that the encoded stream has.
+
+		\param input_channels the number of channels of the input, 1 or 2
+		\return 1 if the settings force Mono and the input is stereo.
+		        Otherwise \a input_channels.
+	*/
+	const unsigned int OutputChannels(const unsigned int input_channels) const;
+	/**
 		\brief Returns the name of the current channel mode.
 	*/
 	inline const char * GetChannelModeString() const {return GetChannelModeString(nChannelIndex); }
@@ -250,7 +259,7 @@ public:
 	/**
 		\brief Returns the number of channel modes.
 	*/
-	inline const int GetChannelLentgh() const { return 3; }
+	inline const int GetChannelLentgh() const { return sizeof(the_ChannelModes) / sizeof(the_ChannelModes[0]); }
 
 //	const LAME_QUALTIY_PRESET GetPresetModeValue() const;
 	/**
@@ -315,7 +324,7 @@ public:
 	*/
 	void UpdateDlgFromSlides(HWND parent_window) const;
 
-	static ToolTipItem Tooltips[14];
+	static ToolTipItem Tooltips[15];
 private:
 
 	bool bCopyright;
@@ -335,8 +344,9 @@ private:
 	double SmartRatioMax;
 
 	/** \brief Indexes into the_ChannelModes, in the order of its entries. */
-	enum { CHANNEL_INDEX_STEREO, CHANNEL_INDEX_JOINT_STEREO, CHANNEL_INDEX_DUAL_CHANNEL };
-	static const unsigned int the_ChannelModes[3];
+	enum { CHANNEL_INDEX_STEREO, CHANNEL_INDEX_JOINT_STEREO, CHANNEL_INDEX_DUAL_CHANNEL,
+	       CHANNEL_INDEX_MONO };
+	static const unsigned int the_ChannelModes[4];
 	int nChannelIndex;
 
 	static const unsigned int the_Bitrates[18];
