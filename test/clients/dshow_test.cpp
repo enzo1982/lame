@@ -968,24 +968,40 @@ test_stream_caps_list(IPin *lame_out)
     cfg->Release();
 }
 
+/** @brief What a sink pin received in one media sample. */
+typedef struct {
+    long    offset;         /**< where its bytes start in the received stream */
+    long    length;         /**< its bytes */
+    REFERENCE_TIME start;   /**< its start time, if it has one */
+    REFERENCE_TIME stop;    /**< its stop time, if it has one */
+    int     timed;          /**< 0 without times, 1 with a start time, 2 with both */
+    int     sync;           /**< set if it is a sync point */
+} received_sample;
+
 /**
- * @brief A stream sink whose input pin asks for an allocator alignment.
+ * @brief A sink whose input pin asks for an allocator alignment.
  *
  * The stock File Writer asks for no alignment. So a graph of stock filters
  * never shows how the encoder pads a stream to an alignment. This pin accepts
- * a byte stream, asks for @c cbAlign bytes, and appends what it receives to
- * one buffer. It lives on the stack of the test that uses it. It does not
+ * one major type: a byte stream, or audio, which the encoder delivers as one
+ * MP3 frame per sample. It asks for @c cbAlign bytes, appends what it receives
+ * to one buffer, and keeps the length, the times and the sync point flag of
+ * each sample. It lives on the stack of the test that uses it. It does not
  * need reference counting and does not do it.
  */
 class AlignedSinkPin : public IPin, public IMemInputPin {
 public:
     long    align;          /**< the alignment the pin asks for */
+    GUID    major;          /**< the major type the pin accepts */
     IPin   *peer;           /**< the connected output pin */
     IBaseFilter *owner;     /**< the filter the pin reports as its own */
     HANDLE  eos;            /**< signaled by EndOfStream() */
     BYTE   *stream;         /**< everything received, in order */
     long    length;         /**< bytes in #stream */
     long    capacity;       /**< bytes allocated for #stream */
+    received_sample *samples; /**< each sample received, in order */
+    int     sample_count;   /**< entries in #samples */
+    int     sample_capacity; /**< entries allocated for #samples */
     int     deliveries;     /**< number of samples received */
     int     reject_from;    /**< the first sample that Receive() rejects, 0 for none */
     int     rejected;       /**< number of samples rejected */
@@ -993,18 +1009,21 @@ public:
     /**
      * @brief Creates a pin that asks for @p a bytes of alignment.
      * @param a the alignment.
+     * @param m the major type the pin accepts.
      */
-    AlignedSinkPin(long a) : align(a), peer(NULL), owner(NULL), stream(NULL),
-        length(0), capacity(0), deliveries(0), reject_from(0), rejected(0)
+    AlignedSinkPin(long a, const GUID &m = MEDIATYPE_Stream) : align(a), major(m), peer(NULL),
+        owner(NULL), stream(NULL), length(0), capacity(0), samples(NULL), sample_count(0),
+        sample_capacity(0), deliveries(0), reject_from(0), rejected(0)
     {
         eos = CreateEvent(NULL, TRUE, FALSE, NULL);
     }
-    /** @brief Releases the peer pin, and frees the received stream and the event. */
+    /** @brief Releases the peer pin, and frees what was received and the event. */
     ~AlignedSinkPin()
     {
         if (peer)
             peer->Release();
         free(stream);
+        free(samples);
         CloseHandle(eos);
     }
 
@@ -1027,7 +1046,7 @@ public:
     STDMETHODIMP Connect(IPin *, const AM_MEDIA_TYPE *) { return E_UNEXPECTED; }
     STDMETHODIMP ReceiveConnection(IPin *p, const AM_MEDIA_TYPE *mt)
     {
-        if (mt == NULL || mt->majortype != MEDIATYPE_Stream)
+        if (mt == NULL || mt->majortype != major)
             return VFW_E_TYPE_NOT_ACCEPTED;
         peer = p;
         peer->AddRef();
@@ -1052,7 +1071,7 @@ public:
     STDMETHODIMP ConnectionMediaType(AM_MEDIA_TYPE *mt)
     {
         ZeroMemory(mt, sizeof *mt);
-        mt->majortype = MEDIATYPE_Stream;
+        mt->majortype = major;
         return peer ? S_OK : VFW_E_NOT_CONNECTED;
     }
     STDMETHODIMP QueryPinInfo(PIN_INFO *pi)
@@ -1075,7 +1094,7 @@ public:
     }
     STDMETHODIMP QueryAccept(const AM_MEDIA_TYPE *mt)
     {
-        return mt->majortype == MEDIATYPE_Stream ? S_OK : S_FALSE;
+        return mt->majortype == major ? S_OK : S_FALSE;
     }
     STDMETHODIMP EnumMediaTypes(IEnumMediaTypes **) { return E_NOTIMPL; }
     STDMETHODIMP QueryInternalConnections(IPin **, ULONG *) { return E_NOTIMPL; }
@@ -1113,6 +1132,25 @@ public:
                 return E_OUTOFMEMORY;
             stream = grown;
             capacity = want;
+        }
+        if (sample_count == sample_capacity) {
+            int     want = sample_capacity ? 2 * sample_capacity : 64;
+            received_sample *grown =
+                (received_sample *) realloc(samples, want * sizeof(received_sample));
+
+            if (grown == NULL)
+                return E_OUTOFMEMORY;
+            samples = grown;
+            sample_capacity = want;
+        }
+        {
+            received_sample *r = &samples[sample_count++];
+            HRESULT t = s->GetTime(&r->start, &r->stop);
+
+            r->offset = length;
+            r->length = n;
+            r->timed = t == S_OK ? 2 : (t == VFW_S_NO_STOP_TIME ? 1 : 0);
+            r->sync = s->IsSyncPoint() == S_OK;
         }
         memcpy(stream + length, p, n);
         length += n;
@@ -1286,6 +1324,382 @@ out:
     return ended;
 }
 
+/** @brief The sample rate of the pushed PCM, in Hz. */
+#define PUSH_RATE 44100
+/** @brief The channels of the pushed PCM. */
+#define PUSH_CHANNELS 2
+/** @brief The sample frames in each pushed media sample: 100 ms. */
+#define PUSH_FRAMES_PER_SAMPLE (PUSH_RATE / 10)
+/** @brief The bytes of each pushed media sample. */
+#define PUSH_BYTES_PER_SAMPLE (PUSH_FRAMES_PER_SAMPLE * PUSH_CHANNELS * (long) sizeof(short))
+/** @brief The duration of each pushed media sample, in 100 ns units. */
+#define PUSH_SAMPLE_UNITS ((REFERENCE_TIME) PUSH_FRAMES_PER_SAMPLE * 10000000 / PUSH_RATE)
+
+/**
+ * @brief An output pin that pushes PCM media samples with the times the test
+ *        chooses.
+ *
+ * A file source stamps its samples without gaps. This pin is how the test
+ * gives the encoder a gap in the input times. It connects with 16-bit stereo
+ * PCM, takes the allocator of the pin it connects to, and pushes from the
+ * test's thread. It lives on the stack of the test that uses it. It does not
+ * need reference counting and does not do it.
+ */
+class PushSourcePin : public IPin {
+public:
+    IPin   *peer;           /**< the connected input pin */
+    IMemInputPin *mem;      /**< its transport interface */
+    IMemAllocator *alloc;   /**< the allocator it gave */
+    IBaseFilter *owner;     /**< the filter the pin reports as its own */
+    WAVEFORMATEX wfx;       /**< the format of the pushed PCM */
+    AM_MEDIA_TYPE mt;       /**< the media type it connects with */
+
+    /** @brief Creates an unconnected pin for 16-bit stereo PCM at #PUSH_RATE. */
+    PushSourcePin() : peer(NULL), mem(NULL), alloc(NULL), owner(NULL)
+    {
+        ZeroMemory(&wfx, sizeof wfx);
+        wfx.wFormatTag = WAVE_FORMAT_PCM;
+        wfx.nChannels = PUSH_CHANNELS;
+        wfx.nSamplesPerSec = PUSH_RATE;
+        wfx.wBitsPerSample = 16;
+        wfx.nBlockAlign = PUSH_CHANNELS * sizeof(short);
+        wfx.nAvgBytesPerSec = PUSH_RATE * wfx.nBlockAlign;
+        ZeroMemory(&mt, sizeof mt);
+        mt.majortype = MEDIATYPE_Audio;
+        mt.subtype = MEDIASUBTYPE_PCM;
+        mt.bFixedSizeSamples = TRUE;
+        mt.lSampleSize = wfx.nBlockAlign;
+        mt.formattype = FORMAT_WaveFormatEx;
+        mt.cbFormat = sizeof wfx;
+        mt.pbFormat = (BYTE *) &wfx;
+    }
+    /** @brief Releases what the connection holds. */
+    ~PushSourcePin() { Disconnect(); }
+
+    STDMETHODIMP QueryInterface(REFIID riid, void **ppv)
+    {
+        if (riid == IID_IUnknown || riid == IID_IPin) {
+            *ppv = static_cast<IPin *>(this);
+            return S_OK;
+        }
+        *ppv = NULL;
+        return E_NOINTERFACE;
+    }
+    STDMETHODIMP_(ULONG) AddRef() { return 2; }
+    STDMETHODIMP_(ULONG) Release() { return 1; }
+
+    STDMETHODIMP Connect(IPin *r, const AM_MEDIA_TYPE *)
+    {
+        ALLOCATOR_PROPERTIES want = { 4, PUSH_BYTES_PER_SAMPLE, 1, 0 }, got;
+        HRESULT hr = r->ReceiveConnection(this, &mt);
+
+        if (FAILED(hr))
+            return hr;
+        peer = r;
+        peer->AddRef();
+        if (FAILED(hr = r->QueryInterface(IID_IMemInputPin, (void **) &mem))
+            || FAILED(hr = mem->GetAllocator(&alloc))
+            || FAILED(hr = alloc->SetProperties(&want, &got))
+            || FAILED(hr = mem->NotifyAllocator(alloc, FALSE))) {
+            Disconnect();
+            return hr;
+        }
+        return S_OK;
+    }
+    STDMETHODIMP ReceiveConnection(IPin *, const AM_MEDIA_TYPE *) { return E_UNEXPECTED; }
+    STDMETHODIMP Disconnect()
+    {
+        if (alloc) {
+            alloc->Decommit();
+            alloc->Release();
+            alloc = NULL;
+        }
+        if (mem) {
+            mem->Release();
+            mem = NULL;
+        }
+        if (peer == NULL)
+            return S_FALSE;
+        peer->Release();
+        peer = NULL;
+        return S_OK;
+    }
+    STDMETHODIMP ConnectedTo(IPin **p)
+    {
+        *p = peer;
+        if (peer == NULL)
+            return VFW_E_NOT_CONNECTED;
+        peer->AddRef();
+        return S_OK;
+    }
+    STDMETHODIMP ConnectionMediaType(AM_MEDIA_TYPE *m)
+    {
+        if (peer == NULL)
+            return VFW_E_NOT_CONNECTED;
+        *m = mt;
+        m->pbFormat = (BYTE *) CoTaskMemAlloc(sizeof wfx);
+        if (m->pbFormat == NULL)
+            return E_OUTOFMEMORY;
+        memcpy(m->pbFormat, &wfx, sizeof wfx);
+        return S_OK;
+    }
+    STDMETHODIMP QueryPinInfo(PIN_INFO *pi)
+    {
+        pi->pFilter = owner;
+        if (owner)
+            owner->AddRef();
+        pi->dir = PINDIR_OUTPUT;
+        wcscpy(pi->achName, L"Out");
+        return S_OK;
+    }
+    STDMETHODIMP QueryDirection(PIN_DIRECTION *d) { *d = PINDIR_OUTPUT; return S_OK; }
+    STDMETHODIMP QueryId(LPWSTR *id)
+    {
+        *id = (LPWSTR) CoTaskMemAlloc(4 * sizeof(WCHAR));
+        if (*id == NULL)
+            return E_OUTOFMEMORY;
+        wcscpy(*id, L"Out");
+        return S_OK;
+    }
+    STDMETHODIMP QueryAccept(const AM_MEDIA_TYPE *m)
+    {
+        return m->majortype == MEDIATYPE_Audio && m->subtype == MEDIASUBTYPE_PCM ? S_OK : S_FALSE;
+    }
+    STDMETHODIMP EnumMediaTypes(IEnumMediaTypes **) { return E_NOTIMPL; }
+    STDMETHODIMP QueryInternalConnections(IPin **, ULONG *) { return E_NOTIMPL; }
+    STDMETHODIMP EndOfStream() { return E_UNEXPECTED; }
+    STDMETHODIMP BeginFlush() { return E_UNEXPECTED; }
+    STDMETHODIMP EndFlush() { return E_UNEXPECTED; }
+    STDMETHODIMP NewSegment(REFERENCE_TIME, REFERENCE_TIME, double) { return S_OK; }
+
+    /**
+     * @brief Pushes one media sample of the test tone.
+     * @param first  the first sample frame of the tone in it.
+     * @param start  its start time. Its stop time follows from its length.
+     * @return what the connected pin's Receive() returned, or the error of
+     *         getting the buffer.
+     */
+    HRESULT Push(unsigned long first, REFERENCE_TIME start)
+    {
+        IMediaSample *s = NULL;
+        BYTE   *p = NULL;
+        REFERENCE_TIME stop = start + PUSH_SAMPLE_UNITS;
+        HRESULT hr = alloc->GetBuffer(&s, NULL, NULL, 0);
+        short  *pcm;
+        long    i;
+
+        if (FAILED(hr))
+            return hr;
+        if (FAILED(hr = s->GetPointer(&p))) {
+            s->Release();
+            return hr;
+        }
+        pcm = (short *) p;
+        for (i = 0; i < PUSH_FRAMES_PER_SAMPLE; i++) {
+            short v = ctest_tone(first + i, PUSH_RATE, TONE_HZ, TONE_AMPLITUDE);
+
+            pcm[PUSH_CHANNELS * i] = v;
+            pcm[PUSH_CHANNELS * i + 1] = v;
+        }
+        s->SetActualDataLength(PUSH_BYTES_PER_SAMPLE);
+        s->SetTime(&start, &stop);
+        s->SetSyncPoint(TRUE);
+        hr = mem->Receive(s);
+        s->Release();
+        return hr;
+    }
+};
+
+/**
+ * @brief The filter that owns a #PushSourcePin: one pin and a state. It
+ *        commits the pin's allocator when the graph pauses or runs.
+ */
+class PushSourceFilter : public IBaseFilter, public IEnumPins {
+public:
+    PushSourcePin &pin;     /**< the only pin */
+    FILTER_STATE state;     /**< as set by Stop(), Pause() and Run() */
+    IFilterGraph *graph;    /**< the graph the filter joined */
+    IReferenceClock *clock; /**< the clock that the graph set */
+    ULONG   next;           /**< the enumeration position */
+
+    /** @brief Creates the filter that owns @p p. @param p the pin. */
+    PushSourceFilter(PushSourcePin &p) : pin(p), state(State_Stopped), graph(NULL), clock(NULL),
+        next(0)
+    {
+        p.owner = this;
+    }
+
+    STDMETHODIMP QueryInterface(REFIID riid, void **ppv)
+    {
+        if (riid == IID_IUnknown || riid == IID_IPersist || riid == IID_IMediaFilter
+            || riid == IID_IBaseFilter) {
+            *ppv = static_cast<IBaseFilter *>(this);
+            return S_OK;
+        }
+        *ppv = NULL;
+        return E_NOINTERFACE;
+    }
+    STDMETHODIMP_(ULONG) AddRef() { return 2; }
+    STDMETHODIMP_(ULONG) Release() { return 1; }
+
+    STDMETHODIMP GetClassID(CLSID *c) { *c = CLSID_NULL; return S_OK; }
+    STDMETHODIMP Stop()
+    {
+        if (pin.alloc)
+            pin.alloc->Decommit();
+        state = State_Stopped;
+        return S_OK;
+    }
+    STDMETHODIMP Pause()
+    {
+        if (pin.alloc)
+            pin.alloc->Commit();
+        state = State_Paused;
+        return S_OK;
+    }
+    STDMETHODIMP Run(REFERENCE_TIME)
+    {
+        if (pin.alloc)
+            pin.alloc->Commit();
+        state = State_Running;
+        return S_OK;
+    }
+    STDMETHODIMP GetState(DWORD, FILTER_STATE *s) { *s = state; return S_OK; }
+    STDMETHODIMP SetSyncSource(IReferenceClock *c) { clock = c; return S_OK; }
+    STDMETHODIMP GetSyncSource(IReferenceClock **c)
+    {
+        *c = clock;
+        if (clock)
+            clock->AddRef();
+        return S_OK;
+    }
+    STDMETHODIMP EnumPins(IEnumPins **e) { next = 0; *e = this; return S_OK; }
+    STDMETHODIMP FindPin(LPCWSTR id, IPin **p)
+    {
+        if (wcscmp(id, L"Out") == 0) {
+            *p = &pin;
+            return S_OK;
+        }
+        *p = NULL;
+        return VFW_E_NOT_FOUND;
+    }
+    STDMETHODIMP QueryFilterInfo(FILTER_INFO *fi)
+    {
+        wcscpy(fi->achName, L"Push source");
+        fi->pGraph = graph;
+        if (graph)
+            graph->AddRef();
+        return S_OK;
+    }
+    STDMETHODIMP JoinFilterGraph(IFilterGraph *g, LPCWSTR) { graph = g; return S_OK; }
+    STDMETHODIMP QueryVendorInfo(LPWSTR *) { return E_NOTIMPL; }
+
+    STDMETHODIMP Next(ULONG n, IPin **out, ULONG *got)
+    {
+        ULONG   k = 0;
+
+        if (n > 0 && next == 0) {
+            out[0] = &pin;
+            k = 1;
+            next = 1;
+        }
+        if (got)
+            *got = k;
+        return k == n ? S_OK : S_FALSE;
+    }
+    STDMETHODIMP Skip(ULONG n) { next += n; return next <= 1 ? S_OK : S_FALSE; }
+    STDMETHODIMP Reset() { next = 0; return S_OK; }
+    STDMETHODIMP Clone(IEnumPins **) { return E_NOTIMPL; }
+};
+
+/**
+ * @brief Encodes pushed PCM into an #AlignedSinkPin.
+ *
+ * Pushes @p count media samples of 100 ms of the test tone. Their times follow
+ * each other without a gap, except that the times from sample @p gap_at on are
+ * @p gap_units later.
+ *
+ * @param cf         the filter DLL's class factory.
+ * @param sink       the pin to deliver to.
+ * @param count      the media samples to push.
+ * @param gap_at     the first sample after the gap. 0 for no gap.
+ * @param gap_units  the gap, in 100 ns units.
+ * @param connected  receives whether both connections were made.
+ * @return Non-zero when every sample was taken and the stream ended within
+ *         the timeout.
+ */
+static int
+encode_pushed(IClassFactory *cf, AlignedSinkPin &sink, int count, int gap_at,
+              REFERENCE_TIME gap_units, int *connected)
+{
+    IGraphBuilder *graph = NULL;
+    IBaseFilter *lame = NULL;
+    IPin   *lame_in = NULL, *lame_out = NULL;
+    IMediaControl *mc = NULL;
+    PushSourcePin src;
+    PushSourceFilter src_owner(src);
+    AlignedSinkFilter sink_owner(sink);
+    DWORD   until;
+    int     ended = 0, i, pushed = 1;
+
+    *connected = 0;
+    if (FAILED(cf->CreateInstance(NULL, IID_IBaseFilter, (void **) &lame)))
+        return 0;
+    if (FAILED(CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER,
+                                IID_IGraphBuilder, (void **) &graph)))
+        goto out;
+    graph->AddFilter(&src_owner, L"Push source");
+    graph->AddFilter(lame, L"LAME Audio Encoder");
+    graph->AddFilter(&sink_owner, L"Aligned sink");
+    lame_in = find_pin(lame, PINDIR_INPUT);
+    lame_out = find_pin(lame, PINDIR_OUTPUT);
+    if (lame_in == NULL || lame_out == NULL
+        || FAILED(graph->ConnectDirect(&src, lame_in, &src.mt))
+        || FAILED(graph->ConnectDirect(lame_out, &sink, NULL)))
+        goto out;
+    *connected = 1;
+    if (FAILED(graph->QueryInterface(IID_IMediaControl, (void **) &mc)) || FAILED(mc->Run()))
+        goto out;
+    for (i = 0; i < count && pushed; i++) {
+        REFERENCE_TIME start = i * PUSH_SAMPLE_UNITS + (gap_at > 0 && i >= gap_at ? gap_units : 0);
+
+        pushed = src.Push((unsigned long) i * PUSH_FRAMES_PER_SAMPLE, start) == S_OK;
+    }
+    lame_in->EndOfStream();
+    until = GetTickCount() + GRAPH_TIMEOUT_MS;
+    while (!ended && (long) (until - GetTickCount()) > 0) {
+        MSG     m;
+        DWORD   r = MsgWaitForMultipleObjects(1, &sink.eos, FALSE, 100, QS_ALLINPUT);
+
+        if (r == WAIT_OBJECT_0)
+            ended = 1;
+        while (PeekMessage(&m, NULL, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&m);
+            DispatchMessage(&m);
+        }
+    }
+    mc->Stop();
+out:
+    if (lame_out) {
+        lame_out->Disconnect();
+        lame_out->Release();
+    }
+    if (lame_in) {
+        lame_in->Disconnect();
+        lame_in->Release();
+    }
+    sink.Disconnect();
+    src.Disconnect();
+    if (mc) mc->Release();
+    if (graph) {
+        graph->RemoveFilter(&sink_owner);
+        graph->RemoveFilter(&src_owner);
+        graph->Release();
+    }
+    if (lame) lame->Release();
+    return ended && pushed;
+}
+
 /**
  * @brief Checks that a sink that asks for an alignment gets the stream,
  *        padded with zeros.
@@ -1369,6 +1783,135 @@ test_rejected_delivery(IClassFactory *cf, const WCHAR *wav)
                  "the control encode delivers more than three samples", detail);
     ctest_record(connected && rejecting.rejected >= 1 && rejecting.rejected <= 2,
                  "after a rejected sample the encoder stops delivering", detail);
+}
+
+/**
+ * @brief Checks the output for a downstream pin that takes audio, as a muxer
+ *        or a player does: one MP3 frame per media sample, stamped with its
+ *        time.
+ *
+ * - Each sample holds one whole frame: it starts with a frame header, and its
+ *   length is the length that the header gives.
+ * - Each sample is a sync point.
+ * - The first frame starts at 0, and each next one a frame duration later.
+ * - The frames joined are the bytes that a byte stream sink gets, without
+ *   the first and the last frame: the filter does not deliver those two in
+ *   frame mode.
+ *
+ * @param cf    the filter DLL's class factory.
+ * @param wav   the input file.
+ * @param rate  its sample rate, in Hz, which the encoder keeps.
+ */
+static void
+test_frame_mode(IClassFactory *cf, const WCHAR *wav, DWORD rate)
+{
+    AlignedSinkPin bytes(1), frames(1, MEDIATYPE_Audio);
+    REFERENCE_TIME const frame_units = MulDiv(10000000, MP3_SAMPLES_PER_FRAME, (int) rate);
+    char    detail[CTEST_DETAIL_CHARS];
+    int     connected = 0, ended, i, whole = 0, sync = 0, on_time = 0;
+
+    encode_into_aligned_sink(cf, wav, bytes, &connected);
+    ended = encode_into_aligned_sink(cf, wav, frames, &connected);
+    sprintf(detail, "connected %d, ended %d, %d samples", connected, ended, frames.sample_count);
+    ctest_record(connected && ended && frames.sample_count > 0,
+                 "the encoder delivers to a sink that takes audio", detail);
+    for (i = 0; i < frames.sample_count; i++) {
+        const received_sample *r = &frames.samples[i];
+        const unsigned char *h = frames.stream + r->offset;
+
+        if (r->length >= MP3_HEADER_BYTES && mp3_is_frame_sync(h)
+            && r->length == mp3_frame_bytes(mp3_bitrate_index(h), mp3_padding_bytes(h), rate))
+            whole++;
+        if (r->sync)
+            sync++;
+        if (r->timed > 0 && r->start == i * frame_units)
+            on_time++;
+    }
+    sprintf(detail, "%d of %d samples", whole, frames.sample_count);
+    ctest_record(whole == frames.sample_count, "each sample is one whole MP3 frame", detail);
+    sprintf(detail, "%d of %d samples", sync, frames.sample_count);
+    ctest_record(sync == frames.sample_count, "each sample is a sync point", detail);
+    sprintf(detail, "%d of %d samples at n x %ld units", on_time, frames.sample_count,
+            (long) frame_units);
+    ctest_record(on_time == frames.sample_count,
+                 "the frames start at 0, one frame duration apart", detail);
+    {
+        /* The byte stream without its first and its last frame */
+        long    first = bytes.length >= MP3_HEADER_BYTES && mp3_is_frame_sync(bytes.stream)
+            ? mp3_frame_bytes(mp3_bitrate_index(bytes.stream), mp3_padding_bytes(bytes.stream), rate)
+            : -1;
+        long    inner = first > 0 ? frames.length : -1;
+        const unsigned char *last = first > 0 ? bytes.stream + first + inner : NULL;
+
+        sprintf(detail, "%ld bytes of frames, %ld of the byte stream, its first frame %ld",
+                frames.length, bytes.length, first);
+        ctest_record(first > 0 && first + inner + MP3_HEADER_BYTES <= bytes.length
+                     && memcmp(frames.stream, bytes.stream + first, inner) == 0
+                     && mp3_is_frame_sync(last)
+                     && first + inner + mp3_frame_bytes(mp3_bitrate_index(last),
+                                                        mp3_padding_bytes(last), rate) == bytes.length,
+                     "the frames joined are the byte stream without its first and last frame",
+                     detail);
+    }
+}
+
+/**
+ * @brief Checks that a gap in the input times moves the times of the frames
+ *        after it.
+ *
+ * Two seconds of pushed PCM, once with times that follow each other and once
+ * with a gap of half a second before the second half. Without the gap, each
+ * frame starts one frame duration after the one before. With it, the step
+ * between two frames is longer by the gap once, at the first frame that
+ * starts at or after the input sample after the gap, and one frame duration
+ * everywhere else.
+ *
+ * @param cf  the filter DLL's class factory.
+ */
+static void
+test_frame_times_follow_a_gap(IClassFactory *cf)
+{
+    const int count = 20, gap_at = 10;
+    const REFERENCE_TIME gap = 5000000;
+    REFERENCE_TIME const frame_units = MulDiv(10000000, MP3_SAMPLES_PER_FRAME, PUSH_RATE);
+    /* In whole frames of output samples, as the filter counts them */
+    const int gap_frame = (gap_at * PUSH_FRAMES_PER_SAMPLE + MP3_SAMPLES_PER_FRAME - 1)
+        / MP3_SAMPLES_PER_FRAME;
+    AlignedSinkPin plain(1, MEDIATYPE_Audio), gapped(1, MEDIATYPE_Audio);
+    char    detail[CTEST_DETAIL_CHARS];
+    int     connected = 0, ok, i, steps = 0, jumps = 0, jump_at = -1, others = 0;
+
+    ok = encode_pushed(cf, plain, count, 0, 0, &connected);
+    sprintf(detail, "connected %d, %d frames", connected, plain.sample_count);
+    ctest_record(ok && plain.sample_count > 2, "two seconds of pushed PCM are encoded into frames",
+                 detail);
+    for (i = 1; i < plain.sample_count; i++)
+        if (plain.samples[i].timed > 0 && plain.samples[i].start - plain.samples[i - 1].start == frame_units)
+            steps++;
+    sprintf(detail, "%d of %d steps are %ld units", steps, plain.sample_count - 1, (long) frame_units);
+    ctest_record(steps == plain.sample_count - 1 && plain.samples[0].start == 0,
+                 "without a gap, the frames start at 0, one frame duration apart", detail);
+
+    ok = encode_pushed(cf, gapped, count, gap_at, gap, &connected);
+    ctest_record(ok && gapped.sample_count == plain.sample_count,
+                 "the same PCM with a gap in its times gives as many frames", detail);
+    for (i = 1; i < gapped.sample_count; i++) {
+        REFERENCE_TIME step = gapped.samples[i].start - gapped.samples[i - 1].start;
+
+        if (step == frame_units + gap) {
+            jumps++;
+            jump_at = i;
+        } else if (step != frame_units) {
+            others++;
+        }
+    }
+    sprintf(detail, "%d step(s) longer by the gap, at frame %d of %d; %d other step(s)", jumps,
+            jump_at, gapped.sample_count, others);
+    ctest_record(jumps == 1 && others == 0, "a gap in the input moves the frame times on by the gap, once",
+                 detail);
+    sprintf(detail, "at frame %d, the first frame from the gap on is %d", jump_at, gap_frame);
+    ctest_record(jump_at == gap_frame, "the frame times move at the first frame from the gap on",
+                 detail);
 }
 
 int
@@ -1570,6 +2113,8 @@ main(int argc, char **argv)
     test_refused_setting_fails_run(lame, mc);
     test_aligned_stream_end(cf, wavw);
     test_rejected_delivery(cf, wavw);
+    test_frame_mode(cf, wavw, rate);
+    test_frame_times_follow_a_gap(cf);
     /* LAME reports why it rejects the VBR range of
        test_refused_setting_fails_run(). */
     ctest_stderr_empty(&filter_stderr, "the filter writes nothing to the stderr of its host");
