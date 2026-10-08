@@ -52,8 +52,8 @@ TESTS = $(check_PROGRAMS)
 TESTS += test_pkgconfig.sh
 
 # The frontend's exit status on a failed read, its rejection of
-# --swap-channel for a mono input, and the range --preset names in its error
-# message. These drive the built lame binary rather
+# --swap-channel for a mono input, the range --preset names in its error
+# message, and the output files of --nogap. These drive the built lame binary rather
 # than the library, so they need the source root for the test input as well as
 # the build root for the binary; both are exported below. They run only where
 # the frontend is built.
@@ -62,6 +62,7 @@ TESTS += test_exit_status.sh
 TESTS += test_swap_channel.sh
 TESTS += test_pipe_length.sh
 TESTS += test_preset_range.sh
+TESTS += test_nogap_files.sh
 endif
 # The exit status of mp3rtp. It skips where mp3rtp is not built.
 if HAVE_SOCKETS
@@ -597,4 +598,4 @@ EXTRA_DIST += test_pkgconfig.sh
 
 # And the frontend tests, for the same two reasons.
 EXTRA_DIST += test_exit_status.sh test_swap_channel.sh test_pipe_length.sh test_mp3rtp_status.sh \
-	test_preset_range.sh
+	test_preset_range.sh test_nogap_files.sh

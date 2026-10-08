@@ -816,39 +816,35 @@ lame_encoder(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char 
 }
 
 
-int
-lame_main(lame_t gf, int argc, char **argv)
+/* support for "nogap" encoding of up to 200 .wav files */
+#define MAX_NOGAP 200
+
+/**
+ * @internal
+ * @brief Parses the command line, then encodes or decodes the files it names.
+ *
+ * @param gf             the encoder instance.
+ * @param argc           the number of command line arguments.
+ * @param argv           the command line arguments.
+ * @param nogap_inPath   MAX_NOGAP zeroed buffers of PATH_MAX+1 bytes. They
+ *                       receive the input file names of --nogap.
+ * @param nogap_outPath  MAX_NOGAP zeroed buffers of PATH_MAX+1 bytes. They
+ *                       receive the output file names of --nogap.
+ * @return the exit status of lame_main().
+ */
+static int
+run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **nogap_outPath)
 {
     char    inPath[PATH_MAX + 1];
     char    outPath[PATH_MAX + 1];
     char    outDir[PATH_MAX + 1];
-    /* support for "nogap" encoding of up to 200 .wav files */
-#define MAX_NOGAP 200
     int     max_nogap = MAX_NOGAP;
-    char    nogap_inPath_[MAX_NOGAP][PATH_MAX + 1];
-    char   *nogap_inPath[MAX_NOGAP];
-    char    nogap_outPath_[MAX_NOGAP][PATH_MAX + 1];
-    char   *nogap_outPath[MAX_NOGAP];
 
     int     ret;
     int     i;
     FILE   *outf = NULL;
 
-    frontend_attach_reporting(gf);
-    if (argc <= 1) {
-        usage(stderr, argv[0]); /* no command-line args, print usage, exit  */
-        return 1;
-    }
-
     memset(inPath, 0, sizeof(inPath));
-    memset(nogap_inPath_, 0, sizeof(nogap_inPath_));
-    for (i = 0; i < MAX_NOGAP; ++i) {
-        nogap_inPath[i] = &nogap_inPath_[i][0];
-    }
-    memset(nogap_outPath_, 0, sizeof(nogap_outPath_));
-    for (i = 0; i < MAX_NOGAP; ++i) {
-        nogap_outPath[i] = &nogap_outPath_[i][0];
-    }
 
     /* parse the command line arguments, setting various flags in the
      * struct 'gf'.  If you want to parse your own arguments,
@@ -935,5 +931,40 @@ lame_main(lame_t gf, int argc, char **argv)
             ret = lame_encoder(gf, outf, use_flush_nogap, nogap_inPath[i], nogap_outPath[i]);
         }
     }
+    return ret;
+}
+
+
+int
+lame_main(lame_t gf, int argc, char **argv)
+{
+    char  (*nogap_inPath_)[PATH_MAX + 1];
+    char   *nogap_inPath[MAX_NOGAP];
+    char  (*nogap_outPath_)[PATH_MAX + 1];
+    char   *nogap_outPath[MAX_NOGAP];
+    int     ret;
+    int     i;
+
+    frontend_attach_reporting(gf);
+    if (argc <= 1) {
+        usage(stderr, argv[0]); /* no command-line args, print usage, exit  */
+        return 1;
+    }
+
+    nogap_inPath_ = calloc(MAX_NOGAP, sizeof(*nogap_inPath_));
+    nogap_outPath_ = calloc(MAX_NOGAP, sizeof(*nogap_outPath_));
+    if (nogap_inPath_ == NULL || nogap_outPath_ == NULL) {
+        error_printf("Error: not enough memory for the --nogap file names\n");
+        ret = 1;
+    }
+    else {
+        for (i = 0; i < MAX_NOGAP; ++i) {
+            nogap_inPath[i] = nogap_inPath_[i];
+            nogap_outPath[i] = nogap_outPath_[i];
+        }
+        ret = run_command_line(gf, argc, argv, nogap_inPath, nogap_outPath);
+    }
+    free(nogap_inPath_);
+    free(nogap_outPath_);
     return ret;
 }
