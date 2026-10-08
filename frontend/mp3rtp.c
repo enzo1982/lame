@@ -94,7 +94,7 @@
  * @return the magnitude, at most 32768.
  */
 static unsigned int
-maxvalue(int Buffer[2][1152], int n)
+maxvalue(int Buffer[2][FRAME_BUFFER_SAMPLES], int n)
 {
     int     max = 0;
     int     i;
@@ -118,7 +118,7 @@ maxvalue(int Buffer[2][1152], int n)
  * @return the magnitude. 32768 at or above full scale.
  */
 static unsigned int
-maxvalue_float(float Buffer[2][1152], int n)
+maxvalue_float(float Buffer[2][FRAME_BUFFER_SAMPLES], int n)
 {
     float   max = 0;
     int     i;
@@ -171,8 +171,8 @@ lame_main(lame_t gf, int argc, char **argv)
     char    inPath[PATH_MAX + 1];
     char    outPath[PATH_MAX + 1];
     char    outDir[PATH_MAX + 1];
-    int     Buffer[2][1152];
-    float   BufferF[2][1152];
+    int     Buffer[2][FRAME_BUFFER_SAMPLES];
+    float   BufferF[2][FRAME_BUFFER_SAMPLES];
     int     floats;
 
     int     maxx = 0, tmpx = 0;

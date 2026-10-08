@@ -70,8 +70,8 @@ static int disp_back = 0;
 typedef struct {
     hip_t       hip;              /* decoder for the just-encoded data */
     int         mpglag;
-    short int   buffer[2][1152];
-    float       bufferf[2][1152]; /* the input frame, for a floating point file */
+    short int   buffer[2][FRAME_BUFFER_SAMPLES];
+    float       bufferf[2][FRAME_BUFFER_SAMPLES]; /* the input frame, for a floating point file */
     int         frame_num;
     int         decoder_flushing; /* encoder flush was fed; HIP may have output queued */
     int         drain_frame_num;  /* synthetic slot number used only for decode mapping */

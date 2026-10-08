@@ -221,7 +221,7 @@ printInputFormat(lame_t gfp)
 static int
 lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
 {
-    short int Buffer[2][1152];
+    short int Buffer[2][FRAME_BUFFER_SAMPLES];
     int     i, iread;
     double  wavsize;
     unsigned int data_size;
@@ -644,8 +644,8 @@ static int
 lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char *outPath)
 {
     unsigned char mp3buffer[LAME_MAXMP3BUFFER];
-    int     Buffer[2][1152];
-    float   BufferF[2][1152];
+    int     Buffer[2][FRAME_BUFFER_SAMPLES];
+    float   BufferF[2][FRAME_BUFFER_SAMPLES];
     int const floats = input_is_float();
     int     iread, imp3, owrite, in_limit=0;
     size_t  id3v2_size;

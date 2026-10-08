@@ -42,6 +42,11 @@ typedef enum sound_file_format_e {
     sf_ogg
 } sound_file_format;
 
+/** The number of samples per channel in the frame buffers of the readers. */
+#define FRAME_BUFFER_SAMPLES 1152
+/** The number of samples of an input whose length is not known. */
+#define NUM_SAMPLES_UNKNOWN 0xFFFFFFFF
+
 int     is_mpeg_file_format( int input_file_format );
 
 int     init_infile(lame_t gfp, char const * inPath);
@@ -50,9 +55,9 @@ int     samples_to_skip_at_end(void);
 unsigned long samples_above_full_scale(void);
 int     input_is_float(void);
 void    close_infile(void);
-int     get_audio(lame_t gfp, int buffer[2][1152]);
-int     get_audio16(lame_t gfp, short buffer[2][1152]);
-int     get_audio_float(lame_t gfp, float buffer[2][1152]);
+int     get_audio(lame_t gfp, int buffer[2][FRAME_BUFFER_SAMPLES]);
+int     get_audio16(lame_t gfp, short buffer[2][FRAME_BUFFER_SAMPLES]);
+int     get_audio_float(lame_t gfp, float buffer[2][FRAME_BUFFER_SAMPLES]);
 hip_t   get_hip(void);
 
 /** The data size a WAV header gets while the length of the data is not known. */
@@ -63,7 +68,7 @@ hip_t   get_hip(void);
 FILE   *init_outfile(char const *outPath, int decode);
 unsigned int wav_data_size(double frames, int bytes_per_frame);
 int     WriteWaveHeader(FILE * const fp, unsigned int pcmbytes, int freq, int channels, int bits);
-int     put_audio16(FILE* outf, short Buffer[2][1152], int iread, int nch);
+int     put_audio16(FILE* outf, short Buffer[2][FRAME_BUFFER_SAMPLES], int iread, int nch);
 
 /*
 struct AudioReader;
