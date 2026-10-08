@@ -277,6 +277,22 @@ optimum_bandwidth(double *const lowerlimit, double *const upperlimit, const int 
 }
 
 
+/**
+ * \internal
+ * \brief Reads one signed 6-bit field of the exp_nspsytune value.
+ * \param nsp    the packed value.
+ * \param shift  the position of the lowest bit of the field.
+ * \return the field in dB, in steps of a quarter dB.
+ */
+static float
+nspsytune_db(int nsp, int shift)
+{
+    int     field = (nsp >> shift) & 63;
+    if (field >= 32)
+        field -= 64;
+    return field * 0.25f;
+}
+
 static int
 optimum_samplefreq(int lowpassfreq, int input_samplefreq)
 {
@@ -1244,28 +1260,12 @@ lame_init_params(lame_global_flags * gfp)
         cfg->use_safe_joint_stereo = 0;
     }
     {
-        cfg->adjust_bass_db = (gfp->exp_nspsytune >> 2) & 63;
-        if (cfg->adjust_bass_db >= 32.f)
-            cfg->adjust_bass_db -= 64.f;
-        cfg->adjust_bass_db *= 0.25f;
-
-        cfg->adjust_alto_db = (gfp->exp_nspsytune >> 8) & 63;
-        if (cfg->adjust_alto_db >= 32.f)
-            cfg->adjust_alto_db -= 64.f;
-        cfg->adjust_alto_db *= 0.25f;
-
-        cfg->adjust_treble_db = (gfp->exp_nspsytune >> 14) & 63;
-        if (cfg->adjust_treble_db >= 32.f)
-            cfg->adjust_treble_db -= 64.f;
-        cfg->adjust_treble_db *= 0.25f;
-
+        cfg->adjust_bass_db = nspsytune_db(gfp->exp_nspsytune, 2);
+        cfg->adjust_alto_db = nspsytune_db(gfp->exp_nspsytune, 8);
+        cfg->adjust_treble_db = nspsytune_db(gfp->exp_nspsytune, 14);
         /*  to be compatible with Naoki's original code, the next 6 bits
          *  define only the amount of changing treble for sfb21 */
-        cfg->adjust_sfb21_db = (gfp->exp_nspsytune >> 20) & 63;
-        if (cfg->adjust_sfb21_db >= 32.f)
-            cfg->adjust_sfb21_db -= 64.f;
-        cfg->adjust_sfb21_db *= 0.25f;
-        cfg->adjust_sfb21_db += cfg->adjust_treble_db;
+        cfg->adjust_sfb21_db = nspsytune_db(gfp->exp_nspsytune, 20) + cfg->adjust_treble_db;
     }
 
     /* Setting up the PCM input data transform matrix, to apply 

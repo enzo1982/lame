@@ -444,7 +444,8 @@ bits_in_range(FLOAT bits, int lo, int hi)
  * bugfixes rh 8/01: often allocated more than the allowed 4095 bits
  ************************************************************************/
 int
-on_pe(lame_internal_flags * gfc, const FLOAT pe[2][2], int targ_bits[2], int mean_bits, int gr, int cbr)
+on_pe(lame_internal_flags * gfc, const FLOAT pe[2][2], int targ_bits[2], int mean_bits, int gr,
+      int gr0_spent)
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     int     extra_bits = 0, tbits, bits;
@@ -453,7 +454,7 @@ on_pe(lame_internal_flags * gfc, const FLOAT pe[2][2], int targ_bits[2], int mea
     int     ch;
 
     /* allocate targ_bits for granule */
-    ResvMaxBits(gfc, mean_bits, &tbits, &extra_bits, cbr);
+    ResvMaxBits(gfc, mean_bits, &tbits, &extra_bits, gr0_spent);
     max_bits = tbits + extra_bits;
     if (max_bits > MAX_BITS_PER_GRANULE) /* hard limit per granule */
         max_bits = MAX_BITS_PER_GRANULE;

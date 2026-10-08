@@ -294,16 +294,16 @@ CRC_update(int value, int crc)
 
 
 void
-CRC_writeheader(lame_internal_flags const *gfc, char *header)
+CRC_writeheader(lame_internal_flags const *gfc, unsigned char *header)
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     int     crc = 0xffff;    /* (jo) init crc16 for error_protection */
     int     i;
 
-    crc = CRC_update(((unsigned char *) header)[2], crc);
-    crc = CRC_update(((unsigned char *) header)[3], crc);
+    crc = CRC_update(header[2], crc);
+    crc = CRC_update(header[3], crc);
     for (i = 6; i < cfg->sideinfo_len; i++) {
-        crc = CRC_update(((unsigned char *) header)[i], crc);
+        crc = CRC_update(header[i], crc);
     }
 
     header[4] = crc >> 8;

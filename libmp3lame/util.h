@@ -290,7 +290,7 @@ extern  "C" {
         struct {
             int     write_timing;
             int     ptr;
-            char    buf[MAX_HEADER_LEN];
+            unsigned char buf[MAX_HEADER_LEN];
         } header[MAX_HEADER_BUF];
 
         int     h_ptr;

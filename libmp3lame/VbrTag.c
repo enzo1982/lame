@@ -770,7 +770,7 @@ lame_get_lametag_frame(lame_global_flags const *gfp, unsigned char *buffer, size
 
     if (cfg->error_protection) {
         /* (jo) error_protection: add crc16 information to header */
-        CRC_writeheader(gfc, (char *) buffer);
+        CRC_writeheader(gfc, buffer);
     }
     {
         /*work out CRC so far: initially crc = 0 */

@@ -172,15 +172,15 @@ ResvFrameBegin(lame_internal_flags * gfc, int *mean_bits)
   Mark Taylor 4/99
 */
 void
-ResvMaxBits(lame_internal_flags * gfc, int mean_bits, int *targ_bits, int *extra_bits, int cbr)
+ResvMaxBits(lame_internal_flags * gfc, int mean_bits, int *targ_bits, int *extra_bits, int gr0_spent)
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     EncStateVar_t *const esv = &gfc->sv_enc;
     int     add_bits, targBits, extraBits;
     int     ResvSize = esv->ResvSize, ResvMax = esv->ResvMax;
 
-    /* conpensate the saved bits used in the 1st granule */
-    if (cbr)
+    /* compensate the saved bits used in the first granule */
+    if (gr0_spent)
         ResvSize += mean_bits;
 
     if (gfc->sv_qnt.substep_shaping & 1)
