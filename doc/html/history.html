@@ -353,6 +353,9 @@
 			        is not written to ID3v1, and the year is 9999.</li>
 			    <li>The ID3v2 tag carries the full audio play-length,
 			        instead of clamping it to about 49.7 days.</li>
+			    <li>An MP3 input whose length is not known, such as a
+			        file without an Info tag read from a pipe, gets no
+			        play-length in the ID3v2 tag.</li>
 			    <li>With <i>--nogap --nogaptags</i>, the LAME tag of
 			        every file after the first reports an encoder delay
 			        of zero; only the first file carries the lead-in.

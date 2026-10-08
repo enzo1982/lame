@@ -2386,14 +2386,19 @@ int lame123_decode_initfile(FILE *fd, mp3data_struct *mp3data, int *enc_delay, i
     /* TODO: Figure out if MPG123_GAPLESS is desired or not. */
     /* Guessing seems to be OK, so we do not have to insist on knowing
        if libmpg123 got that info from Info tag or not. */
-    /* I am paranoid about off_t being larger than long or int. */
+    /* A negative length means that libmpg123 does not know it, as for a
+       stream without an Info tag read from a pipe. */
     len = mpg123_framelength(global.hip->mh);
-    if(len <= ((unsigned int)-1)/2)     /* totalframes is int, bound to INT_MAX */
+    if (len < 0)
+        mp3data->totalframes = 0;
+    else if (len <= INT_MAX)
         mp3data->totalframes = (int)len;
     else
         return -1;
     len = mpg123_length(global.hip->mh);
-    if(len <= ((unsigned int)-1)/2)
+    if (len < 0)
+        mp3data->nsamp = NUM_SAMPLES_UNKNOWN;
+    else if (len <= INT_MAX)
         mp3data->nsamp = len;
     else
         return -1;

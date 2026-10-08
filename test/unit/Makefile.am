@@ -60,6 +60,7 @@ TESTS += test_pkgconfig.sh
 if WITH_LAME_FRONTEND
 TESTS += test_exit_status.sh
 TESTS += test_swap_channel.sh
+TESTS += test_pipe_length.sh
 TESTS += test_preset_range.sh
 endif
 # The exit status of mp3rtp. It skips where mp3rtp is not built.
@@ -595,5 +596,5 @@ EXTRA_DIST += test_unused.h test_fixture.h test_mem.h test_esc_cases.h \
 EXTRA_DIST += test_pkgconfig.sh
 
 # And the frontend tests, for the same two reasons.
-EXTRA_DIST += test_exit_status.sh test_swap_channel.sh test_mp3rtp_status.sh \
+EXTRA_DIST += test_exit_status.sh test_swap_channel.sh test_pipe_length.sh test_mp3rtp_status.sh \
 	test_preset_range.sh
