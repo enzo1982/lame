@@ -78,8 +78,8 @@ int main(int argc, char *argv[])
 	BE_VERSION	Version			={0,};
 	BE_CONFIG	beConfig		={0,};
 
-	CHAR		strFileIn[255]	={'0',};
-	CHAR		strFileOut[255]	={'0',};
+	CHAR		strFileIn[255]	={'\0',};
+	CHAR		strFileOut[255]	={'\0',};
 
 	DWORD		dwSamples		=0;
 	DWORD		dwMP3Buffer		=0;
@@ -95,12 +95,13 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	// Setup the file names
-	strcpy(strFileIn ,argv[1]);
-	strcpy(strFileOut,argv[1]);
-
-	// Add mp3 extention
-	strcat(strFileOut,".mp3");
+	// Setup the file names: the output file gets the mp3 extension
+	if (snprintf(strFileIn, sizeof strFileIn, "%s", argv[1]) >= (int) sizeof strFileIn
+	    || snprintf(strFileOut, sizeof strFileOut, "%s.mp3", argv[1]) >= (int) sizeof strFileOut)
+	{
+		fprintf(stderr,"File name too long: %s\n", argv[1]);
+		return -1;
+	}
 
 	// Load lame_enc.dll library (Make sure though that you set the
 	// project/settings/debug Working Directory correctly, otherwhise the DLL can't be loaded

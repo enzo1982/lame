@@ -867,7 +867,7 @@ void CMpegAudEnc::ReadPresetSettings(MPEG_ENCODER_CONFIG * pmec)
     Lame::CRegKey rk(HKEY_CURRENT_USER, KEY_LAME_ENCODER);
 
     for (size_t i = 0; i < sizeof(registry_fields) / sizeof(registry_fields[0]); i++)
-        pmec->*registry_fields[i].field = rk.getDWORD((PTSTR) registry_fields[i].name, registry_fields[i].dflt);
+        pmec->*registry_fields[i].field = rk.getDWORD(registry_fields[i].name, registry_fields[i].dflt);
     pmec->vmVariable        = rk.getDWORD(VALUE_VARIABLE, DEFAULT_VARIABLE) ? vbr_rh : vbr_off;
     pmec->ChMode            = (MPEG_mode)rk.getDWORD(VALUE_STEREO_MODE, DEFAULT_STEREO_MODE);
 
@@ -1333,7 +1333,7 @@ STDMETHODIMP CMpegAudEnc::SaveAudioEncoderPropertiesToRegistry()
     if(rk.Create(HKEY_CURRENT_USER, KEY_LAME_ENCODER))
     {
         for (size_t i = 0; i < sizeof(registry_fields) / sizeof(registry_fields[0]); i++)
-            rk.setDWORD((PTSTR) registry_fields[i].name, mec.*registry_fields[i].field);
+            rk.setDWORD(registry_fields[i].name, mec.*registry_fields[i].field);
         rk.setDWORD(VALUE_VARIABLE, mec.vmVariable);
         rk.setDWORD(VALUE_STEREO_MODE, mec.ChMode);
 

@@ -35,7 +35,7 @@ OF SUCH DAMAGE.
 #if !defined(_DBG_H__INCLUDED_)
 #define _DBG_H__INCLUDED_
 
-#include <string.h>
+#include <stdio.h>
 #include <windows.h>
 
 static const int MAX_PREFIX_LENGTH = 128;
@@ -48,6 +48,8 @@ class ADbg
 public:
 	ADbg(int level = 0);
 	virtual ~ADbg();
+	ADbg(const ADbg &) = delete;
+	ADbg & operator=(const ADbg &) = delete;
 
 	/// \todo make an inline function to test the level first and the process
 	int OutPut(int level, const char * format,...) const;
@@ -70,7 +72,8 @@ public:
 	}
 
 	inline const char * setPrefix(const char * string) {
-		return strncpy(prefix, string, MAX_PREFIX_LENGTH);
+		snprintf(prefix, sizeof prefix, "%s", string);
+		return prefix;
 	}
 
 private:
@@ -95,6 +98,8 @@ class ADbg
 public:
 	ADbg(int level = 0){}
 	virtual ~ADbg() {}
+	ADbg(const ADbg &) = delete;
+	ADbg & operator=(const ADbg &) = delete;
 
 	inline int OutPut(int level, const char * format,...) const {
 		return 0;

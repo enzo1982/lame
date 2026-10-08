@@ -49,7 +49,7 @@ ADbg::ADbg(int level)
 ,my_time_included(false)
 ,my_use_file(false)
 ,my_debug_output(true)
-,hFile(NULL)
+,hFile(INVALID_HANDLE_VALUE)
 {
 	prefix[0] = '\0';
 	OutPut(-1,"ADbg Creation at debug level = %d (0x%08X)",my_level,this);
@@ -61,18 +61,22 @@ ADbg::~ADbg()
 	OutPut(-1,"ADbg Deletion (0x%08X)",this);
 }
 
+/// The longest line of debug output, in bytes, terminator included.
+static const size_t LINE_BYTES = 1000;
+
 inline int ADbg::_OutPut(const char * format,va_list params) const
 {
-	int result;
+	char message[LINE_BYTES];
+	char line[LINE_BYTES];
+	int length;
 
-	char tst[1000];
-	char myformat[256];
+	vsnprintf(message, sizeof message, format, params);
 
 	if (my_time_included) {
 		SYSTEMTIME time;
 		GetSystemTime(&time);
 		if (prefix[0] == '\0')
-			wsprintf(myformat,"%04d/%02d/%02d %02d:%02d:%02d.%03d UTC : %s\r\n",
+			length = snprintf(line, sizeof line, "%04d/%02d/%02d %02d:%02d:%02d.%03d UTC : %s\r\n",
 							time.wYear,
 							time.wMonth,
 							time.wDay,
@@ -80,9 +84,9 @@ inline int ADbg::_OutPut(const char * format,va_list params) const
 							time.wMinute,
 							time.wSecond,
 							time.wMilliseconds,
-							format);
+							message);
 		else
-			wsprintf(myformat,"%04d/%02d/%02d %02d:%02d:%02d.%03d UTC : %s - %s\r\n",
+			length = snprintf(line, sizeof line, "%04d/%02d/%02d %02d:%02d:%02d.%03d UTC : %s - %s\r\n",
 							time.wYear,
 							time.wMonth,
 							time.wDay,
@@ -91,26 +95,28 @@ inline int ADbg::_OutPut(const char * format,va_list params) const
 							time.wSecond,
 							time.wMilliseconds,
 							prefix,
-							format);
+							message);
 	} else {
 		if (prefix[0] == '\0')
-			wsprintf( myformat, "%s\r\n", format);
+			length = snprintf(line, sizeof line, "%s\r\n", message);
 		else
-			wsprintf( myformat, "%s - %s\r\n", prefix, format);
+			length = snprintf(line, sizeof line, "%s - %s\r\n", prefix, message);
 	}
+	if (length < 0)
+		return length;
+	if ((size_t) length >= sizeof line)
+		length = (int) sizeof line - 1;
 
-	result = vsprintf(tst,myformat,params);
-	
 	if (my_debug_output)
-		OutputDebugString(tst);
+		OutputDebugString(line);
 
-	if (my_use_file && (hFile != NULL)) {
+	if (my_use_file && (hFile != INVALID_HANDLE_VALUE)) {
 		SetFilePointer( hFile, 0, 0, FILE_END );
 		DWORD written;
-		WriteFile( hFile, tst, lstrlen(tst), &written, NULL );
+		WriteFile( hFile, line, (DWORD) length, &written, NULL );
 	}
 
-	return result;
+	return length;
 }
 
 int ADbg::OutPut(int forLevel, const char * format,...) const
@@ -119,12 +125,12 @@ int ADbg::OutPut(int forLevel, const char * format,...) const
 	
 	if (forLevel >= my_level) {
 		va_list tstlist;
-		int result;
 
 		va_start(tstlist, format);
 
 		result = _OutPut(format,tstlist);
 
+		va_end(tstlist);
 	}
 
 	return result;
@@ -133,10 +139,15 @@ int ADbg::OutPut(int forLevel, const char * format,...) const
 int ADbg::OutPut(const char * format,...) const
 {
 	va_list tstlist;
+	int result;
 
 	va_start(tstlist, format);
 
-	return _OutPut(format,tstlist);
+	result = _OutPut(format,tstlist);
+
+	va_end(tstlist);
+
+	return result;
 }
 
 bool ADbg::setDebugFile(const char * NewFilename) {
@@ -164,14 +175,14 @@ bool ADbg::setDebugFile(const char * NewFilename) {
 }
 
 bool ADbg::unsetDebugFile() {
-	bool result = (hFile == NULL);
+	bool result = (hFile == INVALID_HANDLE_VALUE);
 	
-	if (hFile != NULL) {
+	if (hFile != INVALID_HANDLE_VALUE) {
 		result = (CloseHandle(hFile) != 0);
 		
 		if (result) {
 			OutPut(-1,"Debug file Closing succeeded");
-			hFile = NULL;
+			hFile = INVALID_HANDLE_VALUE;
 		}
 	}
 

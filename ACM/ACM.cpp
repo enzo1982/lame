@@ -181,7 +181,7 @@ LPARAM lParam  // second message parameter
 	switch (uMsg) {
 		case WM_INITDIALOG:
 			char tmp[150];
-			wsprintf(tmp,"LAME MP3 codec v%s", ACM::GetVersionString());
+			snprintf(tmp, sizeof tmp, "LAME MP3 codec v%s", ACM::GetVersionString());
 			::SetWindowText(GetDlgItem( hwndDlg, IDC_STATIC_ABOUT_TITLE), tmp);
 			hcOverCursor = ::LoadCursor(NULL,(LPCTSTR)IDC_HAND); 
 			if (hcOverCursor == NULL)
@@ -218,7 +218,7 @@ LPARAM lParam  // second message parameter
 				bool bUrl = false;
 				if (::PtInRect(&rect,pnt))
 				{
-					wsprintf(Url,get_lame_url());
+					snprintf(Url, sizeof Url, "%s", get_lame_url());
 					bUrl = true;
 				}
 
@@ -265,7 +265,7 @@ inline DWORD ACM::About(HWND hParentWindow)
 ACM::ACM( HMODULE hModule )
  :my_hModule(hModule),
   my_hIcon(NULL),
-  my_debug(ADbg(DEBUG_LEVEL_CREATION)),
+  my_debug(DEBUG_LEVEL_CREATION),
   my_EncodingProperties(hModule)
 {
 	my_EncodingProperties.ParamsRestore();
@@ -1193,9 +1193,9 @@ void ACM::DescribeMP3Format(const WAVEFORMATEX & the_Format, unsigned short the_
 
 	/// \todo : generate the string with the appropriate stereo mode
 	if (is_abr)
-		wsprintfA( temp, "%d Hz, %d kbps ABR, %s", the_Format.nSamplesPerSec, the_Format.nAvgBytesPerSec * 8 / 1000, (the_Format.nChannels == 1)?"Mono":"Stereo");
+		snprintf( temp, sizeof temp, "%lu Hz, %lu kbps ABR, %s", the_Format.nSamplesPerSec, the_Format.nAvgBytesPerSec * 8 / 1000, (the_Format.nChannels == 1)?"Mono":"Stereo");
 	else
-		wsprintfA( temp, "%d Hz, %d kbps CBR, %s", the_Format.nSamplesPerSec, the_Format.nAvgBytesPerSec * 8 / 1000, (the_Format.nChannels == 1)?"Mono":"Stereo");
+		snprintf( temp, sizeof temp, "%lu Hz, %lu kbps CBR, %s", the_Format.nSamplesPerSec, the_Format.nAvgBytesPerSec * 8 / 1000, (the_Format.nChannels == 1)?"Mono":"Stereo");
 
 	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, temp, -1, the_String, ACMFORMATDETAILS_FORMAT_CHARS);
 }

@@ -28,65 +28,19 @@ namespace Lame
 class	CRegKey 
 {
 protected:
-	TCHAR	m_name[MAX_PATH];
 	HKEY	m_hKey;
 	HKEY	m_hRootKey;
 public:
 	CRegKey(void);
-	CRegKey(HKEY rootKey, PTSTR pName);
+	CRegKey(HKEY rootKey, LPCTSTR pName);
 	~CRegKey(void);
 
-	BOOL	Open(HKEY rootKey, PTSTR pName);
-	BOOL	Create(HKEY rootKey, PTSTR pName);
-	BOOL	Open(PTSTR an = NULL);
-	BOOL	Create(PTSTR an = NULL);
+	BOOL	Open(HKEY rootKey, LPCTSTR pName);
+	BOOL	Create(HKEY rootKey, LPCTSTR pName);
 	BOOL	Close(void);
 
-	operator HKEY () const { return m_hKey; };
-
-	BOOL	getFlag(PTSTR valuename, BOOL bDefault);
-	void	setFlag(PTSTR valuename, BOOL bValue, BOOL bDefault);
-	void	setFlag(PTSTR valuename, BOOL bValue);
-	DWORD	getDWORD(PTSTR valuename, DWORD bDefault);
-	void	setDWORD(PTSTR valuename, DWORD dwValue);
-	void	setDWORD(PTSTR valuename, DWORD dwValue, DWORD dwDefault);
-	DWORD	getString(PTSTR valuename, PTSTR pDefault, PTSTR pResult, int cbSize);
-	void	setString(PTSTR valuename, PTSTR pData);
-	DWORD	getBinary(PTSTR valuename, PVOID pDefault, PVOID pResult, int cbSize);
-	DWORD	setBinary(PTSTR valuename, PVOID pData, int cbSize);
-};
-
-class CRegEnumKey 
-{
-public:
-	CRegEnumKey(HKEY hKey)
-	{
-		m_hKey = hKey;
-		m_dwIndex = 0;
-	}
-
-	~CRegEnumKey()
-	{
-	}
-
-	LONG Next(LPTSTR pszStr, DWORD cbName)
-	{
-		FILETIME	ftLastWriteTime;
-		LONG lRet =  RegEnumKeyEx(m_hKey, m_dwIndex, pszStr, 
-						&cbName, NULL, NULL, NULL, &ftLastWriteTime); 
- 
-		m_dwIndex++;
-		return lRet;
-	}
-
-
-	void Reset(void)
-	{
-		m_dwIndex = 0;
-	}
-protected: 
-	HKEY	m_hKey;
-	DWORD	m_dwIndex;
+	DWORD	getDWORD(LPCTSTR valuename, DWORD bDefault);
+	void	setDWORD(LPCTSTR valuename, DWORD dwValue);
 };
 }
 #endif // __REG__

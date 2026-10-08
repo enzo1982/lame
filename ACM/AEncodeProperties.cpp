@@ -286,7 +286,7 @@ const int AEncodeProperties::GetBitrateString(char * string, int string_size, in
 	assert(string != NULL);
 
 	if (string_size >= 4)
-		return wsprintf(string,"%d",the_Bitrates[a_bitrateID]);
+		return snprintf(string, string_size, "%u", the_Bitrates[a_bitrateID]);
 	else
 		return -1;
 }
@@ -647,7 +647,7 @@ void AEncodeProperties::ParamsSave()
 }
 
 AEncodeProperties::AEncodeProperties(HMODULE hModule)
- :my_debug(ADbg(DEBUG_LEVEL_CREATION)),
+ :my_debug(DEBUG_LEVEL_CREATION),
  my_hModule(hModule)
 {
 	FillBitrateTables();
@@ -1418,18 +1418,18 @@ void AEncodeProperties::UpdateDlgFromSlides(HWND hwndDlg) const
 		return;
 	}
 
-	wsprintf(tmp,"%3d",value_min);
+	snprintf(tmp, sizeof tmp, "%3u", value_min);
 	::SetWindowText(GetDlgItem( hwndDlg, IDC_STATIC_AVERAGE_MIN_VALUE), tmp);
 	
 	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETRANGEMIN, TRUE, value_min);
 
-	wsprintf(tmp,"%3d",value_max);
+	snprintf(tmp, sizeof tmp, "%3u", value_max);
 	::SetWindowText(GetDlgItem( hwndDlg, IDC_STATIC_AVERAGE_MAX_VALUE), tmp);
 	
 	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETRANGEMAX, TRUE, value_max);
 	
 	value_step = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_STEP), TBM_GETPOS, NULL, NULL);
-	wsprintf(tmp,"%3d",value_step);
+	snprintf(tmp, sizeof tmp, "%3u", value_step);
 	::SetWindowText(GetDlgItem( hwndDlg, IDC_STATIC_AVERAGE_STEP_VALUE), tmp);
 
 	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_CLEARTICS, TRUE, 0);
@@ -1442,7 +1442,7 @@ void AEncodeProperties::UpdateDlgFromSlides(HWND hwndDlg) const
 	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETPAGESIZE, 0, value_step);
 	
 	value = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_GETPOS, NULL, NULL);
-	wsprintf(tmp,"%3d",value);
+	snprintf(tmp, sizeof tmp, "%3u", value);
 	::SetWindowText(GetDlgItem( hwndDlg, IDC_STATIC_AVERAGE_SAMPLE_VALUE), tmp);
 }
 

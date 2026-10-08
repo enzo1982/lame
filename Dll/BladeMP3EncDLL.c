@@ -698,10 +698,12 @@ __declspec(dllexport) BE_ERR	beCloseStream(HBE_STREAM hbeStream)
 
 __declspec(dllexport) VOID		beVersion(PBE_VERSION pbeVersion)
 {
-    // DLL Release date
-    char lpszDate[20]	= { '\0', };
-    char lpszTemp[5]	= { '\0', };
+    // DLL Release date: __DATE__ is "Mmm dd yyyy"
+    static const char months[][4] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+    const char *const lpszDate = __DATE__;
     lame_version_t lv   = { 0, };
+    int i;
 
 
     // Set DLL interface version
@@ -720,27 +722,13 @@ __declspec(dllexport) VOID		beVersion(PBE_VERSION pbeVersion)
 
     memset( pbeVersion->btReserved, 0, sizeof( pbeVersion->btReserved ) );
 
-    // Get compilation date
-    strcpy(lpszDate,__DATE__);
-
-    // Get the first three character, which is the month
-    strncpy(lpszTemp,lpszDate,3);
-    lpszTemp[3] = '\0';
-    pbeVersion->byMonth=1;
-
     // Set month
-    if (strcmp(lpszTemp,"Jan")==0)	pbeVersion->byMonth = 1;
-    if (strcmp(lpszTemp,"Feb")==0)	pbeVersion->byMonth = 2;
-    if (strcmp(lpszTemp,"Mar")==0)	pbeVersion->byMonth = 3;
-    if (strcmp(lpszTemp,"Apr")==0)	pbeVersion->byMonth = 4;
-    if (strcmp(lpszTemp,"May")==0)	pbeVersion->byMonth = 5;
-    if (strcmp(lpszTemp,"Jun")==0)	pbeVersion->byMonth = 6;
-    if (strcmp(lpszTemp,"Jul")==0)	pbeVersion->byMonth = 7;
-    if (strcmp(lpszTemp,"Aug")==0)	pbeVersion->byMonth = 8;
-    if (strcmp(lpszTemp,"Sep")==0)	pbeVersion->byMonth = 9;
-    if (strcmp(lpszTemp,"Oct")==0)	pbeVersion->byMonth = 10;
-    if (strcmp(lpszTemp,"Nov")==0)	pbeVersion->byMonth = 11;
-    if (strcmp(lpszTemp,"Dec")==0)	pbeVersion->byMonth = 12;
+    pbeVersion->byMonth=1;
+    for ( i = 0; i < (int) ( sizeof months / sizeof months[0] ); i++ )
+    {
+        if ( strncmp( lpszDate, months[i], sizeof months[i] - 1 ) == 0 )
+            pbeVersion->byMonth = (BYTE) ( i + 1 );
+    }
 
     // Get day of month string (char [4..5])
     pbeVersion->byDay = (BYTE) atoi( lpszDate + 4 );
@@ -750,7 +738,7 @@ __declspec(dllexport) VOID		beVersion(PBE_VERSION pbeVersion)
 
     memset( pbeVersion->zHomepage, 0x00, BE_MAX_HOMEPAGE );
 
-    strcpy( pbeVersion->zHomepage, "https://lame.sourceforge.io/" );
+    snprintf( pbeVersion->zHomepage, sizeof pbeVersion->zHomepage, "%s", "https://lame.sourceforge.io/" );
 }
 
 __declspec(dllexport) BE_ERR	beEncodeChunk(HBE_STREAM hbeStream, DWORD nSamples, 
