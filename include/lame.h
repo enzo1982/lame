@@ -402,6 +402,7 @@ int CDECL lame_get_nogap_currentindex(const lame_global_flags*);
  *   }
  * By default, LAME uses its own function, which prints to stderr.
  * If you pass NULL, LAME prints nothing on that stream.
+ * Call them before lame_init_params(); it takes the functions over.
  */
 int CDECL lame_set_errorf(lame_global_flags *, lame_report_function);
 int CDECL lame_set_debugf(lame_global_flags *, lame_report_function);
