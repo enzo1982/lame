@@ -58,7 +58,7 @@ CEncoder::~CEncoder()
  * @param bJustCheck  true to only check the format, without storing it.
  * @return S_OK if the format is supported, E_INVALIDARG if not.
  */
-HRESULT CEncoder::SetInputType(LPWAVEFORMATEX lpwfex, bool bJustCheck)
+HRESULT CEncoder::SetInputType(const WAVEFORMATEX *lpwfex, bool bJustCheck)
 {
     CAutoLock l(&m_lock);
 
@@ -99,7 +99,7 @@ HRESULT CEncoder::SetInputType(LPWAVEFORMATEX lpwfex, bool bJustCheck)
 /**
  * Stores the encoder settings for the output. Init() applies them.
  */
-HRESULT CEncoder::SetOutputType(MPEG_ENCODER_CONFIG &mabsi)
+HRESULT CEncoder::SetOutputType(const MPEG_ENCODER_CONFIG &mabsi)
 {
     CAutoLock l(&m_lock);
 

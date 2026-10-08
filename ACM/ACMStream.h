@@ -53,7 +53,7 @@ public:
 	virtual ~ACMStream( );
 
 	static ACMStream * Create();
-	static const bool Erase(const ACMStream * a_ACMStream);
+	static bool Erase(const ACMStream * a_ACMStream);
 
 	bool init(const int nSamplesPerSec, const int nOutputSamplesPerSec, const int nChannels, const int nOutputChannels, const int nAvgBytesPerSec, const vbr_mode mode);
 	bool open(const AEncodeProperties & the_Properties);

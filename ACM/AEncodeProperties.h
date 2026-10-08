@@ -72,33 +72,33 @@ public:
 	/**
 		\brief Returns true if the encoder sets the copyright bit.
 	*/
-	inline const bool GetCopyrightMode() const { return bCopyright; }
+	inline bool GetCopyrightMode() const { return bCopyright; }
 	/**
 		\brief Returns true if the encoder writes CRC checksums.
 	*/
-	inline const bool GetCRCMode() const { return bCRC; }
+	inline bool GetCRCMode() const { return bCRC; }
 	/**
 		\brief Returns true if the encoder sets the original bit.
 	*/
-	inline const bool GetOriginalMode() const { return bOriginal; }
+	inline bool GetOriginalMode() const { return bOriginal; }
 	/**
 		\brief Returns true if the encoder sets the private bit.
 	*/
-	inline const bool GetPrivateMode() const { return bPrivate; }
+	inline bool GetPrivateMode() const { return bPrivate; }
 	/**
 		\brief Returns true if Smart Output is on. Then the codec does not offer
 		output formats whose compression ratio is above GetSmartRatio().
 	*/
-	inline const bool GetSmartOutputMode() const { return bSmartOutput; }
+	inline bool GetSmartOutputMode() const { return bSmartOutput; }
 	/**
 		\brief Returns true if the codec offers ABR output formats.
 	*/
-	inline const bool GetAbrOutputMode() const { return bAbrOutput; }
+	inline bool GetAbrOutputMode() const { return bAbrOutput; }
 
 	/**
 		\brief Returns true if the settings switch off the bit reservoir.
 	*/
-	inline const bool GetNoBiResMode() const { return bNoBitRes; }
+	inline bool GetNoBiResMode() const { return bNoBitRes; }
 
 	/**
 		\brief Returns true if the settings force the selected channel mode.
@@ -106,7 +106,7 @@ public:
 		Only Mono can be forced: then the codec encodes stereo input as mono.
 		See OutputChannels().
 	*/
-	inline const bool GetForceChannelMode() const { return bForceChannel; }
+	inline bool GetForceChannelMode() const { return bForceChannel; }
 
 	/**
 		\brief Sets whether the encoder sets the copyright bit.
@@ -153,7 +153,7 @@ public:
 
 		\return the number of characters written. -1 if the bitrate is not found.
 	*/
-	inline const int GetBitrateString(char * string, int string_size) const {return GetBitrateString(string,string_size,nMinBitrateIndex); }
+	inline int GetBitrateString(char * string, int string_size) const {return GetBitrateString(string,string_size,nMinBitrateIndex); }
 
 	/**
 		\brief Writes the bitrate with the given index as text.
@@ -164,12 +164,12 @@ public:
 
 		\return the number of characters written. -1 if the bitrate is not found.
 	*/
-	const int GetBitrateString(char * string, int string_size, int a_bitrateID) const;
+	int GetBitrateString(char * string, int string_size, int a_bitrateID) const;
 
 	/**
 		\brief Returns the number of bitrates in the bitrate table.
 	*/
-	inline const int GetBitrateLentgh() const { return sizeof(the_Bitrates) / sizeof(unsigned int); }
+	inline int GetBitrateLentgh() const { return sizeof(the_Bitrates) / sizeof(unsigned int); }
 	/**
 		\brief Returns the highest compression ratio for Smart Output (default
 		       15, for 1:15).
@@ -200,7 +200,7 @@ public:
 	/**
 		\brief Returns the channel mode to use.
 	*/
-	const unsigned int GetChannelModeValue() const;
+	unsigned int GetChannelModeValue() const;
 	/**
 		\brief Returns the number of channels that the encoded stream has.
 
@@ -208,7 +208,7 @@ public:
 		\return 1 if the settings force Mono and the input is stereo.
 		        Otherwise \a input_channels.
 	*/
-	const unsigned int OutputChannels(const unsigned int input_channels) const;
+	unsigned int OutputChannels(const unsigned int input_channels) const;
 	/**
 		\brief Returns the name of the current channel mode.
 	*/
@@ -222,7 +222,7 @@ public:
 	/**
 		\brief Returns the number of channel modes.
 	*/
-	inline const int GetChannelLentgh() const { return sizeof(the_ChannelModes) / sizeof(the_ChannelModes[0]); }
+	inline int GetChannelLentgh() const { return sizeof(the_ChannelModes) / sizeof(the_ChannelModes[0]); }
 
 	/**
 		\brief Shows the configuration dialog box (for the DRV_CONFIGURE message).
@@ -259,7 +259,7 @@ public:
 	/**
 		\brief Makes the configuration with the given name the default.
 	*/
-	void SelectSavedParams(const std::string config_name);
+	void SelectSavedParams(const std::string & config_name);
 	/**
 		\brief Saves the current settings under the given configuration name.
 	*/
@@ -315,9 +315,9 @@ private:
 //	HINSTANCE hDllInstance;
 
 	void SaveValuesToElement(TiXmlElement * the_element) const;
-	inline void SetAttributeBool(TiXmlElement * the_elt,const std::string & the_string, const bool the_value) const;
+	static inline void SetAttributeBool(TiXmlElement * the_elt,const std::string & the_string, const bool the_value);
 	void UpdateConfigs(const HWND HwndDlg);
-	void EnableAbrOptions(HWND hDialog, bool enable);
+	static void EnableAbrOptions(HWND hDialog, bool enable);
 
 	HMODULE my_hModule;
 

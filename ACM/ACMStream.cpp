@@ -53,7 +53,7 @@ ACMStream * ACMStream::Create()
 	return Result;
 }
 
-const bool ACMStream::Erase(const ACMStream * a_ACMStream)
+bool ACMStream::Erase(const ACMStream * a_ACMStream)
 {
 	delete a_ACMStream;
 	return true;

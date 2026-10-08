@@ -92,9 +92,9 @@ public:
     CEncoder();
     virtual ~CEncoder();
 
-    HRESULT SetInputType(LPWAVEFORMATEX lpwfex, bool bJustCheck = FALSE);
+    HRESULT SetInputType(const WAVEFORMATEX *lpwfex, bool bJustCheck = FALSE);
     /// Copies the input format. Returns E_UNEXPECTED if it is not set.
-    HRESULT GetInputType(WAVEFORMATEX *pwfex)
+    HRESULT GetInputType(WAVEFORMATEX *pwfex) const
     {
         if(m_bInpuTypeSet)
         {
@@ -105,9 +105,9 @@ public:
             return E_UNEXPECTED;
     }
 
-    HRESULT SetOutputType(MPEG_ENCODER_CONFIG &mabsi);
+    HRESULT SetOutputType(const MPEG_ENCODER_CONFIG &mabsi);
     /// Copies the encoder settings. Returns E_UNEXPECTED if they are not set.
-    HRESULT GetOutputType(MPEG_ENCODER_CONFIG* pmabsi)
+    HRESULT GetOutputType(MPEG_ENCODER_CONFIG* pmabsi) const
     {
         if (m_bOutpuTypeSet)
         {

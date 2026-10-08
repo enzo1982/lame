@@ -280,7 +280,7 @@ void AEncodeProperties::FillBitrateTables()
 	assert(k == total && j1 == count && j2 == count);
 }
 
-const int AEncodeProperties::GetBitrateString(char * string, int string_size, int a_bitrateID) const
+int AEncodeProperties::GetBitrateString(char * string, int string_size, int a_bitrateID) const
 {
 	assert(a_bitrateID < GetBitrateLentgh());
 	assert(string != NULL);
@@ -291,14 +291,14 @@ const int AEncodeProperties::GetBitrateString(char * string, int string_size, in
 		return -1;
 }
 
-const unsigned int AEncodeProperties::GetChannelModeValue() const
+unsigned int AEncodeProperties::GetChannelModeValue() const
 {
 	assert(nChannelIndex < GetChannelLentgh());
 
 	return the_ChannelModes[nChannelIndex];
 }
 
-const unsigned int AEncodeProperties::OutputChannels(const unsigned int input_channels) const
+unsigned int AEncodeProperties::OutputChannels(const unsigned int input_channels) const
 {
 	if (bForceChannel && GetChannelModeValue() == MONO && input_channels == 2)
 		return 1;
@@ -978,7 +978,7 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 	}
 }
 
-void AEncodeProperties::SelectSavedParams(const std::string the_string)
+void AEncodeProperties::SelectSavedParams(const std::string & the_string)
 {
 	// get the values from the saved file if possible
 	TiXmlElement* CurrentNode = LoadEncodings();
@@ -991,7 +991,7 @@ void AEncodeProperties::SelectSavedParams(const std::string the_string)
 	}
 }
 
-inline void AEncodeProperties::SetAttributeBool(TiXmlElement * the_elt,const std::string & the_string, const bool the_value) const
+inline void AEncodeProperties::SetAttributeBool(TiXmlElement * the_elt,const std::string & the_string, const bool the_value)
 {
 	if (the_value == false)
 		the_elt->SetAttribute(the_string, "false");
