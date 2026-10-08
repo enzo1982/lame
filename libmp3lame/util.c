@@ -386,12 +386,6 @@ FindNearestBitrate(int bRate, /* legal rates from 8 to 320 */
 int
 nearestBitrateFullIndex(uint16_t bitrate)
 {
-    /* borrowed from DM abr presets */
-
-    const int full_bitrate_table[] =
-        { 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320 };
-
-
     int     lower_range = 0, lower_range_kbps = 0, upper_range = 0, upper_range_kbps = 0;
 
 
@@ -428,6 +422,10 @@ nearestBitrateFullIndex(uint16_t bitrate)
 
 
 
+/** The sample rates of MP3, in Hz, from the lowest to the highest. */
+static const int mp3_samplerates[] =
+    { 8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000 };
+
 /* map frequency to a valid MP3 sample frequency
  *
  * Robert Hegemann 2000-07-01
@@ -435,24 +433,32 @@ nearestBitrateFullIndex(uint16_t bitrate)
 int
 map2MP3Frequency(int freq)
 {
-    if (freq <= 8000)
-        return 8000;
-    if (freq <= 11025)
-        return 11025;
-    if (freq <= 12000)
-        return 12000;
-    if (freq <= 16000)
-        return 16000;
-    if (freq <= 22050)
-        return 22050;
-    if (freq <= 24000)
-        return 24000;
-    if (freq <= 32000)
-        return 32000;
-    if (freq <= 44100)
-        return 44100;
+    size_t  i;
 
-    return 48000;
+    for (i = 0; i + 1 < dimension_of(mp3_samplerates); i++) {
+        if (freq <= mp3_samplerates[i])
+            return mp3_samplerates[i];
+    }
+    return mp3_samplerates[dimension_of(mp3_samplerates) - 1];
+}
+
+/**
+ * \internal
+ * \brief Returns the highest MP3 sample rate that is not above \a freq.
+ * \param freq a sample rate in Hz.
+ * \return the MP3 sample rate in Hz. 0 when \a freq is below the lowest one.
+ */
+int
+floorMP3Frequency(int freq)
+{
+    size_t  i = dimension_of(mp3_samplerates);
+
+    while (i > 0) {
+        --i;
+        if (mp3_samplerates[i] <= freq)
+            return mp3_samplerates[i];
+    }
+    return 0;
 }
 
 int
@@ -478,38 +484,20 @@ BitrateIndex(int bRate,      /* legal rates from 32 to 448 kbps */
 int
 SmpFrqIndex(int sample_freq, int *const version)
 {
-    switch (sample_freq) {
-    case 44100:
-        *version = 1;
-        return 0;
-    case 48000:
-        *version = 1;
-        return 1;
-    case 32000:
-        *version = 1;
-        return 2;
-    case 22050:
-        *version = 0;
-        return 0;
-    case 24000:
-        *version = 0;
-        return 1;
-    case 16000:
-        *version = 0;
-        return 2;
-    case 11025:
-        *version = 0;
-        return 0;
-    case 12000:
-        *version = 0;
-        return 1;
-    case 8000:
-        *version = 0;
-        return 2;
-    default:
-        *version = 0;
-        return -1;
+    int     row, i;
+
+    /* Rows 0, 1 and 2 of the table are MPEG-2, MPEG-1 and MPEG-2.5. The
+       version bit is 0 for MPEG-2.5 too; the sample rate tells it apart. */
+    for (row = 0; row < 3; row++) {
+        for (i = 0; i < 3; i++) {
+            if (samplerate_table[row][i] == sample_freq) {
+                *version = (row == 1) ? 1 : 0;
+                return i;
+            }
+        }
     }
+    *version = 0;
+    return -1;
 }
 
 

@@ -30,6 +30,7 @@
 #include "encoder.h"
 #include "util.h"
 #include "lame_global_flags.h"
+#include "tables.h"
 
 #define SET_OPTION(opt, val, def) if (enforce) \
     (void) lame_set_##opt(gfp, val); \
@@ -216,7 +217,6 @@ static int
 apply_abr_preset(lame_global_flags * gfp, int preset, int enforce)
 {
     typedef struct {
-        int     abr_kbps;
         int     quant_comp;
         int     quant_comp_s;
         int     safejoint;
@@ -238,27 +238,29 @@ apply_abr_preset(lame_global_flags * gfp, int preset, int enforce)
      *  Switch mappings for ABR mode
      */
     const abr_presets_t abr_switch_map[] = {        
-    /* kbps  quant q_s safejoint nsmsfix st_lrm  st_s  scale   msk ath_lwr ath_curve  interch , sfscale */
-      {  8,     9,  9,        0,      0,  6.60,  145,  0.95,    0,  -30.0,     11,    0.0012,        1}, /*   8, impossible to use in stereo */
-      { 16,     9,  9,        0,      0,  6.60,  145,  0.95,    0,  -25.0,     11,    0.0010,        1}, /*  16 */
-      { 24,     9,  9,        0,      0,  6.60,  145,  0.95,    0,  -20.0,     11,    0.0010,        1}, /*  24 */
-      { 32,     9,  9,        0,      0,  6.60,  145,  0.95,    0,  -15.0,     11,    0.0010,        1}, /*  32 */
-      { 40,     9,  9,        0,      0,  6.60,  145,  0.95,    0,  -10.0,     11,    0.0009,        1}, /*  40 */
-      { 48,     9,  9,        0,      0,  6.60,  145,  0.95,    0,  -10.0,     11,    0.0009,        1}, /*  48 */
-      { 56,     9,  9,        0,      0,  6.60,  145,  0.95,    0,   -6.0,     11,    0.0008,        1}, /*  56 */
-      { 64,     9,  9,        0,      0,  6.60,  145,  0.95,    0,   -2.0,     11,    0.0008,        1}, /*  64 */
-      { 80,     9,  9,        0,      0,  6.60,  145,  0.95,    0,     .0,      8,    0.0007,        1}, /*  80 */
-      { 96,     9,  9,        0,   2.50,  6.60,  145,  0.95,    0,    1.0,      5.5,  0.0006,        1}, /*  96 */
-      {112,     9,  9,        0,   2.25,  6.60,  145,  0.95,    0,    2.0,      4.5,  0.0005,        1}, /* 112 */
-      {128,     9,  9,        0,   1.95,  6.40,  140,  0.95,    0,    3.0,      4,    0.0002,        1}, /* 128 */
-      {160,     9,  9,        1,   1.79,  6.00,  135,  0.95,   -2,    5.0,      3.5,  0,             1}, /* 160 */
-      {192,     9,  9,        1,   1.49,  5.60,  125,  0.97,   -4,    7.0,      3,    0,             0}, /* 192 */
-      {224,     9,  9,        1,   1.25,  5.20,  125,  0.98,   -6,    9.0,      2,    0,             0}, /* 224 */
-      {256,     9,  9,        1,   0.97,  5.20,  125,  1.00,   -8,   10.0,      1,    0,             0}, /* 256 */
-      {320,     9,  9,        1,   0.90,  5.20,  125,  1.00,  -10,   12.0,      0,    0,             0}  /* 320 */
+    /* one row for each entry of full_bitrate_table; the comment names its kbps
+       quant q_s safejoint nsmsfix st_lrm  st_s  scale   msk ath_lwr ath_curve  interch , sfscale */
+      {    9,  9,        0,      0,  6.60,  145,  0.95,    0,  -30.0,     11,    0.0012,        1}, /*   8, impossible to use in stereo */
+      {    9,  9,        0,      0,  6.60,  145,  0.95,    0,  -25.0,     11,    0.0010,        1}, /*  16 */
+      {    9,  9,        0,      0,  6.60,  145,  0.95,    0,  -20.0,     11,    0.0010,        1}, /*  24 */
+      {    9,  9,        0,      0,  6.60,  145,  0.95,    0,  -15.0,     11,    0.0010,        1}, /*  32 */
+      {    9,  9,        0,      0,  6.60,  145,  0.95,    0,  -10.0,     11,    0.0009,        1}, /*  40 */
+      {    9,  9,        0,      0,  6.60,  145,  0.95,    0,  -10.0,     11,    0.0009,        1}, /*  48 */
+      {    9,  9,        0,      0,  6.60,  145,  0.95,    0,   -6.0,     11,    0.0008,        1}, /*  56 */
+      {    9,  9,        0,      0,  6.60,  145,  0.95,    0,   -2.0,     11,    0.0008,        1}, /*  64 */
+      {    9,  9,        0,      0,  6.60,  145,  0.95,    0,     .0,      8,    0.0007,        1}, /*  80 */
+      {    9,  9,        0,   2.50,  6.60,  145,  0.95,    0,    1.0,      5.5,  0.0006,        1}, /*  96 */
+      {    9,  9,        0,   2.25,  6.60,  145,  0.95,    0,    2.0,      4.5,  0.0005,        1}, /* 112 */
+      {    9,  9,        0,   1.95,  6.40,  140,  0.95,    0,    3.0,      4,    0.0002,        1}, /* 128 */
+      {    9,  9,        1,   1.79,  6.00,  135,  0.95,   -2,    5.0,      3.5,  0,             1}, /* 160 */
+      {    9,  9,        1,   1.49,  5.60,  125,  0.97,   -4,    7.0,      3,    0,             0}, /* 192 */
+      {    9,  9,        1,   1.25,  5.20,  125,  0.98,   -6,    9.0,      2,    0,             0}, /* 224 */
+      {    9,  9,        1,   0.97,  5.20,  125,  1.00,   -8,   10.0,      1,    0,             0}, /* 256 */
+      {    9,  9,        1,   0.90,  5.20,  125,  1.00,  -10,   12.0,      0,    0,             0}  /* 320 */
     };
 
     /* *INDENT-ON* */
+    compiletime_assert(dimension_of(abr_switch_map) == dimension_of(full_bitrate_table));
 
     /* Variables for the ABR stuff */
     int     r;
@@ -307,9 +309,7 @@ apply_abr_preset(lame_global_flags * gfp, int preset, int enforce)
 
     SET_OPTION(interChRatio, abr_switch_map[r].interch, -1);
 
-    (void) abr_switch_map[r].abr_kbps;
-
-    gfp->internal_flags->cfg.minval = 5. * (abr_switch_map[r].abr_kbps / 320.);
+    gfp->internal_flags->cfg.minval = 5. * (full_bitrate_table[r] / 320.);
 
     return preset;
 }

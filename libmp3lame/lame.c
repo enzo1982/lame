@@ -214,36 +214,31 @@ optimum_bandwidth(double *const lowerlimit, double *const upperlimit, const unsi
  */
     int     table_index;
 
-    typedef struct {
-        int     bitrate;     /* only indicative value */
-        int     lowpass;
-    } band_pass_t;
-
-    const band_pass_t freq_map[] = {
-        {8, 2000},
-        {16, 3700},
-        {24, 3900},
-        {32, 5500},
-        {40, 7000},
-        {48, 7500},
-        {56, 10000},
-        {64, 11000},
-        {80, 13500},
-        {96, 15100},
-        {112, 15600},
-        {128, 17000},
-        {160, 17500},
-        {192, 18600},
-        {224, 19400},
-        {256, 19700},
-        {320, 20500}
+    /* the lowpass in Hz, one row for each entry of full_bitrate_table */
+    const int lowpass_by_bitrate[] = {
+        2000,                /*   8 kbps */
+        3700,                /*  16 */
+        3900,                /*  24 */
+        5500,                /*  32 */
+        7000,                /*  40 */
+        7500,                /*  48 */
+        10000,               /*  56 */
+        11000,               /*  64 */
+        13500,               /*  80 */
+        15100,               /*  96 */
+        15600,               /* 112 */
+        17000,               /* 128 */
+        17500,               /* 160 */
+        18600,               /* 192 */
+        19400,               /* 224 */
+        19700,               /* 256 */
+        20500                /* 320 */
     };
-
+    compiletime_assert(dimension_of(lowpass_by_bitrate) == dimension_of(full_bitrate_table));
 
     table_index = nearestBitrateFullIndex(bitrate);
 
-    (void) freq_map[table_index].bitrate;
-    *lowerlimit = freq_map[table_index].lowpass;
+    *lowerlimit = lowpass_by_bitrate[table_index];
 
 
 /*
@@ -289,26 +284,10 @@ optimum_samplefreq(int lowpassfreq, int input_samplefreq)
  *  - if possible, sfb21 should NOT be used
  *
  */
-    int     suggested_samplefreq = 44100;
+    int     suggested_samplefreq = floorMP3Frequency(input_samplefreq);
 
-    if (input_samplefreq >= 48000)
-        suggested_samplefreq = 48000;
-    else if (input_samplefreq >= 44100)
+    if (suggested_samplefreq == 0)
         suggested_samplefreq = 44100;
-    else if (input_samplefreq >= 32000)
-        suggested_samplefreq = 32000;
-    else if (input_samplefreq >= 24000)
-        suggested_samplefreq = 24000;
-    else if (input_samplefreq >= 22050)
-        suggested_samplefreq = 22050;
-    else if (input_samplefreq >= 16000)
-        suggested_samplefreq = 16000;
-    else if (input_samplefreq >= 12000)
-        suggested_samplefreq = 12000;
-    else if (input_samplefreq >= 11025)
-        suggested_samplefreq = 11025;
-    else if (input_samplefreq >= 8000)
-        suggested_samplefreq = 8000;
 
     if (lowpassfreq == -1)
         return suggested_samplefreq;
@@ -335,31 +314,7 @@ optimum_samplefreq(int lowpassfreq, int input_samplefreq)
            to avoid SFB21/12 bitrate bloat
            rh 061115
          */
-        if (input_samplefreq > 44100) {
-            return 48000;
-        }
-        if (input_samplefreq > 32000) {
-            return 44100;
-        }
-        if (input_samplefreq > 24000) {
-            return 32000;
-        }
-        if (input_samplefreq > 22050) {
-            return 24000;
-        }
-        if (input_samplefreq > 16000) {
-            return 22050;
-        }
-        if (input_samplefreq > 12000) {
-            return 16000;
-        }
-        if (input_samplefreq > 11025) {
-            return 12000;
-        }
-        if (input_samplefreq > 8000) {
-            return 11025;
-        }
-        return 8000;
+        return map2MP3Frequency(input_samplefreq);
     }
     return suggested_samplefreq;
 }

@@ -653,6 +653,7 @@ extern  "C" {
     extern int BitrateIndex(int, int, int);
     extern int FindNearestBitrate(int, int, int);
     extern int map2MP3Frequency(int freq);
+    extern int floorMP3Frequency(int freq);
     extern int SmpFrqIndex(int, int *const);
     extern int nearestBitrateFullIndex(uint16_t bitrate);
     extern FLOAT ATHformula(SessionConfig_t const *cfg, FLOAT freq);

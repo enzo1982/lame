@@ -557,6 +557,13 @@ const int samplerate_table[3][4] = {
     {11025, 12000, 8000, -1}, /* MPEG 2.5 */
 };
 
+/** \internal The bitrates, in kbps, that the bitrate-based tuning tables are
+    indexed by: the MPEG bitrates from 8 to 320 kbps, except the MPEG-2 rate
+    of 144. nearestBitrateFullIndex() returns an index into it, and the
+    lowpass and ABR tables have one row per entry. */
+const int full_bitrate_table[17] =
+    { 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320 };
+
 /*! The bitrate of a bitrate index in an MP3 frame header. */
 /*!
   \ingroup api_statistics

@@ -94,5 +94,6 @@ extern const int scfsi_band[5];
 
 extern const int bitrate_table    [3][16];
 extern const int samplerate_table [3][ 4];
+extern const int full_bitrate_table[17];
 
 #endif /* LAME_TABLES_H */
