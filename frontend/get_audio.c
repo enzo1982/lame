@@ -103,14 +103,9 @@ char   *strchr(), *strrchr();
 #include <dmalloc.h>
 #endif
 
-#ifndef STR
-# define __STR(x)  #x
-# define STR(x)    __STR(x)
-#define __LOC__ __FILE__ "("STR(__LINE__)") : "
-#endif
+/** The delay of the layer III decoder of libmpg123, in samples. */
+#define MP3_DECODER_DELAY 529
 
-
-#define FLOAT_TO_UNSIGNED(f) ((unsigned long)(((long)((f) - 2147483648.0)) + 2147483647L + 1))
 #define UNSIGNED_TO_FLOAT(u) (((double)((long)((u) - 2147483647L - 1))) + 2147483648.0)
 
 static uint32_t uint32_high_low(unsigned char const *bytes)
@@ -486,9 +481,6 @@ typedef struct get_audio_global_data_struct {
     unsigned long num_samples_above_full_scale;
     FILE   *music_in;
     SNDFILE *snd_file;
-#ifdef HAVE_MPG123
-    mpg123_handle* mh;
-#endif
     hip_t     hip;
     PcmBuffer pcm32;
     PcmBuffer pcm16;
@@ -684,22 +676,9 @@ static void
 setSkipStartAndEnd(lame_t gfp, int enc_delay, int enc_padding)
 {
     int     skip_start = 0, skip_end = 0;
-    long dec_delay = -1;
 
     if (global_decoder.mp3_delay_set)
         skip_start = global_decoder.mp3_delay;
-
-#if 0
-    /* We should ask mpg123 for the delay, but we know it is 529 samples and
-       will not change unless we enable gapless mode. Also, global.hip is not
-       always the correct handle, so avoid this for now. */
-    /* Will use it for layer III only, mpg123 does not deal with layer I and II
-       gapless stuff (yet?) */
-    mpg123_getstate(global.hip->mh, MPG123_DEC_DELAY, &dec_delay, NULL);
-#else
-    if(dec_delay < 0)
-        dec_delay = 528 + 1; /* Same value as above, actually. */
-#endif
 
     switch (global_reader.input_format) {
     case sf_mp123:
@@ -709,16 +688,16 @@ setSkipStartAndEnd(lame_t gfp, int enc_delay, int enc_padding)
         if (skip_start == 0) {
             if (enc_delay > -1 || enc_padding > -1) {
                 if (enc_delay > -1)
-                    skip_start = (int)(enc_delay + dec_delay);
+                    skip_start = enc_delay + MP3_DECODER_DELAY;
                 if (enc_padding > -1)
-                    skip_end = (int)(enc_padding - dec_delay);
+                    skip_end = enc_padding - MP3_DECODER_DELAY;
             }
             else
-                skip_start = (int)(lame_get_encoder_delay(gfp) + dec_delay);
+                skip_start = lame_get_encoder_delay(gfp) + MP3_DECODER_DELAY;
         }
         else {
             /* user specified a value of skip. just add for decoder */
-            skip_start += dec_delay; /* mp3 decoder has a 528 sample delay, plus user supplied "skip" */
+            skip_start += MP3_DECODER_DELAY;
         }
         break;
     case sf_mp2:
@@ -727,17 +706,7 @@ setSkipStartAndEnd(lame_t gfp, int enc_delay, int enc_padding)
     case sf_mp1:
         skip_start += 240 + 1;
         break;
-    case sf_raw:
-        skip_start += 0; /* other formats have no delay *//* is += 0 not better ??? */
-        break;
-    case sf_wave:
-        skip_start += 0; /* other formats have no delay *//* is += 0 not better ??? */
-        break;
-    case sf_aiff:
-        skip_start += 0; /* other formats have no delay *//* is += 0 not better ??? */
-        break;
     default:
-        skip_start += 0; /* other formats have no delay *//* is += 0 not better ??? */
         break;
     }
     skip_start = skip_start < 0 ? 0 : skip_start;
@@ -1480,118 +1449,6 @@ open_snd_file(lame_t gfp, char const *inPath)
             global_reader.input_format = sf_raw;
         }
 
-#ifdef _DEBUG_SND_FILE
-        printf("\n\nSF_INFO structure\n");
-        printf("samplerate        :%d\n", gs_wfInfo.samplerate);
-        printf("samples           :%d\n", gs_wfInfo.frames);
-        printf("channels          :%d\n", gs_wfInfo.channels);
-        printf("format            :");
-
-        /* new formats from sbellon@sbellon.de  1/2000 */
-
-        switch (gs_wfInfo.format & SF_FORMAT_TYPEMASK) {
-        case SF_FORMAT_WAV:
-            printf("Microsoft WAV format (big endian). ");
-            break;
-        case SF_FORMAT_AIFF:
-            printf("Apple/SGI AIFF format (little endian). ");
-            break;
-        case SF_FORMAT_AU:
-            printf("Sun/NeXT AU format (big endian). ");
-            break;
-            /*
-               case SF_FORMAT_AULE:
-               DEBUGF("DEC AU format (little endian). ");
-               break;
-             */
-        case SF_FORMAT_RAW:
-            printf("RAW PCM data. ");
-            break;
-        case SF_FORMAT_PAF:
-            printf("Ensoniq PARIS file format. ");
-            break;
-        case SF_FORMAT_SVX:
-            printf("Amiga IFF / SVX8 / SV16 format. ");
-            break;
-        case SF_FORMAT_NIST:
-            printf("Sphere NIST format. ");
-            break;
-        default:
-            assert(0);
-            break;
-        }
-
-        switch (gs_wfInfo.format & SF_FORMAT_SUBMASK) {
-            /*
-               case SF_FORMAT_PCM:
-               DEBUGF("PCM data in 8, 16, 24 or 32 bits.");
-               break;
-             */
-        case SF_FORMAT_FLOAT:
-            printf("32 bit Intel x86 floats.");
-            break;
-        case SF_FORMAT_ULAW:
-            printf("U-Law encoded.");
-            break;
-        case SF_FORMAT_ALAW:
-            printf("A-Law encoded.");
-            break;
-        case SF_FORMAT_IMA_ADPCM:
-            printf("IMA ADPCM.");
-            break;
-        case SF_FORMAT_MS_ADPCM:
-            printf("Microsoft ADPCM.");
-            break;
-            /*
-               case SF_FORMAT_PCM_BE:
-               DEBUGF("Big endian PCM data.");
-               break;
-               case SF_FORMAT_PCM_LE:
-               DEBUGF("Little endian PCM data.");
-               break;
-             */
-        case SF_FORMAT_PCM_S8:
-            printf("Signed 8 bit PCM.");
-            break;
-        case SF_FORMAT_PCM_U8:
-            printf("Unsigned 8 bit PCM.");
-            break;
-        case SF_FORMAT_PCM_16:
-            printf("Signed 16 bit PCM.");
-            break;
-        case SF_FORMAT_PCM_24:
-            printf("Signed 24 bit PCM.");
-            break;
-        case SF_FORMAT_PCM_32:
-            printf("Signed 32 bit PCM.");
-            break;
-            /*
-               case SF_FORMAT_SVX_FIB:
-               DEBUGF("SVX Fibonacci Delta encoding.");
-               break;
-               case SF_FORMAT_SVX_EXP:
-               DEBUGF("SVX Exponential Delta encoding.");
-               break;
-             */
-        default:
-            assert(0);
-            break;
-        }
-
-        printf("\n");
-        printf("sections          :%d\n", gs_wfInfo.sections);
-        printf("seekable          :%d\n", gs_wfInfo.seekable);
-#endif
-        /* Check result */
-        if (gs_pSndFileIn == NULL) {
-            sf_perror(gs_pSndFileIn);
-            if (global_ui_config.silent < 10) {
-                error_printf("Could not open sound file \"%s\".\n", lpszFileName);
-            }
-            return 0;
-        }
-
-
         if(gs_wfInfo.frames >= 0 && gs_wfInfo.frames < (sf_count_t)(unsigned)MAX_U_32_NUM)
             (void) lame_set_num_samples(gfp, gs_wfInfo.frames);
         else
@@ -1606,16 +1463,6 @@ open_snd_file(lame_t gfp, char const *inPath)
         }
         global. pcmbitwidth = 32;
     }
-#if 0
-    if (lame_get_num_samples(gfp) == MAX_U_32_NUM) {
-        /* try to figure out num_samples */
-        double const flen = lame_get_file_size(lpszFileName);
-        if (flen >= 0) {
-            /* try file size, assume 2 bytes per sample */
-            lame_set_num_samples(gfp, flen / (2 * lame_get_num_channels(gfp)));
-        }
-    }
-#endif
     return gs_pSndFileIn;
 }
 

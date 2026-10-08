@@ -92,7 +92,6 @@ apply_termcap_settings(Console_IO_t * const mfp)
         int const ret = tgetent(term_buff, term_name);
         if (1 == ret) {
             get_termcap_number("co", &mfp->disp_width, 40, 512);
-            get_termcap_number("li", &mfp->disp_height, 16, 256);
             get_termcap_string("up", mfp->str_up, sizeof(mfp->str_up));
             get_termcap_string("ce", mfp->str_clreoln, sizeof(mfp->str_clreoln));
         }
@@ -114,7 +113,6 @@ init_console(Console_IO_t * const mfp)
     }
     /* setup basics of brhist I/O channels */
     mfp->disp_width = 80;
-    mfp->disp_height = 25;
     mfp->Console_fp = stderr;
     mfp->Error_fp = stderr;
     mfp->Report_fp = NULL;

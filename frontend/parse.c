@@ -223,56 +223,6 @@ currCharCodeSize(void)
     return n;
 }
 
-#if 0
-static
-char* fromLatin1( char* src )
-{
-    char* dst = 0;
-    if (src != 0) {
-        size_t const l = strlen(src);
-        size_t const n = l*4;
-        dst = calloc(n+4, 4);
-        if (dst != 0) {
-            char* cur_code = currentCharacterEncoding();
-            iconv_t xiconv = iconv_open(cur_code, "ISO_8859-1");
-            if (xiconv != (iconv_t)-1) {
-                char* i_ptr = src;
-                char* o_ptr = dst;
-                size_t srcln = l;
-                size_t avail = n;                
-                iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
-                iconv_close(xiconv);
-            }
-        }
-    }
-    return dst;
-}
-
-static
-char* fromUtf16( char* src )
-{
-    char* dst = 0;
-    if (src != 0) {
-        size_t const l = strlenMultiByte(src, 2);
-        size_t const n = l*4;
-        dst = calloc(n+4, 4);
-        if (dst != 0) {
-            char* cur_code = currentCharacterEncoding();
-            iconv_t xiconv = iconv_open(cur_code, "UTF-16LE");
-            if (xiconv != (iconv_t)-1) {
-                char* i_ptr = (char*)src;
-                char* o_ptr = dst;
-                size_t srcln = l*2;
-                size_t avail = n;                
-                iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
-                iconv_close(xiconv);
-            }
-        }
-    }
-    return dst;
-}
-#endif
-
 /**
  * @internal
  * @brief Converts text from one character set to another.
@@ -1629,7 +1579,6 @@ int isCommonSuffix(char const* s_ext)
 int generateOutPath(char const* inPath, char const* outDir, char const* s_ext, char* outPath)
 {
     size_t const max_path = PATH_MAX;
-#if 1
     size_t i = 0;
     int out_dir_used = 0;
 
@@ -1708,11 +1657,6 @@ int generateOutPath(char const* inPath, char const* outDir, char const* s_ext, c
 err_generateOutPath:
     error_printf( "error: output file name too long\n" );
     return 1;
-#else
-    strncpy(outPath, inPath, PATH_MAX + 1 - 4);
-    strncat(outPath, s_ext, 4);
-    return 0;
-#endif
 }
 
 

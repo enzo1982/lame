@@ -119,33 +119,6 @@ extern int lame_main(lame_t gf, int argc, char *argv[]);
 ************************************************************************/
 
 
-#if defined( _WIN32 ) && !defined(__MINGW32__)
-static void
-set_process_affinity()
-{
-#if 0
-    /* rh 061207
-       the following fix seems to be a workaround for a problem in the
-       parent process calling LAME. It would be better to fix the broken
-       application => code disabled.
-     */
-#if defined(_WIN32)
-    /* set affinity back to all CPUs.  Fix for EAC/lame on SMP systems from
-       "Todd Richmond" <todd.richmond@openwave.com> */
-    typedef BOOL(WINAPI * SPAMFunc) (HANDLE, DWORD_PTR);
-    SPAMFunc func;
-    SYSTEM_INFO si;
-
-    if ((func = (SPAMFunc) GetProcAddress(GetModuleHandleW(L"KERNEL32.DLL"),
-                                          "SetProcessAffinityMask")) != NULL) {
-        GetSystemInfo(&si);
-        func(GetCurrentProcess(), si.dwActiveProcessorMask);
-    }
-#endif
-#endif
-}
-#endif
-
 #if defined(WIN32)
 
 /**
@@ -337,8 +310,6 @@ char* mbsToMbs(const char* str, int cp_from, int cp_to)
   return 0;
 }
 
-enum { cp_utf8, cp_console, cp_actual };
-
 wchar_t *utf8ToUnicode(const char *mbstr)
 {
   return mbsToUnicode(mbstr, CP_UTF8);
@@ -364,11 +335,6 @@ char* local8BitToUtf8(const char* str)
   return mbsToMbs(str, CP_ACP, CP_UTF8);
 }
 
-char* console8BitToUtf8(const char* str)
-{
-  return mbsToMbs(str, GetConsoleOutputCP(), CP_UTF8);
-}
- 
 char* utf8ToLatin1(char const* str)
 {
   return mbsToMbs(str, CP_UTF8, 28591); /* Latin-1 is code page 28591 */
@@ -515,9 +481,6 @@ c_main(int argc, char *argv[])
 
     /* This prevents SIGFPE */
     _control87(MCW_EM, MCW_EM);
-#endif
-#if defined( _WIN32 ) && !defined(__MINGW32__)
-    set_process_affinity();
 #endif
 
     frontend_open_console();    

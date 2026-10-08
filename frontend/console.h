@@ -34,7 +34,6 @@ extern "C" {
 
 typedef struct console_io_struct {
     unsigned long ClassID;
-    unsigned long ClassProt;
     FILE   *Console_fp;      /* filepointer to stream reporting information */
     FILE   *Error_fp;        /* filepointer to stream fatal error reporting information */
     FILE   *Report_fp;       /* filepointer to stream reports (normally a text file or /dev/null) */
@@ -42,7 +41,6 @@ typedef struct console_io_struct {
     HANDLE  Console_Handle;
 #endif
     int     disp_width;
-    int     disp_height;
     char    str_up[CONSOLE_CAP_SIZE];
     char    str_clreoln[CONSOLE_CAP_SIZE];
     char    Console_buff[2048];
