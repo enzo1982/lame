@@ -45,6 +45,7 @@
 #include "ACMStream.h"
 #include "AEncodeProperties.h"
 #include "ACM.h"
+#include <dshow.h>
 #include "resource.h"
 #include "../../libmp3lame/version.h"
 
@@ -784,6 +785,14 @@ test_config_dialog_result(const char *driver)
 /** @brief The amplitude of the tone. It is well below full scale, so nothing clips. */
 #define TONE_AMPLITUDE  16000.0
 
+/**
+ * @brief The fdwFlags values of the codec's own MP3 formats. The codec writes
+ *        2 into an ABR format and 4 into a CBR format, and reads the value back
+ *        when a stream opens.
+ */
+#define ACM_FLAGS_ABR 2
+#define ACM_FLAGS_CBR 4
+
 /** @brief Fills in the MPEG Layer-3 format that an application passes to the ACM. */
 static void
 fill_mp3_format(MPEGLAYER3WAVEFORMAT *mp3, DWORD rate, WORD channels, DWORD bps)
@@ -1346,11 +1355,63 @@ out:
 /** @brief How many streams the leak check opens. */
 #define LEAK_ROUNDS 8
 
-/** @brief One prepared header, and the destination buffer it owns. */
+/** @brief The bytes of one stereo sample frame of the stream lifetime tests. */
+#define LIFETIME_FRAME_BYTES (LIFETIME_CHANNELS * sizeof(short))
+
+/**
+ * @brief One prepared header, and the buffers it owns.
+ *
+ * The source buffer has room for the part and for one sample frame in front
+ * of it: the codec may leave the last sample frame of a conversion unused,
+ * and a client passes what was not used in front of the next part.
+ */
 typedef struct {
     ACMSTREAMHEADER hdr;    /**< the header */
     int prepared;           /**< set while the header is prepared */
+    const BYTE *part;       /**< the samples of the part */
+    DWORD part_bytes;       /**< their bytes */
+    DWORD src_room;         /**< the prepared size of the source buffer */
 } stream_part;
+
+/**
+ * @brief Prepares a header for part of a stereo source, with a destination
+ *        buffer of the given size, or of the size that the codec asks for.
+ * @param has        the stream
+ * @param part       receives the header. Release it with release_part().
+ * @param src        the first sample frame of the part
+ * @param frames     the sample frames of the part
+ * @param dst_bytes  the size of the destination buffer, 0 for the size that
+ *                   the codec asks for
+ * @return the result of the first call that failed, or MMSYSERR_NOERROR
+ */
+static MMRESULT
+prepare_part_with_room(HACMSTREAM has, stream_part *part, const short *src, DWORD frames,
+                       DWORD dst_bytes)
+{
+    MMRESULT mr = MMSYSERR_NOERROR;
+
+    memset(part, 0, sizeof(*part));
+    part->part = (const BYTE *) src;
+    part->part_bytes = frames * LIFETIME_FRAME_BYTES;
+    part->src_room = part->part_bytes + LIFETIME_FRAME_BYTES;
+    if (dst_bytes == 0) {
+        mr = acmStreamSize(has, part->src_room, &dst_bytes, ACM_STREAMSIZEF_SOURCE);
+        if (mr != MMSYSERR_NOERROR) {
+            return mr;
+        }
+    }
+    part->hdr.cbStruct = sizeof(part->hdr);
+    part->hdr.pbSrc = (BYTE *) malloc(part->src_room);
+    part->hdr.cbSrcLength = part->src_room;
+    part->hdr.pbDst = (BYTE *) malloc(dst_bytes);
+    part->hdr.cbDstLength = dst_bytes;
+    if (part->hdr.pbSrc == NULL || part->hdr.pbDst == NULL) {
+        return MMSYSERR_NOMEM;
+    }
+    mr = acmStreamPrepareHeader(has, &part->hdr, 0);
+    part->prepared = (mr == MMSYSERR_NOERROR);
+    return mr;
+}
 
 /**
  * @brief Prepares a header for part of a stereo source, with a destination
@@ -1364,49 +1425,73 @@ typedef struct {
 static MMRESULT
 prepare_part(HACMSTREAM has, stream_part *part, const short *src, DWORD frames)
 {
-    DWORD src_bytes = frames * LIFETIME_CHANNELS * sizeof(short);
-    DWORD dst_bytes = 0;
+    return prepare_part_with_room(has, part, src, frames, 0);
+}
+
+/**
+ * @brief Converts a prepared header with exactly the flags given, as a client
+ *        that uses the used length as documented: the source is what the previous
+ *        conversion left unused, then the part. Appends what the conversion
+ *        returns to a stream.
+ *
+ * ACM_STREAMCONVERTF_START drops what was left unused: it belongs to the
+ * stream before. A failed conversion leaves @a carry as it was.
+ *
+ * @param has    the stream
+ * @param part   the prepared header
+ * @param flags  the conversion flags
+ * @param out    receives the bytes of the conversion at its end
+ * @param carry  what the previous conversion left unused; receives what this
+ *               one leaves unused
+ * @return the result of acmStreamConvert(), or MMSYSERR_NOMEM if @a carry
+ *         does not fit in front of the part
+ */
+static MMRESULT
+convert_exact(HACMSTREAM has, stream_part *part, DWORD flags, std::vector<BYTE> *out,
+              std::vector<BYTE> *carry)
+{
     MMRESULT mr;
 
-    memset(part, 0, sizeof(*part));
-    mr = acmStreamSize(has, src_bytes, &dst_bytes, ACM_STREAMSIZEF_SOURCE);
-    if (mr != MMSYSERR_NOERROR) {
-        return mr;
+    if ((flags & ACM_STREAMCONVERTF_START) != 0) {
+        carry->clear();
     }
-    part->hdr.cbStruct = sizeof(part->hdr);
-    part->hdr.pbSrc = (BYTE *) src;
-    part->hdr.cbSrcLength = src_bytes;
-    part->hdr.pbDst = (BYTE *) malloc(dst_bytes);
-    part->hdr.cbDstLength = dst_bytes;
-    if (part->hdr.pbDst == NULL) {
+    if (carry->size() > part->src_room - part->part_bytes) {
         return MMSYSERR_NOMEM;
     }
-    mr = acmStreamPrepareHeader(has, &part->hdr, 0);
-    part->prepared = (mr == MMSYSERR_NOERROR);
+    if (!carry->empty()) {
+        memcpy(part->hdr.pbSrc, carry->data(), carry->size());
+    }
+    memcpy(part->hdr.pbSrc + carry->size(), part->part, part->part_bytes);
+    part->hdr.cbSrcLength = (DWORD) carry->size() + part->part_bytes;
+    mr = acmStreamConvert(has, &part->hdr, flags);
+    if (mr == MMSYSERR_NOERROR) {
+        out->insert(out->end(), part->hdr.pbDst, part->hdr.pbDst + part->hdr.cbDstLengthUsed);
+        carry->assign(part->hdr.pbSrc + part->hdr.cbSrcLengthUsed,
+                      part->hdr.pbSrc + part->hdr.cbSrcLength);
+    }
+    /* the prepared size again, as the unprepare needs it */
+    part->hdr.cbSrcLength = part->src_room;
     return mr;
 }
 
 /**
- * @brief Converts a prepared header and appends what it returns to a stream.
+ * @brief As convert_exact(), with ACM_STREAMCONVERTF_BLOCKALIGN added.
  * @param has    the stream
  * @param part   the prepared header
  * @param flags  the conversion flags besides ACM_STREAMCONVERTF_BLOCKALIGN
  * @param out    receives the bytes of the conversion at its end
- * @return the result of acmStreamConvert()
+ * @param carry  as for convert_exact()
+ * @return as convert_exact()
  */
 static MMRESULT
-convert_part(HACMSTREAM has, stream_part *part, DWORD flags, std::vector<BYTE> *out)
+convert_part(HACMSTREAM has, stream_part *part, DWORD flags, std::vector<BYTE> *out,
+             std::vector<BYTE> *carry)
 {
-    MMRESULT mr = acmStreamConvert(has, &part->hdr, ACM_STREAMCONVERTF_BLOCKALIGN | flags);
-
-    if (mr == MMSYSERR_NOERROR) {
-        out->insert(out->end(), part->hdr.pbDst, part->hdr.pbDst + part->hdr.cbDstLengthUsed);
-    }
-    return mr;
+    return convert_exact(has, part, ACM_STREAMCONVERTF_BLOCKALIGN | flags, out, carry);
 }
 
 /**
- * @brief Unprepares a header if it is prepared, and frees its destination buffer.
+ * @brief Unprepares a header if it is prepared, and frees its buffers.
  * @param has   the stream
  * @param part  the header
  */
@@ -1417,6 +1502,8 @@ release_part(HACMSTREAM has, stream_part *part)
         acmStreamUnprepareHeader(has, &part->hdr, 0);
         part->prepared = 0;
     }
+    free(part->hdr.pbSrc);
+    part->hdr.pbSrc = NULL;
     free(part->hdr.pbDst);
     part->hdr.pbDst = NULL;
 }
@@ -1440,8 +1527,39 @@ open_lifetime_stream(HACMDRIVER had, HACMSTREAM *has)
 }
 
 /**
- * @brief Encodes a stereo source on a stream of its own, in one conversion
- *        with ACM_STREAMCONVERTF_END.
+ * @brief Encodes a stereo source to the given format on a stream of its own,
+ *        in one conversion with ACM_STREAMCONVERTF_END.
+ * @param had     the opened driver
+ * @param mp3     the format, at the rate of the source
+ * @param src     the source
+ * @param frames  its sample frames
+ * @param out     receives the MP3 stream
+ * @return 1 if every call succeeded, else 0
+ */
+static int
+encode_whole_as(HACMDRIVER had, const MPEGLAYER3WAVEFORMAT *mp3, const short *src, DWORD frames,
+                std::vector<BYTE> *out)
+{
+    WAVEFORMATEX pcm;
+    HACMSTREAM has;
+    stream_part part;
+    std::vector<BYTE> carry;
+    int ok;
+
+    out->clear();
+    fill_pcm_format(&pcm, mp3->wfx.nSamplesPerSec, LIFETIME_CHANNELS);
+    if (acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) mp3, NULL, 0, 0, 0) != MMSYSERR_NOERROR) {
+        return 0;
+    }
+    ok = prepare_part(has, &part, src, frames) == MMSYSERR_NOERROR
+        && convert_part(has, &part, ACM_STREAMCONVERTF_END, out, &carry) == MMSYSERR_NOERROR;
+    release_part(has, &part);
+    acmStreamClose(has, 0);
+    return ok;
+}
+
+/**
+ * @brief As encode_whole_as(), to the format of open_lifetime_stream().
  * @param had     the opened driver
  * @param src     the source
  * @param frames  its sample frames
@@ -1451,19 +1569,10 @@ open_lifetime_stream(HACMDRIVER had, HACMSTREAM *has)
 static int
 encode_whole(HACMDRIVER had, const short *src, DWORD frames, std::vector<BYTE> *out)
 {
-    HACMSTREAM has;
-    stream_part part;
-    int ok;
+    MPEGLAYER3WAVEFORMAT mp3;
 
-    out->clear();
-    if (open_lifetime_stream(had, &has) != MMSYSERR_NOERROR) {
-        return 0;
-    }
-    ok = prepare_part(has, &part, src, frames) == MMSYSERR_NOERROR
-        && convert_part(has, &part, ACM_STREAMCONVERTF_END, out) == MMSYSERR_NOERROR;
-    release_part(has, &part);
-    acmStreamClose(has, 0);
-    return ok;
+    fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 128000);
+    return encode_whole_as(had, &mp3, src, frames, out);
 }
 
 /**
@@ -1494,6 +1603,7 @@ encode_two_headers(HACMDRIVER had, const short *src, DWORD frames, int prepare_l
     const DWORD half = frames / 2;
     HACMSTREAM has;
     stream_part a, b;
+    std::vector<BYTE> carry;
     int ok;
 
     first->clear();
@@ -1505,10 +1615,10 @@ encode_two_headers(HACMDRIVER had, const short *src, DWORD frames, int prepare_l
     ok = prepare_part(has, &a, src, half) == MMSYSERR_NOERROR
         && (prepare_late
             || prepare_part(has, &b, src + half * LIFETIME_CHANNELS, half) == MMSYSERR_NOERROR)
-        && convert_part(has, &a, first_flags, first) == MMSYSERR_NOERROR
+        && convert_part(has, &a, first_flags, first, &carry) == MMSYSERR_NOERROR
         && (!prepare_late
             || prepare_part(has, &b, src + half * LIFETIME_CHANNELS, half) == MMSYSERR_NOERROR)
-        && convert_part(has, &b, ACM_STREAMCONVERTF_END | second_flags, second) == MMSYSERR_NOERROR;
+        && convert_part(has, &b, ACM_STREAMCONVERTF_END | second_flags, second, &carry) == MMSYSERR_NOERROR;
     release_part(has, &a);
     release_part(has, &b);
     acmStreamClose(has, 0);
@@ -1534,6 +1644,7 @@ encode_halves_with_flags(HACMDRIVER had, const short *src, DWORD frames, DWORD f
     const DWORD half = frames / 2;
     HACMSTREAM has;
     stream_part a, b;
+    std::vector<BYTE> carry;
     int ok;
 
     joined->clear();
@@ -1543,14 +1654,8 @@ encode_halves_with_flags(HACMDRIVER had, const short *src, DWORD frames, DWORD f
     }
     ok = prepare_part(has, &a, src, half) == MMSYSERR_NOERROR
         && prepare_part(has, &b, src + half * LIFETIME_CHANNELS, half) == MMSYSERR_NOERROR
-        && acmStreamConvert(has, &a.hdr, first_flags) == MMSYSERR_NOERROR;
-    if (ok) {
-        joined->insert(joined->end(), a.hdr.pbDst, a.hdr.pbDst + a.hdr.cbDstLengthUsed);
-        ok = acmStreamConvert(has, &b.hdr, second_flags) == MMSYSERR_NOERROR;
-    }
-    if (ok) {
-        joined->insert(joined->end(), b.hdr.pbDst, b.hdr.pbDst + b.hdr.cbDstLengthUsed);
-    }
+        && convert_exact(has, &a, first_flags, joined, &carry) == MMSYSERR_NOERROR
+        && convert_exact(has, &b, second_flags, joined, &carry) == MMSYSERR_NOERROR;
     release_part(has, &a);
     release_part(has, &b);
     acmStreamClose(has, 0);
@@ -1687,36 +1792,6 @@ test_size_both_directions(HACMDRIVER had)
 }
 
 /**
- * @brief Prepares a header for part of a stereo source, with a destination
- *        buffer of the given size.
- * @param has        the stream
- * @param part       receives the header. Release it with release_part().
- * @param src        the first sample frame of the part
- * @param frames     the sample frames of the part
- * @param dst_bytes  the size of the destination buffer
- * @return the result of acmStreamPrepareHeader(), or MMSYSERR_NOMEM
- */
-static MMRESULT
-prepare_part_with_room(HACMSTREAM has, stream_part *part, const short *src, DWORD frames,
-                       DWORD dst_bytes)
-{
-    MMRESULT mr;
-
-    memset(part, 0, sizeof(*part));
-    part->hdr.cbStruct = sizeof(part->hdr);
-    part->hdr.pbSrc = (BYTE *) src;
-    part->hdr.cbSrcLength = frames * LIFETIME_CHANNELS * sizeof(short);
-    part->hdr.pbDst = (BYTE *) malloc(dst_bytes);
-    part->hdr.cbDstLength = dst_bytes;
-    if (part->hdr.pbDst == NULL) {
-        return MMSYSERR_NOMEM;
-    }
-    mr = acmStreamPrepareHeader(has, &part->hdr, 0);
-    part->prepared = (mr == MMSYSERR_NOERROR);
-    return mr;
-}
-
-/**
  * @brief Checks that a conversion that ends the MP3 stream into a buffer too
  *        small for the flush converts nothing, so that a retry with a larger
  *        buffer continues the stream.
@@ -1734,7 +1809,7 @@ test_flush_room(HACMDRIVER had)
 {
     const DWORD half = LIFETIME_FRAMES / 2;
     std::vector<short> src(LIFETIME_FRAMES * LIFETIME_CHANNELS);
-    std::vector<BYTE> whole, joined, dry;
+    std::vector<BYTE> whole, joined, dry, carry, dry_carry;
     HACMSTREAM has;
     stream_part a, b;
     DWORD second_bytes = 0, i;
@@ -1757,8 +1832,8 @@ test_flush_room(HACMDRIVER had)
     if (ok) {
         ok = prepare_part(has, &a, &src[0], half) == MMSYSERR_NOERROR
             && prepare_part(has, &b, &src[half * LIFETIME_CHANNELS], half) == MMSYSERR_NOERROR
-            && convert_part(has, &a, 0, &dry) == MMSYSERR_NOERROR
-            && convert_part(has, &b, 0, &dry) == MMSYSERR_NOERROR;
+            && convert_part(has, &a, 0, &dry, &dry_carry) == MMSYSERR_NOERROR
+            && convert_part(has, &b, 0, &dry, &dry_carry) == MMSYSERR_NOERROR;
         if (ok) {
             second_bytes = b.hdr.cbDstLengthUsed;
         }
@@ -1774,11 +1849,11 @@ test_flush_room(HACMDRIVER had)
         return;
     }
     ok = prepare_part(has, &a, &src[0], half) == MMSYSERR_NOERROR
-        && convert_part(has, &a, 0, &joined) == MMSYSERR_NOERROR;
+        && convert_part(has, &a, 0, &joined, &carry) == MMSYSERR_NOERROR;
     CHECK(ok, "the first half is converted");
     mr = prepare_part_with_room(has, &b, &src[half * LIFETIME_CHANNELS], half, second_bytes + 100);
     if (mr == MMSYSERR_NOERROR) {
-        mr = acmStreamConvert(has, &b.hdr, ACM_STREAMCONVERTF_BLOCKALIGN | ACM_STREAMCONVERTF_END);
+        mr = convert_part(has, &b, ACM_STREAMCONVERTF_END, &joined, &carry);
     }
     sprintf(detail, "mmresult %u, %lu bytes of the source used, %lu returned, buffer %lu", mr,
             (unsigned long) b.hdr.cbSrcLengthUsed, (unsigned long) b.hdr.cbDstLengthUsed,
@@ -1787,13 +1862,324 @@ test_flush_room(HACMDRIVER had)
                  "an END conversion without room for the flush converts nothing", detail);
     release_part(has, &b);
     ok = prepare_part(has, &b, &src[half * LIFETIME_CHANNELS], half) == MMSYSERR_NOERROR
-        && convert_part(has, &b, ACM_STREAMCONVERTF_END, &joined) == MMSYSERR_NOERROR;
+        && convert_part(has, &b, ACM_STREAMCONVERTF_END, &joined, &carry) == MMSYSERR_NOERROR;
     CHECK(ok, "the retry with the buffer the codec asks for is converted");
     sprintf(detail, "%lu bytes, one header %lu", (unsigned long) joined.size(), (unsigned long) whole.size());
     ctest_record(joined == whole, "the retry continues the stream", detail);
     release_part(has, &a);
     release_part(has, &b);
     acmStreamClose(has, 0);
+}
+
+/**
+ * @brief Checks that the sizes of a 128 kbit/s CBR stream suit a client that
+ *        makes its destination buffer a quarter second of output.
+ *
+ * DirectShow's ACM Wrapper makes its destination buffer a quarter second at
+ * the byte rate of the format, or the size that the codec asks for one sample
+ * frame if that is more. Into it, it converts at most the source size that
+ * the codec returns for that buffer. So the codec must ask less than a
+ * quarter second for one sample frame, and take at least one MP3 frame of
+ * input into a quarter second.
+ *
+ * @param had the opened driver
+ */
+static void
+test_sizes_for_a_quarter_second(HACMDRIVER had)
+{
+    const DWORD quarter = 128000 / 8 / 4;
+    WAVEFORMATEX pcm;
+    MPEGLAYER3WAVEFORMAT mp3;
+    HACMSTREAM has;
+    DWORD dst_bytes = 0, src_bytes = 0;
+    char detail[CTEST_DETAIL_CHARS];
+    MMRESULT mr;
+
+    printf("the sizes for a quarter second of output\n");
+    fill_pcm_format(&pcm, LIFETIME_RATE, LIFETIME_CHANNELS);
+    fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 128000);
+    mp3.fdwFlags = ACM_FLAGS_CBR;
+    mr = acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) &mp3, NULL, 0, 0, 0);
+    CHECK_MM(mr, "a 128 kbit/s CBR stream opens");
+    if (mr != MMSYSERR_NOERROR) {
+        return;
+    }
+    CHECK_MM(acmStreamSize(has, LIFETIME_FRAME_BYTES, &dst_bytes, ACM_STREAMSIZEF_SOURCE),
+             "the codec sizes the destination for one sample frame");
+    sprintf(detail, "%lu bytes, a quarter second is %lu", (unsigned long) dst_bytes, (unsigned long) quarter);
+    ctest_record(dst_bytes < quarter, "one sample frame needs less than a quarter second of output", detail);
+    CHECK_MM(acmStreamSize(has, quarter, &src_bytes, ACM_STREAMSIZEF_DESTINATION),
+             "the codec sizes the source for a quarter second of output");
+    sprintf(detail, "%lu bytes, one MP3 frame of input is %lu", (unsigned long) src_bytes,
+            (unsigned long) (MP3_SAMPLES_PER_FRAME * LIFETIME_FRAME_BYTES));
+    ctest_record(src_bytes >= MP3_SAMPLES_PER_FRAME * LIFETIME_FRAME_BYTES,
+                 "a quarter second of output takes at least one MP3 frame of input", detail);
+    acmStreamClose(has, 0);
+}
+
+/**
+ * @brief Checks that conversions into a destination buffer smaller than their
+ *        output keep the rest for the next conversion.
+ *
+ * One second of 128 kbit/s CBR in tenths, each into a buffer of 1000 bytes:
+ * a tenth of a second returns 1600. The last tenth ends the MP3 stream into a
+ * buffer that holds everything kept. The joined bytes must be the one-header
+ * encode.
+ *
+ * @param had the opened driver
+ */
+static void
+test_small_destination_kept(HACMDRIVER had)
+{
+    enum { PIECES = 10, SMALL_ROOM = 1000, LAST_ROOM = 65536 };
+    const DWORD piece = LIFETIME_FRAMES / PIECES;
+    std::vector<short> src(LIFETIME_FRAMES * LIFETIME_CHANNELS);
+    std::vector<BYTE> whole, joined, carry;
+    WAVEFORMATEX pcm;
+    MPEGLAYER3WAVEFORMAT mp3;
+    HACMSTREAM has;
+    char detail[CTEST_DETAIL_CHARS];
+    DWORD i;
+    int k, ok;
+
+    printf("MP3 data that does not fit is kept\n");
+    for (i = 0; i < LIFETIME_FRAMES; i++) {
+        short v = ctest_tone(i, LIFETIME_RATE, TONE_HZ, TONE_AMPLITUDE);
+        src[LIFETIME_CHANNELS * i] = v;
+        src[LIFETIME_CHANNELS * i + 1] = v;
+    }
+    fill_pcm_format(&pcm, LIFETIME_RATE, LIFETIME_CHANNELS);
+    fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 128000);
+    mp3.fdwFlags = ACM_FLAGS_CBR;
+    CHECK(encode_whole_as(had, &mp3, &src[0], LIFETIME_FRAMES, &whole),
+          "one second of 128 kbit/s CBR is encoded with one header");
+    ok = acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) &mp3, NULL, 0, 0, 0) == MMSYSERR_NOERROR;
+    CHECK(ok, "a stream for the small buffers opens");
+    if (!ok) {
+        return;
+    }
+    for (k = 0; ok && k < PIECES; k++) {
+        int const last = k == PIECES - 1;
+        stream_part part;
+
+        ok = prepare_part_with_room(has, &part, &src[k * piece * LIFETIME_CHANNELS], piece,
+                                    last ? LAST_ROOM : SMALL_ROOM) == MMSYSERR_NOERROR
+            && convert_part(has, &part, last ? ACM_STREAMCONVERTF_END : 0, &joined, &carry)
+            == MMSYSERR_NOERROR;
+        release_part(has, &part);
+    }
+    CHECK(ok, "every tenth is converted, the first nine into 1000 bytes");
+    sprintf(detail, "%lu bytes, one header %lu", (unsigned long) joined.size(), (unsigned long) whole.size());
+    ctest_record(joined == whole, "the kept data comes with the next conversions", detail);
+    acmStreamClose(has, 0);
+}
+
+/**
+ * @brief Checks which part of its source a conversion uses.
+ *
+ * A conversion with ACM_STREAMCONVERTF_BLOCKALIGN that does not end the MP3
+ * stream leaves its last sample frame unused, so that a client that marks
+ * the end of the data by dropping BLOCKALIGN always has source data left for
+ * that last conversion. A conversion of that one sample frame with
+ * BLOCKALIGN uses nothing. A conversion that ends the MP3 stream uses
+ * everything.
+ *
+ * @param had the opened driver
+ */
+static void
+test_last_frame_unused(HACMDRIVER had)
+{
+    const DWORD frames = LIFETIME_FRAMES / 4;
+    std::vector<short> src(frames * LIFETIME_CHANNELS);
+    std::vector<BYTE> out, carry;
+    HACMSTREAM has;
+    stream_part part, empty;
+    DWORD i;
+    int ok;
+
+    printf("the sample frame a conversion leaves unused\n");
+    for (i = 0; i < frames; i++) {
+        short v = ctest_tone(i, LIFETIME_RATE, TONE_HZ, TONE_AMPLITUDE);
+        src[LIFETIME_CHANNELS * i] = v;
+        src[LIFETIME_CHANNELS * i + 1] = v;
+    }
+    memset(&part, 0, sizeof(part));
+    memset(&empty, 0, sizeof(empty));
+    ok = open_lifetime_stream(had, &has) == MMSYSERR_NOERROR;
+    CHECK(ok, "a stream for the used lengths opens");
+    if (!ok) {
+        return;
+    }
+    ok = prepare_part(has, &part, &src[0], frames) == MMSYSERR_NOERROR
+        && prepare_part(has, &empty, &src[0], 0) == MMSYSERR_NOERROR
+        && convert_part(has, &part, 0, &out, &carry) == MMSYSERR_NOERROR;
+    CHECK(ok, "a quarter second is converted with BLOCKALIGN");
+    CHECK_EQ_U(carry.size(), LIFETIME_FRAME_BYTES, "the conversion leaves its last sample frame unused");
+    ok = ok && convert_part(has, &empty, 0, &out, &carry) == MMSYSERR_NOERROR;
+    CHECK(ok, "that sample frame alone is converted with BLOCKALIGN");
+    CHECK_EQ_U(carry.size(), LIFETIME_FRAME_BYTES, "a conversion of one sample frame uses nothing");
+    ok = ok && convert_part(has, &empty, ACM_STREAMCONVERTF_END, &out, &carry) == MMSYSERR_NOERROR;
+    CHECK(ok, "that sample frame is converted with END");
+    CHECK_EQ_U(carry.size(), 0, "a conversion that ends the MP3 stream uses everything");
+    release_part(has, &part);
+    release_part(has, &empty);
+    acmStreamClose(has, 0);
+}
+
+/** @brief The MPEG Layer-3 formats of the codec's format list. */
+typedef std::vector<MPEGLAYER3WAVEFORMAT> format_list;
+
+/**
+ * @brief Adds one entry of the codec's format list to a format_list.
+ * @param hadid  the driver (unused)
+ * @param pafd   the entry
+ * @param user   the format_list
+ * @param fdw    the support flags (unused)
+ * @return TRUE, to continue
+ */
+static BOOL CALLBACK
+collect_format_cb(HACMDRIVERID hadid, LPACMFORMATDETAILSA pafd, DWORD_PTR user, DWORD fdw)
+{
+    (void) hadid;
+    (void) fdw;
+    if (pafd->pwfx->wFormatTag == WAVE_FORMAT_MPEGLAYER3 && pafd->pwfx->cbSize >= MPEGLAYER3_WFX_EXTRA_BYTES) {
+        ((format_list *) user)->push_back(*(const MPEGLAYER3WAVEFORMAT *) pafd->pwfx);
+    }
+    return TRUE;
+}
+
+/**
+ * @brief Returns the next sample of a noise source, so that ABR uses large
+ *        frames.
+ * @param state the state of the source, any start value
+ * @return the sample
+ */
+static short
+noise_sample(DWORD *state)
+{
+    *state = *state * 1103515245UL + 12345UL;
+    return (short) (*state >> 16);
+}
+
+/**
+ * @brief Checks, for every MP3 format the codec offers, that no conversion
+ *        returns more than the codec asks room for: in pieces of several
+ *        sizes, and at the end of the MP3 stream.
+ *
+ * The source is one second of noise at the rate and channels of the format,
+ * so that ABR uses large frames. A format that does not open from PCM at its
+ * own rate is listed and fails the check. The destination buffer is larger than any
+ * size the codec gives, so a conversion that returns more than it asked room for is seen
+ * and not cut. The smallest room left over is printed, as a measure of how
+ * close the sizes are.
+ *
+ * @param had the opened driver
+ */
+static void
+test_sizes_hold_every_conversion(HACMDRIVER had)
+{
+    static const DWORD piece_frames[] = { 4096, 1, 577, 11025, 2000 };
+    enum { PIECE_KINDS = sizeof(piece_frames) / sizeof(piece_frames[0]), MOST_PIECE = 11025 };
+    format_list formats;
+    MPEGLAYER3WAVEFORMAT probe;
+    ACMFORMATDETAILSA fd;
+    unsigned opened = 0, over = 0, failed = 0;
+    long least_left = -1;
+    char detail[CTEST_DETAIL_CHARS];
+    size_t f;
+
+    printf("the destination size holds every conversion, for every format\n");
+    memset(&fd, 0, sizeof(fd));
+    fd.cbStruct = sizeof(fd);
+    fd.pwfx = (WAVEFORMATEX *) &probe;
+    fd.cbwfx = sizeof(probe);
+    fd.dwFormatTag = WAVE_FORMAT_MPEGLAYER3;
+    fill_mp3_format(&probe, 44100, 2, 128000);
+    CHECK_MM(acmFormatEnumA(had, &fd, collect_format_cb, (DWORD_PTR) &formats, ACM_FORMATENUMF_WFORMATTAG),
+             "the format list is walked");
+    for (f = 0; f < formats.size(); f++) {
+        const WORD channels = formats[f].wfx.nChannels;
+        const DWORD rate = formats[f].wfx.nSamplesPerSec;
+        const DWORD frame_bytes = channels * sizeof(short);
+        std::vector<short> src(rate * channels);
+        std::vector<BYTE> carry;
+        WAVEFORMATEX pcm;
+        HACMSTREAM has;
+        ACMSTREAMHEADER hdr;
+        DWORD state = 1, done = 0, i, room = 0;
+        unsigned k = 0;
+        int ok;
+
+        for (i = 0; i < rate * channels; i++) {
+            src[i] = noise_sample(&state);
+        }
+        fill_pcm_format(&pcm, rate, channels);
+        if (acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) &formats[f], NULL, 0, 0, 0)
+            != MMSYSERR_NOERROR) {
+            printf("        does not open: %lu Hz, %u channel(s), %lu bytes/s, flags %lu\n",
+                   (unsigned long) rate, channels, (unsigned long) formats[f].wfx.nAvgBytesPerSec,
+                   (unsigned long) formats[f].fdwFlags);
+            continue;
+        }
+        opened++;
+        memset(&hdr, 0, sizeof(hdr));
+        hdr.cbStruct = sizeof(hdr);
+        hdr.cbSrcLength = (MOST_PIECE + 1) * frame_bytes;
+        ok = acmStreamSize(has, hdr.cbSrcLength, &room, ACM_STREAMSIZEF_SOURCE) == MMSYSERR_NOERROR;
+        hdr.cbDstLength = 2 * room + 65536;
+        hdr.pbSrc = (BYTE *) malloc(hdr.cbSrcLength);
+        hdr.pbDst = (BYTE *) malloc(hdr.cbDstLength);
+        ok = ok && hdr.pbSrc != NULL && hdr.pbDst != NULL
+            && acmStreamPrepareHeader(has, &hdr, 0) == MMSYSERR_NOERROR;
+        while (ok) {
+            DWORD const left = rate - done;
+            DWORD const wanted = piece_frames[k++ % PIECE_KINDS];
+            DWORD const take = wanted < left ? wanted : left;
+            int const last = take == left;
+            DWORD const prepared = (MOST_PIECE + 1) * frame_bytes;
+            DWORD asked = 0;
+
+            if (!carry.empty()) {
+                memcpy(hdr.pbSrc, carry.data(), carry.size());
+            }
+            memcpy(hdr.pbSrc + carry.size(), &src[done * channels], take * frame_bytes);
+            hdr.cbSrcLength = (DWORD) carry.size() + take * frame_bytes;
+            ok = acmStreamSize(has, hdr.cbSrcLength, &asked, ACM_STREAMSIZEF_SOURCE) == MMSYSERR_NOERROR
+                && acmStreamConvert(has, &hdr, ACM_STREAMCONVERTF_BLOCKALIGN
+                                    | (last ? ACM_STREAMCONVERTF_END : 0)) == MMSYSERR_NOERROR;
+            if (ok) {
+                if (hdr.cbDstLengthUsed > asked) {
+                    printf("        beyond its size: %lu Hz, %u channel(s), %lu bytes/s, flags %lu: "
+                           "%lu bytes for %lu asked, %lu source bytes%s\n",
+                           (unsigned long) rate, channels, (unsigned long) formats[f].wfx.nAvgBytesPerSec,
+                           (unsigned long) formats[f].fdwFlags, (unsigned long) hdr.cbDstLengthUsed,
+                           (unsigned long) asked, (unsigned long) hdr.cbSrcLength, last ? ", the end" : "");
+                    over++;
+                } else if (least_left < 0 || (long) (asked - hdr.cbDstLengthUsed) < least_left) {
+                    least_left = (long) (asked - hdr.cbDstLengthUsed);
+                }
+                carry.assign(hdr.pbSrc + hdr.cbSrcLengthUsed, hdr.pbSrc + hdr.cbSrcLength);
+            }
+            hdr.cbSrcLength = prepared;
+            done += take;
+            if (last) {
+                break;
+            }
+        }
+        if (!ok) {
+            failed++;
+        }
+        if (hdr.fdwStatus & ACMSTREAMHEADER_STATUSF_PREPARED) {
+            acmStreamUnprepareHeader(has, &hdr, 0);
+        }
+        free(hdr.pbSrc);
+        free(hdr.pbDst);
+        acmStreamClose(has, 0);
+    }
+    sprintf(detail, "%u of %u formats opened, %u failed, %u conversions beyond their size, %ld bytes left at least",
+            opened, (unsigned) formats.size(), failed, over, least_left);
+    ctest_record(opened > 0 && opened == formats.size() && failed == 0 && over == 0,
+                 "no conversion of any format returns more than the codec asked room for", detail);
 }
 
 /**
@@ -1842,7 +2228,11 @@ test_partial_sample_frame(HACMDRIVER had)
         CHECK_EQ_U(part.hdr.cbSrcLengthUsed, whole_bytes,
                    "the used length stops at the last whole sample frame");
     }
-    release_part(has, &part);
+    /* the source is the vector's, not the part's */
+    if (part.prepared) {
+        acmStreamUnprepareHeader(has, &part.hdr, 0);
+    }
+    free(part.hdr.pbDst);
     acmStreamClose(has, 0);
 }
 
@@ -2095,6 +2485,10 @@ test_under_the_acm(const char *driver)
     test_stream_lifetime(had);
     test_size_both_directions(had);
     test_flush_room(had);
+    test_sizes_for_a_quarter_second(had);
+    test_small_destination_kept(had);
+    test_last_frame_unused(had);
+    test_sizes_hold_every_conversion(had);
     test_partial_sample_frame(had);
 
 out:
@@ -2113,14 +2507,6 @@ out:
 
 /** @brief Length of each encode in the settings test. */
 #define SETTINGS_TEST_SECONDS 2
-
-/**
- * @brief The fdwFlags values of the codec's own MP3 formats. The codec writes
- *        2 into an ABR format and 4 into a CBR format, and reads the value back
- *        when a stream opens.
- */
-#define ACM_FLAGS_ABR 2
-#define ACM_FLAGS_CBR 4
 
 /** @brief What one encode through the ACM produced. */
 typedef struct {
@@ -2482,6 +2868,7 @@ encode_across_a_crc_change(const char *driver, DWORD second_flags, std::vector<B
     std::vector<short> src(LIFETIME_FRAMES * LIFETIME_CHANNELS);
     const DWORD half = LIFETIME_FRAMES / 2;
     stream_part a, b;
+    std::vector<BYTE> carry;
     DWORD i;
     int ok = 0;
 
@@ -2503,9 +2890,9 @@ encode_across_a_crc_change(const char *driver, DWORD second_flags, std::vector<B
     }
     ok = prepare_part(has, &a, &src[0], half) == MMSYSERR_NOERROR
         && prepare_part(has, &b, &src[half * LIFETIME_CHANNELS], half) == MMSYSERR_NOERROR
-        && convert_part(has, &a, 0, first) == MMSYSERR_NOERROR
+        && convert_part(has, &a, 0, first, &carry) == MMSYSERR_NOERROR
         && write_settings("            <CRC use=\"true\" />\n")
-        && convert_part(has, &b, ACM_STREAMCONVERTF_END | second_flags, second) == MMSYSERR_NOERROR;
+        && convert_part(has, &b, ACM_STREAMCONVERTF_END | second_flags, second, &carry) == MMSYSERR_NOERROR;
     release_part(has, &a);
     release_part(has, &b);
 out:
@@ -2754,6 +3141,374 @@ test_settings_reach_the_encoder(const char *driver)
     }
 }
 
+/** @brief The DriverProc of the codec, behind capture_proc(). */
+static DRIVERPROC capture_real_proc;
+/** @brief The MP3 data that the codec returned, through capture_proc(). */
+static std::vector<BYTE> capture_out;
+/** @brief The source bytes that the conversions used. */
+static DWORD capture_used;
+/** @brief The conversions without ACM_STREAMCONVERTF_BLOCKALIGN. */
+static unsigned capture_unaligned;
+
+/**
+ * @brief Passes every message to the codec, and keeps what each conversion
+ *        returns.
+ * @param id   the driver instance
+ * @param h    the driver handle
+ * @param msg  the message
+ * @param l1   its first parameter
+ * @param l2   its second parameter
+ * @return what the codec returns
+ */
+static LRESULT CALLBACK
+capture_proc(DWORD_PTR id, HDRVR h, UINT msg, LPARAM l1, LPARAM l2)
+{
+    LRESULT const result = capture_real_proc(id, h, msg, l1, l2);
+
+    if (msg == ACMDM_STREAM_CONVERT && result == MMSYSERR_NOERROR) {
+        LPACMDRVSTREAMHEADER sh = (LPACMDRVSTREAMHEADER) l2;
+
+        capture_out.insert(capture_out.end(), sh->pbDst, sh->pbDst + sh->cbDstLengthUsed);
+        capture_used += sh->cbSrcLengthUsed;
+        if ((sh->fdwConvert & ACM_STREAMCONVERTF_BLOCKALIGN) == 0) {
+            capture_unaligned++;
+        }
+    }
+    return result;
+}
+
+/** @brief The CLSID of the Null Renderer; the SDK has no qedit.h, which declares it. */
+static const CLSID CLSID_NullRendererFilter =
+    { 0xC1F400A4, 0x3F08, 0x11d3, { 0x9F, 0x0B, 0x00, 0x60, 0x08, 0x03, 0x9E, 0x37 } };
+
+/** @brief The WAV file of the ACM Wrapper test, beside the codec's settings file. */
+#define WRAPPER_WAV_NAME L"acm_test_wrapper.wav"
+/** @brief The length of the ACM Wrapper test's source, in seconds. */
+#define WRAPPER_SECONDS 3
+
+/**
+ * @brief Writes a 16-bit PCM WAV file.
+ * @param name     the file
+ * @param src      the samples, interleaved
+ * @param frames   the sample frames
+ * @param rate     the sample rate
+ * @param channels the channels
+ * @return 1 if the file was written, else 0
+ */
+static int
+write_wav(const wchar_t *name, const short *src, DWORD frames, DWORD rate, WORD channels)
+{
+    WAVEFORMATEX w;
+    DWORD const data = frames * channels * sizeof(short), fmt = 16, riff = 4 + 8 + fmt + 8 + data;
+    FILE *f = _wfopen(name, L"wb");
+    int ok;
+
+    if (f == NULL) {
+        return 0;
+    }
+    fill_pcm_format(&w, rate, channels);
+    ok = fwrite("RIFF", 1, 4, f) == 4 && fwrite(&riff, 4, 1, f) == 1
+        && fwrite("WAVEfmt ", 1, 8, f) == 8 && fwrite(&fmt, 4, 1, f) == 1
+        && fwrite(&w, 1, fmt, f) == fmt && fwrite("data", 1, 4, f) == 4 && fwrite(&data, 4, 1, f) == 1
+        && fwrite(src, 1, data, f) == data;
+    return fclose(f) == 0 && ok;
+}
+
+/**
+ * @brief Returns the first pin of a filter in one direction.
+ * @param filter the filter
+ * @param want   the direction
+ * @return the pin, with a reference, or NULL
+ */
+static IPin *
+pin_of(IBaseFilter *filter, PIN_DIRECTION want)
+{
+    IEnumPins *pins = NULL;
+    IPin *pin = NULL;
+
+    if (FAILED(filter->EnumPins(&pins))) {
+        return NULL;
+    }
+    while (pins->Next(1, &pin, NULL) == S_OK) {
+        PIN_DIRECTION dir;
+
+        if (SUCCEEDED(pin->QueryDirection(&dir)) && dir == want) {
+            pins->Release();
+            return pin;
+        }
+        pin->Release();
+    }
+    pins->Release();
+    return NULL;
+}
+
+/**
+ * @brief Returns the ACM Wrapper for a format tag, from the Audio Compressors
+ *        category of the system device enumerator.
+ * @param tag the format tag
+ * @return the filter, with a reference, or NULL
+ */
+static IBaseFilter *
+audio_compressor(WORD tag)
+{
+    ICreateDevEnum *devices = NULL;
+    IEnumMoniker *entries = NULL;
+    IMoniker *entry = NULL;
+    IBaseFilter *filter = NULL;
+
+    if (FAILED(CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC_SERVER, IID_ICreateDevEnum,
+                                (void **) &devices))) {
+        return NULL;
+    }
+    if (devices->CreateClassEnumerator(CLSID_AudioCompressorCategory, &entries, 0) == S_OK) {
+        while (filter == NULL && entries->Next(1, &entry, NULL) == S_OK) {
+            IPropertyBag *bag = NULL;
+            VARIANT id;
+
+            VariantInit(&id);
+            if (SUCCEEDED(entry->BindToStorage(NULL, NULL, IID_IPropertyBag, (void **) &bag))) {
+                if (SUCCEEDED(bag->Read(L"AcmId", &id, NULL)) && id.vt == VT_I4 && id.lVal == tag) {
+                    entry->BindToObject(NULL, NULL, IID_IBaseFilter, (void **) &filter);
+                }
+                bag->Release();
+            }
+            VariantClear(&id);
+            entry->Release();
+        }
+        entries->Release();
+    }
+    devices->Release();
+    return filter;
+}
+
+/**
+ * @brief Sets the output format of the ACM Wrapper to the entry of the codec's
+ *        list with the given rate, channels, byte rate and flags.
+ * @param filter         the ACM Wrapper
+ * @param rate           the sample rate
+ * @param channels       the channels
+ * @param bytes_per_sec  the byte rate
+ * @param flags          the fdwFlags of the entry, ::ACM_FLAGS_CBR or ::ACM_FLAGS_ABR
+ * @param chosen         receives the entry
+ * @return 1 if such an entry was set, else 0
+ */
+static int
+set_wrapper_format(IBaseFilter *filter, DWORD rate, WORD channels, DWORD bytes_per_sec, DWORD flags,
+                   MPEGLAYER3WAVEFORMAT *chosen)
+{
+    IPin *out = pin_of(filter, PINDIR_OUTPUT);
+    IAMStreamConfig *config = NULL;
+    int count = 0, size = 0, k, set = 0;
+
+    if (out == NULL) {
+        return 0;
+    }
+    if (SUCCEEDED(out->QueryInterface(IID_IAMStreamConfig, (void **) &config))) {
+        config->GetNumberOfCapabilities(&count, &size);
+        for (k = 0; k < count && !set; k++) {
+            AM_MEDIA_TYPE *type = NULL;
+            AUDIO_STREAM_CONFIG_CAPS caps;
+
+            if (config->GetStreamCaps(k, &type, (BYTE *) &caps) != S_OK || type == NULL) {
+                continue;
+            }
+            if (type->formattype == FORMAT_WaveFormatEx && type->pbFormat != NULL) {
+                const MPEGLAYER3WAVEFORMAT *w = (const MPEGLAYER3WAVEFORMAT *) type->pbFormat;
+
+                set = type->cbFormat >= sizeof(*w) && w->wfx.nSamplesPerSec == rate
+                    && w->wfx.nChannels == channels && w->wfx.nAvgBytesPerSec == bytes_per_sec
+                    && w->fdwFlags == flags && SUCCEEDED(config->SetFormat(type));
+                if (set) {
+                    *chosen = *w;
+                }
+            }
+            CoTaskMemFree(type->pbFormat);
+            if (type->pUnk != NULL) {
+                type->pUnk->Release();
+            }
+            CoTaskMemFree(type);
+        }
+        config->Release();
+    }
+    out->Release();
+    return set;
+}
+
+/** @brief One output format of the ACM Wrapper test. */
+typedef struct {
+    DWORD rate;             /**< the sample rate, of the WAV file too */
+    DWORD bytes_per_sec;    /**< the byte rate */
+    DWORD flags;            /**< ::ACM_FLAGS_CBR or ::ACM_FLAGS_ABR */
+    const char *what;       /**< names the format in the output */
+} wrapper_format;
+
+/**
+ * @brief Runs a WAV file through the ACM Wrapper for MPEG Layer-3 into a Null
+ *        Renderer, as a DirectShow application does with an entry of the
+ *        Audio Compressors category.
+ * @param wav     the file, stereo
+ * @param want    the output format
+ * @param chosen  receives the MP3 format of the wrapper
+ * @return 1 if the graph was built and ran to its end, else 0
+ */
+static int
+run_wrapper_graph(const wchar_t *wav, const wrapper_format *want, MPEGLAYER3WAVEFORMAT *chosen)
+{
+    IGraphBuilder *graph = NULL;
+    IBaseFilter *source = NULL, *wrapper = NULL, *sink = NULL;
+    IMediaControl *control = NULL;
+    IMediaEvent *events = NULL;
+    IMediaFilter *timing = NULL;
+    IPin *from = NULL, *to = NULL;
+    long code = 0;
+    int ok;
+
+    ok = SUCCEEDED(CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder,
+                                    (void **) &graph))
+        && SUCCEEDED(graph->AddSourceFilter(wav, L"source", &source))
+        && (wrapper = audio_compressor(WAVE_FORMAT_MPEGLAYER3)) != NULL
+        && SUCCEEDED(graph->AddFilter(wrapper, L"wrapper"));
+    if (ok) {
+        from = pin_of(source, PINDIR_OUTPUT);
+        to = pin_of(wrapper, PINDIR_INPUT);
+        ok = from != NULL && to != NULL && SUCCEEDED(graph->Connect(from, to));
+        if (from != NULL) from->Release();
+        if (to != NULL) to->Release();
+    }
+    ok = ok && set_wrapper_format(wrapper, want->rate, LIFETIME_CHANNELS, want->bytes_per_sec, want->flags,
+                                  chosen)
+        && SUCCEEDED(CoCreateInstance(CLSID_NullRendererFilter, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter,
+                                      (void **) &sink))
+        && SUCCEEDED(graph->AddFilter(sink, L"sink"));
+    if (ok) {
+        from = pin_of(wrapper, PINDIR_OUTPUT);
+        to = pin_of(sink, PINDIR_INPUT);
+        ok = from != NULL && to != NULL && SUCCEEDED(graph->ConnectDirect(from, to, NULL));
+        if (from != NULL) from->Release();
+        if (to != NULL) to->Release();
+    }
+    /* no clock: the graph runs as fast as it can */
+    ok = ok && SUCCEEDED(graph->QueryInterface(IID_IMediaFilter, (void **) &timing))
+        && SUCCEEDED(timing->SetSyncSource(NULL))
+        && SUCCEEDED(graph->QueryInterface(IID_IMediaControl, (void **) &control))
+        && SUCCEEDED(graph->QueryInterface(IID_IMediaEvent, (void **) &events))
+        && SUCCEEDED(control->Run())
+        && events->WaitForCompletion(20000, &code) == S_OK && code == EC_COMPLETE;
+    if (control != NULL) {
+        control->Stop();
+        control->Release();
+    }
+    if (events != NULL) events->Release();
+    if (timing != NULL) timing->Release();
+    if (sink != NULL) sink->Release();
+    if (wrapper != NULL) wrapper->Release();
+    if (source != NULL) source->Release();
+    if (graph != NULL) graph->Release();
+    return ok;
+}
+
+/**
+ * @brief Runs three seconds of stereo through the ACM Wrapper in one output
+ *        format, and checks what the codec returned to the wrapper.
+ *
+ * The wrapper must convert all of the WAV file, end the data with one
+ * conversion without ACM_STREAMCONVERTF_BLOCKALIGN, and get the MP3 stream of
+ * the one-header encode of the same samples to the same format.
+ *
+ * @param had   the opened driver, behind capture_proc()
+ * @param want  the output format
+ */
+static void
+check_behind_the_wrapper(HACMDRIVER had, const wrapper_format *want)
+{
+    const DWORD frames = want->rate * WRAPPER_SECONDS;
+    std::vector<short> src(frames * LIFETIME_CHANNELS);
+    std::vector<BYTE> whole, through;
+    MPEGLAYER3WAVEFORMAT chosen;
+    DWORD used, i;
+    unsigned unaligned;
+    char detail[CTEST_DETAIL_CHARS];
+    int ran;
+
+    printf("        %s\n", want->what);
+    for (i = 0; i < frames; i++) {
+        short v = ctest_tone(i, want->rate, TONE_HZ, TONE_AMPLITUDE);
+        src[LIFETIME_CHANNELS * i] = v;
+        src[LIFETIME_CHANNELS * i + 1] = v;
+    }
+    CHECK(write_wav(WRAPPER_WAV_NAME, &src[0], frames, want->rate, LIFETIME_CHANNELS),
+          "the three seconds are written to a WAV file");
+    capture_out.clear();
+    capture_used = 0;
+    capture_unaligned = 0;
+    memset(&chosen, 0, sizeof(chosen));
+    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    ran = run_wrapper_graph(WRAPPER_WAV_NAME, want, &chosen);
+    CoUninitialize();
+    /* what the wrapper's conversions did, before the encode below adds its own */
+    through = capture_out;
+    used = capture_used;
+    unaligned = capture_unaligned;
+    CHECK(ran, "the WAV file runs through the ACM Wrapper to its end");
+    CHECK(ran && encode_whole_as(had, &chosen, &src[0], frames, &whole),
+          "the three seconds are encoded to the wrapper's format with one header");
+    CHECK_EQ_U(used, frames * LIFETIME_FRAME_BYTES, "the wrapper's conversions use all of the PCM");
+    CHECK_EQ_U(unaligned, 1, "one conversion without BLOCKALIGN ends the data");
+    sprintf(detail, "%lu bytes, one header %lu", (unsigned long) through.size(), (unsigned long) whole.size());
+    ctest_record(ran && through == whole, "the wrapper gets the MP3 stream of the one-header encode", detail);
+    _wremove(WRAPPER_WAV_NAME);
+}
+
+/**
+ * @brief Checks the codec behind DirectShow's ACM Wrapper, the way a
+ *        DirectShow application uses an ACM encoder.
+ *
+ * The codec is added for this process behind capture_proc(), which keeps
+ * what the conversions return. The ACM Wrapper comes from the Audio
+ * Compressors category, as documented. One format of each MPEG version
+ * that LAME writes: MPEG-1, MPEG-2, and MPEG-2.5, the extension of MPEG-2 to
+ * 8, 11.025 and 12 kHz that is not part of ISO/IEC 13818-3. The codec
+ * offers its MPEG-2 and MPEG-2.5 formats as ABR.
+ *
+ * @param driver the path of the codec
+ */
+static void
+test_behind_the_acm_wrapper(const char *driver)
+{
+    static const wrapper_format formats[] = {
+        { 44100, 128000 / 8, ACM_FLAGS_CBR, "44100 Hz, 128 kbit/s CBR (MPEG-1)" },
+        { 22050, 64000 / 8, ACM_FLAGS_ABR, "22050 Hz, 64 kbit/s ABR (MPEG-2)" },
+        { 8000, 32000 / 8, ACM_FLAGS_ABR, "8000 Hz, 32 kbit/s ABR (MPEG-2.5)" },
+    };
+    HMODULE mod = LoadLibraryA(driver);
+    HACMDRIVERID hadid = NULL;
+    HACMDRIVER had = NULL;
+    size_t f;
+
+    printf("the codec behind DirectShow's ACM Wrapper\n");
+    capture_real_proc = mod != NULL ? (DRIVERPROC) GetProcAddress(mod, "DriverProc") : NULL;
+    if (capture_real_proc == NULL
+        || acmDriverAdd(&hadid, (HINSTANCE) mod, (LPARAM) capture_proc, 0,
+                        ACM_DRIVERADDF_FUNCTION | ACM_DRIVERADDF_LOCAL) != MMSYSERR_NOERROR
+        || acmDriverOpen(&had, hadid, 0) != MMSYSERR_NOERROR) {
+        CHECK(0, "the codec is added for this process");
+        goto out;
+    }
+    for (f = 0; f < sizeof(formats) / sizeof(formats[0]); f++) {
+        check_behind_the_wrapper(had, &formats[f]);
+    }
+out:
+    if (had != NULL) {
+        acmDriverClose(had, 0);
+    }
+    if (hadid != NULL) {
+        acmDriverRemove(hadid, 0);
+    }
+    if (mod != NULL) {
+        FreeLibrary(mod);
+    }
+}
+
 int
 main(int argc, char **argv)
 {
@@ -2779,6 +3534,7 @@ main(int argc, char **argv)
         CHECK(ctest_load_with_stderr_file(driver, &codec_stderr),
               "the codec loads with its stderr going to a file");
         test_under_the_acm(driver);
+        test_behind_the_acm_wrapper(driver);
         test_settings_reach_the_encoder(driver);
         test_config_dialog_version(driver);
         test_config_dialog_result(driver);

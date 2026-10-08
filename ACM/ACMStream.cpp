@@ -97,6 +97,9 @@ ACMStream::ACMStream() :
  my_Ended(false),
  my_Aligned(false),
  my_Module(NULL),
+ my_FrameInput(0.0),
+ my_LargestFrame(0),
+ my_HeldFrames(0),
  my_debug(DEBUG_LEVEL_CREATION)
 {
 	 /// \todo get the debug level from the registry
@@ -282,6 +285,7 @@ bool ACMStream::start()
 		lame_close( gfp );
 	my_Ended = false;
 	my_Aligned = false;
+	my_Kept.clear();
 
 	// Init the MP3 Stream
 	// Init the global flags structure
@@ -365,38 +369,85 @@ bool ACMStream::start()
 		return false;
 	}
 
+	read_bounds();
 	return true;
 }
 
-/// Destination bytes per source byte, in GetOutputSizeForInput().
-static const double OUTPUT_BYTES_PER_INPUT_BYTE = 1.25;
+/// Bytes per second of one kbit/s.
+static const int BYTES_PER_KBPS = 125;
+/// The padding byte that a Layer III frame can carry.
+static const int PADDING_BYTES = 1;
+/// The input samples of a Layer III frame of MPEG-1; MPEG-2 and MPEG-2.5
+/// frames have half as many.
+static const int MPEG1_FRAME_SAMPLES = 1152;
+/// The frames that the samples the encoder holds and the end of the MP3
+/// stream can add to a conversion, for frames of MPEG-1.
+static const DWORD HELD_FRAMES_MPEG1 = 5;
+/// The same, for the shorter frames of MPEG-2 and MPEG-2.5.
+static const DWORD HELD_FRAMES_MPEG2 = 6;
+
+/**
+	\brief Takes the bounds of the MP3 stream from the started encoder: the
+	input of one MP3 frame, the largest frame, and the held frames of its
+	MPEG version.
+
+	The largest frame is one at the highest bitrate of the MP3 stream, its
+	bitrate for CBR, the highest one of ABR, with its padding byte.
+*/
+void ACMStream::read_bounds()
+{
+	int const frame_samples = lame_get_framesize( gfp );
+	int const kbps = lame_get_VBR( gfp ) == vbr_off
+		? lame_get_brate( gfp ) : lame_get_VBR_max_bitrate_kbps( gfp );
+	DWORD const largest_frame = DWORD(frame_samples * kbps * BYTES_PER_KBPS
+		/ lame_get_out_samplerate( gfp )) + PADDING_BYTES;
+	DWORD const held_frames = frame_samples == MPEG1_FRAME_SAMPLES
+		? HELD_FRAMES_MPEG1 : HELD_FRAMES_MPEG2;
+
+	// A frame holds frame_samples samples of the output rate
+	my_FrameInput = double(frame_samples) * my_SamplesPerSec / lame_get_out_samplerate( gfp );
+	my_LargestFrame = largest_frame;
+	my_HeldFrames = held_frames;
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "%d kbit/s at most: %u bytes per frame, %u frames held",
+	                kbps, (unsigned) largest_frame, (unsigned) held_frames);
+}
+
+/**
+	\brief Returns the most MP3 bytes that a conversion of the given input can
+	return: the whole frames that its sample frames begin and the held frames,
+	each of the largest size.
+
+	\param the_Frames the input sample frames.
+	\return the bytes, at most MAXDWORD.
+*/
+DWORD ACMStream::MostBytesFor(const DWORD the_Frames) const
+{
+	double const bytes = (ceil(the_Frames / my_FrameInput) + my_HeldFrames) * my_LargestFrame;
+
+	return bytes < double(MAXDWORD) ? DWORD(bytes) : MAXDWORD;
+}
+
 /// What lame_encode_buffer() returns at most per input sample of one channel
 /// (lame.h).
 static const double LAME_BYTES_PER_SAMPLE = 1.25;
 /// What lame_encode_buffer() returns at most beyond that, and what
 /// lame_encode_flush() returns at most, at the standard bitrates (lame.h).
 static const DWORD LAME_MARGIN_BYTES = 7200;
-/// The margin of GetOutputSizeForInput(), in bytes: room for the encode and
-/// for the flush of a conversion with ACM_STREAMCONVERTF_END.
-static const DWORD OUTPUT_MARGIN_BYTES = 2 * LAME_MARGIN_BYTES;
 
+/**
+	\brief Returns the size of a destination buffer that holds everything a
+	conversion of the given source returns, the end of the MP3 stream
+	included.
+
+	\param the_SrcLength the size of the source buffer, in bytes.
+	\return the size of the destination buffer, in bytes.
+*/
 DWORD ACMStream::GetOutputSizeForInput(const DWORD the_SrcLength) const
 {
-/*	double OutputInputRatio;
+	DWORD const frame_bytes = (DWORD) my_Channels * sizeof(short);
+	DWORD const Result = MostBytesFor(the_SrcLength / frame_bytes);
 
-	if (my_VBRMode == vbr_off)
-		OutputInputRatio = double(my_AvgBytesPerSec) / double(my_OutSamplesPerSec * 2);
-	else // reserve the space for 320 kbps
-		OutputInputRatio = 40000.0 / double(my_OutSamplesPerSec * 2);
-
-	OutputInputRatio *= 1.15; // allow 15% more*/
-
-    DWORD Result;
-
-//	Result = DWORD(double(the_SrcLength) * OutputInputRatio);
-    Result = DWORD(OUTPUT_BYTES_PER_INPUT_BYTE*the_SrcLength + OUTPUT_MARGIN_BYTES);
-
-my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Result = %d",Result);
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Result = %u", (unsigned) Result);
 
 	return Result;
 }
@@ -414,36 +465,92 @@ my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Result = %d",Result);
 DWORD ACMStream::GetInputSizeForOutput(const DWORD the_DstLength) const
 {
 	DWORD const frame_bytes = (DWORD) my_Channels * sizeof(short);
-	DWORD Result = 0;
+	DWORD const whole_frames = the_DstLength / my_LargestFrame;
+	double const most_frames = double(MAXDWORD / frame_bytes);
+	double fitting = 0.0;
+	DWORD frames;
 
-	if (the_DstLength > OUTPUT_MARGIN_BYTES)
-		Result = DWORD((the_DstLength - OUTPUT_MARGIN_BYTES) / OUTPUT_BYTES_PER_INPUT_BYTE);
-	Result -= Result % frame_bytes;
+	if (whole_frames > my_HeldFrames)
+		fitting = floor((whole_frames - my_HeldFrames) * my_FrameInput);
+	frames = DWORD(fitting < most_frames ? fitting : most_frames);
+	// MostBytesFor() rounds up
+	while (frames > 0 && MostBytesFor(frames) > the_DstLength)
+		--frames;
 
-	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Result = %d",Result);
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Result = %u", (unsigned) (frames * frame_bytes));
 
-	return Result;
+	return frames * frame_bytes;
+}
+
+/**
+	\brief Copies the MP3 data that earlier conversions kept to the start of
+	the destination buffer of a conversion, as much as fits, and keeps the
+	rest.
+
+	\param a_StreamHeader the conversion.
+	\return the bytes copied.
+*/
+DWORD ACMStream::ReturnKept(LPACMDRVSTREAMHEADER a_StreamHeader)
+{
+	DWORD const copied = my_Kept.size() < a_StreamHeader->cbDstLength
+		? (DWORD) my_Kept.size() : a_StreamHeader->cbDstLength;
+
+	if (copied > 0)
+	{
+		memcpy(a_StreamHeader->pbDst, &my_Kept[0], copied);
+		my_Kept.erase(my_Kept.begin(), my_Kept.begin() + copied);
+	}
+	return copied;
+}
+
+/**
+	\brief Copies what LAME encoded for a conversion into its destination
+	buffer, after the bytes already there. What does not fit goes to the kept
+	data.
+
+	\param a_StreamHeader the conversion.
+	\param a_Returned the bytes already in the destination buffer.
+	\param a_Encoded the bytes that LAME encoded.
+	\return the bytes in the destination buffer now.
+*/
+DWORD ACMStream::ReturnEncoded(LPACMDRVSTREAMHEADER a_StreamHeader, DWORD a_Returned, DWORD a_Encoded)
+{
+	DWORD const room = a_StreamHeader->cbDstLength - a_Returned;
+	DWORD const copied = a_Encoded < room ? a_Encoded : room;
+
+	if (copied > 0)
+		memcpy(a_StreamHeader->pbDst + a_Returned, &my_Encoded[0], copied);
+	if (copied < a_Encoded)
+		my_Kept.insert(my_Kept.end(), my_Encoded.begin() + copied, my_Encoded.begin() + a_Encoded);
+	return a_Returned + copied;
 }
 
 /**
 	\brief Encodes the source buffer of a conversion into its destination
 	buffer.
 
+	The MP3 data that earlier conversions kept comes first. What does not fit
+	into the destination buffer is kept for the next conversion.
+
 	With ACM_STREAMCONVERTF_START in the conversion flags, a new MP3 stream
 	starts, with the settings the settings file holds now: the samples that
-	the encoder holds from earlier conversions are dropped. With
-	ACM_STREAMCONVERTF_END, the encoder is flushed after the source buffer,
-	and the end of the MP3 stream follows the encoded data in the destination
-	buffer. The first conversion without ACM_STREAMCONVERTF_BLOCKALIGN after
-	one with it does the same: it is the last one of the data, and a client
-	that never sends END marks the end so. The conversion after either starts
-	a new MP3 stream, with or without ACM_STREAMCONVERTF_START.
+	the encoder holds and the MP3 data kept from earlier conversions are
+	dropped. With ACM_STREAMCONVERTF_END, the encoder is flushed after the
+	source buffer, and the end of the MP3 stream follows the encoded data in
+	the destination buffer. The first conversion without
+	ACM_STREAMCONVERTF_BLOCKALIGN after one with it does the same: it is the
+	last one of the data, and a client that never sends END marks the end so.
+	A conversion with BLOCKALIGN that does not end the MP3 stream leaves the
+	last sample frame of its source unused, so that such a client always has
+	source data left for that last conversion. The conversion after the end
+	starts a new MP3 stream, with or without ACM_STREAMCONVERTF_START.
 
 	\param a_StreamHeader the buffers and the conversion flags. The function
 	       sets the bytes used of both buffers.
-	\return false if the encoder cannot start, or if the destination buffer
-	        is too small. A conversion that ends the MP3 stream into a buffer
-	        too small for the flush converts nothing.
+	\return false if the encoder cannot start or fails, or if the destination
+	        buffer of a conversion that ends the MP3 stream is too small for
+	        everything the conversion returns. That conversion converts
+	        nothing.
 */
 bool ACMStream::ConvertBuffer(LPACMDRVSTREAMHEADER a_StreamHeader)
 {
@@ -470,62 +577,70 @@ my_debug.OutPut(DEBUG_LEVEL_FUNC_DEBUG, "enter ACMStream::ConvertBuffer");
 		return false;
 	}
 
-// Encode it
-int dwSamples;
-	int nOutputSamples = 0;
+	DWORD const channels = (DWORD) lame_get_num_channels( gfp );
+	DWORD frames = InSize / channels;
 
-	dwSamples = InSize / lame_get_num_channels( gfp );
+	if (aligned && !ending && frames > 0)
+		--frames;
 
-	// A conversion that ends the MP3 stream needs room for the encoded data
-	// and for the flush. With less, nothing is converted, so the client can
-	// try again with a larger buffer.
+	// A conversion that ends the MP3 stream returns everything in its
+	// destination buffer. With less room, nothing is converted, so the client
+	// can try again with a larger buffer.
 	if (ending)
 	{
-		double const out_per_in = my_OutSamplesPerSec > my_SamplesPerSec
-			? double(my_OutSamplesPerSec) / double(my_SamplesPerSec) : 1.0;
-		DWORD const needed = DWORD(ceil(LAME_BYTES_PER_SAMPLE * dwSamples * out_per_in))
-			+ 2 * LAME_MARGIN_BYTES;
+		DWORD const most = MostBytesFor(frames);
 
-		if (a_StreamHeader->cbDstLength < needed)
+		if (most > a_StreamHeader->cbDstLength || my_Kept.size() > a_StreamHeader->cbDstLength - most)
 		{
-			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "the end of the stream needs %u bytes, the buffer has %u",
-			                (unsigned) needed, (unsigned) a_StreamHeader->cbDstLength);
+			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "the end of the stream needs %u + %u bytes, the buffer has %u",
+			                (unsigned) my_Kept.size(), (unsigned) most, (unsigned) a_StreamHeader->cbDstLength);
 			a_StreamHeader->cbSrcLengthUsed = 0;
 			a_StreamHeader->cbDstLengthUsed = 0;
 			return false;
 		}
 	}
 
+	DWORD returned = ReturnKept(a_StreamHeader);
+
+	// Room for LAME's bounds of the encode and of the flush (lame.h)
+	double const out_per_in = my_OutSamplesPerSec > my_SamplesPerSec
+		? double(my_OutSamplesPerSec) / double(my_SamplesPerSec) : 1.0;
+	size_t const room = size_t(ceil(LAME_BYTES_PER_SAMPLE * frames * out_per_in)) + 2 * LAME_MARGIN_BYTES;
+	int encoded;
+
+	my_Encoded.resize(room);
 	// The encode and flush calls report too
 	acm_report_target = &my_debug;
-	if ( 1 == lame_get_num_channels( gfp ) )
-	{
-		nOutputSamples = lame_encode_buffer(gfp,(PSHORT)a_StreamHeader->pbSrc,(PSHORT)a_StreamHeader->pbSrc,dwSamples,a_StreamHeader->pbDst,a_StreamHeader->cbDstLength);
-	}
+	if (channels == 1)
+		encoded = lame_encode_buffer(gfp, (PSHORT) a_StreamHeader->pbSrc, (PSHORT) a_StreamHeader->pbSrc,
+		                             (int) frames, &my_Encoded[0], (int) room);
 	else
-	{
-		nOutputSamples = lame_encode_buffer_interleaved(gfp,(PSHORT)a_StreamHeader->pbSrc,dwSamples,a_StreamHeader->pbDst,a_StreamHeader->cbDstLength);
-	}
+		encoded = lame_encode_buffer_interleaved(gfp, (PSHORT) a_StreamHeader->pbSrc, (int) frames,
+		                                         &my_Encoded[0], (int) room);
 
-	if (nOutputSamples >= 0 && ending)
+	if (encoded >= 0 && ending)
 	{
-		DWORD const room = a_StreamHeader->cbDstLength - (DWORD) nOutputSamples;
+		size_t const flush_room = room - (size_t) encoded;
 		int flushed = -1;
 
 		// lame_encode_flush() takes a size of 0 as no limit
-		if (room > 0)
-			flushed = lame_encode_flush( gfp, a_StreamHeader->pbDst + nOutputSamples, (int) room );
-		nOutputSamples = flushed < 0 ? flushed : nOutputSamples + flushed;
+		if (flush_room > 0)
+			flushed = lame_encode_flush( gfp, &my_Encoded[0] + encoded, (int) flush_room );
+		encoded = flushed < 0 ? flushed : encoded + flushed;
 		my_Ended = true;
 	}
 	acm_report_target = NULL;
 
 	// A partial sample frame at the end is not encoded
-	a_StreamHeader->cbSrcLengthUsed = (DWORD) dwSamples * lame_get_num_channels( gfp ) * sizeof(short);
-	/* a negative answer is an error, not a byte count */
-	a_StreamHeader->cbDstLengthUsed = nOutputSamples < 0 ? 0 : nOutputSamples;
+	a_StreamHeader->cbSrcLengthUsed = frames * channels * sizeof(short);
+	if (encoded >= 0)
+		returned = ReturnEncoded(a_StreamHeader, returned, (DWORD) encoded);
+	a_StreamHeader->cbDstLengthUsed = returned;
+	if (my_Ended && !my_Kept.empty())
+		my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "%u bytes of the end of the stream do not fit",
+		                (unsigned) my_Kept.size());
 
-	result = nOutputSamples >= 0 && a_StreamHeader->cbDstLengthUsed <= a_StreamHeader->cbDstLength;
+	result = encoded >= 0;
 
 	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "UsedSize = %d / EncodedSize = %d, result = %d (%d <= %d)", InSize, OutSize, result, a_StreamHeader->cbDstLengthUsed, a_StreamHeader->cbDstLength);
 

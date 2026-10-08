@@ -43,6 +43,8 @@
 
 #include <lame.h>
 
+#include <vector>
+
 
 void ConfigureDebugFromRegistry(ADbg & dbg);
 
@@ -68,6 +70,10 @@ protected:
 	void read_settings(const AEncodeProperties & the_Properties);
 	bool restart();
 	bool start();
+	void read_bounds();
+	DWORD MostBytesFor(const DWORD the_Frames) const;
+	DWORD ReturnKept(LPACMDRVSTREAMHEADER a_StreamHeader);
+	DWORD ReturnEncoded(LPACMDRVSTREAMHEADER a_StreamHeader, DWORD a_Returned, DWORD a_Encoded);
 
 	lame_global_flags * gfp;
 	// The last conversion ended the MP3 stream; the next one starts a new one
@@ -77,6 +83,17 @@ protected:
 	bool my_Aligned;
 	// The codec's module, whose folder holds the settings file
 	HMODULE my_Module;
+	// The input sample frames of one MP3 frame
+	double my_FrameInput;
+	// The largest MP3 frame of the stream, in bytes, at its highest bitrate
+	DWORD my_LargestFrame;
+	// HELD_FRAMES_MPEG1 or HELD_FRAMES_MPEG2, for the MPEG version of the stream
+	DWORD my_HeldFrames;
+	// MP3 data that did not fit into a destination buffer; the next
+	// conversion returns it first
+	std::vector<unsigned char> my_Kept;
+	// Where LAME encodes a conversion
+	std::vector<unsigned char> my_Encoded;
 
 	ADbg my_debug;
 	int my_SamplesPerSec;     // of the input

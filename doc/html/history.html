@@ -647,6 +647,9 @@
 			        nothing and can be repeated with a larger buffer. An
 			        application can ask how much input fits into an output
 			        buffer.</li>
+			    <li>Programs that encode through DirectShow's ACM Wrapper
+			        get the whole input encoded by the ACM codec, for every
+			        format the codec offers there.</li>
 			    <li>Programs that list the ACM codec's format tags get the
 			        right index for each tag, and asking for the tag with
 			        the largest format no longer fails.</li>
