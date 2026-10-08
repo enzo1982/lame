@@ -910,6 +910,42 @@ count_above_full_scale(lame_t gfp, float const *l, float const *r, int n)
     return count;
 }
 
+/**
+ * @internal
+ * @brief Reads one frame of samples through a sample buffer, and swaps the
+ *        channels when the user asked for it.
+ *
+ * Exactly one of @p buffer, @p buffer16 and @p bufferf is given, as for
+ * @c get_audio_common(). @p left and @p right are its two channels.
+ *
+ * @param gfp       the encoder instance, after @c lame_init_params().
+ * @param pcm       the sample buffer for the type of @p left and @p right.
+ * @param buffer    the int output, or NULL.
+ * @param buffer16  the 16 bit output, or NULL.
+ * @param bufferf   the float output, or NULL.
+ * @param left      the first channel of the output.
+ * @param right     the second channel of the output.
+ * @return the number of samples per channel. 0 at the end of the input, and a
+ *         negative value on an error.
+ */
+static int
+read_frame(lame_t gfp, PcmBuffer * pcm, int buffer[2][1152], short buffer16[2][1152],
+           float bufferf[2][1152], void *left, void *right)
+{
+    int     used = 0, read = 0;
+    do {
+        read = get_audio_common(gfp, buffer, buffer16, bufferf);
+        used = addPcmBuffer(pcm, left, right, read);
+    } while (used <= 0 && read > 0);
+    if (read < 0) {
+        return read;
+    }
+    if (global_reader.swap_channel == 0)
+        return takePcmBuffer(pcm, left, right, used, 1152);
+    else
+        return takePcmBuffer(pcm, right, left, used, 1152);
+}
+
 /************************************************************************
 *
 * get_audio()
@@ -922,18 +958,7 @@ count_above_full_scale(lame_t gfp, float const *l, float const *r, int n)
 int
 get_audio(lame_t gfp, int buffer[2][1152])
 {
-    int     used = 0, read = 0;
-    do {
-        read = get_audio_common(gfp, buffer, NULL, NULL);
-        used = addPcmBuffer(&global.pcm32, buffer[0], buffer[1], read);
-    } while (used <= 0 && read > 0);
-    if (read < 0) {
-        return read;
-    }
-    if (global_reader.swap_channel == 0)
-        return takePcmBuffer(&global.pcm32, buffer[0], buffer[1], used, 1152);
-    else
-        return takePcmBuffer(&global.pcm32, buffer[1], buffer[0], used, 1152);
+    return read_frame(gfp, &global.pcm32, buffer, NULL, NULL, buffer[0], buffer[1]);
 }
 
 /*
@@ -943,18 +968,7 @@ get_audio(lame_t gfp, int buffer[2][1152])
 int
 get_audio16(lame_t gfp, short buffer[2][1152])
 {
-    int     used = 0, read = 0;
-    do {
-        read = get_audio_common(gfp, NULL, buffer, NULL);
-        used = addPcmBuffer(&global.pcm16, buffer[0], buffer[1], read);
-    } while (used <= 0 && read > 0);
-    if (read < 0) {
-        return read;
-    }
-    if (global_reader.swap_channel == 0)
-        return takePcmBuffer(&global.pcm16, buffer[0], buffer[1], used, 1152);
-    else
-        return takePcmBuffer(&global.pcm16, buffer[1], buffer[0], used, 1152);
+    return read_frame(gfp, &global.pcm16, NULL, buffer, NULL, buffer[0], buffer[1]);
 }
 
 /**
@@ -974,18 +988,11 @@ get_audio16(lame_t gfp, short buffer[2][1152])
 int
 get_audio_float(lame_t gfp, float buffer[2][1152])
 {
-    int     used = 0, read = 0, n;
-    do {
-        read = get_audio_common(gfp, NULL, NULL, buffer);
-        used = addPcmBuffer(&global.pcmf, buffer[0], buffer[1], read);
-    } while (used <= 0 && read > 0);
-    if (read < 0) {
-        return read;
+    int const n = read_frame(gfp, &global.pcmf, NULL, NULL, buffer, buffer[0], buffer[1]);
+
+    if (n < 0) {
+        return n;
     }
-    if (global_reader.swap_channel == 0)
-        n = takePcmBuffer(&global.pcmf, buffer[0], buffer[1], used, 1152);
-    else
-        n = takePcmBuffer(&global.pcmf, buffer[1], buffer[0], used, 1152);
     global.num_samples_above_full_scale += count_above_full_scale(gfp, buffer[0], buffer[1], n);
     return n;
 }
@@ -1001,6 +1008,35 @@ note: exactly one of the three is given; a floating point file is read into
       bufferf, or into buffer16 for --decode, never into buffer, and only a
       floating point file into bufferf
 */
+
+/**
+ * @internal
+ * @brief Splits interleaved samples into the two channels of @p dst.
+ *
+ * The @p n samples per channel end at @p src_end, which the loop moves back to
+ * their start. Each sample passes through @p CONV. With one channel, the second
+ * channel of @p dst is set to zero.
+ */
+#define DEINTERLEAVE(dst, src_end, n, nch, CONV)                      \
+    do {                                                              \
+        int     k_;                                                   \
+        if ((nch) == 2) {                                             \
+            for (k_ = (n); --k_ >= 0;) {                              \
+                (dst)[1][k_] = CONV(*--(src_end));                    \
+                (dst)[0][k_] = CONV(*--(src_end));                    \
+            }                                                         \
+        }                                                             \
+        else {                                                        \
+            memset((dst)[1], 0, (n) * sizeof((dst)[1][0]));           \
+            for (k_ = (n); --k_ >= 0;)                                \
+                (dst)[0][k_] = CONV(*--(src_end));                    \
+        }                                                             \
+    } while (0)
+/** @internal @brief Keeps a sample as it is, for DEINTERLEAVE(). */
+#define SAMPLE_AS_IS(x)     (x)
+/** @internal @brief Keeps the top 16 bits of an int sample, for DEINTERLEAVE(). */
+#define INT_TO_16BIT(x)     ((x) >> (8 * sizeof(int) - 16))
+
 static int
 get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152],
                  float bufferf[2][1152])
@@ -1109,34 +1145,10 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152],
             }
         }
         samples_read /= num_channels;
-        if (bufferf != NULL) {
-            if (num_channels == 2) {
-                for (i = samples_read; --i >= 0;) {
-                    bufferf[1][i] = *--q;
-                    bufferf[0][i] = *--q;
-                }
-            }
-            else {
-                memset(bufferf[1], 0, samples_read * sizeof(float));
-                for (i = samples_read; --i >= 0;) {
-                    bufferf[0][i] = *--q;
-                }
-            }
-        }
-        else {
-            if (num_channels == 2) {
-                for (i = samples_read; --i >= 0;) {
-                    buffer16[1][i] = float_sample_to_16bit(*--q);
-                    buffer16[0][i] = float_sample_to_16bit(*--q);
-                }
-            }
-            else {
-                memset(buffer16[1], 0, samples_read * sizeof(short));
-                for (i = samples_read; --i >= 0;) {
-                    buffer16[0][i] = float_sample_to_16bit(*--q);
-                }
-            }
-        }
+        if (bufferf != NULL)
+            DEINTERLEAVE(bufferf, q, samples_read, num_channels, SAMPLE_AS_IS);
+        else
+            DEINTERLEAVE(buffer16, q, samples_read, num_channels, float_sample_to_16bit);
     }
     else {
         int    *p;
@@ -1157,38 +1169,10 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152],
         }
         p = insamp + samples_read;
         samples_read /= num_channels;
-        if (buffer != NULL) { /* output to int buffer */
-            if (num_channels == 2) {
-                for (i = samples_read; --i >= 0;) {
-                    buffer[1][i] = *--p;
-                    buffer[0][i] = *--p;
-                }
-            }
-            else if (num_channels == 1) {
-                memset(buffer[1], 0, samples_read * sizeof(int));
-                for (i = samples_read; --i >= 0;) {
-                    buffer[0][i] = *--p;
-                }
-            }
-            else
-                assert(0);
-        }
-        else {          /* convert from int; output to 16-bit buffer */
-            if (num_channels == 2) {
-                for (i = samples_read; --i >= 0;) {
-                    buffer16[1][i] = *--p >> (8 * sizeof(int) - 16);
-                    buffer16[0][i] = *--p >> (8 * sizeof(int) - 16);
-                }
-            }
-            else if (num_channels == 1) {
-                memset(buffer16[1], 0, samples_read * sizeof(short));
-                for (i = samples_read; --i >= 0;) {
-                    buffer16[0][i] = *--p >> (8 * sizeof(int) - 16);
-                }
-            }
-            else
-                assert(0);
-        }
+        if (buffer != NULL)
+            DEINTERLEAVE(buffer, p, samples_read, num_channels, SAMPLE_AS_IS);
+        else
+            DEINTERLEAVE(buffer16, p, samples_read, num_channels, INT_TO_16BIT);
     }
 
     /* LAME mp3 output 16bit -  convert to int, if necessary */
@@ -1200,11 +1184,9 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152],
                 for (i = samples_read; --i >= 0;)
                     buffer[1][i] = (int) ((unsigned int) buf_tmp16[1][i] << (8 * sizeof(int) - 16));
             }
-            else if (num_channels == 1) {
+            else {
                 memset(buffer[1], 0, samples_read * sizeof(int));
             }
-            else
-                assert(0);
         }
     }
 
@@ -1216,6 +1198,10 @@ get_audio_common(lame_t gfp, int buffer[2][1152], short buffer16[2][1152],
 
     return samples_read;
 }
+
+#undef DEINTERLEAVE
+#undef SAMPLE_AS_IS
+#undef INT_TO_16BIT
 
 
 
