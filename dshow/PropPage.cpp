@@ -440,7 +440,7 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
     m_pAEProps->set_SampleRate(dwSampleRate);
 
     int nSR = 0;
-    while (dwSampleRate != srRates[nSR * 3 + m_srIdx].dwSampleRate && nSR < 3)
+    while (nSR < 3 && dwSampleRate != srRates[nSR * 3 + m_srIdx].dwSampleRate)
     {
         nSR++;
     }
