@@ -610,6 +610,9 @@
 			        ACM codec resamples the input to that rate.</li>
 			    <li><i>lame_enc.dll</i> rejects a stream that asks for a
 			        VBR method it does not support.</li>
+			    <li><i>lame_enc.dll</i> no longer leaks an encoder when
+			        <i>beInitStream()</i> fails; it closes the stream and
+			        returns no stream handle.</li>
 			    <li><i>lame_enc.dll</i> rounds an ABR bitrate to the
 			        nearest kbit/s, for the ABR preset as for the ABR
 			        setting.</li>

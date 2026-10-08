@@ -433,6 +433,8 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
         default:
             {
                 DebugPrintf("Invalid lameConfig.format.LHV1.nMode, value is %d\n",lameConfig.format.LHV1.nMode);
+                release_stream( gfp );
+                *phbeStream = NULL;
                 return BE_ERR_INVALID_FORMAT_PARAMETERS;
             }
         }
@@ -472,6 +474,8 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
 
             default:
                 DebugPrintf("Invalid lameConfig.format.LHV1.nVbrMethod, value is %d\n",lameConfig.format.LHV1.nVbrMethod);
+                release_stream( gfp );
+                *phbeStream = NULL;
                 return BE_ERR_INVALID_FORMAT_PARAMETERS;
             }
         }
@@ -603,6 +607,8 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
 
     if ( 0 != ( nInitReturn = lame_init_params( gfp ) ) )
     {
+        release_stream( gfp );
+        *phbeStream = NULL;
         return nInitReturn;
     }
 

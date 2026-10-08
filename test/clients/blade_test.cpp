@@ -654,6 +654,47 @@ test_unknown_vbr_method_refused(const blade_exports *be)
 }
 
 /**
+ * @brief Checks that the DLL closes a stream whose beInitStream() fails.
+ *
+ * The configuration asks for a VBR method that the DLL does not have. The
+ * call returns no stream, and the caller has nothing to close. Repeated
+ * failures keep no memory allocated.
+ *
+ * @param be the resolved entry points.
+ */
+static void
+test_failed_init_closed(const blade_exports *be)
+{
+    /* One encoder takes more than one heap block. Twenty failed calls that
+       keep their encoders grow the heap by more than twenty blocks. */
+    const long FAILURES = 20;
+    BE_CONFIG cfg;
+    HBE_STREAM hbe;
+    DWORD   samples = 0, room = 0;
+    long    before, after, i;
+    char    detail[CTEST_DETAIL_CHARS];
+
+    make_config(&cfg, 0);
+    cfg.format.LHV1.bEnableVBR = TRUE;
+    cfg.format.LHV1.nVbrMethod = (VBRMETHOD) (VBR_METHOD_ABR + 1);
+
+    hbe = (HBE_STREAM) &cfg;
+    CHECK_EQ_U(be->init(&cfg, &samples, &room, &hbe), BE_ERR_INVALID_FORMAT_PARAMETERS,
+               "beInitStream() fails for an unknown VBR method");
+    CHECK(hbe == NULL, "the failed call returns no stream");
+
+    before = ctest_heap_blocks();
+    for (i = 0; i < FAILURES; i++) {
+        be->init(&cfg, &samples, &room, &hbe);
+    }
+    after = ctest_heap_blocks();
+    CHECK(before > 0 && after > 0, "the heap blocks are counted");
+    snprintf(detail, sizeof detail, "%ld blocks before, %ld after %ld failed calls", before, after,
+             FAILURES);
+    ctest_record(after - before < FAILURES, "20 failed calls keep fewer than 20 blocks", detail);
+}
+
+/**
  * @brief Checks what an encode call reports when the encoder rejects its
  *        input: a floating point sample that is not finite.
  *
@@ -909,6 +950,7 @@ main(int argc, char **argv)
 
     test_upsampled_chunks_fit(&be);
     test_unknown_vbr_method_refused(&be);
+    test_failed_init_closed(&be);
     test_rejected_input_reported(&be);
     test_abr_preset_above_range(&be, dir);
     test_abr_bitrate_rounds(&be, dir);
