@@ -317,11 +317,13 @@ png_finish(cairo_surface_t *surface, cairo_t *cr, const char *path,
  * ========================================================================== */
 
 static void
-pcm_render(GtkWidget *widget, cairo_t *cr, int width, int height)
+pcm_render(GtkWidget *widget, cairo_t *cr, int width, int height, int gr)
 {
     Mp3xCanvas c;
     char    title[96];
     const char *chlabel;
+
+    (void) gr;  /* one PCM graph for both granules */
 
     mp3x_canvas_begin(&c, widget, cr, width, height,
                       -PCM_FULLSCALE, PCM_FULLSCALE);
@@ -346,36 +348,6 @@ pcm_render(GtkWidget *widget, cairo_t *cr, int width, int height)
     mp3x_canvas_title(&c, title);
 }
 
-static void
-pcm_draw(GtkDrawingArea *area, cairo_t *cr, int width, int height, gpointer user_data)
-{
-    (void) user_data;
-    pcm_render(GTK_WIDGET(area), cr, width, height);
-}
-
-GtkWidget *
-mp3x_plot_pcm_new(void)
-{
-    GtkWidget *area = gtk_drawing_area_new();
-    gtk_accessible_update_property(GTK_ACCESSIBLE(area),
-                                   GTK_ACCESSIBLE_PROPERTY_LABEL,
-                                   "PCM waveform", -1);
-    gtk_drawing_area_set_content_width(GTK_DRAWING_AREA(area), 600);
-    gtk_drawing_area_set_content_height(GTK_DRAWING_AREA(area), 95);
-    gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(area), pcm_draw, NULL, NULL);
-    return area;
-}
-
-cairo_status_t
-mp3x_plot_pcm_write_png(const char *path, int width, int height)
-{
-    cairo_surface_t *s;
-    cairo_t *cr;
-    cairo_status_t status = png_open(width, height, &s, &cr);
-    if (status == CAIRO_STATUS_SUCCESS)
-        pcm_render(NULL, cr, width, height);
-    return png_finish(s, cr, path, status);
-}
 
 
 /* ==========================================================================
@@ -383,7 +355,7 @@ mp3x_plot_pcm_write_png(const char *path, int width, int height)
  * ========================================================================== */
 
 static void
-resynth_render(GtkWidget *widget, cairo_t *cr, int width, int height)
+resynth_render(GtkWidget *widget, cairo_t *cr, int width, int height, int gr)
 {
     Mp3xCanvas c;
     plotting_data *disp = pdisp;    /* the navigable display frame */
@@ -391,6 +363,8 @@ resynth_render(GtkWidget *widget, cairo_t *cr, int width, int height)
     double  orig[RESYN_POINTS];
     double  resyn[RESYN_POINTS];
     int     i, j;
+
+    (void) gr;  /* one re-synthesis graph for both granules */
 
     mp3x_canvas_begin(&c, widget, cr, width, height,
                       -PCM_FULLSCALE, PCM_FULLSCALE);
@@ -445,36 +419,6 @@ resynth_render(GtkWidget *widget, cairo_t *cr, int width, int height)
     }
 }
 
-static void
-resynth_draw(GtkDrawingArea *area, cairo_t *cr, int width, int height, gpointer user_data)
-{
-    (void) user_data;
-    resynth_render(GTK_WIDGET(area), cr, width, height);
-}
-
-GtkWidget *
-mp3x_plot_resynth_new(void)
-{
-    GtkWidget *area = gtk_drawing_area_new();
-    gtk_accessible_update_property(GTK_ACCESSIBLE(area),
-                                   GTK_ACCESSIBLE_PROPERTY_LABEL,
-                                   "Input and re-synthesized PCM waveform", -1);
-    gtk_drawing_area_set_content_width(GTK_DRAWING_AREA(area), 600);
-    gtk_drawing_area_set_content_height(GTK_DRAWING_AREA(area), 95);
-    gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(area), resynth_draw, NULL, NULL);
-    return area;
-}
-
-cairo_status_t
-mp3x_plot_resynth_write_png(const char *path, int width, int height)
-{
-    cairo_surface_t *s;
-    cairo_t *cr;
-    cairo_status_t status = png_open(width, height, &s, &cr);
-    if (status == CAIRO_STATUS_SUCCESS)
-        resynth_render(NULL, cr, width, height);
-    return png_finish(s, cr, path, status);
-}
 
 
 /* ==========================================================================
@@ -557,39 +501,6 @@ mdct_render(GtkWidget *widget, cairo_t *cr, int width, int height, int gr)
     mp3x_canvas_title(&c, title);
 }
 
-static void
-mdct_draw(GtkDrawingArea *area, cairo_t *cr, int width, int height, gpointer user_data)
-{
-    mdct_render(GTK_WIDGET(area), cr, width, height,
-                GPOINTER_TO_INT(user_data));
-}
-
-GtkWidget *
-mp3x_plot_mdct_new(int gr)
-{
-    GtkWidget *area = gtk_drawing_area_new();
-    gtk_accessible_update_property(GTK_ACCESSIBLE(area),
-                                   GTK_ACCESSIBLE_PROPERTY_LABEL,
-                                   gr == 0 ? "MDCT spectrum, granule 1"
-                                           : "MDCT spectrum, granule 2",
-                                   -1);
-    gtk_drawing_area_set_content_width(GTK_DRAWING_AREA(area), 300);
-    gtk_drawing_area_set_content_height(GTK_DRAWING_AREA(area), 95);
-    gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(area), mdct_draw,
-                                   GINT_TO_POINTER(gr), NULL);
-    return area;
-}
-
-cairo_status_t
-mp3x_plot_mdct_write_png(const char *path, int gr, int width, int height)
-{
-    cairo_surface_t *s;
-    cairo_t *cr;
-    cairo_status_t status = png_open(width, height, &s, &cr);
-    if (status == CAIRO_STATUS_SUCCESS)
-        mdct_render(NULL, cr, width, height, gr);
-    return png_finish(s, cr, path, status);
-}
 
 
 /* ==========================================================================
@@ -684,39 +595,6 @@ psy_render(GtkWidget *widget, cairo_t *cr, int width, int height, int gr)
     mp3x_canvas_title(&c, title);
 }
 
-static void
-psy_draw(GtkDrawingArea *area, cairo_t *cr, int width, int height, gpointer user_data)
-{
-    psy_render(GTK_WIDGET(area), cr, width, height,
-               GPOINTER_TO_INT(user_data));
-}
-
-GtkWidget *
-mp3x_plot_psy_new(int gr)
-{
-    GtkWidget *area = gtk_drawing_area_new();
-    gtk_accessible_update_property(GTK_ACCESSIBLE(area),
-                                   GTK_ACCESSIBLE_PROPERTY_LABEL,
-                                   gr == 0 ? "Psychoacoustic spectrum, granule 1"
-                                           : "Psychoacoustic spectrum, granule 2",
-                                   -1);
-    gtk_drawing_area_set_content_width(GTK_DRAWING_AREA(area), 300);
-    gtk_drawing_area_set_content_height(GTK_DRAWING_AREA(area), 95);
-    gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(area), psy_draw,
-                                   GINT_TO_POINTER(gr), NULL);
-    return area;
-}
-
-cairo_status_t
-mp3x_plot_psy_write_png(const char *path, int gr, int width, int height)
-{
-    cairo_surface_t *s;
-    cairo_t *cr;
-    cairo_status_t status = png_open(width, height, &s, &cr);
-    if (status == CAIRO_STATUS_SUCCESS)
-        psy_render(NULL, cr, width, height, gr);
-    return png_finish(s, cr, path, status);
-}
 
 
 /* ==========================================================================
@@ -807,39 +685,6 @@ sfb_render(GtkWidget *widget, cairo_t *cr, int width, int height, int gr)
     mp3x_canvas_title(&c, title);
 }
 
-static void
-sfb_draw(GtkDrawingArea *area, cairo_t *cr, int width, int height, gpointer user_data)
-{
-    sfb_render(GTK_WIDGET(area), cr, width, height,
-               GPOINTER_TO_INT(user_data));
-}
-
-GtkWidget *
-mp3x_plot_sfb_new(int gr)
-{
-    GtkWidget *area = gtk_drawing_area_new();
-    gtk_accessible_update_property(GTK_ACCESSIBLE(area),
-                                   GTK_ACCESSIBLE_PROPERTY_LABEL,
-                                   gr == 0 ? "Scalefactor bands, granule 1"
-                                           : "Scalefactor bands, granule 2",
-                                   -1);
-    gtk_drawing_area_set_content_width(GTK_DRAWING_AREA(area), 300);
-    gtk_drawing_area_set_content_height(GTK_DRAWING_AREA(area), 95);
-    gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(area), sfb_draw,
-                                   GINT_TO_POINTER(gr), NULL);
-    return area;
-}
-
-cairo_status_t
-mp3x_plot_sfb_write_png(const char *path, int gr, int width, int height)
-{
-    cairo_surface_t *s;
-    cairo_t *cr;
-    cairo_status_t status = png_open(width, height, &s, &cr);
-    if (status == CAIRO_STATUS_SUCCESS)
-        sfb_render(NULL, cr, width, height, gr);
-    return png_finish(s, cr, path, status);
-}
 
 
 /* ==========================================================================
@@ -904,22 +749,8 @@ mp3x_plot_demo_write_png(const char *path, int width, int height)
    function is called with a width/height matching the rectangle, with the
    cairo state translated and clipped so it cannot bleed into other plots. */
 static void
-composite_plot(cairo_t *parent_cr, int x, int y, int w, int h,
-               void (*render)(GtkWidget *, cairo_t *, int, int))
-{
-    cairo_save(parent_cr);
-    cairo_new_path(parent_cr);
-    cairo_rectangle(parent_cr, x, y, w, h);
-    cairo_clip(parent_cr);
-    cairo_translate(parent_cr, x, y);
-    render(NULL, parent_cr, w, h);
-    cairo_restore(parent_cr);
-}
-
-/* Granule-plot variant - the render function takes an extra granule index. */
-static void
-composite_plot_gr(cairo_t *parent_cr, int x, int y, int w, int h, int gr,
-                  void (*render)(GtkWidget *, cairo_t *, int, int, int))
+composite_plot(cairo_t *parent_cr, int x, int y, int w, int h, int gr,
+               void (*render)(GtkWidget *, cairo_t *, int, int, int))
 {
     cairo_save(parent_cr);
     cairo_new_path(parent_cr);
@@ -930,8 +761,18 @@ composite_plot_gr(cairo_t *parent_cr, int x, int y, int w, int h, int gr,
     cairo_restore(parent_cr);
 }
 
-cairo_status_t
-mp3x_plot_composite_write_png(const char *path)
+/**
+ * \internal
+ * \brief Draws all eight graphs into one PNG file, in the order of the screen.
+ *
+ * It uses the fixed size of the standard layout and draws the graphs again;
+ * it does not capture the window.
+ *
+ * \param path  the file to write.
+ * \return the cairo status of the drawing and the write.
+ */
+static cairo_status_t
+composite_write_png(const char *path)
 {
     cairo_surface_t *s;
     cairo_t *cr;
@@ -949,26 +790,120 @@ mp3x_plot_composite_write_png(const char *path)
 
     /* Row 1: PCM (full width) */
     y = 0;
-    composite_plot(cr, 0, y, COMPOSITE_FULL_W, COMPOSITE_ROW_H, pcm_render);
+    composite_plot(cr, 0, y, COMPOSITE_FULL_W, COMPOSITE_ROW_H, 0, pcm_render);
 
     /* Row 2: Re-synthesis (full width) */
     y += COMPOSITE_ROW_H + COMPOSITE_GAP;
-    composite_plot(cr, 0, y, COMPOSITE_FULL_W, COMPOSITE_ROW_H, resynth_render);
+    composite_plot(cr, 0, y, COMPOSITE_FULL_W, COMPOSITE_ROW_H, 0, resynth_render);
 
     /* Row 3: MDCT granule 0 | MDCT granule 1 (side by side) */
     y += COMPOSITE_ROW_H + COMPOSITE_GAP;
-    composite_plot_gr(cr, 0,                  y, COMPOSITE_HALF_W, COMPOSITE_ROW_H, 0, mdct_render);
-    composite_plot_gr(cr, COMPOSITE_HALF_W,   y, COMPOSITE_HALF_W, COMPOSITE_ROW_H, 1, mdct_render);
+    composite_plot(cr, 0,                  y, COMPOSITE_HALF_W, COMPOSITE_ROW_H, 0, mdct_render);
+    composite_plot(cr, COMPOSITE_HALF_W,   y, COMPOSITE_HALF_W, COMPOSITE_ROW_H, 1, mdct_render);
 
     /* Row 4: FFT/Psy granule 0 | granule 1 */
     y += COMPOSITE_ROW_H + COMPOSITE_GAP;
-    composite_plot_gr(cr, 0,                  y, COMPOSITE_HALF_W, COMPOSITE_ROW_H, 0, psy_render);
-    composite_plot_gr(cr, COMPOSITE_HALF_W,   y, COMPOSITE_HALF_W, COMPOSITE_ROW_H, 1, psy_render);
+    composite_plot(cr, 0,                  y, COMPOSITE_HALF_W, COMPOSITE_ROW_H, 0, psy_render);
+    composite_plot(cr, COMPOSITE_HALF_W,   y, COMPOSITE_HALF_W, COMPOSITE_ROW_H, 1, psy_render);
 
     /* Row 5: Scalefactors granule 0 | granule 1 */
     y += COMPOSITE_ROW_H + COMPOSITE_GAP;
-    composite_plot_gr(cr, 0,                  y, COMPOSITE_HALF_W, COMPOSITE_ROW_H, 0, sfb_render);
-    composite_plot_gr(cr, COMPOSITE_HALF_W,   y, COMPOSITE_HALF_W, COMPOSITE_ROW_H, 1, sfb_render);
+    composite_plot(cr, 0,                  y, COMPOSITE_HALF_W, COMPOSITE_ROW_H, 0, sfb_render);
+    composite_plot(cr, COMPOSITE_HALF_W,   y, COMPOSITE_HALF_W, COMPOSITE_ROW_H, 1, sfb_render);
 
+    return png_finish(s, cr, path, status);
+}
+
+
+/* ==========================================================================
+ * One table for the graphs: their widgets and their PNG files
+ * ========================================================================== */
+
+/** The size of a graph widget and of an exported graph, in pixels. */
+#define GRAPH_WIDE          600
+#define GRAPH_NARROW        300
+#define GRAPH_WIDGET_HEIGHT  95
+#define GRAPH_EXPORT_HEIGHT 150
+
+/** What draws each graph, the label that screen readers announce, and its
+    width; indexed by ::Mp3xGraph. The composite image has no entry. */
+static const struct {
+    void  (*render)(GtkWidget *, cairo_t *, int, int, int);
+    int     gr;
+    const char *label;
+    int     width;
+} graphs[] = {
+    { NULL, 0, NULL, 0 },
+    { pcm_render, 0, "PCM waveform", GRAPH_WIDE },
+    { resynth_render, 0, "Input and re-synthesized PCM waveform", GRAPH_WIDE },
+    { mdct_render, 0, "MDCT spectrum, granule 1", GRAPH_NARROW },
+    { mdct_render, 1, "MDCT spectrum, granule 2", GRAPH_NARROW },
+    { psy_render, 0, "Psychoacoustic spectrum, granule 1", GRAPH_NARROW },
+    { psy_render, 1, "Psychoacoustic spectrum, granule 2", GRAPH_NARROW },
+    { sfb_render, 0, "Scalefactor bands, granule 1", GRAPH_NARROW },
+    { sfb_render, 1, "Scalefactor bands, granule 2", GRAPH_NARROW }
+};
+
+/**
+ * \internal
+ * \brief The draw function of a graph widget.
+ * \param area       the widget.
+ * \param cr         where to draw.
+ * \param width      the width of the widget.
+ * \param height     the height of the widget.
+ * \param user_data  the ::Mp3xGraph, as GINT_TO_POINTER() made it.
+ */
+static void
+graph_draw(GtkDrawingArea *area, cairo_t *cr, int width, int height, gpointer user_data)
+{
+    Mp3xGraph const graph = (Mp3xGraph) GPOINTER_TO_INT(user_data);
+
+    graphs[graph].render(GTK_WIDGET(area), cr, width, height, graphs[graph].gr);
+}
+
+/**
+ * \internal
+ * \brief Returns a widget that draws a graph.
+ * \param graph  the graph. ::MP3X_GRAPH_COMPOSITE has no widget.
+ * \return the widget, or NULL for a graph that has no widget.
+ */
+GtkWidget *
+mp3x_plot_new(Mp3xGraph graph)
+{
+    GtkWidget *area;
+
+    g_return_val_if_fail(graph > MP3X_GRAPH_COMPOSITE && graph <= MP3X_GRAPH_SFB1, NULL);
+    area = gtk_drawing_area_new();
+    gtk_accessible_update_property(GTK_ACCESSIBLE(area),
+                                   GTK_ACCESSIBLE_PROPERTY_LABEL,
+                                   graphs[graph].label, -1);
+    gtk_drawing_area_set_content_width(GTK_DRAWING_AREA(area), graphs[graph].width);
+    gtk_drawing_area_set_content_height(GTK_DRAWING_AREA(area), GRAPH_WIDGET_HEIGHT);
+    gtk_drawing_area_set_draw_func(GTK_DRAWING_AREA(area), graph_draw,
+                                   GINT_TO_POINTER(graph), NULL);
+    return area;
+}
+
+/**
+ * \internal
+ * \brief Draws a graph into a PNG file, at the size File > Export uses.
+ * \param graph  the graph.
+ * \param path   the file to write.
+ * \return the cairo status of the drawing and the write.
+ */
+cairo_status_t
+mp3x_plot_write_png(Mp3xGraph graph, const char *path)
+{
+    cairo_surface_t *s;
+    cairo_t *cr;
+    cairo_status_t status;
+
+    if (graph == MP3X_GRAPH_COMPOSITE)
+        return composite_write_png(path);
+    g_return_val_if_fail(graph > MP3X_GRAPH_COMPOSITE && graph <= MP3X_GRAPH_SFB1,
+                         CAIRO_STATUS_INVALID_INDEX);
+    status = png_open(graphs[graph].width, GRAPH_EXPORT_HEIGHT, &s, &cr);
+    if (status == CAIRO_STATUS_SUCCESS)
+        graphs[graph].render(NULL, cr, graphs[graph].width, GRAPH_EXPORT_HEIGHT, graphs[graph].gr);
     return png_finish(s, cr, path, status);
 }

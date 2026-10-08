@@ -83,44 +83,38 @@ void mp3x_canvas_title(Mp3xCanvas *c, const char *title);
  * Analyzer graphs (built on the canvas).
  * -------------------------------------------------------------------------- */
 
-/** The PCM waveform of the current frame (\c plotting_data.pcmdata, left
-    channel). */
-GtkWidget *mp3x_plot_pcm_new(void);
-/** Draws the PCM waveform graph into a PNG file. */
-cairo_status_t mp3x_plot_pcm_write_png(const char *path, int width, int height);
+/** The graphs of the analyzer, and the images that File > Export writes. */
+typedef enum {
+    /** All eight graphs in one image, in the same order as on the screen, at
+        the fixed size of the standard layout (600 x 499). It draws the graphs
+        again; it does not capture the window. Export only. */
+    MP3X_GRAPH_COMPOSITE,
+    /** The PCM waveform of the current frame (\c plotting_data.pcmdata, left
+        channel). */
+    MP3X_GRAPH_PCM,
+    /** The original input and the re-synthesized PCM (encoded, then decoded
+        again), drawn over each other. */
+    MP3X_GRAPH_RESYNTH,
+    /** The MDCT log-energy spectrum, 576 lines, of granule 0, left channel. */
+    MP3X_GRAPH_MDCT0,
+    /** The same for granule 1. */
+    MP3X_GRAPH_MDCT1,
+    /** The psychoacoustic energy per scalefactor band of granule 0, left
+        channel: the signal energy as bars, and the masking threshold and the
+        real quantization noise as lines. */
+    MP3X_GRAPH_PSY0,
+    /** The same for granule 1. */
+    MP3X_GRAPH_PSY1,
+    /** LAME's scalefactors of the first granule, one vertical bar for each
+        band. A long block has \c SBMAX_l bands. A short block has
+        <tt>3 * SBMAX_s</tt>: the short bands of the three windows. */
+    MP3X_GRAPH_SFB0,
+    /** The same for granule 1. */
+    MP3X_GRAPH_SFB1
+} Mp3xGraph;
 
-/** The original input and the re-synthesized PCM (encoded, then decoded
-    again), drawn over each other. */
-GtkWidget *mp3x_plot_resynth_new(void);
-/** Draws the re-synthesis comparison graph into a PNG file. */
-cairo_status_t mp3x_plot_resynth_write_png(const char *path, int width, int height);
-
-/** The MDCT log-energy spectrum, 576 lines, for granule \p gr (0 or 1), left
-    channel. */
-GtkWidget *mp3x_plot_mdct_new(int gr);
-/** Draws an MDCT spectrum graph into a PNG file. */
-cairo_status_t mp3x_plot_mdct_write_png(const char *path, int gr,
-                                         int width, int height);
-
-/**
- *  The psychoacoustic energy per scalefactor band, for granule \p gr, left
- *  channel. The signal energy is drawn as bars, and the masking threshold and
- *  the real quantization noise as lines.
- */
-GtkWidget *mp3x_plot_psy_new(int gr);
-/** Draws a psychoacoustic graph into a PNG file. */
-cairo_status_t mp3x_plot_psy_write_png(const char *path, int gr,
-                                        int width, int height);
-
-/**
- *  The scalefactor magnitude of LAME per scalefactor band, for granule \p gr,
- *  left channel, as vertical bars. A long block has \c SBMAX_l bands. A short
- *  block has <tt>3 * SBMAX_s</tt>: the short bands of the three windows.
- */
-GtkWidget *mp3x_plot_sfb_new(int gr);
-/** Draws a scalefactor graph into a PNG file. */
-cairo_status_t mp3x_plot_sfb_write_png(const char *path, int gr,
-                                        int width, int height);
+GtkWidget *mp3x_plot_new(Mp3xGraph graph);
+cairo_status_t mp3x_plot_write_png(Mp3xGraph graph, const char *path);
 
 /**
  *  Sets the display options that all graphs use.
@@ -168,14 +162,5 @@ void mp3x_plot_set_subblock(int w0, int w1, int w2);
  *  \internal For developers only. On purpose, the File menu does not offer it.
  */
 cairo_status_t mp3x_plot_demo_write_png(const char *path, int width, int height);
-
-/**
- *  A combined screenshot: draws all eight analyzer graphs into one PNG file,
- *  in the same order as on the screen.
- *
- *  It uses the fixed size (600 x 499) of the standard analyzer layout. It draws
- *  the graphs again. It does not capture the window of the user.
- */
-cairo_status_t mp3x_plot_composite_write_png(const char *path);
 
 #endif /* LAME_MP3X_PLOT_H */

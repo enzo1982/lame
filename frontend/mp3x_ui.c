@@ -544,7 +544,7 @@ act_open(GSimpleAction *action, GVariant *parameter, gpointer user_data)
     if (d->shutting_down)
         return;
 
-    req = request_new(d, /*is_save=*/FALSE, /*export_kind=*/0);
+    req = request_new(d, /*is_save=*/FALSE, /*export_kind=*/MP3X_GRAPH_COMPOSITE);
     if (req == NULL)
         return;
 
@@ -763,15 +763,15 @@ static const char *
 export_suffix(int export_kind)
 {
     switch (export_kind) {
-    case 0: return "screenshot";
-    case 1: return "pcm";
-    case 2: return "resynthesis";
-    case 3: return "mdct-0";
-    case 4: return "mdct-1";
-    case 5: return "psy-0";
-    case 6: return "psy-1";
-    case 7: return "scalefactors-0";
-    case 8: return "scalefactors-1";
+    case MP3X_GRAPH_COMPOSITE: return "screenshot";
+    case MP3X_GRAPH_PCM: return "pcm";
+    case MP3X_GRAPH_RESYNTH: return "resynthesis";
+    case MP3X_GRAPH_MDCT0: return "mdct-0";
+    case MP3X_GRAPH_MDCT1: return "mdct-1";
+    case MP3X_GRAPH_PSY0: return "psy-0";
+    case MP3X_GRAPH_PSY1: return "psy-1";
+    case MP3X_GRAPH_SFB0: return "scalefactors-0";
+    case MP3X_GRAPH_SFB1: return "scalefactors-1";
     default: return "audio";
     }
 }
@@ -824,15 +824,17 @@ perform_save_write(SaveWriteTask *task)
 
     /* Write the appropriate PNG. Each function is in mp3x_plot.c. */
     switch (task->export_kind) {
-    case 0: status = mp3x_plot_composite_write_png(task->path); break;
-    case 1: status = mp3x_plot_pcm_write_png(task->path, 600, 150); break;
-    case 2: status = mp3x_plot_resynth_write_png(task->path, 600, 150); break;
-    case 3: status = mp3x_plot_mdct_write_png(task->path, 0, 300, 150); break;
-    case 4: status = mp3x_plot_mdct_write_png(task->path, 1, 300, 150); break;
-    case 5: status = mp3x_plot_psy_write_png(task->path, 0, 300, 150); break;
-    case 6: status = mp3x_plot_psy_write_png(task->path, 1, 300, 150); break;
-    case 7: status = mp3x_plot_sfb_write_png(task->path, 0, 300, 150); break;
-    case 8: status = mp3x_plot_sfb_write_png(task->path, 1, 300, 150); break;
+    case MP3X_GRAPH_COMPOSITE:
+    case MP3X_GRAPH_PCM:
+    case MP3X_GRAPH_RESYNTH:
+    case MP3X_GRAPH_MDCT0:
+    case MP3X_GRAPH_MDCT1:
+    case MP3X_GRAPH_PSY0:
+    case MP3X_GRAPH_PSY1:
+    case MP3X_GRAPH_SFB0:
+    case MP3X_GRAPH_SFB1:
+        status = mp3x_plot_write_png((Mp3xGraph) task->export_kind, task->path);
+        break;
     default: status = CAIRO_STATUS_INVALID_STATUS; break;
     }
 
@@ -945,15 +947,15 @@ request_start_save(Mp3xDriver *d, int export_kind)
                          req);
 }
 
-static void act_screenshot   (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, 0); }
-static void act_export_pcm   (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, 1); }
-static void act_export_resynth(GSimpleAction*a, GVariant*p, gpointer d) { (void)a;(void)p; request_start_save(d, 2); }
-static void act_export_mdct0 (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, 3); }
-static void act_export_mdct1 (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, 4); }
-static void act_export_psy0  (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, 5); }
-static void act_export_psy1  (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, 6); }
-static void act_export_sfb0  (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, 7); }
-static void act_export_sfb1  (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, 8); }
+static void act_screenshot   (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_COMPOSITE); }
+static void act_export_pcm   (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_PCM); }
+static void act_export_resynth(GSimpleAction*a, GVariant*p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_RESYNTH); }
+static void act_export_mdct0 (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_MDCT0); }
+static void act_export_mdct1 (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_MDCT1); }
+static void act_export_psy0  (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_PSY0); }
+static void act_export_psy1  (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_PSY1); }
+static void act_export_sfb0  (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_SFB0); }
+static void act_export_sfb1  (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_SFB1); }
 
 
 /* ==========================================================================
@@ -1137,15 +1139,15 @@ maybe_shot(Mp3xDriver *d)
         cairo_status_t shot_status_ = (call); \
         if (status == CAIRO_STATUS_SUCCESS) status = shot_status_; \
     } while (0)
-    if (path)  TEST_SHOT(mp3x_plot_pcm_write_png(path, 600, 150));
-    if (rpath) TEST_SHOT(mp3x_plot_resynth_write_png(rpath, 600, 150));
-    if (mpath) TEST_SHOT(mp3x_plot_mdct_write_png(mpath, 0, 300, 150));
-    if (mpath1) TEST_SHOT(mp3x_plot_mdct_write_png(mpath1, 1, 300, 150));
-    if (ppath) TEST_SHOT(mp3x_plot_psy_write_png(ppath, 0, 300, 150));
-    if (ppath1) TEST_SHOT(mp3x_plot_psy_write_png(ppath1, 1, 300, 150));
-    if (spath) TEST_SHOT(mp3x_plot_sfb_write_png(spath, 0, 300, 150));
-    if (spath1) TEST_SHOT(mp3x_plot_sfb_write_png(spath1, 1, 300, 150));
-    if (cpath) TEST_SHOT(mp3x_plot_composite_write_png(cpath));
+    if (path)  TEST_SHOT(mp3x_plot_write_png(MP3X_GRAPH_PCM, path));
+    if (rpath) TEST_SHOT(mp3x_plot_write_png(MP3X_GRAPH_RESYNTH, rpath));
+    if (mpath) TEST_SHOT(mp3x_plot_write_png(MP3X_GRAPH_MDCT0, mpath));
+    if (mpath1) TEST_SHOT(mp3x_plot_write_png(MP3X_GRAPH_MDCT1, mpath1));
+    if (ppath) TEST_SHOT(mp3x_plot_write_png(MP3X_GRAPH_PSY0, ppath));
+    if (ppath1) TEST_SHOT(mp3x_plot_write_png(MP3X_GRAPH_PSY1, ppath1));
+    if (spath) TEST_SHOT(mp3x_plot_write_png(MP3X_GRAPH_SFB0, spath));
+    if (spath1) TEST_SHOT(mp3x_plot_write_png(MP3X_GRAPH_SFB1, spath1));
+    if (cpath) TEST_SHOT(mp3x_plot_write_png(MP3X_GRAPH_COMPOSITE, cpath));
 #undef TEST_SHOT
     if (status != CAIRO_STATUS_SUCCESS) {
         d->analysis_failed = TRUE;
@@ -2475,20 +2477,20 @@ on_activate(GtkApplication *app, gpointer user_data)
 #endif
 
     /* Graph widgets */
-    d->plot = mp3x_plot_pcm_new();
+    d->plot = mp3x_plot_new(MP3X_GRAPH_PCM);
     gtk_widget_set_hexpand(d->plot, TRUE);
     gtk_widget_set_vexpand(d->plot, TRUE);
     gtk_box_append(GTK_BOX(plots), d->plot);
 
-    d->plot_resynth = mp3x_plot_resynth_new();
+    d->plot_resynth = mp3x_plot_new(MP3X_GRAPH_RESYNTH);
     gtk_widget_set_hexpand(d->plot_resynth, TRUE);
     gtk_widget_set_vexpand(d->plot_resynth, TRUE);
     gtk_box_append(GTK_BOX(plots), d->plot_resynth);
 
     {
         GtkWidget *mdct_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-        d->plot_mdct[0] = mp3x_plot_mdct_new(0);
-        d->plot_mdct[1] = mp3x_plot_mdct_new(1);
+        d->plot_mdct[0] = mp3x_plot_new(MP3X_GRAPH_MDCT0);
+        d->plot_mdct[1] = mp3x_plot_new(MP3X_GRAPH_MDCT1);
         gtk_widget_set_hexpand(d->plot_mdct[0], TRUE);
         gtk_widget_set_vexpand(d->plot_mdct[0], TRUE);
         gtk_widget_set_hexpand(d->plot_mdct[1], TRUE);
@@ -2499,8 +2501,8 @@ on_activate(GtkApplication *app, gpointer user_data)
     }
     {
         GtkWidget *psy_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-        d->plot_psy[0] = mp3x_plot_psy_new(0);
-        d->plot_psy[1] = mp3x_plot_psy_new(1);
+        d->plot_psy[0] = mp3x_plot_new(MP3X_GRAPH_PSY0);
+        d->plot_psy[1] = mp3x_plot_new(MP3X_GRAPH_PSY1);
         gtk_widget_set_hexpand(d->plot_psy[0], TRUE);
         gtk_widget_set_vexpand(d->plot_psy[0], TRUE);
         gtk_widget_set_hexpand(d->plot_psy[1], TRUE);
@@ -2511,8 +2513,8 @@ on_activate(GtkApplication *app, gpointer user_data)
     }
     {
         GtkWidget *sfb_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-        d->plot_sfb[0] = mp3x_plot_sfb_new(0);
-        d->plot_sfb[1] = mp3x_plot_sfb_new(1);
+        d->plot_sfb[0] = mp3x_plot_new(MP3X_GRAPH_SFB0);
+        d->plot_sfb[1] = mp3x_plot_new(MP3X_GRAPH_SFB1);
         gtk_widget_set_hexpand(d->plot_sfb[0], TRUE);
         gtk_widget_set_vexpand(d->plot_sfb[0], TRUE);
         gtk_widget_set_hexpand(d->plot_sfb[1], TRUE);
