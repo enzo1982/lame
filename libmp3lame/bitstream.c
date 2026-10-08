@@ -147,9 +147,18 @@ putheader_bits(lame_internal_flags * gfc)
 
 
 
-/*write j bits into the bit stream */
+/**
+ * \internal
+ * \brief Writes the low \a j bits of \a val into the bit stream.
+ * \param gfc           the encoder.
+ * \param val           the bits, in its lowest \a j bits.
+ * \param j             the number of bits.
+ * \param check_header  non-zero to put the next frame header and side
+ *                      information into the stream when the stream reaches
+ *                      the position that is due for them.
+ */
 inline static void
-putbits2(lame_internal_flags * gfc, int val, int j)
+putbits_check(lame_internal_flags * gfc, int val, int j, int check_header)
 {
     EncStateVar_t const *const esv = &gfc->sv_enc;
     Bit_stream_struc *bs;
@@ -163,9 +172,11 @@ putbits2(lame_internal_flags * gfc, int val, int j)
             bs->buf_bit_idx = 8;
             bs->buf_byte_idx++;
             assert(bs->buf_byte_idx < BUFFER_SIZE);
-            assert(esv->header[esv->w_ptr].write_timing >= bs->totbit);
-            if (esv->header[esv->w_ptr].write_timing == bs->totbit) {
-                putheader_bits(gfc);
+            if (check_header) {
+                assert(esv->header[esv->w_ptr].write_timing >= bs->totbit);
+                if (esv->header[esv->w_ptr].write_timing == bs->totbit) {
+                    putheader_bits(gfc);
+                }
             }
             bs->buf[bs->buf_byte_idx] = 0;
         }
@@ -185,39 +196,19 @@ putbits2(lame_internal_flags * gfc, int val, int j)
     }
 }
 
+/*write j bits into the bit stream */
+inline static void
+putbits2(lame_internal_flags * gfc, int val, int j)
+{
+    putbits_check(gfc, val, j, 1);
+}
+
 /*write j bits into the bit stream, ignoring frame headers */
 inline static void
 putbits_noheaders(lame_internal_flags * gfc, int val, int j)
 {
-    Bit_stream_struc *bs;
-    bs = &gfc->bs;
-
-    assert(j < MAX_LENGTH - 2);
-
-    while (j > 0) {
-        int     k;
-        if (bs->buf_bit_idx == 0) {
-            bs->buf_bit_idx = 8;
-            bs->buf_byte_idx++;
-            assert(bs->buf_byte_idx < BUFFER_SIZE);
-            bs->buf[bs->buf_byte_idx] = 0;
-        }
-
-        k = Min(j, bs->buf_bit_idx);
-        j -= k;
-
-        bs->buf_bit_idx -= k;
-
-        assert(j < MAX_LENGTH); /* 32 too large on 32 bit machines */
-        assert(bs->buf_bit_idx < MAX_LENGTH);
-
-        /* (val >> j) can carry the sign bit; shift it as unsigned so positioning
-           it into the byte is defined. Only the low 8 bits are kept. */
-        bs->buf[bs->buf_byte_idx] |= (unsigned int) (val >> j) << bs->buf_bit_idx;
-        bs->totbit += k;
-    }
+    putbits_check(gfc, val, j, 0);
 }
-
 
 /*
   Some combinations of bitrate, Fs, and stereo make it impossible to stuff
@@ -325,6 +316,86 @@ CRC_writeheader(lame_internal_flags const *gfc, char *header)
     header[5] = crc & 255;
 }
 
+/**
+ * \internal
+ * \brief Returns the 32 bits of an MP3 frame header, from the frame sync to
+ *        the emphasis.
+ * \param cfg            the encoder configuration.
+ * \param bitrate_index  the bitrate index of the frame.
+ * \param padding        1 for a frame with a padding byte, else 0.
+ * \param mode_ext       the mode extension of the frame.
+ * \return the header. Its first byte is in the highest 8 bits.
+ */
+uint32_t
+mpeg_header_word(SessionConfig_t const *cfg, int bitrate_index, int padding, int mode_ext)
+{
+    uint32_t w = 0x7ff;      /* the 11 bits of the frame sync */
+
+#define HEADER_FIELD(n, v) (w = (w << (n)) | ((uint32_t) (v) & ~(~0u << (n))))
+    HEADER_FIELD(1, (cfg->samplerate_out < 16000) ? 0 : 1); /* 0 for MPEG-2.5 */
+    HEADER_FIELD(1, cfg->version);
+    HEADER_FIELD(2, 4 - 3);  /* layer III */
+    HEADER_FIELD(1, !cfg->error_protection);
+    HEADER_FIELD(4, bitrate_index);
+    HEADER_FIELD(2, cfg->samplerate_index);
+    HEADER_FIELD(1, padding);
+    HEADER_FIELD(1, cfg->extension);
+    HEADER_FIELD(2, cfg->mode);
+    HEADER_FIELD(2, mode_ext);
+    HEADER_FIELD(1, cfg->copyright);
+    HEADER_FIELD(1, cfg->original);
+    HEADER_FIELD(2, cfg->emphasis);
+#undef HEADER_FIELD
+    return w;
+}
+
+/**
+ * \internal
+ * \brief Writes the side information of one granule of one channel.
+ * \param gfc          the encoder.
+ * \param gi           the granule of the channel.
+ * \param sfc_bits     the width of scalefac_compress: 4 in MPEG-1, 9 in
+ *                     MPEG-2 and MPEG-2.5.
+ * \param has_preflag  non-zero for MPEG-1, the only version that has the
+ *                     preflag field.
+ */
+static void
+write_granule_side_info(lame_internal_flags * gfc, gr_info const *gi, int sfc_bits, int has_preflag)
+{
+    writeheader(gfc, gi->part2_3_length + gi->part2_length, 12);
+    writeheader(gfc, gi->big_values / 2, 9);
+    writeheader(gfc, gi->global_gain, 8);
+    writeheader(gfc, gi->scalefac_compress, sfc_bits);
+
+    if (gi->block_type != NORM_TYPE) {
+        writeheader(gfc, 1, 1); /* window_switching_flag */
+        writeheader(gfc, gi->block_type, 2);
+        writeheader(gfc, gi->mixed_block_flag, 1);
+
+        writeheader(gfc, resolve_huffman_table(gi->table_select[0]), 5);
+        writeheader(gfc, resolve_huffman_table(gi->table_select[1]), 5);
+
+        writeheader(gfc, gi->subblock_gain[0], 3);
+        writeheader(gfc, gi->subblock_gain[1], 3);
+        writeheader(gfc, gi->subblock_gain[2], 3);
+    }
+    else {
+        writeheader(gfc, 0, 1); /* window_switching_flag */
+        writeheader(gfc, resolve_huffman_table(gi->table_select[0]), 5);
+        writeheader(gfc, resolve_huffman_table(gi->table_select[1]), 5);
+        writeheader(gfc, resolve_huffman_table(gi->table_select[2]), 5);
+
+        assert(0 <= gi->region0_count && gi->region0_count < 16);
+        assert(0 <= gi->region1_count && gi->region1_count < 8);
+        writeheader(gfc, gi->region0_count, 4);
+        writeheader(gfc, gi->region1_count, 3);
+    }
+    if (has_preflag)
+        writeheader(gfc, gi->preflag, 1);
+    writeheader(gfc, gi->scalefac_scale, 1);
+    writeheader(gfc, gi->count1table_select, 1);
+}
+
 inline static void
 encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
 {
@@ -337,22 +408,11 @@ encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
     l3_side = &gfc->l3_side;
     esv->header[esv->h_ptr].ptr = 0;
     memset(esv->header[esv->h_ptr].buf, 0, cfg->sideinfo_len);
-    if (cfg->samplerate_out < 16000)
-        writeheader(gfc, 0xffe, 12);
-    else
-        writeheader(gfc, 0xfff, 12);
-    writeheader(gfc, (cfg->version), 1);
-    writeheader(gfc, 4 - 3, 2);
-    writeheader(gfc, (!cfg->error_protection), 1);
-    writeheader(gfc, (eov->bitrate_index), 4);
-    writeheader(gfc, (cfg->samplerate_index), 2);
-    writeheader(gfc, (eov->padding), 1);
-    writeheader(gfc, (cfg->extension), 1);
-    writeheader(gfc, (cfg->mode), 2);
-    writeheader(gfc, (eov->mode_ext), 2);
-    writeheader(gfc, (cfg->copyright), 1);
-    writeheader(gfc, (cfg->original), 1);
-    writeheader(gfc, (cfg->emphasis), 2);
+    {
+        uint32_t const h = mpeg_header_word(cfg, eov->bitrate_index, eov->padding, eov->mode_ext);
+        writeheader(gfc, (int) (h >> 16), 16);
+        writeheader(gfc, (int) (h & 0xffff), 16);
+    }
     if (cfg->error_protection) {
         writeheader(gfc, 0, 16); /* dummy */
     }
@@ -376,38 +436,7 @@ encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
 
         for (gr = 0; gr < 2; gr++) {
             for (ch = 0; ch < cfg->channels_out; ch++) {
-                gr_info const *const gi = &l3_side->tt[gr][ch];
-                writeheader(gfc, gi->part2_3_length + gi->part2_length, 12);
-                writeheader(gfc, gi->big_values / 2, 9);
-                writeheader(gfc, gi->global_gain, 8);
-                writeheader(gfc, gi->scalefac_compress, 4);
-
-                if (gi->block_type != NORM_TYPE) {
-                    writeheader(gfc, 1, 1); /* window_switching_flag */
-                    writeheader(gfc, gi->block_type, 2);
-                    writeheader(gfc, gi->mixed_block_flag, 1);
-
-                    writeheader(gfc, resolve_huffman_table(gi->table_select[0]), 5);
-                    writeheader(gfc, resolve_huffman_table(gi->table_select[1]), 5);
-
-                    writeheader(gfc, gi->subblock_gain[0], 3);
-                    writeheader(gfc, gi->subblock_gain[1], 3);
-                    writeheader(gfc, gi->subblock_gain[2], 3);
-                }
-                else {
-                    writeheader(gfc, 0, 1); /* window_switching_flag */
-                    writeheader(gfc, resolve_huffman_table(gi->table_select[0]), 5);
-                    writeheader(gfc, resolve_huffman_table(gi->table_select[1]), 5);
-                    writeheader(gfc, resolve_huffman_table(gi->table_select[2]), 5);
-
-                    assert(0 <= gi->region0_count && gi->region0_count < 16);
-                    assert(0 <= gi->region1_count && gi->region1_count < 8);
-                    writeheader(gfc, gi->region0_count, 4);
-                    writeheader(gfc, gi->region1_count, 3);
-                }
-                writeheader(gfc, gi->preflag, 1);
-                writeheader(gfc, gi->scalefac_scale, 1);
-                writeheader(gfc, gi->count1table_select, 1);
+                write_granule_side_info(gfc, &l3_side->tt[gr][ch], 4, 1);
             }
         }
     }
@@ -419,38 +448,7 @@ encodeSideInfo2(lame_internal_flags * gfc, int bitsPerFrame)
 
         gr = 0;
         for (ch = 0; ch < cfg->channels_out; ch++) {
-            gr_info const *const gi = &l3_side->tt[gr][ch];
-            writeheader(gfc, gi->part2_3_length + gi->part2_length, 12);
-            writeheader(gfc, gi->big_values / 2, 9);
-            writeheader(gfc, gi->global_gain, 8);
-            writeheader(gfc, gi->scalefac_compress, 9);
-
-            if (gi->block_type != NORM_TYPE) {
-                writeheader(gfc, 1, 1); /* window_switching_flag */
-                writeheader(gfc, gi->block_type, 2);
-                writeheader(gfc, gi->mixed_block_flag, 1);
-
-                writeheader(gfc, resolve_huffman_table(gi->table_select[0]), 5);
-                writeheader(gfc, resolve_huffman_table(gi->table_select[1]), 5);
-
-                writeheader(gfc, gi->subblock_gain[0], 3);
-                writeheader(gfc, gi->subblock_gain[1], 3);
-                writeheader(gfc, gi->subblock_gain[2], 3);
-            }
-            else {
-                writeheader(gfc, 0, 1); /* window_switching_flag */
-                writeheader(gfc, resolve_huffman_table(gi->table_select[0]), 5);
-                writeheader(gfc, resolve_huffman_table(gi->table_select[1]), 5);
-                writeheader(gfc, resolve_huffman_table(gi->table_select[2]), 5);
-
-                assert(0 <= gi->region0_count && gi->region0_count < 16);
-                assert(0 <= gi->region1_count && gi->region1_count < 8);
-                writeheader(gfc, gi->region0_count, 4);
-                writeheader(gfc, gi->region1_count, 3);
-            }
-
-            writeheader(gfc, gi->scalefac_scale, 1);
-            writeheader(gfc, gi->count1table_select, 1);
+            write_granule_side_info(gfc, &l3_side->tt[gr][ch], 9, 0);
         }
     }
 

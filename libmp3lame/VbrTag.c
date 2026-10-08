@@ -222,33 +222,18 @@ IsVbrTag(const unsigned char *buf)
     return (isTag0 || isTag1);
 }
 
-#define SHIFT_IN_BITS_VALUE(x,n,v) ( x = (x << (n)) | ( (v) & ~(~0u << (n)) ) )
-
 static void
 setLameTagFrameHeader(lame_internal_flags const *gfc, unsigned char *buffer)
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     EncResult_t const *const eov = &gfc->ov_enc;
+    uint32_t const header = mpeg_header_word(cfg, eov->bitrate_index, 0, eov->mode_ext);
     char    abyte, bbyte;
 
-    SHIFT_IN_BITS_VALUE(buffer[0], 8u, 0xffu);
-
-    SHIFT_IN_BITS_VALUE(buffer[1], 3u, 7);
-    SHIFT_IN_BITS_VALUE(buffer[1], 1u, (cfg->samplerate_out < 16000) ? 0 : 1);
-    SHIFT_IN_BITS_VALUE(buffer[1], 1u, cfg->version);
-    SHIFT_IN_BITS_VALUE(buffer[1], 2u, 4 - 3);
-    SHIFT_IN_BITS_VALUE(buffer[1], 1u, (!cfg->error_protection) ? 1 : 0);
-
-    SHIFT_IN_BITS_VALUE(buffer[2], 4u, eov->bitrate_index);
-    SHIFT_IN_BITS_VALUE(buffer[2], 2u, cfg->samplerate_index);
-    SHIFT_IN_BITS_VALUE(buffer[2], 1u, 0);
-    SHIFT_IN_BITS_VALUE(buffer[2], 1u, cfg->extension);
-
-    SHIFT_IN_BITS_VALUE(buffer[3], 2u, cfg->mode);
-    SHIFT_IN_BITS_VALUE(buffer[3], 2u, eov->mode_ext);
-    SHIFT_IN_BITS_VALUE(buffer[3], 1u, cfg->copyright);
-    SHIFT_IN_BITS_VALUE(buffer[3], 1u, cfg->original);
-    SHIFT_IN_BITS_VALUE(buffer[3], 2u, cfg->emphasis);
+    buffer[0] = (unsigned char) (header >> 24);
+    buffer[1] = (unsigned char) (header >> 16);
+    buffer[2] = (unsigned char) (header >> 8);
+    buffer[3] = (unsigned char) header;
 
     /* the default VBR header. 48 kbps layer III, no padding, no crc */
     /* but sampling freq, mode andy copyright/copy protection taken */
