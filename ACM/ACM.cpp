@@ -690,10 +690,119 @@ inline DWORD ACM::OnDriverDetails(const HDRVR hdrvr, LPACMDRIVERDETAILS a_Driver
 }
 
 /*!
-	Suggests an output format for the given input format.
+	Writes one format into the debug log.
+
+	\param a_What what the format is, the start of the log line
+	\param a_Format the format
+*/
+void ACM::LogFormat(const char * a_What, const WAVEFORMATEX * a_Format) const
+{
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "%s = 0x%04X, channels = %d, Samples/s = %d, AvgB/s = %d, BlockAlign = %d, b/sample = %d",
+				 a_What,
+				 a_Format->wFormatTag,
+				 a_Format->nChannels,
+				 a_Format->nSamplesPerSec,
+				 a_Format->nAvgBytesPerSec,
+				 a_Format->nBlockAlign,
+				 a_Format->wBitsPerSample);
+}
+
+/*!
+	Suggests an MP3 format to encode a PCM source to.
+
+	A field of the destination that the caller fixed is checked against what
+	the codec can produce; a field it left open is filled in.
+
+	\param a_FormatSuggest the PCM source format and the suggestion flags.
+	       The function fills in the suggested MP3 format.
+	\param fdwSuggest the fields of the destination format that the caller
+	       fixed, ACM_FORMATSUGGESTF_TYPEMASK of the suggestion flags
+	\return MMSYSERR_NOERROR, ACMERR_NOTPOSSIBLE if no MP3 format fits the
+	        fixed fields, or MMSYSERR_INVALPARAM for a source that is neither
+	        mono nor stereo.
+*/
+DWORD ACM::SuggestEncode(LPACMDRVFORMATSUGGEST a_FormatSuggest, const DWORD fdwSuggest) const
+{
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest for PCM source");
+	// the destination format can only be MP3
+	if (ACM_FORMATSUGGESTF_WFORMATTAG & fdwSuggest)
+    {
+        if (PERSONAL_FORMAT != a_FormatSuggest->pwfxDst->wFormatTag)
+            return (ACMERR_NOTPOSSIBLE);
+    }
+    else
+	{
+        a_FormatSuggest->pwfxDst->wFormatTag = PERSONAL_FORMAT;
+    }
+
+
+my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed A");
+	// the codec does not change the number of channels
+	if (ACM_FORMATSUGGESTF_NCHANNELS & fdwSuggest)
+    {
+        if (a_FormatSuggest->pwfxDst->nChannels != my_EncodingProperties.OutputChannels(a_FormatSuggest->pwfxSrc->nChannels))
+            return (ACMERR_NOTPOSSIBLE);
+    }
+    else
+	{
+        a_FormatSuggest->pwfxDst->nChannels = (WORD) my_EncodingProperties.OutputChannels(a_FormatSuggest->pwfxSrc->nChannels);
+    }
+
+	if (a_FormatSuggest->pwfxSrc->nChannels != 1 && a_FormatSuggest->pwfxSrc->nChannels != 2)
+		return MMSYSERR_INVALPARAM;
+
+
+my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed B");
+	// the codec does not change the sample rate
+	if (ACM_FORMATSUGGESTF_NSAMPLESPERSEC & fdwSuggest)
+    {
+        if (a_FormatSuggest->pwfxSrc->nSamplesPerSec != a_FormatSuggest->pwfxDst->nSamplesPerSec)
+            return (ACMERR_NOTPOSSIBLE);
+    }
+    else
+	{
+        a_FormatSuggest->pwfxDst->nSamplesPerSec = a_FormatSuggest->pwfxSrc->nSamplesPerSec;
+    }
+
+	if (!IsMP3Frequency(a_FormatSuggest->pwfxDst->nSamplesPerSec))
+		return (ACMERR_NOTPOSSIBLE);
+
+
+my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed C");
+	// a compressed format has no bits per sample, so a restriction
+	// to any other value asks for a format that does not exist
+	if (ACM_FORMATSUGGESTF_WBITSPERSAMPLE & fdwSuggest)
+    {
+        if (0 != a_FormatSuggest->pwfxDst->wBitsPerSample)
+            return (ACMERR_NOTPOSSIBLE);
+    }
+
+	//
+	//  the result is a whole MPEGLAYER3WAVEFORMAT, so the caller's
+	//  buffer has to hold one
+	//
+	if (a_FormatSuggest->cbwfxDst < sizeof(MPEGLAYER3WAVEFORMAT))
+		return (ACMERR_NOTPOSSIBLE);
+
+	FillMP3Format(*a_FormatSuggest->pwfxDst,
+	              a_FormatSuggest->pwfxDst->nSamplesPerSec,
+	              a_FormatSuggest->pwfxDst->nChannels * SUGGESTED_BITRATE_PER_CHANNEL,
+	              a_FormatSuggest->pwfxDst->nChannels,
+	              vbr_off);
+
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed");
+	return MMSYSERR_NOERROR;
+}
+
+/*!
+	Suggests an output format for the given input format. The codec only
+	encodes, so it suggests nothing for an MP3 source.
 
 	\param a_FormatSuggest the input format and the suggestion flags. The
 	       function fills in the suggested output format.
+	\return MMSYSERR_NOERROR, ACMERR_NOTPOSSIBLE if the codec cannot convert
+	        the source, or MMSYSERR_NOTSUPPORTED for a source format it
+	        does not know.
 */
 inline DWORD ACM::OnFormatSuggest(LPACMDRVFORMATSUGGEST a_FormatSuggest)
 {
@@ -707,207 +816,21 @@ my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest %s%s%s%s (0x%08X)",
 				 (fdwSuggest & ACM_FORMATSUGGESTF_WFORMATTAG) ? "format, ":"",
 				 fdwSuggest);
 
-my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest for source format = 0x%04X, channels = %d, Samples/s = %d, AvgB/s = %d, BlockAlign = %d, b/sample = %d",
-				 a_FormatSuggest->pwfxSrc->wFormatTag,
-				 a_FormatSuggest->pwfxSrc->nChannels,
-				 a_FormatSuggest->pwfxSrc->nSamplesPerSec,
-				 a_FormatSuggest->pwfxSrc->nAvgBytesPerSec,
-				 a_FormatSuggest->pwfxSrc->nBlockAlign,
-				 a_FormatSuggest->pwfxSrc->wBitsPerSample);
-
-my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggested destination format = 0x%04X, channels = %d, Samples/s = %d, AvgB/s = %d, BlockAlign = %d, b/sample = %d",
-			 a_FormatSuggest->pwfxDst->wFormatTag,
-			 a_FormatSuggest->pwfxDst->nChannels,
-			 a_FormatSuggest->pwfxDst->nSamplesPerSec,
-			 a_FormatSuggest->pwfxDst->nAvgBytesPerSec,
-			 a_FormatSuggest->pwfxDst->nBlockAlign,
-			 a_FormatSuggest->pwfxDst->wBitsPerSample);
+	LogFormat("Suggest for source format", a_FormatSuggest->pwfxSrc);
+	LogFormat("Suggested destination format", a_FormatSuggest->pwfxDst);
 
 	switch (a_FormatSuggest->pwfxSrc->wFormatTag)
 	{
         case WAVE_FORMAT_PCM:
-			/// \todo handle here the decoding ?
-			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest for PCM source");
-            //
-			//  if the destination format tag is restricted, verify that
-			//  it is within our capabilities...
-			//
-			//  this driver is able to decode to PCM
-			//
-			if (ACM_FORMATSUGGESTF_WFORMATTAG & fdwSuggest)
-            {
-                if (PERSONAL_FORMAT != a_FormatSuggest->pwfxDst->wFormatTag)
-                    return (ACMERR_NOTPOSSIBLE);
-            }
-            else
-			{
-                a_FormatSuggest->pwfxDst->wFormatTag = PERSONAL_FORMAT;
-            }
-
-
-my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed A");
-            //
-			//  if the destination channel count is restricted, verify that
-			//  it is within our capabilities...
-			//
-			//  this driver is not able to change the number of channels
-			//
-			if (ACM_FORMATSUGGESTF_NCHANNELS & fdwSuggest)
-            {
-                if (a_FormatSuggest->pwfxDst->nChannels != my_EncodingProperties.OutputChannels(a_FormatSuggest->pwfxSrc->nChannels))
-                    return (ACMERR_NOTPOSSIBLE);
-            }
-            else
-			{
-                a_FormatSuggest->pwfxDst->nChannels = (WORD) my_EncodingProperties.OutputChannels(a_FormatSuggest->pwfxSrc->nChannels);
-            }
-
-			if (a_FormatSuggest->pwfxSrc->nChannels != 1 && a_FormatSuggest->pwfxSrc->nChannels != 2)
-				return MMSYSERR_INVALPARAM;
-
-
-my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed B");
-            //
-			//  if the destination samples per second is restricted, verify
-			//  that it is within our capabilities...
-			//
-			//  this driver is not able to change the sample rate
-			//
-			if (ACM_FORMATSUGGESTF_NSAMPLESPERSEC & fdwSuggest)
-            {
-                if (a_FormatSuggest->pwfxSrc->nSamplesPerSec != a_FormatSuggest->pwfxDst->nSamplesPerSec)
-                    return (ACMERR_NOTPOSSIBLE);
-            }
-            else
-			{
-                a_FormatSuggest->pwfxDst->nSamplesPerSec = a_FormatSuggest->pwfxSrc->nSamplesPerSec;
-            }
-
-			if (!IsMP3Frequency(a_FormatSuggest->pwfxDst->nSamplesPerSec))
-				return (ACMERR_NOTPOSSIBLE);
-
-
-my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed C");
-            //
-			//  if the destination bits per sample is restricted, verify
-			//  that it is within our capabilities...
-			//
-			//  a compressed format has no bits per sample, so a restriction
-			//  to any other value asks for a format that does not exist
-			//
-			if (ACM_FORMATSUGGESTF_WBITSPERSAMPLE & fdwSuggest)
-            {
-                if (0 != a_FormatSuggest->pwfxDst->wBitsPerSample)
-                    return (ACMERR_NOTPOSSIBLE);
-            }
-
-			//
-			//  the answer is a whole MPEGLAYER3WAVEFORMAT, so the caller's
-			//  buffer has to hold one
-			//
-			if (a_FormatSuggest->cbwfxDst < sizeof(MPEGLAYER3WAVEFORMAT))
-				return (ACMERR_NOTPOSSIBLE);
-
-			FillMP3Format(*a_FormatSuggest->pwfxDst,
-			              a_FormatSuggest->pwfxDst->nSamplesPerSec,
-			              a_FormatSuggest->pwfxDst->nChannels * SUGGESTED_BITRATE_PER_CHANNEL,
-			              a_FormatSuggest->pwfxDst->nChannels,
-			              vbr_off);
-
-			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed");
-			Result = MMSYSERR_NOERROR;
-
-
+			Result = SuggestEncode(a_FormatSuggest, fdwSuggest);
 			break;
 		case PERSONAL_FORMAT:
-			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest for PERSONAL source");
-            //
-			//  if the destination format tag is restricted, verify that
-			//  it is within our capabilities...
-			//
-			//  this driver is able to decode to PCM
-			//
-			if (ACM_FORMATSUGGESTF_WFORMATTAG & fdwSuggest)
-            {
-                if (WAVE_FORMAT_PCM != a_FormatSuggest->pwfxDst->wFormatTag)
-                    return (ACMERR_NOTPOSSIBLE);
-            }
-            else
-			{
-                a_FormatSuggest->pwfxDst->wFormatTag = WAVE_FORMAT_PCM;
-            }
-
-
-            //
-			//  if the destination channel count is restricted, verify that
-			//  it is within our capabilities...
-			//
-			//  this driver is not able to change the number of channels
-			//
-			if (ACM_FORMATSUGGESTF_NCHANNELS & fdwSuggest)
-            {
-                if (a_FormatSuggest->pwfxSrc->nChannels != a_FormatSuggest->pwfxDst->nChannels)
-                    return (ACMERR_NOTPOSSIBLE);
-            }
-            else
-			{
-                a_FormatSuggest->pwfxDst->nChannels = a_FormatSuggest->pwfxSrc->nChannels;
-            }
-
-
-            //
-			//  if the destination samples per second is restricted, verify
-			//  that it is within our capabilities...
-			//
-			//  this driver is not able to change the sample rate
-			//
-			if (ACM_FORMATSUGGESTF_NSAMPLESPERSEC & fdwSuggest)
-            {
-                if (a_FormatSuggest->pwfxSrc->nSamplesPerSec != a_FormatSuggest->pwfxDst->nSamplesPerSec)
-                    return (ACMERR_NOTPOSSIBLE);
-            }
-            else
-			{
-                a_FormatSuggest->pwfxDst->nSamplesPerSec = a_FormatSuggest->pwfxSrc->nSamplesPerSec;
-            }
-
-
-            //
-			//  if the destination bits per sample is restricted, verify
-			//  that it is within our capabilities...
-			//
-			//  We prefer decoding to 16-bit PCM.
-			//
-			if (ACM_FORMATSUGGESTF_WBITSPERSAMPLE & fdwSuggest)
-            {
-                if ( (16 != a_FormatSuggest->pwfxDst->wBitsPerSample) && (8 != a_FormatSuggest->pwfxDst->wBitsPerSample) )
-                    return (ACMERR_NOTPOSSIBLE);
-            }
-            else
-			{
-                a_FormatSuggest->pwfxDst->wBitsPerSample = 16;
-            }
-
-			//			a_FormatSuggest->pwfxDst->nBlockAlign = FORMAT_BLOCK_ALIGN;
-			a_FormatSuggest->pwfxDst->nBlockAlign = a_FormatSuggest->pwfxDst->nChannels * a_FormatSuggest->pwfxDst->wBitsPerSample / 8;
-			
-			/// \todo this value must be a correct one !
-			a_FormatSuggest->pwfxDst->nAvgBytesPerSec = a_FormatSuggest->pwfxDst->nSamplesPerSec * a_FormatSuggest->pwfxDst->nChannels * a_FormatSuggest->pwfxDst->wBitsPerSample / 8;
-
-			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest succeed");
-			Result = MMSYSERR_NOERROR;
-
-
+			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggest for PERSONAL source: the codec does not decode");
+			Result = ACMERR_NOTPOSSIBLE;
 			break;
 	}
 
-	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Suggested destination format = 0x%04X, channels = %d, Samples/s = %d, AvgB/s = %d, BlockAlign = %d, b/sample = %d",
-				 a_FormatSuggest->pwfxDst->wFormatTag,
-				 a_FormatSuggest->pwfxDst->nChannels,
-				 a_FormatSuggest->pwfxDst->nSamplesPerSec,
-				 a_FormatSuggest->pwfxDst->nAvgBytesPerSec,
-				 a_FormatSuggest->pwfxDst->nBlockAlign,
-				 a_FormatSuggest->pwfxDst->wBitsPerSample);
+	LogFormat("Suggested destination format", a_FormatSuggest->pwfxDst);
 
 	return Result;
 }

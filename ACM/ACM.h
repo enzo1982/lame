@@ -76,6 +76,8 @@ protected:
 	inline DWORD OnFormatTagDetails(LPACMFORMATTAGDETAILS a_FormatTagDetails, const LPARAM a_Query);
 	inline DWORD OnFormatDetails(LPACMFORMATDETAILS a_FormatDetails, const LPARAM a_Query);
 	inline DWORD OnFormatSuggest(LPACMDRVFORMATSUGGEST a_FormatSuggest);
+	DWORD SuggestEncode(LPACMDRVFORMATSUGGEST a_FormatSuggest, const DWORD fdwSuggest) const;
+	void LogFormat(const char * a_What, const WAVEFORMATEX * a_Format) const;
 	inline DWORD OnStreamOpen(LPACMDRVSTREAMINSTANCE a_StreamInstance);
 	inline DWORD OnStreamClose(LPACMDRVSTREAMINSTANCE a_StreamInstance);
 	inline DWORD OnStreamSize(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACMDRVSTREAMSIZE the_StreamSize);

@@ -1210,6 +1210,51 @@ test_suggest_unencodable_rate(HACMDRIVER had)
 }
 
 /**
+ * @brief Checks that the codec suggests no format for an MP3 source.
+ *
+ * The codec only encodes. An application that asks it what to convert MP3
+ * to gets ACMERR_NOTPOSSIBLE, and can ask another codec. The stream that the
+ * suggestion would lead to does not open either. A PCM source is the
+ * control: the same call returns a suggestion.
+ *
+ * @param had the opened driver
+ */
+static void
+test_suggest_for_mp3_source(HACMDRIVER had)
+{
+    MPEGLAYER3WAVEFORMAT mp3;
+    MPEGLAYER3WAVEFORMAT any;
+    WAVEFORMATEX pcm;
+    HACMSTREAM has = NULL;
+    MMRESULT mr;
+
+    printf("a suggestion for an MP3 source\n");
+    fill_mp3_format(&mp3, 44100, 2, 128000);
+    /* With no field fixed, the destination buffer has to hold the largest
+       format of the driver. */
+    memset(&any, 0, sizeof(any));
+    CHECK_EQ_U(suggest_catching_faults(had, (WAVEFORMATEX *) &mp3, (WAVEFORMATEX *) &any,
+                                       sizeof(any), 0),
+               ACMERR_NOTPOSSIBLE, "the codec suggests nothing for an MP3 source");
+    memset(&pcm, 0, sizeof(pcm));
+    pcm.wFormatTag = WAVE_FORMAT_PCM;
+    CHECK_EQ_U(suggest_catching_faults(had, (WAVEFORMATEX *) &mp3, &pcm, sizeof(pcm),
+                                       ACM_FORMATSUGGESTF_WFORMATTAG),
+               ACMERR_NOTPOSSIBLE, "the codec suggests no PCM format for an MP3 source");
+    fill_pcm_format(&pcm, 44100, 2);
+    mr = acmStreamOpen(&has, had, (WAVEFORMATEX *) &mp3, &pcm, NULL, 0, 0, 0);
+    CHECK(mr != MMSYSERR_NOERROR, "an MP3 to PCM stream does not open");
+    if (mr == MMSYSERR_NOERROR) {
+        acmStreamClose(has, 0);
+    }
+
+    fill_pcm_format(&pcm, 44100, 2);
+    memset(&mp3, 0, sizeof(mp3));
+    CHECK_MM(suggest_catching_faults(had, &pcm, (WAVEFORMATEX *) &mp3, sizeof(mp3), 0),
+             "the codec suggests a format for a PCM source");
+}
+
+/**
  * @brief Checks that the codec returns an error for a destination buffer that
  *        is too small for its output, and never writes past the buffer.
  *
@@ -1959,6 +2004,7 @@ test_under_the_acm(const char *driver)
     test_format_negotiation(had);
     test_format_tags(had);
     test_suggest_unencodable_rate(had);
+    test_suggest_for_mp3_source(had);
 
     fill_pcm_format(&pcm, rate, channels);
     fill_mp3_format(&mp3, rate, channels, 128000);

@@ -634,6 +634,9 @@
 			    <li>Programs that list the ACM codec's format tags get the
 			        right index for each tag, and asking for the tag with
 			        the largest format no longer fails.</li>
+			    <li>The ACM codec no longer offers to decode MP3, which it
+			        cannot do, so Windows can pick another codec for MP3
+			        input.</li>
 			    <li><i>lame_enc.dll</i> rejects a stream that asks for a
 			        VBR method it does not support.</li>
 			    <li><i>lame_enc.dll</i> no longer leaks an encoder when
