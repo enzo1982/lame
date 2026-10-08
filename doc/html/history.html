@@ -705,6 +705,10 @@
 			        DirectShow filter no longer delivers MP3 data from
 			        before the flush. It begins a new MP3 stream with the
 			        data after it, also after the end of the stream.</li>
+			    <li>MP3 frames that the DirectShow filter gives a muxer or a
+			        player no longer start with a broken frame or lose the
+			        last samples. The filter delivers the first frame as
+			        preroll and the last frame too.</li>
 			    <li>The DirectShow filter no longer leaks a registry handle
 			        each time it saves its settings.</li>
 			    <li>The Visual Studio build has been brought up to

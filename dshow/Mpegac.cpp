@@ -457,8 +457,11 @@ HRESULT CMpegAudEnc::FlushStream()
 /**
  * Sends each MP3 frame that is ready downstream in a media sample of its
  * own, stamped with its time. A resync point that the output has reached
- * moves the time first. The first frame that gets no output buffer, or that
- * the downstream filter does not take, ends the delivery.
+ * moves the time first. The first frame of the encoder goes as a preroll
+ * sample, one frame duration before the stream time: a decoder needs it for
+ * the frames after it, and its audio is the encoder delay. The first frame
+ * that gets no output buffer, or that the downstream filter does not take,
+ * ends the delivery.
  *
  * \return S_OK, the failure of getting an output buffer, or what Deliver()
  *         returned for the frame that the downstream filter did not take.
@@ -475,12 +478,13 @@ HRESULT CMpegAudEnc::FlushFrames()
     while (delivered == S_OK)
     {
         const unsigned char *   pframe      = NULL;
-        int                     frame_size  = m_Encoder.GetFrame(&pframe);
+        bool                    preroll     = false;
+        int                     frame_size  = m_Encoder.GetFrame(&pframe, &preroll);
 
         if (frame_size <= 0 || !pframe)
             break;
 
-        if (!m_sync[m_sync_out_idx].applied && m_sync[m_sync_out_idx].sample <= m_samplesOut)
+        if (!preroll && !m_sync[m_sync_out_idx].applied && m_sync[m_sync_out_idx].sample <= m_samplesOut)
         {
             m_rtStreamTime += m_sync[m_sync_out_idx].delta;
             m_sync[m_sync_out_idx].applied = TRUE;
@@ -488,7 +492,8 @@ HRESULT CMpegAudEnc::FlushFrames()
             m_sync_out_idx = ring_next(m_sync_out_idx);
         }
 
-        REFERENCE_TIME rtStart = m_rtStreamTime;
+        // The preroll frame ends where the first frame of the stream starts
+        REFERENCE_TIME rtStart = preroll ? m_rtStreamTime - m_rtFrameTime : m_rtStreamTime;
         REFERENCE_TIME rtStop = rtStart + m_rtFrameTime;
 
         HRESULT hr = m_pOutput->GetDeliveryBuffer(&pOutSample, NULL, NULL, 0);
@@ -500,6 +505,7 @@ HRESULT CMpegAudEnc::FlushFrames()
                 CopyMemory(pDst, pframe, frame_size);
                 pOutSample->SetActualDataLength(frame_size);
                 pOutSample->SetSyncPoint(TRUE);
+                pOutSample->SetPreroll(preroll ? TRUE : FALSE);
                 pOutSample->SetTime(&rtStart, m_setDuration ? &rtStop : NULL);
                 delivered = m_pOutput->Deliver(pOutSample);
             }
@@ -507,8 +513,11 @@ HRESULT CMpegAudEnc::FlushFrames()
         }
         if (FAILED(hr))
             delivered = hr;
-        m_samplesOut += m_samplesPerFrame;
-        m_rtStreamTime = rtStop;
+        if (!preroll)
+        {
+            m_samplesOut += m_samplesPerFrame;
+            m_rtStreamTime = rtStop;
+        }
     }
 
     return delivered;

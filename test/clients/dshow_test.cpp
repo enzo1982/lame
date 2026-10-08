@@ -1036,6 +1036,7 @@ typedef struct {
     REFERENCE_TIME stop;    /**< its stop time, if it has one */
     int     timed;          /**< 0 without times, 1 with a start time, 2 with both */
     int     sync;           /**< set if it is a sync point */
+    int     preroll;        /**< set if it is a preroll sample */
 } received_sample;
 
 /**
@@ -1225,6 +1226,7 @@ public:
             r->length = n;
             r->timed = t == S_OK ? 2 : (t == VFW_S_NO_STOP_TIME ? 1 : 0);
             r->sync = s->IsSyncPoint() == S_OK;
+            r->preroll = s->IsPreroll() == S_OK;
         }
         memcpy(stream + length, p, n);
         length += n;
@@ -1960,10 +1962,11 @@ test_failed_output_buffer(IClassFactory *cf, const WCHAR *wav)
  * - Each sample holds one whole frame: it starts with a frame header, and its
  *   length is the length that the header gives.
  * - Each sample is a sync point.
- * - The first frame starts at 0, and each next one a frame duration later.
- * - The frames joined are the bytes that a byte stream sink gets, without
- *   the first and the last frame: the filter does not deliver those two in
- *   frame mode.
+ * - The first frame is a preroll sample, which ends at 0; no other is one.
+ *   The frames after it start at 0, each a frame duration after the one
+ *   before.
+ * - The frames joined are the bytes that a byte stream sink gets: every frame
+ *   is delivered, the last one too.
  *
  * @param cf    the filter DLL's class factory.
  * @param wav   the input file.
@@ -1975,7 +1978,7 @@ test_frame_mode(IClassFactory *cf, const WCHAR *wav, DWORD rate)
     AlignedSinkPin bytes(1), frames(1, MEDIATYPE_Audio);
     REFERENCE_TIME const frame_units = MulDiv(10000000, MP3_SAMPLES_PER_FRAME, (int) rate);
     char    detail[CTEST_DETAIL_CHARS];
-    int     connected = 0, ended, i, whole = 0, sync = 0, on_time = 0;
+    int     connected = 0, ended, i, whole = 0, sync = 0, on_time = 0, preroll = 0;
 
     encode_into_aligned_sink(cf, wav, bytes, &connected);
     ended = encode_into_aligned_sink(cf, wav, frames, &connected);
@@ -1991,35 +1994,27 @@ test_frame_mode(IClassFactory *cf, const WCHAR *wav, DWORD rate)
             whole++;
         if (r->sync)
             sync++;
-        if (r->timed > 0 && r->start == i * frame_units)
+        if (r->preroll == (i == 0))
+            preroll++;
+        if (r->timed > 0 && r->start == (i - 1) * frame_units)
             on_time++;
     }
     sprintf(detail, "%d of %d samples", whole, frames.sample_count);
     ctest_record(whole == frames.sample_count, "each sample is one whole MP3 frame", detail);
     sprintf(detail, "%d of %d samples", sync, frames.sample_count);
     ctest_record(sync == frames.sample_count, "each sample is a sync point", detail);
-    sprintf(detail, "%d of %d samples at n x %ld units", on_time, frames.sample_count,
+    sprintf(detail, "%d of %d samples as expected", preroll, frames.sample_count);
+    ctest_record(frames.sample_count > 0 && preroll == frames.sample_count,
+                 "the first frame is a preroll sample, and no other is", detail);
+    sprintf(detail, "%d of %d samples at (n - 1) x %ld units", on_time, frames.sample_count,
             (long) frame_units);
     ctest_record(on_time == frames.sample_count,
-                 "the frames start at 0, one frame duration apart", detail);
-    {
-        /* The byte stream without its first and its last frame */
-        long    first = bytes.length >= MP3_HEADER_BYTES && mp3_is_frame_sync(bytes.stream)
-            ? mp3_frame_bytes(mp3_bitrate_index(bytes.stream), mp3_padding_bytes(bytes.stream), rate)
-            : -1;
-        long    inner = first > 0 ? frames.length : -1;
-        const unsigned char *last = first > 0 ? bytes.stream + first + inner : NULL;
-
-        sprintf(detail, "%ld bytes of frames, %ld of the byte stream, its first frame %ld",
-                frames.length, bytes.length, first);
-        ctest_record(first > 0 && first + inner + MP3_HEADER_BYTES <= bytes.length
-                     && memcmp(frames.stream, bytes.stream + first, inner) == 0
-                     && mp3_is_frame_sync(last)
-                     && first + inner + mp3_frame_bytes(mp3_bitrate_index(last),
-                                                        mp3_padding_bytes(last), rate) == bytes.length,
-                     "the frames joined are the byte stream without its first and last frame",
-                     detail);
-    }
+                 "the preroll frame ends at 0, and the frames after it start one frame duration apart",
+                 detail);
+    sprintf(detail, "%ld bytes of frames, %ld of the byte stream", frames.length, bytes.length);
+    ctest_record(bytes.length > 0 && frames.length == bytes.length
+                 && memcmp(frames.stream, bytes.stream, bytes.length) == 0,
+                 "the frames joined are the byte stream, its last frame included", detail);
 }
 
 /**
@@ -2028,7 +2023,8 @@ test_frame_mode(IClassFactory *cf, const WCHAR *wav, DWORD rate)
  *
  * Two seconds of pushed PCM, once with times that follow each other and once
  * with a gap of half a second before the second half. Without the gap, each
- * frame starts one frame duration after the one before. With it, the step
+ * frame starts one frame duration after the one before, the preroll frame
+ * first, which ends at 0. With it, the step
  * between two frames is longer by the gap once, at the first frame that
  * starts at or after the input sample after the gap, and one frame duration
  * everywhere else.
@@ -2041,8 +2037,9 @@ test_frame_times_follow_a_gap(IClassFactory *cf)
     const int count = 20, gap_at = 10;
     const REFERENCE_TIME gap = 5000000;
     REFERENCE_TIME const frame_units = MulDiv(10000000, MP3_SAMPLES_PER_FRAME, PUSH_RATE);
-    /* In whole frames of output samples, as the filter counts them */
-    const int gap_frame = (gap_at * PUSH_FRAMES_PER_SAMPLE + MP3_SAMPLES_PER_FRAME - 1)
+    /* In whole frames of output samples, as the filter counts them, after
+       the preroll frame */
+    const int gap_frame = 1 + (gap_at * PUSH_FRAMES_PER_SAMPLE + MP3_SAMPLES_PER_FRAME - 1)
         / MP3_SAMPLES_PER_FRAME;
     AlignedSinkPin plain(1, MEDIATYPE_Audio), gapped(1, MEDIATYPE_Audio);
     char    detail[CTEST_DETAIL_CHARS];
@@ -2056,8 +2053,10 @@ test_frame_times_follow_a_gap(IClassFactory *cf)
         if (plain.samples[i].timed > 0 && plain.samples[i].start - plain.samples[i - 1].start == frame_units)
             steps++;
     sprintf(detail, "%d of %d steps are %ld units", steps, plain.sample_count - 1, (long) frame_units);
-    ctest_record(steps == plain.sample_count - 1 && plain.samples[0].start == 0,
-                 "without a gap, the frames start at 0, one frame duration apart", detail);
+    ctest_record(steps == plain.sample_count - 1 && plain.samples[0].preroll
+                 && plain.samples[1].start == 0,
+                 "without a gap, the frames after the preroll frame start at 0, one frame duration apart",
+                 detail);
 
     ok = encode_pushed(cf, gapped, count, gap_at, gap, &connected);
     ctest_record(ok && gapped.sample_count == plain.sample_count,

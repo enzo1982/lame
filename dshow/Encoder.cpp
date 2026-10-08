@@ -455,9 +455,19 @@ static int getFrameLength(const unsigned char * pdata)
 }
 
 
-int CEncoder::GetFrame(const unsigned char ** pframe)
+/**
+ * Returns the next complete MP3 frame of the output, if one is ready.
+ *
+ * @param pframe   receives the frame.
+ * @param preroll  receives whether it is the first frame of the encoder. That
+ *                 frame holds the encoder delay and bit reservoir data of the
+ *                 frames after it, so it is delivered as a preroll sample.
+ * @return the bytes of the frame, 0 if no complete frame is ready, -1 without
+ *         an encoder.
+ */
+int CEncoder::GetFrame(const unsigned char ** pframe, bool * preroll)
 {
-    if (!pgf || !pframe)
+    if (!pgf || !pframe || !preroll)
         return -1;
 
 	while ((m_outOffset - m_outReadOffset) > 4)
@@ -474,10 +484,8 @@ int CEncoder::GetFrame(const unsigned char ** pframe)
             m_outReadOffset += frame_length;
 
             m_frameCount++;
-
-            // don't deliver the first and the last frames
-            if (m_frameCount != 1 && !(m_bFinished && (m_outOffset - m_outReadOffset) < 5))
-                return frame_length;
+            *preroll = m_frameCount == 1;
+            return frame_length;
         }
         else
             break;

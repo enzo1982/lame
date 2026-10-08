@@ -136,7 +136,7 @@ public:
     HRESULT Close(IStream* pStream);
 
     int Encode(const short * pdata, int data_size);
-    int GetFrame(const unsigned char ** pframe);
+    int GetFrame(const unsigned char ** pframe, bool * preroll);
 
     int GetBlockAligned(const unsigned char ** pblock, int* piBufferSize, const long& cbAlign);
 
