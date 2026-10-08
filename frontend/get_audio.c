@@ -129,7 +129,7 @@ reader_error(const char *format, ...)
 {
     va_list args;
 
-    if (global_ui_config.silent < 10) {
+    if (frontend_config.ui_config.silent < 10) {
         va_start(args, format);
         frontend_errorf(format, args);
         va_end(args);
@@ -704,10 +704,10 @@ setSkipStartAndEnd(lame_t gfp, int enc_delay, int enc_padding)
 {
     int     skip_start = 0, skip_end = 0;
 
-    if (global_decoder.mp3_delay_set)
-        skip_start = global_decoder.mp3_delay;
+    if (frontend_config.decoder.mp3_delay_set)
+        skip_start = frontend_config.decoder.mp3_delay;
 
-    switch (global_reader.input_format) {
+    switch (frontend_config.reader.input_format) {
     case sf_mp123:
         break;
 
@@ -752,16 +752,16 @@ init_infile(lame_t gfp, char const *inPath)
     global. count_samples_carefully = 0;
     global. num_samples_read = 0;
     global. num_samples_above_full_scale = 0;
-    global. pcmbitwidth = global_raw_pcm.in_bitwidth;
-    global. pcmswapbytes = global_reader.swapbytes;
-    global. pcm_is_unsigned_8bit = global_raw_pcm.in_signed == 1 ? 0 : 1;
+    global. pcmbitwidth = frontend_config.raw_pcm.in_bitwidth;
+    global. pcmswapbytes = frontend_config.reader.swapbytes;
+    global. pcm_is_unsigned_8bit = frontend_config.raw_pcm.in_signed == 1 ? 0 : 1;
     global. pcm_is_ieee_float = 0;
     global. hip = 0;
     global. music_in = 0;
     global. snd_file = 0;
     global. in_id3v2_size = 0;
     global. in_id3v2_tag = 0;
-    if (is_mpeg_file_format(global_reader.input_format)) {
+    if (is_mpeg_file_format(frontend_config.reader.input_format)) {
         global. music_in = open_mpeg_file(gfp, inPath, &enc_delay, &enc_padding);
     }
     else {
@@ -788,7 +788,7 @@ init_infile(lame_t gfp, char const *inPath)
     if (global.snd_file == NULL && global.music_in == NULL) {
         return -1;
     }
-    if (global_reader.swap_channel && lame_get_num_channels(gfp) != 2) {
+    if (frontend_config.reader.swap_channel && lame_get_num_channels(gfp) != 2) {
         reader_error("Error: --swap-channel needs an input with two channels\n");
         close_infile();
         return -1;
@@ -988,7 +988,7 @@ read_frame(lame_t gfp, PcmBuffer * pcm, int buffer[2][FRAME_BUFFER_SAMPLES],
     if (read < 0) {
         return read;
     }
-    if (global_reader.swap_channel == 0)
+    if (frontend_config.reader.swap_channel == 0)
         return takePcmBuffer(pcm, left, right, used, FRAME_BUFFER_SAMPLES);
     else
         return takePcmBuffer(pcm, right, left, used, FRAME_BUFFER_SAMPLES);
@@ -1094,7 +1094,7 @@ get_audio_common(lame_t gfp, int buffer[2][FRAME_BUFFER_SAMPLES],
     /* The input format cannot change while we are reading from it, so ask once:
        the same answer decides whether buf_tmp16 gets filled and whether it is
        read back, and saying so lets the compiler see that too. */
-    const int input_is_mpeg = is_mpeg_file_format(global_reader.input_format);
+    const int input_is_mpeg = is_mpeg_file_format(frontend_config.reader.input_format);
     int     insamp[2 * FRAME_BUFFER_SAMPLES];
     short   buf_tmp16[2][FRAME_BUFFER_SAMPLES];
     int     samples_read;
@@ -1128,7 +1128,7 @@ get_audio_common(lame_t gfp, int buffer[2][FRAME_BUFFER_SAMPLES],
         unsigned long tmp_num_samples, remaining;
         /* get num_samples */
         if (input_is_mpeg) {
-            tmp_num_samples = global_decoder.mp3input_data.nsamp;
+            tmp_num_samples = frontend_config.decoder.mp3input_data.nsamp;
         }
         else {
             tmp_num_samples = lame_get_num_samples(gfp);
@@ -1270,8 +1270,8 @@ read_samples_mp3(LAME_UNUSED lame_t gfp, LAME_UNUSED FILE * musicin,
         }
         return -1;
     }
-    out = (int)(outbytes/(sizeof(short)*global_decoder.mp3input_data.stereo));
-    if (global_decoder.mp3input_data.stereo == 2) {
+    out = (int)(outbytes/(sizeof(short)*frontend_config.decoder.mp3input_data.stereo));
+    if (frontend_config.decoder.mp3input_data.stereo == 2) {
         int i;
         for (i=0; i<out; ++i) {
             mpg123pcm[0][i] = *outbuf++;
@@ -1304,7 +1304,7 @@ static
 int set_input_samplerate(lame_t gfp, int input_samplerate)
 {
     if (gfp) {
-        int sr = global_reader.input_samplerate;
+        int sr = frontend_config.reader.input_samplerate;
         if (sr == 0) sr = input_samplerate;
         if (-1 == lame_set_in_samplerate(gfp, sr)) {
             reader_error("Unsupported sample rate: %d\n", sr);
@@ -1393,8 +1393,9 @@ open_snd_file(lame_t gfp, char const *inPath)
            the file is meant to be read that way; without it an unrecognised
            file is an unrecognised file, and LAME's own reader - which
            refuses it - gets its turn instead. */
-        if (gs_pSndFileIn == NULL && global_reader.input_format == sf_raw) {
-            if (global_raw_pcm.in_signed == 0 && global_raw_pcm.in_bitwidth != 8) {
+        if (gs_pSndFileIn == NULL && frontend_config.reader.input_format == sf_raw) {
+            if (frontend_config.raw_pcm.in_signed == 0
+                && frontend_config.raw_pcm.in_bitwidth != 8) {
                 error_printf("Unsigned input only supported with bitwidth 8\n");
 #if defined( _WIN32 ) && !defined(__MINGW32__)
                 free(file_name);
@@ -1406,17 +1407,17 @@ open_snd_file(lame_t gfp, char const *inPath)
             gs_wfInfo.samplerate = lame_get_in_samplerate(gfp);
             gs_wfInfo.channels = lame_get_num_channels(gfp);
             gs_wfInfo.format = SF_FORMAT_RAW;
-            if ((global_raw_pcm.in_endian == ByteOrderLittleEndian) ^ (global_reader.swapbytes !=
-                                                                       0)) {
+            if ((frontend_config.raw_pcm.in_endian == ByteOrderLittleEndian)
+                ^ (frontend_config.reader.swapbytes != 0)) {
                 gs_wfInfo.format |= SF_ENDIAN_LITTLE;
             }
             else {
                 gs_wfInfo.format |= SF_ENDIAN_BIG;
             }
-            switch (global_raw_pcm.in_bitwidth) {
+            switch (frontend_config.raw_pcm.in_bitwidth) {
             case 8:
                 gs_wfInfo.format |=
-                    global_raw_pcm.in_signed == 0 ? SF_FORMAT_PCM_U8 : SF_FORMAT_PCM_S8;
+                    frontend_config.raw_pcm.in_signed == 0 ? SF_FORMAT_PCM_U8 : SF_FORMAT_PCM_S8;
                 break;
             case 16:
                 gs_wfInfo.format |= SF_FORMAT_PCM_16;
@@ -1456,7 +1457,7 @@ open_snd_file(lame_t gfp, char const *inPath)
         }
 
         if ((gs_wfInfo.format & SF_FORMAT_RAW) == SF_FORMAT_RAW) {
-            global_reader.input_format = sf_raw;
+            frontend_config.reader.input_format = sf_raw;
         }
 
         if(gs_wfInfo.frames >= 0 && gs_wfInfo.frames < (sf_count_t)(unsigned)NUM_SAMPLES_UNKNOWN)
@@ -1567,11 +1568,11 @@ read_samples_pcm(FILE * musicin, int sample_buffer[2 * FRAME_BUFFER_SAMPLES], in
     case 32:
     case 24:
     case 16:
-        if (global_raw_pcm.in_signed == 0) {
+        if (frontend_config.raw_pcm.in_signed == 0) {
             reader_error("Unsigned input only supported with bitwidth 8\n");
             return -1;
         }
-        swap_byte_order = (global_raw_pcm.in_endian != ByteOrderLittleEndian) ? 1 : 0;
+        swap_byte_order = (frontend_config.raw_pcm.in_endian != ByteOrderLittleEndian) ? 1 : 0;
         if (global.pcmswapbytes) {
             swap_byte_order = !swap_byte_order;
         }
@@ -1618,7 +1619,8 @@ read_samples_float(FILE * musicin, float sample_buffer[2 * FRAME_BUFFER_SAMPLES]
                    int samples_to_read)
 {
     compiletime_assert(sizeof(float) == 4);
-    int     file_is_big_endian = (global_raw_pcm.in_endian != ByteOrderLittleEndian) ? 1 : 0;
+    int     file_is_big_endian =
+        (frontend_config.raw_pcm.in_endian != ByteOrderLittleEndian) ? 1 : 0;
     int     samples_read, i;
 
     if (global.pcmswapbytes) {
@@ -1789,7 +1791,8 @@ parse_wave_header(lame_global_flags * gfp, FILE * sf)
                other fields already say, so they are cross-checked rather
                than used: writers get them wrong often enough that a
                mismatch must not cost the user the file. */
-            if (global_ui_config.silent < 0 && ui16_nChannels > 0 && ui16_wBitsPerSample > 0) {
+            if (frontend_config.ui_config.silent < 0
+                && ui16_nChannels > 0 && ui16_wBitsPerSample > 0) {
                 uint32_t const align = pcm_bytes_per_frame(ui16_nChannels, ui16_wBitsPerSample);
                 if (ui16_nBlockAlign != align)
                     error_printf("Note: block alignment is %u, expected %u\n",
@@ -2050,19 +2053,19 @@ parse_aiff_header(lame_global_flags * gfp, FILE * sf)
     }
     if (aiff_info.sampleFormat == IFF_ID_2CLE) {
         global. pcm_is_ieee_float = 0;
-        global. pcmswapbytes = global_reader.swapbytes;
+        global. pcmswapbytes = frontend_config.reader.swapbytes;
     }
     else if (aiff_info.sampleFormat == IFF_ID_2CBE) {
         global. pcm_is_ieee_float = 0;
-        global. pcmswapbytes = !global_reader.swapbytes;
+        global. pcmswapbytes = !frontend_config.reader.swapbytes;
     }
     else if (aiff_info.sampleFormat == IFF_ID_NONE) {
         global. pcm_is_ieee_float = 0;
-        global. pcmswapbytes = !global_reader.swapbytes;
+        global. pcmswapbytes = !frontend_config.reader.swapbytes;
     }
     else if (aiff_info.sampleFormat == IFF_ID_FL32) {
         global. pcm_is_ieee_float = 1;
-        global. pcmswapbytes = !global_reader.swapbytes;
+        global. pcmswapbytes = !frontend_config.reader.swapbytes;
     }
     else if (aiff_info.sampleFormat == IFF_ID_FL64) {
         /* reading 64 bit floating point samples is not implemented */
@@ -2122,8 +2125,8 @@ parse_file_header(lame_global_flags * gfp, FILE * sf)
        "First word of input stream: %08x '%4.4s'\n", ui32_type, (char*) &type);
      */
     global. count_samples_carefully = 0;
-    global. pcm_is_unsigned_8bit = global_raw_pcm.in_signed == 1 ? 0 : 1;
-    /*global_reader.input_format = sf_raw; commented out, because it is better to fail
+    global. pcm_is_unsigned_8bit = frontend_config.raw_pcm.in_signed == 1 ? 0 : 1;
+    /*frontend_config.reader.input_format = sf_raw; commented out, because it is better to fail
        here as to encode some hundreds of input files not supported by LAME
        If you know you have RAW PCM data, use the -r switch
      */
@@ -2143,7 +2146,7 @@ parse_file_header(lame_global_flags * gfp, FILE * sf)
         }
         if (ret > 0) {
             if (lame_get_num_samples(gfp) == NUM_SAMPLES_UNKNOWN
-                || global_reader.ignorewavlength == 1)
+                || frontend_config.reader.ignorewavlength == 1)
             {
                 global. count_samples_carefully = 0;
                 lame_set_num_samples(gfp, NUM_SAMPLES_UNKNOWN);
@@ -2179,18 +2182,19 @@ open_mpeg_file_part2(lame_t gfp, LAME_UNUSED FILE * musicin, LAME_UNUSED char co
                      LAME_UNUSED int *enc_delay, LAME_UNUSED int *enc_padding)
 {
 #ifdef HAVE_MPG123
-    if (-1 == lame123_decode_initfile(musicin, &global_decoder.mp3input_data, enc_delay, enc_padding)) {
+    if (-1 == lame123_decode_initfile(musicin, &frontend_config.decoder.mp3input_data,
+                                      enc_delay, enc_padding)) {
         reader_error("Error opening MPEG input file %s.\n", inPath);
         return 0;
     }
 #endif
-    if (!set_input_num_channels(gfp, global_decoder.mp3input_data.stereo)) {
+    if (!set_input_num_channels(gfp, frontend_config.decoder.mp3input_data.stereo)) {
         return 0;
     }
-    if (!set_input_samplerate(gfp, global_decoder.mp3input_data.samplerate)) {
+    if (!set_input_samplerate(gfp, frontend_config.decoder.mp3input_data.samplerate)) {
         return 0;
     }
-    (void) lame_set_num_samples(gfp, global_decoder.mp3input_data.nsamp);
+    (void) lame_set_num_samples(gfp, frontend_config.decoder.mp3input_data.nsamp);
     return 1;
 }
 
@@ -2213,32 +2217,32 @@ open_wave_file(lame_t gfp, char const *inPath, int *enc_delay, int *enc_padding)
         }
     }
 
-    if (global_reader.input_format == sf_ogg) {
+    if (frontend_config.reader.input_format == sf_ogg) {
         reader_error("sorry, vorbis support in LAME is deprecated.\n");
         close_input_file(musicin);
         return 0;
     }
-    else if (global_reader.input_format == sf_raw) {
+    else if (frontend_config.reader.input_format == sf_raw) {
         /* assume raw PCM */
-        if (global_ui_config.silent < 9) {
+        if (frontend_config.ui_config.silent < 9) {
             console_printf("Assuming raw pcm input file");
-            if (global_reader.swapbytes)
+            if (frontend_config.reader.swapbytes)
                 console_printf(" : Forcing byte-swapping\n");
             else
                 console_printf("\n");
         }
-        global. pcmswapbytes = global_reader.swapbytes;
+        global. pcmswapbytes = frontend_config.reader.swapbytes;
     }
     else {
-        global_reader.input_format = parse_file_header(gfp, musicin);
+        frontend_config.reader.input_format = parse_file_header(gfp, musicin);
     }
-    if (global_reader.input_format == sf_mp123) {
+    if (frontend_config.reader.input_format == sf_mp123) {
         if (open_mpeg_file_part2(gfp, musicin, inPath, enc_delay, enc_padding))
             return musicin;
         close_input_file(musicin);
         return 0;
     }
-    if (global_reader.input_format == sf_unknown) {
+    if (frontend_config.reader.input_format == sf_unknown) {
         close_input_file(musicin);
         return 0;
     }
@@ -2285,14 +2289,14 @@ open_mpeg_file(lame_t gfp, char const *inPath, int *enc_delay, int *enc_padding)
         double  flen = lame_get_file_size(musicin); /* try to figure out num_samples */
         if (flen >= 0) {
             /* try file size, assume 2 bytes per sample */
-            if (global_decoder.mp3input_data.bitrate > 0) {
+            if (frontend_config.decoder.mp3input_data.bitrate > 0) {
                 double  totalseconds =
-                    (flen * 8.0 / (1000.0 * global_decoder.mp3input_data.bitrate));
+                    (flen * 8.0 / (1000.0 * frontend_config.decoder.mp3input_data.bitrate));
                 unsigned long tmp_num_samples =
                     (unsigned long) (totalseconds * lame_get_in_samplerate(gfp));
 
                 (void) lame_set_num_samples(gfp, tmp_num_samples);
-                global_decoder.mp3input_data.nsamp = tmp_num_samples;
+                frontend_config.decoder.mp3input_data.nsamp = tmp_num_samples;
                 global. count_samples_carefully = 0;
             }
         }
@@ -2429,15 +2433,15 @@ int lame123_decode_initfile(FILE *fd, mp3data_struct *mp3data, int *enc_delay, i
     mp3data->mode_ext = fi.mode_ext;
     mp3data->framesize = mpg123_spf(global.hip->mh);
     mp3data->bitrate = fi.bitrate;
-    if(global_reader.input_format == sf_mp123) switch(fi.layer) {
+    if(frontend_config.reader.input_format == sf_mp123) switch(fi.layer) {
         case 1:
-            global_reader.input_format = sf_mp1;
+            frontend_config.reader.input_format = sf_mp1;
         break;
         case 2:
-            global_reader.input_format = sf_mp2;
+            frontend_config.reader.input_format = sf_mp2;
         break;
         case 3:
-            global_reader.input_format = sf_mp3;
+            frontend_config.reader.input_format = sf_mp3;
         break;
     }
 
@@ -2482,7 +2486,7 @@ put_audio16(FILE * outf, short Buffer[2][FRAME_BUFFER_SAMPLES], int iread, int n
 {
     unsigned short data[2 * FRAME_BUFFER_SAMPLES];
     enum ByteOrder const out_order =
-        (global_decoder.disable_wav_header && global_reader.swapbytes)
+        (frontend_config.decoder.disable_wav_header && frontend_config.reader.swapbytes)
         ? ByteOrderBigEndian : ByteOrderLittleEndian;
     int const count = nch == 1 ? iread : 2 * iread;
     int     i;
@@ -2507,7 +2511,7 @@ put_audio16(FILE * outf, short Buffer[2][FRAME_BUFFER_SAMPLES], int iread, int n
         if (fwrite(data, sizeof(data[0]), (size_t) count, outf) != (size_t) count)
             return -1;
     }
-    if (global_writer.flush_write == 1) {
+    if (frontend_config.writer.flush_write == 1) {
         if (fflush(outf) != 0)
             return -1;
     }

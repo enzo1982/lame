@@ -349,11 +349,11 @@ static void
 open_reader(lame_t gfp, FILE *f, int swapbytes)
 {
     memset(&global, 0, sizeof global);
-    global_reader.swapbytes = swapbytes;
+    frontend_config.reader.swapbytes = swapbytes;
     global.pcmswapbytes = swapbytes;
-    global_reader.input_format = parse_file_header(gfp, f);
-    assert_true(global_reader.input_format == sf_wave
-                || global_reader.input_format == sf_aiff);
+    frontend_config.reader.input_format = parse_file_header(gfp, f);
+    assert_true(frontend_config.reader.input_format == sf_wave
+                || frontend_config.reader.input_format == sf_aiff);
     global.music_in = f;
     initPcmBuffer(&global.pcm32, sizeof(int));
     initPcmBuffer(&global.pcm16, sizeof(short));
@@ -374,7 +374,7 @@ close_reader(lame_t gfp)
     freePcmBuffer(&global.pcmf);
     fclose(global.music_in);
     global.music_in = NULL;
-    global_reader.swapbytes = 0;
+    frontend_config.reader.swapbytes = 0;
     lame_close(gfp);
 }
 

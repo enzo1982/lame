@@ -47,28 +47,6 @@ extern "C" {
 #endif
 
 
-/**
- *  A copy of the five global frontend configuration structs.
- *
- *  parse.c defines \c global_reader, \c global_writer, \c global_ui_config,
- *  \c global_decoder and \c global_raw_pcm. \c parse_args and \c init_infile
- *  change them. mp3x_session treats these structs as per-file state. Before
- *  each open, it restores the values saved at startup, and then it applies the
- *  new configuration. So options from an earlier file, or raw-input options
- *  given on the command line for the first file, do not apply to a file opened
- *  later in the GUI.
- *
- *  The members of these five structs are plain values without pointers, and
- *  \c mp3data_struct inside \c DecoderConfig contains only integers. So a
- *  struct copy is a safe way to save and restore them.
- */
-typedef struct {
-    ReaderConfig    reader;
-    WriterConfig    writer;
-    UiConfig        ui_config;
-    DecoderConfig   decoder;
-    RawPCMConfig    raw_pcm;
-} FrontendGlobalsBaseline;
 
 
 /* --------------------------------------------------------------------------
@@ -218,18 +196,15 @@ void           mp3x_session_free(Mp3xSession *s);
  * configuration is applied.
  * -------------------------------------------------------------------------- */
 
-/* Apply documented defaults to all five frontend globals, mirroring what
-   parse_args would set unconditionally at lines 1659-1666 plus the raw-PCM
-   defaults init_infile assumes when -r is NOT given. Does NOT call
-   parse_args; safe to invoke at any time. */
+/* Set frontend_config to frontend_config_defaults, the settings parse_args
+   starts from. Does NOT call parse_args; safe to invoke at any time. */
 void           mp3x_apply_documented_defaults(void);
 
-/* Snapshot the current state of all five frontend globals into the
-   baseline. Struct-copy; all fields verified to be plain value data. */
-void           mp3x_globals_capture(FrontendGlobalsBaseline *b);
+/* Copy frontend_config into the baseline. */
+void           mp3x_globals_capture(FrontendConfig *b);
 
-/* Restore all five frontend globals from the baseline. Struct-copy. */
-void           mp3x_globals_restore(const FrontendGlobalsBaseline *b);
+/* Copy the baseline back into frontend_config. */
+void           mp3x_globals_restore(const FrontendConfig *b);
 
 
 /* --------------------------------------------------------------------------

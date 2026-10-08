@@ -8,10 +8,9 @@
  * stand-ins for them. The parse.c tests link this file. The console stand-ins
  * print nothing. @c lame_fopen() opens the file with @c fopen().
  *
- * @c parse.c itself defines the frontend global-config blocks
- * (@c global_reader, @c global_writer and the others). So this file does
- * @e not stub them. The get_audio tests are different: their stub file
- * defines these blocks.
+ * @c parse.c itself defines the frontend configuration @c frontend_config.
+ * So this file does @e not stub it. The get_audio tests are different: their
+ * stub file defines it.
  *
  * @c parse.c uses the @c utf8To* and @c toLatin1 helpers only under
  * @c _WIN32 && !__MINGW32__. These tests do not build on such a platform. So

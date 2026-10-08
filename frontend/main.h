@@ -84,11 +84,41 @@ typedef struct RawPCMConfig
     ByteOrder in_endian;
 } RawPCMConfig;
 
-extern ReaderConfig global_reader;
-extern WriterConfig global_writer;
-extern UiConfig global_ui_config;
-extern DecoderConfig global_decoder;
-extern RawPCMConfig global_raw_pcm;
+/**
+ * @internal
+ * @brief The configuration of the frontend programs. parse_args() sets it
+ *        from the command line.
+ *
+ * All members are plain values without pointers, so a struct copy saves and
+ * restores the whole configuration.
+ */
+typedef struct FrontendConfig
+{
+    ReaderConfig  reader;           /**< how the input file is read */
+    WriterConfig  writer;           /**< how the output file is written */
+    UiConfig      ui_config;        /**< what is printed while encoding */
+    DecoderConfig decoder;          /**< the settings of --decode */
+    RawPCMConfig  raw_pcm;          /**< the format of raw PCM input */
+} FrontendConfig;
+
+/**
+ * @internal
+ * @brief The initializer of the default configuration: the settings without
+ *        any option.
+ */
+#define FRONTEND_CONFIG_DEFAULTS                                        \
+{ /* reader    */ { sf_unknown, 0, 0, 0, 0 }                            \
+, /* writer    */ { 0, 0, 0, 0 }                                        \
+, /* ui_config */ { 0, 1, 0, 0 }                                        \
+, /* decoder   */ { 0, 0, 0, { 0 } }                                    \
+, /* raw_pcm   */ { 16, -1, ByteOrderLittleEndian }                     \
+}
+
+/** @internal @brief The default configuration, ::FRONTEND_CONFIG_DEFAULTS. */
+extern const FrontendConfig frontend_config_defaults;
+
+/** @internal @brief The configuration of this run. */
+extern FrontendConfig frontend_config;
 
 
 /*  strnlen is C11 and POSIX.1-2008; older systems do not have it.  The calls

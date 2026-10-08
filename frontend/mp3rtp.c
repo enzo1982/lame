@@ -294,8 +294,8 @@ lame_main(lame_t gf, int argc, char **argv)
 
     lame_print_config(gf); /* print useful information about options being used */
 
-    if (global_ui_config.update_interval < 0.)
-        global_ui_config.update_interval = 2.;
+    if (frontend_config.ui_config.update_interval < 0.)
+        frontend_config.ui_config.update_interval = 2.;
 
     /* encode until we hit EOF */
     floats = input_is_float();
@@ -321,7 +321,7 @@ lame_main(lame_t gf, int argc, char **argv)
         fwrite(mp3buffer, 1, mp3bytes, outf); /* write the MP3 output to file */
     }
     if (wavsamples < 0) {
-        if (global_ui_config.silent < 10)
+        if (frontend_config.ui_config.silent < 10)
             error_printf("Error reading input file\n");
         rtp_deinitialization();
         fclose(outf);

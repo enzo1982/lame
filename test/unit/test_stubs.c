@@ -26,12 +26,9 @@
 #include "console.h"
 #include "test_unused.h"
 
-/* frontend global configuration blocks (defined in parse.c/main.c normally) */
-ReaderConfig  global_reader    = { sf_unknown, 0, 0, 0, 0 };
-WriterConfig  global_writer    = { 0 };
-UiConfig      global_ui_config = { 0, 0, 0, 0 };
-DecoderConfig global_decoder;
-RawPCMConfig  global_raw_pcm   = { 16, 1, ByteOrderLittleEndian };
+/* frontend configuration (defined in parse.c normally) */
+const FrontendConfig frontend_config_defaults = FRONTEND_CONFIG_DEFAULTS;
+FrontendConfig frontend_config = FRONTEND_CONFIG_DEFAULTS;
 
 /* console output helpers (defined in console.c normally) */
 int   console_printf(const char *format, ...) { (void) format; return 0; }

@@ -113,7 +113,7 @@ static void
 capture_file_times(char const *inPath)
 {
     input_file_times.valid = 0;
-    if (global_writer.preserve_modtime == 0)
+    if (frontend_config.writer.preserve_modtime == 0)
         return;
     if (strcmp(inPath, "-") == 0)
         return;
@@ -135,12 +135,12 @@ capture_file_times(char const *inPath)
 static void
 preserve_file_times(char const *inPath, char const *outPath)
 {
-    if (global_writer.preserve_modtime == 0)
+    if (frontend_config.writer.preserve_modtime == 0)
         return;
     if (strcmp(inPath, "-") == 0 || strcmp(outPath, "-") == 0)
         return;
     if (lame_write_file_times(outPath, &input_file_times) != 0)
-        if (global_ui_config.silent < 10)
+        if (frontend_config.ui_config.silent < 10)
             error_printf("WARNING: could not give %s the times of %s\n", outPath, inPath);
 }
 
@@ -183,7 +183,7 @@ printInputFormat(lame_t gfp)
 {
     int const v_main = 2 - lame_get_version(gfp);
     char const *v_ex = lame_get_out_samplerate(gfp) < 16000 ? ".5" : "";
-    switch (global_reader.input_format) {
+    switch (frontend_config.reader.input_format) {
     case sf_mp123:     /* FIXME: !!! */
         break;
     case sf_mp3:
@@ -235,7 +235,7 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
         return -1;
     }
 
-    if (global_ui_config.silent < 9) {
+    if (frontend_config.ui_config.silent < 9) {
         console_printf("\rinput:  %s%s(%g kHz, %i channel%s, ",
                        strcmp(inPath, "-") ? inPath : "<stdin>",
                        strlen(inPath) > 26 ? "\n\t" : "  ",
@@ -253,12 +253,12 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
         if (skip_end > 0)
             console_printf("skipping final %i samples (encoder padding-decoder delay)\n", skip_end);
 
-        switch (global_reader.input_format) {
+        switch (frontend_config.reader.input_format) {
         case sf_mp3:
         case sf_mp2:
         case sf_mp1:
             dp = decoder_progress_init(lame_get_num_samples(gfp),
-                                       global_decoder.mp3input_data.framesize);
+                                       frontend_config.decoder.mp3input_data.framesize);
             break;
         case sf_raw:
         case sf_wave:
@@ -270,7 +270,7 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
         }
     }
 
-    if (0 == global_decoder.disable_wav_header)
+    if (0 == frontend_config.decoder.disable_wav_header)
         if (WriteWaveHeader(outf, WAV_DATA_SIZE_UNKNOWN, lame_get_in_samplerate(gfp),
                             tmp_num_channels, 16) < 0)
             goto write_failure;
@@ -281,13 +281,13 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
         if (iread >= 0) {
             wavsize += iread;
             if (dp != 0) {
-                decoder_progress(dp, &global_decoder.mp3input_data, iread);
+                decoder_progress(dp, &frontend_config.decoder.mp3input_data, iread);
             }
             if (put_audio16(outf, Buffer, iread, tmp_num_channels) < 0)
                 goto write_failure;
         }
         else {
-            if (global_ui_config.silent < 10)
+            if (frontend_config.ui_config.silent < 10)
                 error_printf("Error reading input file\n");
             return -1;
         }
@@ -297,7 +297,7 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
     assert(i > 0);
     data_size = wav_data_size(wavsize, i);
     /* if outf is seekable, rewind and adjust length */
-    if (!global_decoder.disable_wav_header && strcmp("-", outPath)
+    if (!frontend_config.decoder.disable_wav_header && strcmp("-", outPath)
         && !fseek(outf, 0l, SEEK_SET))
         if (WriteWaveHeader(outf, data_size, lame_get_in_samplerate(gfp), tmp_num_channels, 16)
             < 0)
@@ -310,7 +310,7 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
   write_failure:
     if (dp != 0)
         decoder_progress_finish(dp);
-    if (global_ui_config.silent < 10)
+    if (frontend_config.ui_config.silent < 10)
         error_printf("Error writing to the output file\n");
     return -1;
 }
@@ -344,7 +344,7 @@ print_trailing_info(lame_global_flags * gf)
 
     /* if (the user requested printing info about clipping) and (decoding
        on the fly has actually been performed) */
-    if (global_ui_config.print_clipping_info && lame_get_decode_on_the_fly(gf)) {
+    if (frontend_config.ui_config.print_clipping_info && lame_get_decode_on_the_fly(gf)) {
         float   noclipGainChange = (float) lame_get_noclipGainChange(gf) / 10.0f;
         float   noclipScale = lame_get_noclipScale(gf);
 
@@ -407,7 +407,7 @@ write_xing_frame(lame_global_flags * gf, FILE * outf, size_t offset)
     if (imp3 == 0) {
         return 0;       /* nothing to do */
     }
-    if (global_ui_config.silent <= 0) {
+    if (frontend_config.ui_config.silent <= 0) {
         console_printf("Writing LAME Tag...");
     }
     if (imp3 > sizeof(mp3buffer)) {
@@ -426,7 +426,7 @@ write_xing_frame(lame_global_flags * gf, FILE * outf, size_t offset)
         error_printf("Error writing LAME-tag \n");
         return -1;
     }
-    if (global_ui_config.silent <= 0) {
+    if (frontend_config.ui_config.silent <= 0) {
         console_printf("done\n");
     }
     assert( imp3 <= INT_MAX );
@@ -507,7 +507,7 @@ write_id3v2_tag(lame_t gf, FILE * outf, size_t * size)
 static void
 flush_if_asked(FILE * outf)
 {
-    if (global_writer.flush_write == 1) {
+    if (frontend_config.writer.flush_write == 1) {
         fflush(outf);
     }
 }
@@ -582,8 +582,8 @@ set_replaygain_frames(lame_global_flags * gf, double gain_db, double peak, int w
 static void
 decline_replaygain_frames(char const *why)
 {
-    global_writer.replaygain_id3v2 = 0;
-    if (global_ui_config.silent < 10)
+    frontend_config.writer.replaygain_id3v2 = 0;
+    if (frontend_config.ui_config.silent < 10)
         error_printf("WARNING: not writing ReplayGain to the ID3v2 tag: %s\n", why);
 }
 
@@ -604,7 +604,7 @@ decline_replaygain_frames(char const *why)
 static void
 reserve_replaygain_frames(lame_global_flags * gf, FILE * outf)
 {
-    if (global_writer.replaygain_id3v2 == 0)
+    if (frontend_config.writer.replaygain_id3v2 == 0)
         return;
     if (lame_get_decode_only(gf)) {
         decline_replaygain_frames("decoding produces no ID3v2 tag");
@@ -629,7 +629,7 @@ reserve_replaygain_frames(lame_global_flags * gf, FILE * outf)
     id3tag_add_v2(gf);
     /*  Room for the finished values to be longer than the placeholders,
         on top of whatever padding the user asked for.  */
-    id3tag_set_pad(gf, (size_t) (global_writer.id3v2_padding + RG_TXXX_SLACK));
+    id3tag_set_pad(gf, (size_t) (frontend_config.writer.id3v2_padding + RG_TXXX_SLACK));
     /*  The peak sample is a by-product of decoding while encoding, so it is
         reserved only where it will actually be measured.  */
     if (set_replaygain_frames(gf, 0.0, 0.0, lame_get_decode_on_the_fly(gf)) != 0)
@@ -657,7 +657,7 @@ update_replaygain_frames(lame_global_flags * gf, FILE * outf, size_t id3v2_size)
     unsigned char *tag;
     size_t  size;
 
-    if (global_writer.replaygain_id3v2 == 0)
+    if (frontend_config.writer.replaygain_id3v2 == 0)
         return;
     if (set_replaygain_frames(gf, lame_get_RadioGain(gf) / 10.0,
                               lame_get_PeakSample(gf) / SAMPLE_T_FULL_SCALE,
@@ -671,7 +671,7 @@ update_replaygain_frames(lame_global_flags * gf, FILE * outf, size_t id3v2_size)
     size = lame_get_id3v2_tag(gf, 0, 0);
     if (size >= id3v2_size && size - id3v2_size <= RG_TXXX_SLACK) {
         size_t  grew = size - id3v2_size;
-        id3tag_set_pad(gf, (size_t) (global_writer.id3v2_padding
+        id3tag_set_pad(gf, (size_t) (frontend_config.writer.id3v2_padding
                                      + RG_TXXX_SLACK) - grew);
         size = lame_get_id3v2_tag(gf, 0, 0);
     }
@@ -762,7 +762,7 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
             } while (done < iread);
         }
         else {
-            if (global_ui_config.silent < 10)
+            if (frontend_config.ui_config.silent < 10)
                 error_printf("Error reading input file\n");
             return ENCODE_INPUT_FAILED;
         }
@@ -800,7 +800,7 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
     write_xing_frame(gf, outf, id3v2_size);
     update_replaygain_frames(gf, outf, id3v2_size);
     flush_if_asked(outf);
-    if (global_ui_config.silent <= 0) {
+    if (frontend_config.ui_config.silent <= 0) {
         print_trailing_info(gf);
     }
     return 0;
@@ -861,8 +861,8 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
     if (ret < 0) {
         return ret == -2 ? 0 : 1;
     }
-    if (global_ui_config.update_interval < 0.)
-        global_ui_config.update_interval = 2.;
+    if (frontend_config.ui_config.update_interval < 0.)
+        frontend_config.ui_config.update_interval = 2.;
 
     /* initialize input file.  This also sets samplerate and as much
        other data on the input file as available in the headers */
@@ -903,8 +903,8 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
         return ret;
     }
 
-    if (global_ui_config.silent > 0) {
-        global_ui_config.brhist = 0; /* turn off VBR histogram */
+    if (frontend_config.ui_config.silent > 0) {
+        frontend_config.ui_config.brhist = 0; /* turn off VBR histogram */
     }
 
     if (lame_get_decode_only(gf)) {
@@ -944,7 +944,7 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
                 }
                 /* after an input failure, go on with the next file */
                 if (ret != ENCODE_INPUT_FAILED) {
-                    if (i + 1 < max_nogap && global_ui_config.silent < 10) {
+                    if (i + 1 < max_nogap && frontend_config.ui_config.silent < 10) {
                         error_printf("Stopping: %d of %d files are not encoded\n",
                                      max_nogap - (i + 1), max_nogap);
                     }
@@ -953,7 +953,7 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
             }
         }
         if (failed > 0) {
-            if (global_ui_config.silent < 10) {
+            if (frontend_config.ui_config.silent < 10) {
                 error_printf("%d of %d files failed\n", failed, max_nogap);
             }
             ret = first_failure;

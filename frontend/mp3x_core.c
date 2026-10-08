@@ -37,7 +37,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "main.h"               /* global_reader, ReaderConfig */
+#include "main.h"               /* frontend_config, ReaderConfig */
 #include "lame.h"
 #include "machine.h"
 #include "encoder.h"            /* DECDELAY */
@@ -213,7 +213,7 @@ mp3x_core_makeframe(lame_global_flags *gfp)
      * and mpg123 will write data into pinfo.  Set these so
      * the libraries put this data in the right place: */
     gfc->pinfo = pinfo;
-    if (is_mpeg_file_format(global_reader.input_format)) {
+    if (is_mpeg_file_format(frontend_config.reader.input_format)) {
         hip_set_pinfo(get_hip(), pplot);
         iread = get_audio16(gfp, core_state.buffer);
 

@@ -141,18 +141,8 @@ static int const internal_opts_enabled = INTERNAL_OPTS;
 /* GLOBAL VARIABLES.  set by parse_args() */
 /* we need to clean this up */
 
-ReaderConfig global_reader = { sf_unknown, 0, 0, 0, 0 };
-WriterConfig global_writer = { 0 };
-
-UiConfig global_ui_config = {0,0,0,0};
-
-DecoderConfig global_decoder;
-
-RawPCMConfig global_raw_pcm = 
-{ /* in_bitwidth */ 16
-, /* in_signed   */ -1
-, /* in_endian   */ ByteOrderLittleEndian
-};
+const FrontendConfig frontend_config_defaults = FRONTEND_CONFIG_DEFAULTS;
+FrontendConfig frontend_config = FRONTEND_CONFIG_DEFAULTS;
 
 
 
@@ -265,7 +255,7 @@ convert_text(char const *to, char const *from, char const *src,
     }
     xiconv = iconv_open(to, from);
     if (xiconv == (iconv_t) -1) {
-        if (global_ui_config.silent < 9) {
+        if (frontend_config.ui_config.silent < 9) {
             error_printf("Cannot convert text from %s to %.*s on this system;"
                          " the value is left out of the tag.\n",
                          from, to_len, to);
@@ -278,7 +268,7 @@ convert_text(char const *to, char const *from, char const *src,
     avail = room;
     rc = iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
     iconv_close(xiconv);
-    if (rc == (size_t) -1 && global_ui_config.silent < 9) {
+    if (rc == (size_t) -1 && frontend_config.ui_config.silent < 9) {
         /*  The value is echoed back because a run may set several tag fields,
             and otherwise there is no way to tell which of them was cut. */
         error_printf("Only part of '%s' could be written as %.*s;"
@@ -1852,22 +1842,23 @@ set_int_flag(int_flag_option const *table, size_t n, char const *token)
 
 /** The input and output options that set one int setting. */
 static int_flag_option const io_flags[] = {
-    { "signed", &global_raw_pcm.in_signed, 1 },
-    { "unsigned", &global_raw_pcm.in_signed, 0 },
-    { "flush", &global_writer.flush_write, 1 },
-    { "preserve-modtime", &global_writer.preserve_modtime, 1 },
-    { "replaygain-id3v2", &global_writer.replaygain_id3v2, 1 },
-    { "swap-channel", &global_reader.swap_channel, 1 },
-    { "ignorelength", &global_reader.ignorewavlength, 1 }
+    { "signed", &frontend_config.raw_pcm.in_signed, 1 },
+    { "unsigned", &frontend_config.raw_pcm.in_signed, 0 },
+    { "flush", &frontend_config.writer.flush_write, 1 },
+    { "preserve-modtime", &frontend_config.writer.preserve_modtime, 1 },
+    { "replaygain-id3v2", &frontend_config.writer.replaygain_id3v2, 1 },
+    { "swap-channel", &frontend_config.reader.swap_channel, 1 },
+    { "ignorelength", &frontend_config.reader.ignorewavlength, 1 }
 };
 
 /** The options for the messages on the screen that set one int setting. */
 static int_flag_option const info_flags[] = {
-    { "nohist", &global_ui_config.brhist, 0 },
-    { "quiet", &global_ui_config.silent, 10 },  /* on a scale from 1 to 10 be very silent */
-    { "silent", &global_ui_config.silent, 9 },
-    { "brief", &global_ui_config.silent, -5 },  /* print few info on screen */
-    { "verbose", &global_ui_config.silent, -10 } /* print a lot on screen */
+    { "nohist", &frontend_config.ui_config.brhist, 0 },
+    /* on a scale from 1 to 10 be very silent */
+    { "quiet", &frontend_config.ui_config.silent, 10 },
+    { "silent", &frontend_config.ui_config.silent, 9 },
+    { "brief", &frontend_config.ui_config.silent, -5 },  /* print few info on screen */
+    { "verbose", &frontend_config.ui_config.silent, -10 } /* print a lot on screen */
 };
 
 /** @internal @brief An ID3 option that sets one text field of the tag. */
@@ -2074,7 +2065,7 @@ parse_encoding_options(lame_t gfp, parse_state * st, char const *token, char *ne
     }
 #ifdef HAVE_MPG123
     if (0 == local_strcasecmp(token, "clipdetect")) {
-        global_ui_config.print_clipping_info = 1;
+        frontend_config.ui_config.print_clipping_info = 1;
         lame_set_decode_on_the_fly(gfp, 1);
         return OPT_DONE;
     }
@@ -2203,28 +2194,28 @@ parse_io_options(lame_t gfp, parse_state * st, char const *token, char *nextArg,
     if (0 == local_strcasecmp(token, "bitwidth")) {
         *argUsed = getIntValue(token, nextArg, &int_value);
         if (*argUsed)
-            global_raw_pcm.in_bitwidth = int_value;
+            frontend_config.raw_pcm.in_bitwidth = int_value;
         return OPT_DONE;
     }
     if (0 == local_strcasecmp(token, "little-endian")) {
-        global_raw_pcm.in_endian = ByteOrderLittleEndian;
+        frontend_config.raw_pcm.in_endian = ByteOrderLittleEndian;
         return OPT_DONE;
     }
     if (0 == local_strcasecmp(token, "big-endian")) {
-        global_raw_pcm.in_endian = ByteOrderBigEndian;
+        frontend_config.raw_pcm.in_endian = ByteOrderBigEndian;
         return OPT_DONE;
     }
 #ifdef HAVE_MPG123
     if (0 == local_strcasecmp(token, "mp1input")) {
-        global_reader.input_format = sf_mp1;
+        frontend_config.reader.input_format = sf_mp1;
         return OPT_DONE;
     }
     if (0 == local_strcasecmp(token, "mp2input")) {
-        global_reader.input_format = sf_mp2;
+        frontend_config.reader.input_format = sf_mp2;
         return OPT_DONE;
     }
     if (0 == local_strcasecmp(token, "mp3input")) {
-        global_reader.input_format = sf_mp3;
+        frontend_config.reader.input_format = sf_mp3;
         return OPT_DONE;
     }
 #endif
@@ -2235,8 +2226,8 @@ parse_io_options(lame_t gfp, parse_state * st, char const *token, char *nextArg,
     if (0 == local_strcasecmp(token, "decode-mp3delay")) {
         *argUsed = getIntValue(token, nextArg, &int_value);
         if (*argUsed) {
-            global_decoder.mp3_delay = int_value;
-            global_decoder.mp3_delay_set = 1;
+            frontend_config.decoder.mp3_delay = int_value;
+            frontend_config.decoder.mp3_delay_set = 1;
         }
         return OPT_DONE;
     }
@@ -2321,7 +2312,7 @@ parse_id3_options(lame_t gfp, parse_state * st, char const *token, char *nextArg
         if (ret != 0) {
             if (0 == st->ignore_tag_errors) {
                 if (st->id3tag_mode == ID3TAG_MODE_V1_ONLY) {
-                    if (global_ui_config.silent < 9) {
+                    if (frontend_config.ui_config.silent < 9) {
                         error_printf("The track number has to be between 1 and 255 for ID3v1.\n");
                     }
                     return OPT_STOP_ERROR;
@@ -2330,7 +2321,7 @@ parse_id3_options(lame_t gfp, parse_state * st, char const *token, char *nextArg
                     /* an ID3v2 tag takes any track number */
                 }
                 else {
-                    if (global_ui_config.silent < 9) {
+                    if (frontend_config.ui_config.silent < 9) {
                         error_printf("The track number has to be between 1 and 255 for ID3v1, ignored for ID3v1.\n");
                     }
                 }
@@ -2359,13 +2350,13 @@ parse_id3_options(lame_t gfp, parse_state * st, char const *token, char *nextArg
                         /* an ID3v2 tag keeps the genre as text */
                     }
                     else {
-                        if (global_ui_config.silent < 9) {
+                        if (frontend_config.ui_config.silent < 9) {
                             error_printf("Unknown ID3v1 genre: '%s'.  Setting ID3v1 genre to 'Other'\n", nextArg);
                         }
                     }
                 }
                 else {
-                    if (global_ui_config.silent < 10)
+                    if (frontend_config.ui_config.silent < 10)
                         error_printf("Internal error.\n");
                     return OPT_STOP_ERROR;
                 }
@@ -2376,7 +2367,7 @@ parse_id3_options(lame_t gfp, parse_state * st, char const *token, char *nextArg
     if (0 == local_strcasecmp(token, "tv")) {
         *argUsed = 1;
         if (id3_tag(gfp, 'v', st->id3_tenc, nextArg)) {
-            if (global_ui_config.silent < 9) {
+            if (frontend_config.ui_config.silent < 9) {
                 error_printf("Invalid field value: '%s'. Ignored\n", nextArg);
             }
         }
@@ -2415,7 +2406,7 @@ parse_id3_options(lame_t gfp, parse_state * st, char const *token, char *nextArg
     }
     if (0 == local_strcasecmp(token, "pad-id3v2")) {
         id3tag_pad_v2(gfp);
-        global_writer.id3v2_padding = 128;
+        frontend_config.writer.id3v2_padding = 128;
         return OPT_DONE;
     }
     if (0 == local_strcasecmp(token, "pad-id3v2-size")) {
@@ -2424,7 +2415,7 @@ parse_id3_options(lame_t gfp, parse_state * st, char const *token, char *nextArg
             int_value = int_value <= 128000 ? int_value : 128000;
             int_value = int_value >= 0      ? int_value : 0;
             id3tag_set_pad(gfp, int_value);
-            global_writer.id3v2_padding = int_value;
+            frontend_config.writer.id3v2_padding = int_value;
         }
         return OPT_DONE;
     }
@@ -2504,7 +2495,7 @@ parse_info_options(lame_t gfp, char const *token, char *nextArg, char const *Pro
     if (0 == local_strcasecmp(token, "disptime")) {
         *argUsed = getDoubleValue(token, nextArg, &double_value);
         if (*argUsed)
-            global_ui_config.update_interval = (float) double_value;
+            frontend_config.ui_config.update_interval = (float) double_value;
         return OPT_DONE;
     }
     return OPT_NOT_MINE;
@@ -2835,7 +2826,7 @@ parse_short_options(lame_t gfp, parse_state * st, char const *token, char const 
             argUsed = getDoubleValue("s", arg, &double_value);
             if (argUsed) {
                 double_value = (int) (double_value * (double_value <= 192 ? 1.e3 : 1.e0) + 0.5);
-                global_reader.input_samplerate = (int)double_value;
+                frontend_config.reader.input_samplerate = (int)double_value;
                 (void) lame_set_in_samplerate(gfp, (int)double_value);
             }
             break;
@@ -2857,12 +2848,12 @@ parse_short_options(lame_t gfp, parse_state * st, char const *token, char const 
             break;
         case 't': /* dont write VBR tag */
             (void) lame_set_bWriteVbrTag(gfp, 0);
-            global_decoder.disable_wav_header = 1;
+            frontend_config.decoder.disable_wav_header = 1;
             break;
         case 'T': /* do write VBR tag */
             (void) lame_set_bWriteVbrTag(gfp, 1);
             st->nogap_tags = 1;
-            global_decoder.disable_wav_header = 0;
+            frontend_config.decoder.disable_wav_header = 0;
             break;
         case 'r': /* force raw pcm input file */
 #if defined(LIBSNDFILE)
@@ -2870,10 +2861,10 @@ parse_short_options(lame_t gfp, parse_state * st, char const *token, char const 
                 ("WARNING: libsndfile may ignore -r and perform fseek's on the input.\n"
                  "Compile without libsndfile if this is a problem.\n");
 #endif
-            global_reader.input_format = sf_raw;
+            frontend_config.reader.input_format = sf_raw;
             break;
         case 'x': /* force byte swapping */
-            global_reader.swapbytes = 1;
+            frontend_config.reader.swapbytes = 1;
             break;
         case 'p': /* (jo) error_protection: add crc16 information to stream */
             lame_set_error_protection(gfp, 1);
@@ -2888,7 +2879,7 @@ parse_short_options(lame_t gfp, parse_state * st, char const *token, char const 
             error_printf("WARNING: -%c is obsolete.\n", c);
             break;
         case 'S':
-            global_ui_config.silent = 5;
+            frontend_config.ui_config.silent = 5;
             break;
         case 'X':
             /*  experimental switch -X:
@@ -2992,13 +2983,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
     inPath[0] = '\0';
     outPath[0] = '\0';
     outDir[0] = '\0';
-    /* turn on display options. user settings may turn them off below */
-    global_ui_config.silent = 0; /* default */
-    global_ui_config.brhist = 1;
-    global_decoder.mp3_delay = 0;
-    global_decoder.mp3_delay_set = 0;
-    global_decoder.disable_wav_header = 0;
-    global_ui_config.print_clipping_info = 0;
+    frontend_config = frontend_config_defaults;
     id3tag_init(gfp);
     unusable_number = 0;
 
@@ -3107,8 +3092,8 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
     }
 
     if (inPath[0] == '-') {
-        if (global_ui_config.silent == 0) { /* user didn't overrule default behaviour */
-            global_ui_config.silent = 1;
+        if (frontend_config.ui_config.silent == 0) { /* user didn't overrule default behaviour */
+            frontend_config.ui_config.silent = 1;
         }
     }
 #ifdef WIN32
@@ -3146,11 +3131,11 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
     }
 
     /* if user did not explicitly specify input is mp3, check file name */
-    if (global_reader.input_format == sf_unknown)
-        global_reader.input_format = frontend_classify_suffix(inPath);
+    if (frontend_config.reader.input_format == sf_unknown)
+        frontend_config.reader.input_format = frontend_classify_suffix(inPath);
 
 #if !defined(HAVE_MPG123)
-    if (is_mpeg_file_format(global_reader.input_format)) {
+    if (is_mpeg_file_format(frontend_config.reader.input_format)) {
         error_printf("Error: libmp3lame not compiled with mpg123 *decoding* support \n");
         return -1;
     }

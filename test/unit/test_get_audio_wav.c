@@ -506,12 +506,12 @@ expect_samples(int nch, int raw, int swap, const unsigned char *expected, size_t
     assert_non_null(f);
     memcpy(buffer[0], left, sizeof(left));
     memcpy(buffer[1], right, sizeof(right));
-    global_decoder.disable_wav_header = raw;
-    global_reader.swapbytes = swap;
-    global_writer.flush_write = 0;
+    frontend_config.decoder.disable_wav_header = raw;
+    frontend_config.reader.swapbytes = swap;
+    frontend_config.writer.flush_write = 0;
     assert_int_equal(put_audio16(f, buffer, WRITER_SAMPLES, nch), 0);
-    global_decoder.disable_wav_header = 0;
-    global_reader.swapbytes = 0;
+    frontend_config.decoder.disable_wav_header = 0;
+    frontend_config.reader.swapbytes = 0;
     rewind(f);
     assert_int_equal(fread(out, 1, sizeof(out), f), n);
     fclose(f);
@@ -577,7 +577,7 @@ setup_lame(void **state)
         return -1;
     /* The parser consults the forced input rate before the file's own, so a
        stale value here would mask every rate under test. */
-    global_reader.input_samplerate = 0;
+    frontend_config.reader.input_samplerate = 0;
     return 0;
 }
 

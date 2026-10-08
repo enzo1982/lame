@@ -236,7 +236,7 @@ brhist_init_package(lame_global_flags const* gf)
     }
     if (brhist_init(gf, min_kbps, max_kbps)) {
         /* fail to initialize */
-        global_ui_config.brhist = 0;
+        frontend_config.ui_config.brhist = 0;
     }
 }
 
@@ -251,7 +251,7 @@ encoder_progress_begin( lame_global_flags const* gf
     global_encoder_progress.time_status_init = 0;
     global_encoder_progress.last_time = 0;
     global_encoder_progress.last_frame_num = 0;
-    if (global_ui_config.silent < 9) {
+    if (frontend_config.ui_config.silent < 9) {
         size_t pw = console_getwidth()-14;
         char* i_file = 0;
         char* o_file = 0;
@@ -314,7 +314,7 @@ encoder_progress_begin( lame_global_flags const* gf
             }
         }
 
-        if (global_ui_config.silent <= -10) {
+        if (frontend_config.ui_config.silent <= -10) {
             lame_print_internals(gf);
         }
     }
@@ -323,10 +323,11 @@ encoder_progress_begin( lame_global_flags const* gf
 void
 encoder_progress( lame_global_flags const* gf )
 {
-    if (global_ui_config.silent <= 0) {
+    if (frontend_config.ui_config.silent <= 0) {
         int const frames = lame_get_frameNum(gf);
         int const frames_diff = frames - global_encoder_progress.last_frame_num;
-        if (global_ui_config.update_interval <= 0) {     /*  most likely --disptime x not used */
+        /*  most likely --disptime x not used */
+        if (frontend_config.ui_config.update_interval <= 0) {
             if (frames_diff < 100 && frames_diff != 0) {  /*  true, most of the time */
                 return;
             }
@@ -336,17 +337,17 @@ encoder_progress( lame_global_flags const* gf )
             if (frames != 0 && frames != 9) {
                 double const act = GetRealTime();
                 double const dif = act - global_encoder_progress.last_time;
-                if (dif >= 0 && dif < global_ui_config.update_interval) {
+                if (dif >= 0 && dif < frontend_config.ui_config.update_interval) {
                     return;
                 }
             }
             global_encoder_progress.last_time = GetRealTime(); /* from now! disp_time seconds */
         }
-        if (global_ui_config.brhist) {
+        if (frontend_config.ui_config.brhist) {
             brhist_jump_back();
         }
         timestatus(gf);
-        if (global_ui_config.brhist) {
+        if (frontend_config.ui_config.brhist) {
             brhist_disp(gf);
         }
         console_flush();
@@ -356,12 +357,12 @@ encoder_progress( lame_global_flags const* gf )
 void
 encoder_progress_end( lame_global_flags const* gf )
 {
-    if (global_ui_config.silent <= 0) {
-        if (global_ui_config.brhist) {
+    if (frontend_config.ui_config.silent <= 0) {
+        if (frontend_config.ui_config.brhist) {
             brhist_jump_back();
         }
         timestatus(gf);
-        if (global_ui_config.brhist) {
+        if (frontend_config.ui_config.brhist) {
             brhist_disp(gf);
         }
         timestatus_finish();

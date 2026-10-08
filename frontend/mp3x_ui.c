@@ -121,7 +121,7 @@ struct Mp3xDriver {
     GMenuModel          *menubar;
     GtkCssProvider      *noncomposite_css;
     Mp3xSession         *session;              /* NULL when empty */
-    FrontendGlobalsBaseline baseline;          /* plain value data */
+    FrontendConfig baseline;          /* plain value data */
     FileDialogRequest   *open_request;         /* identity pointer; non-owning */
     FileDialogRequest   *save_request;         /* identity pointer; non-owning */
 
@@ -180,7 +180,7 @@ static void     mp3x_driver_refresh_for_empty  (Mp3xDriver *d);
 
 /* Accessors consumed by mp3x_session.c. */
 guint64                  mp3x_driver_next_generation(Mp3xDriver *d);
-FrontendGlobalsBaseline *mp3x_driver_baseline       (Mp3xDriver *d);
+FrontendConfig *mp3x_driver_baseline       (Mp3xDriver *d);
 
 
 /* ==========================================================================
@@ -274,7 +274,7 @@ mp3x_driver_next_generation(Mp3xDriver *d)
     return ++d->next_session_generation;
 }
 
-FrontendGlobalsBaseline *
+FrontendConfig *
 mp3x_driver_baseline(Mp3xDriver *d)
 {
     return &d->baseline;
