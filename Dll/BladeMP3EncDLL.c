@@ -260,13 +260,16 @@ static void release_stream( lame_global_flags* gfp )
 
 /**
  * \internal
- * \brief Returns an ABR bitrate within the range LAME encodes, 8 to 320 kbit/s.
- * \param kbps  the bitrate in kbit/s, already converted from bit/s by the caller.
- * \return \a kbps, raised to 8 or lowered to 320 when it is outside the range.
+ * \brief Returns the ABR bitrate for a bitrate in bit/s: rounded to the
+ *        nearest kbit/s, within the range LAME encodes, 8 to 320 kbit/s.
+ * \param bps  the bitrate in bit/s.
+ * \return the bitrate in kbit/s.
  */
 static int
-abr_kbps_in_range(DWORD kbps)
+abr_kbps_from_bps(DWORD bps)
 {
+    DWORD const kbps = bps / 1000 + (bps % 1000 >= 500 ? 1 : 0);
+
     if (kbps > 320)
         return 320;
     if (kbps < 8)
@@ -373,7 +376,7 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
 
     if(lameConfig.format.LHV1.nPreset == LQP_ABR)		// --ALT-PRESET ABR
     {
-        actual_bitrate = abr_kbps_in_range(lameConfig.format.LHV1.dwVbrAbr_bps / 1000);
+        actual_bitrate = abr_kbps_from_bps(lameConfig.format.LHV1.dwVbrAbr_bps);
 
         lame_set_preset( gfp, actual_bitrate );
     }    
@@ -473,9 +476,8 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
             /* set VBR method to ABR */
             lame_set_VBR( gfp, vbr_abr );
 
-            /* calculate to kbps, round to nearest kbps */
             lame_set_VBR_mean_bitrate_kbps( gfp,
-                abr_kbps_in_range( ( lameConfig.format.LHV1.dwVbrAbr_bps + 500 ) / 1000 ) );
+                abr_kbps_from_bps( lameConfig.format.LHV1.dwVbrAbr_bps ) );
         }
 
     }

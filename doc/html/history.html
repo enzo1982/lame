@@ -569,6 +569,9 @@
 			        ACM codec resamples the input to that rate.</li>
 			    <li><i>lame_enc.dll</i> rejects a stream that asks for a
 			        VBR method it does not support.</li>
+			    <li><i>lame_enc.dll</i> rounds an ABR bitrate to the
+			        nearest kbit/s, for the ABR preset as for the ABR
+			        setting.</li>
 			    <li>The Windows ACM codec and the DirectShow filter
 			        carry the LAME version as their file version, and
 			        the codec reports it as its driver version, so the

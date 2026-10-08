@@ -424,4 +424,26 @@ mp3_lame_tag_vbr_method(const unsigned char *buf, long frame)
     return buf[off + MP3_TAG_METHOD_OFFSET] & MP3_TAG_METHOD_MASK;
 }
 
+/** @brief Offset of the ABR bitrate byte from the marker. It follows the
+    lowpass byte, the peak amplitude (4 bytes), the two replay gains (2 bytes
+    each) and the encoding flags (1 byte). */
+#define MP3_TAG_ABR_OFFSET          (MP3_TAG_LOWPASS_OFFSET + 1 + 4 + 2 + 2 + 1)
+
+/**
+ * @brief Returns the ABR bitrate from a stream's LAME tag, in kbit/s.
+ * @param buf    the stream.
+ * @param frame  the length of its first frame, in bytes.
+ * @return the bitrate, 255 for 255 kbit/s and above, or @c MP3_TAG_ABSENT
+ *         when the first frame has no LAME tag that reaches the byte.
+ */
+static inline int
+mp3_lame_tag_abr_kbps(const unsigned char *buf, long frame)
+{
+    long const off = mp3_lame_tag_at(buf, frame);
+
+    if (off < 0 || off + MP3_TAG_ABR_OFFSET >= frame)
+        return MP3_TAG_ABSENT;
+    return buf[off + MP3_TAG_ABR_OFFSET];
+}
+
 #endif /* LAME_TEST_CLIENTS_MP3FRAME_H */

@@ -694,6 +694,33 @@ test_rejected_input_reported(const blade_exports *be)
 }
 
 /**
+ * @brief Reads a whole file into memory.
+ * @param path  the file.
+ * @param size  receives its length in bytes.
+ * @return the contents, to be released with free(), or NULL when the file
+ *         cannot be read.
+ */
+static unsigned char *
+read_whole_file(const char *path, long *size)
+{
+    FILE   *fp = fopen(path, "rb");
+    unsigned char *buf = NULL;
+
+    *size = 0;
+    if (fp == NULL) {
+        return NULL;
+    }
+    if (fseek(fp, 0, SEEK_END) == 0 && (*size = ftell(fp)) > 0 && fseek(fp, 0, SEEK_SET) == 0
+        && (buf = (unsigned char *) malloc((size_t) *size)) != NULL
+        && fread(buf, 1, (size_t) *size, fp) != (size_t) *size) {
+        free(buf);
+        buf = NULL;
+    }
+    fclose(fp);
+    return buf;
+}
+
+/**
  * @brief Checks the ABR preset at a bitrate above the highest one: the DLL
  *        encodes ABR at 320 kbit/s.
  *
@@ -710,9 +737,8 @@ test_abr_preset_above_range(const blade_exports *be, const char *dir)
     BE_CONFIG cfg;
     HBE_STREAM hbe = 0;
     char    path[MAX_PATH];
-    unsigned char *buf = NULL;
+    unsigned char *buf;
     long    size = 0;
-    FILE   *fp;
 
     sprintf(path, "%slame_blade_test_abr.mp3", dir);
     make_config(&cfg, 1);
@@ -724,10 +750,8 @@ test_abr_preset_above_range(const blade_exports *be, const char *dir)
         return;
     }
     CHECK_EQ_U(be->info_tag(hbe, path), BE_ERR_SUCCESSFUL, "its LAME tag is written");
-    fp = fopen(path, "rb");
-    if (fp != NULL && fseek(fp, 0, SEEK_END) == 0 && (size = ftell(fp)) > MP3_HEADER_BYTES
-        && fseek(fp, 0, SEEK_SET) == 0 && (buf = (unsigned char *) malloc((size_t) size)) != NULL
-        && fread(buf, 1, (size_t) size, fp) == (size_t) size && mp3_is_frame_sync(buf)) {
+    buf = read_whole_file(path, &size);
+    if (buf != NULL && size > MP3_HEADER_BYTES && mp3_is_frame_sync(buf)) {
         long const first = mp3_frame_bytes(mp3_bitrate_index(buf), mp3_padding_bytes(buf), RATE);
 
         CHECK_EQ_U(mp3_lame_tag_vbr_method(buf, first < size ? first : size), MP3_TAG_METHOD_ABR,
@@ -735,11 +759,61 @@ test_abr_preset_above_range(const blade_exports *be, const char *dir)
     } else {
         CHECK(0, "the file with the LAME tag can be read");
     }
-    if (fp != NULL) {
-        fclose(fp);
-    }
     free(buf);
     remove(path);
+}
+
+/**
+ * @brief Checks that both ways of asking for ABR round the bitrate to the
+ *        nearest kbit/s.
+ *
+ * 128600 bit/s is 128.6 kbit/s. The LAME tag records the ABR bitrate, and it
+ * must be 129 through the ABR preset and through the ABR setting of the
+ * configuration.
+ *
+ * @param be    the resolved entry points.
+ * @param dir   directory for the scratch file, with a trailing separator.
+ */
+static void
+test_abr_bitrate_rounds(const blade_exports *be, const char *dir)
+{
+    static const struct {
+        int     preset;
+        const char *what;
+    } paths[] = {
+        { LQP_ABR, "the ABR preset at 128600 bit/s records 129 kbit/s" },
+        { LQP_NOPRESET, "the ABR setting at 128600 bit/s records 129 kbit/s" },
+    };
+    size_t  i;
+
+    for (i = 0; i < sizeof(paths) / sizeof(paths[0]); i++) {
+        BE_CONFIG cfg;
+        HBE_STREAM hbe = 0;
+        char    path[MAX_PATH];
+        unsigned char *buf;
+        long    size = 0;
+
+        sprintf(path, "%slame_blade_test_abr_round.mp3", dir);
+        make_config(&cfg, 1);
+        cfg.format.LHV1.nPreset = paths[i].preset;
+        cfg.format.LHV1.dwVbrAbr_bps = 128600;
+        if (!encode_config_file(be, &cfg, path, &hbe)) {
+            CHECK(0, "a stream at 128600 bit/s ABR is encoded");
+            be->close(hbe);
+            continue;
+        }
+        CHECK_EQ_U(be->info_tag(hbe, path), BE_ERR_SUCCESSFUL, "its LAME tag is written");
+        buf = read_whole_file(path, &size);
+        if (buf != NULL && size > MP3_HEADER_BYTES && mp3_is_frame_sync(buf)) {
+            long const first = mp3_frame_bytes(mp3_bitrate_index(buf), mp3_padding_bytes(buf), RATE);
+
+            CHECK_EQ_U(mp3_lame_tag_abr_kbps(buf, first < size ? first : size), 129, paths[i].what);
+        } else {
+            CHECK(0, "the file with the LAME tag can be read");
+        }
+        free(buf);
+        remove(path);
+    }
 }
 
 /**
@@ -837,6 +911,7 @@ main(int argc, char **argv)
     test_unknown_vbr_method_refused(&be);
     test_rejected_input_reported(&be);
     test_abr_preset_above_range(&be, dir);
+    test_abr_bitrate_rounds(&be, dir);
     test_released_stream(&be, dir);
 
     FreeLibrary(mod);
