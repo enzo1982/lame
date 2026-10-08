@@ -40,6 +40,7 @@
 #include <msacmdrv.h>
 
 #include <assert.h>
+#include <stdio.h>
 
 #include <lame.h>
 #include "../libmp3lame/version.h"
@@ -54,7 +55,7 @@
 #define IDC_HAND            MAKEINTRESOURCE(32649)
 #endif // IDC_HAND
 
-char ACM::VersionString[120];
+char ACM::VersionString[VERSION_STRING_CHARS];
 
 /// The codec reports the LAME version that it is built from as its driver version.
 #define LAME_ACM_DRIVER_VERSION MAKE_ACM_VERSION(LAME_MAJOR_VERSION, LAME_MINOR_VERSION, LAME_PATCH_VERSION)
@@ -748,8 +749,8 @@ inline DWORD ACM::OnDriverDetails(const HDRVR hdrvr, LPACMDRIVERDETAILS a_Driver
 	a_DriverDetail->cFilterTags = FILTER_TAG_MAX_NB;
 
 	lstrcpyW( a_DriverDetail->szShortName, L"LAME MP3" );
-	char tmpStr[128];
-	wsprintf(tmpStr, "LAME MP3 Codec v%s", GetVersionString());
+	char tmpStr[ACMDRIVERDETAILS_LONGNAME_CHARS];
+	snprintf(tmpStr, sizeof tmpStr, "LAME MP3 Codec v%s", GetVersionString());
 	int u = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, tmpStr, -1, a_DriverDetail->szLongName, 0);
 	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, tmpStr, -1, a_DriverDetail->szLongName, u);
 	lstrcpyW( a_DriverDetail->szCopyright, L"2002 Steve Lhomme" );

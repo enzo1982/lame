@@ -553,8 +553,8 @@ bool AEncodeProperties::InitConfigDlg(HWND HwndDlg)
 	for (i=0;i<GetChannelLentgh();i++)
 		SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ENC_STEREO), CB_ADDSTRING, NULL, (LPARAM) GetChannelModeString(i));
 
-	char tmp[20];
-	wsprintf(tmp, "v%s",ACM::GetVersionString());
+	char tmp[sizeof "v" + ACM::VERSION_STRING_CHARS];
+	snprintf(tmp, sizeof tmp, "v%s", ACM::GetVersionString());
 	SetWindowText( GetDlgItem( HwndDlg, IDC_STATIC_CONFIG_VERSION), tmp);
 
 	// Add required bitrates

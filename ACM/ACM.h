@@ -66,6 +66,8 @@ public:
 	LONG DriverProcedure(const HDRVR hdrvr, const UINT msg, LONG lParam1, LONG lParam2);
 
 	static const char * GetVersionString(void) {return VersionString;}
+	/** \brief The size of the buffer that GetVersionString() returns, terminator included. */
+	static const unsigned int VERSION_STRING_CHARS = 120;
 
 protected:
 //	inline DWORD Configure( HWND hParentWindow, LPDRVCONFIGINFO pConfig );
@@ -100,7 +102,7 @@ protected:
 	AEncodeProperties my_EncodingProperties;
 	std::vector<bitrate_item> bitrate_table;
 
-	static char VersionString[120];
+	static char VersionString[VERSION_STRING_CHARS];
 };
 
 #endif // !defined(_ACM_H__INCLUDED_)

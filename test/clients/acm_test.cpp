@@ -24,10 +24,12 @@
  * Second, the program loads the built @c lameACM.acm and drives it through
  * the Audio Compression Manager. These tests cover the driver details, the
  * format list, the suggested format and its name, a conversion, and a
- * destination buffer that is too small.
+ * destination buffer that is too small. One test creates the configuration
+ * dialog from the codec's resources and checks the version text it shows.
  */
 
 #include <windows.h>
+#include <commctrl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,6 +43,7 @@
 #include "ACMStream.h"
 #include "AEncodeProperties.h"
 #include "ACM.h"
+#include "resource.h"
 #include "../../libmp3lame/version.h"
 
 /** @brief How the codec's long name begins: its own name, then LAME's version. */
@@ -562,6 +565,66 @@ test_save_without_a_file(void)
     }
 
     ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Leaves every message of the dialog to the default handling.
+ * @param dialog   the dialog.
+ * @param message  the message.
+ * @param wparam   the first message parameter.
+ * @param lparam   the second message parameter.
+ * @return FALSE, for "not handled".
+ */
+static INT_PTR CALLBACK
+quiet_dialog_proc(HWND dialog, UINT message, WPARAM wparam, LPARAM lparam)
+{
+    return FALSE;
+}
+
+/**
+ * @brief Checks the version text that the configuration dialog shows.
+ *
+ * The test creates the dialog from the resources of the built codec and fills
+ * it through AEncodeProperties::InitConfigDlg(). The text is "v" and the whole
+ * text of get_lame_version(). In alpha and beta builds, that text includes the
+ * build date and time.
+ *
+ * @param driver  the path of the built codec.
+ */
+static void
+test_config_dialog_version(const char *driver)
+{
+    /* Room for "v" and any version text, with space to spare. */
+    enum { DIALOG_TEXT_CHARS = 256 };
+    INITCOMMONCONTROLSEX controls = { sizeof controls, ICC_BAR_CLASSES };
+    char want[DIALOG_TEXT_CHARS], got[DIALOG_TEXT_CHARS];
+    HMODULE codec;
+    HWND dialog;
+
+    printf("the version text of the configuration dialog\n");
+    ::InitCommonControlsEx(&controls);
+    codec = ::LoadLibraryExA(driver, NULL, LOAD_LIBRARY_AS_DATAFILE);
+    if (codec == NULL) {
+        CHECK(0, "the codec's resources load");
+        return;
+    }
+
+    /* The codec object reads the version text that the dialog shows. */
+    ACM acm(NULL);
+    AEncodeProperties props(NULL);
+
+    dialog = ::CreateDialogParamA(codec, MAKEINTRESOURCEA(IDD_CONFIG), NULL, quiet_dialog_proc, 0);
+    CHECK(dialog != NULL, "the configuration dialog is created from the codec's resources");
+    if (dialog != NULL) {
+        props.InitConfigDlg(dialog);
+        got[0] = '\0';
+        ::GetDlgItemTextA(dialog, IDC_STATIC_CONFIG_VERSION, got, sizeof got);
+        snprintf(want, sizeof want, "v%s", get_lame_version());
+        CHECK(strncmp(got, want, sizeof want) == 0, "the dialog shows the whole LAME version");
+        printf("        %s\n", got);
+        ::DestroyWindow(dialog);
+    }
+    ::FreeLibrary(codec);
 }
 
 /**
@@ -1664,6 +1727,7 @@ main(int argc, char **argv)
         == CTEST_FOUND) {
         test_under_the_acm(driver);
         test_settings_reach_the_encoder(driver);
+        test_config_dialog_version(driver);
     } else {
         /* Not a skip, with or without --require. The codec is built by the
            same solution as this test, so its absence is a failure of the
