@@ -127,7 +127,8 @@ capture_file_times(char const *inPath)
  *
  * Does nothing, and prints nothing, if the input is standard input or the
  * output is standard output ("-"). Prints a warning if the times cannot be set
- * on the output file.
+ * on the output file. The callers call it only for an output that was written
+ * completely.
  *
  * @param inPath   the input file name, "-" for standard input.
  * @param outPath  the output file name, "-" for standard output.
@@ -323,7 +324,7 @@ lame_decoder(lame_t gfp, FILE * outf, char *inPath, char *outPath)
     ret = lame_decoder_loop(gfp, outf, inPath, outPath);
     fclose(outf);       /* close the output file */
     close_infile();     /* close the input file */
-    if (ret >= 0)
+    if (ret == 0)
         preserve_file_times(inPath, outPath);
     return ret;
 }
@@ -815,7 +816,7 @@ lame_encoder(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char 
     ret = lame_encoder_loop(gf, outf, nogap, inPath, outPath);
     fclose(outf);       /* close the output file */
     close_infile();     /* close the input file */
-    if (ret >= 0)
+    if (ret == 0)
         preserve_file_times(inPath, outPath);
     return ret;
 }
