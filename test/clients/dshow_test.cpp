@@ -377,11 +377,7 @@ enum_types_catching_faults(IPin *pin, ULONG *count)
         }
         while (e->Next(1, &mt, NULL) == S_OK) {
             ++*count;
-            CoTaskMemFree(mt->pbFormat);
-            if (mt->pUnk != NULL) {
-                mt->pUnk->Release();
-            }
-            CoTaskMemFree(mt);
+            free_media_type(mt);
         }
         e->Release();
         return S_OK;

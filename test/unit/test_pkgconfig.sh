@@ -72,6 +72,16 @@ grep -q "^dependency_libs='" "$LA" \
       the link to compare lame.pc against."
 deps_raw=$(sed -n "s/^dependency_libs='\(.*\)'$/\1/p" "$LA")
 lists() { printf '%s\n' "$1" | tr ' \t' '\n\n' | grep '^-l' | sort -u; }
+# The packages that lame.pc names in Requires.private, one per line, without
+# the version operands that may follow them.
+required_packages() {
+	for pkg in $(sed -n 's/^Requires\.private: *//p' "$PC" | tr ',' ' '); do
+		case $pkg in
+		[0-9]* | '<'* | '>'* | '='* | '!'*) ;;
+		*) echo "$pkg" ;;
+		esac
+	done
+}
 
 DEP=$(lists "$deps_raw")
 if test -z "$DEP"; then
@@ -107,10 +117,7 @@ allowed=$WORK/allowed
 {
 	echo "-lmp3lame"
 	lists "$deps_raw"
-	for pkg in $(sed -n 's/^Requires\.private: *//p' "$PC" | tr ',' ' '); do
-		case $pkg in
-		[0-9]* | '<'* | '>'* | '='* | '!'*) continue ;;   # version operands
-		esac
+	for pkg in $(required_packages); do
 		lists "$($PKG_CONFIG --static --libs "$pkg" 2>/dev/null)"
 	done
 } | sort -u >"$allowed"
@@ -147,10 +154,7 @@ fi
 
 # ------------------------------------- 5. every package named can be resolved
 unresolved=
-for pkg in $(sed -n 's/^Requires\.private: *//p' "$PC" | tr ',' ' '); do
-	case $pkg in
-	[0-9]* | '<'* | '>'* | '='* | '!'*) continue ;;
-	esac
+for pkg in $(required_packages); do
 	$PKG_CONFIG --exists "$pkg" || unresolved="$unresolved $pkg"
 done
 if test -z "$unresolved"; then

@@ -160,22 +160,40 @@ test_ieee_float_valid_is_encoded(LAME_UNUSED void **state)
 }
 
 /**
+ * @brief Encodes valid stereo input with one sample replaced, through
+ *        lame_encode_buffer_ieee_float().
+ * @param channel  the channel of the sample: 0 for the left, 1 for the right.
+ * @param index    the index of the sample.
+ * @param bad      the value that replaces it.
+ * @return the result of the encode call.
+ */
+static int
+ieee_float_encode_with(int channel, int index, float bad)
+{
+    static float l[NSAMPLES], r[NSAMPLES];
+    unsigned char mp3[MP3BUF_SIZE];
+    lame_t  gfp = encoder_new(2);
+    int     rc;
+
+    fill_valid_float(l, NSAMPLES);
+    fill_valid_float(r, NSAMPLES);
+    if (channel == 0)
+        l[index] = bad;
+    else
+        r[index] = bad;
+    rc = lame_encode_buffer_ieee_float(gfp, l, r, NSAMPLES, mp3, sizeof mp3);
+    lame_close(gfp);
+    return rc;
+}
+
+/**
  * @brief Checks that a NaN in the left channel is rejected.
  * @param state cmocka fixture state (unused).
  */
 static void
 test_ieee_float_nan_left(LAME_UNUSED void **state)
 {
-    static float l[NSAMPLES], r[NSAMPLES];
-    unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
-
-    fill_valid_float(l, NSAMPLES);
-    fill_valid_float(r, NSAMPLES);
-    l[0] = float_nan();
-    assert_int_equal(lame_encode_buffer_ieee_float(gfp, l, r, NSAMPLES, mp3, sizeof mp3),
-                     LAME_BADINPUTDATA);
-    lame_close(gfp);
+    assert_int_equal(ieee_float_encode_with(0, 0, float_nan()), LAME_BADINPUTDATA);
 }
 
 /**
@@ -185,16 +203,7 @@ test_ieee_float_nan_left(LAME_UNUSED void **state)
 static void
 test_ieee_float_nan_right(LAME_UNUSED void **state)
 {
-    static float l[NSAMPLES], r[NSAMPLES];
-    unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
-
-    fill_valid_float(l, NSAMPLES);
-    fill_valid_float(r, NSAMPLES);
-    r[0] = float_nan();
-    assert_int_equal(lame_encode_buffer_ieee_float(gfp, l, r, NSAMPLES, mp3, sizeof mp3),
-                     LAME_BADINPUTDATA);
-    lame_close(gfp);
+    assert_int_equal(ieee_float_encode_with(1, 0, float_nan()), LAME_BADINPUTDATA);
 }
 
 /**
@@ -205,16 +214,7 @@ test_ieee_float_nan_right(LAME_UNUSED void **state)
 static void
 test_ieee_float_nan_last_sample(LAME_UNUSED void **state)
 {
-    static float l[NSAMPLES], r[NSAMPLES];
-    unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
-
-    fill_valid_float(l, NSAMPLES);
-    fill_valid_float(r, NSAMPLES);
-    l[NSAMPLES - 1] = float_nan();
-    assert_int_equal(lame_encode_buffer_ieee_float(gfp, l, r, NSAMPLES, mp3, sizeof mp3),
-                     LAME_BADINPUTDATA);
-    lame_close(gfp);
+    assert_int_equal(ieee_float_encode_with(0, NSAMPLES - 1, float_nan()), LAME_BADINPUTDATA);
 }
 
 /**

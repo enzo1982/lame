@@ -236,23 +236,39 @@ group_teardown(void **state)
     return 0;
 }
 
-/** @brief Checks that an IPv4 literal connects, and to the address that it names. */
+/**
+ * @brief Checks that an address literal connects, and to the address that it
+ *        names.
+ *
+ * The test is skipped when no receiver opens on the address: a host can have
+ * IPv6 compiled in but not up.
+ *
+ * @param family   the address family of @p literal, AF_INET or AF_INET6.
+ * @param literal  the address, in the form that inet_ntop() writes.
+ */
 static void
-test_ipv4_literal(void **state)
+assert_connects_to(int family, const char *literal)
 {
     unsigned int port = 0;
-    SOCKET  r = open_receiver(AF_INET, "127.0.0.1", &port);
+    SOCKET  r = open_receiver(family, literal, &port);
     char    text[INET6_ADDRSTRLEN];
-    int     family = 0;
+    int     got = 0;
 
     if (r == INVALID_SOCKET)
         skip();
-    (void) state;
 
-    assert_int_equal(rtp_socket("127.0.0.1", port, 2), 0);
-    assert_string_equal(peer_of(rtpsocket, text, sizeof(text), &family), "127.0.0.1");
-    assert_int_equal(family, AF_INET);
+    assert_int_equal(rtp_socket(literal, port, 2), 0);
+    assert_string_equal(peer_of(rtpsocket, text, sizeof(text), &got), literal);
+    assert_int_equal(got, family);
     rtp_close_socket(r);
+}
+
+/** @brief Checks the IPv4 loopback literal with assert_connects_to(). */
+static void
+test_ipv4_literal(void **state)
+{
+    (void) state;
+    assert_connects_to(AF_INET, "127.0.0.1");
 }
 
 /**
@@ -267,19 +283,8 @@ static void
 test_ipv6_literal(void **state)
 {
 #ifdef IPV6
-    unsigned int port = 0;
-    SOCKET  r = open_receiver(AF_INET6, "::1", &port);
-    char    text[INET6_ADDRSTRLEN];
-    int     family = 0;
-
-    if (r == INVALID_SOCKET)
-        skip();                 /* a host with IPv6 compiled in but not up */
     (void) state;
-
-    assert_int_equal(rtp_socket("::1", port, 2), 0);
-    assert_string_equal(peer_of(rtpsocket, text, sizeof(text), &family), "::1");
-    assert_int_equal(family, AF_INET6);
-    rtp_close_socket(r);
+    assert_connects_to(AF_INET6, "::1");
 #else
     (void) state;
     error_calls = 0;

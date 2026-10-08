@@ -277,33 +277,36 @@ test_all_zero(LAME_UNUSED void **state)
 static void
 test_tiers_agree(LAME_UNUSED void **state)
 {
+    /* The tiers above SSE2, each with its probe. */
+    static const struct {
+        int     (*probe)(void);
+        void    (*quantize)(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix,
+                            const FLOAT * adj);
+    } tiers[] = {
+        { have_avx2, avx2_quantize },
+        { have_avx512, avx512_quantize },
+    };
     FLOAT   xr[MAX_LEN + 8];
     int     a[MAX_LEN + 8], b[MAX_LEN + 8];
     unsigned int l;
+    size_t  k;
     int     i;
 
     for (i = 0; i < MAX_LEN + 8; ++i)
         xr[i] = (FLOAT) ((i * 7 % 311) + 0.5);
 
-    if (have_avx2())
+    for (k = 0; k < sizeof tiers / sizeof tiers[0]; ++k) {
+        if (!tiers[k].probe())
+            continue;
         for (l = 0; l <= 72; ++l) {
             for (i = 0; i < MAX_LEN + 8; ++i)
                 a[i] = b[i] = SENTINEL;
             quantize_lines_xrpow_sse2(l, 1.0f, xr, a, adj_t);
-            avx2_quantize(l, 1.0f, xr, b, adj_t);
+            tiers[k].quantize(l, 1.0f, xr, b, adj_t);
             for (i = 0; i < MAX_LEN + 8; ++i)
                 assert_int_equal(a[i], b[i]);
         }
-
-    if (have_avx512())
-        for (l = 0; l <= 72; ++l) {
-            for (i = 0; i < MAX_LEN + 8; ++i)
-                a[i] = b[i] = SENTINEL;
-            quantize_lines_xrpow_sse2(l, 1.0f, xr, a, adj_t);
-            avx512_quantize(l, 1.0f, xr, b, adj_t);
-            for (i = 0; i < MAX_LEN + 8; ++i)
-                assert_int_equal(a[i], b[i]);
-        }
+    }
 }
 
 /**

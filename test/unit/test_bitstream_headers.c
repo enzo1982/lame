@@ -191,6 +191,31 @@ new_encoder(void)
 }
 
 /**
+ * @brief Encodes a silent lead-in and a signal, and checks that the stream is
+ *        whole MPEG frames. Closes the encoder.
+ * @param gfp  the encoder instance, after lame_init_params().
+ *
+ * Every byte belongs to a frame, and there are as many frames as were
+ * encoded. The second half is what a stream of the right length that carries
+ * no headers would fail.
+ */
+static void
+assert_framed(lame_t gfp)
+{
+    static unsigned char mp3[STREAM_SIZE];
+    int     len, walked, frames;
+
+    len = encode(gfp, SILENT_FRAMES, SIGNAL_FRAMES, mp3, (int) sizeof mp3);
+    walked = walk_frames(mp3, len, &frames);
+
+    if (report_calls != 0)
+        fail_msg("the encoder reported %d message(s): %s", report_calls, report_text);
+    assert_int_equal(walked, len);
+    assert_true(frames >= SILENT_FRAMES);
+    assert_int_equal(lame_close(gfp), 0);
+}
+
+/**
  * @brief Checks that a silent lead-in keeps the framing of the file.
  *
  * The settings are MPEG-2 at 8 kbit/s and 24 kHz, two channels, CRC on. A
@@ -204,9 +229,7 @@ new_encoder(void)
 static void
 test_silent_lead_in_keeps_the_framing(LAME_UNUSED void **state)
 {
-    static unsigned char mp3[STREAM_SIZE];
     lame_t  gfp = new_encoder();
-    int     len, walked, frames;
 
     assert_int_equal(lame_set_out_samplerate(gfp, 24000), 0);
     assert_int_equal(lame_set_brate(gfp, 8), 0);
@@ -214,44 +237,25 @@ test_silent_lead_in_keeps_the_framing(LAME_UNUSED void **state)
     assert_int_equal(lame_set_error_protection(gfp, 1), 0);
     assert_int_equal(lame_init_params(gfp), 0);
 
-    len = encode(gfp, SILENT_FRAMES, SIGNAL_FRAMES, mp3, (int) sizeof mp3);
-    walked = walk_frames(mp3, len, &frames);
-
-    if (report_calls != 0)
-        fail_msg("the encoder reported %d message(s): %s", report_calls, report_text);
-    /* Every byte belongs to a frame, and there are as many frames as were
-       encoded - the second half of that is what a stream of the right length
-       carrying no headers would fail. */
-    assert_int_equal(walked, len);
-    assert_true(frames >= SILENT_FRAMES);
-    assert_int_equal(lame_close(gfp), 0);
+    assert_framed(gfp);
 }
 
 /**
  * @brief Checks that an everyday encode keeps its framing.
  *
- * This test is the control. It shows that the two checks above pass on a
- * stream that the encoder really produced. So the result of the first test
+ * This test is the control. It shows that the checks of assert_framed() pass
+ * on a stream that the encoder really produced. So the result of the first test
  * comes from its settings, not from a walk over an empty buffer.
  */
 static void
 test_ordinary_encode_keeps_the_framing(LAME_UNUSED void **state)
 {
-    static unsigned char mp3[STREAM_SIZE];
     lame_t  gfp = new_encoder();
-    int     len, walked, frames;
 
     assert_int_equal(lame_set_brate(gfp, 128), 0);
     assert_int_equal(lame_init_params(gfp), 0);
 
-    len = encode(gfp, SILENT_FRAMES, SIGNAL_FRAMES, mp3, (int) sizeof mp3);
-    walked = walk_frames(mp3, len, &frames);
-
-    if (report_calls != 0)
-        fail_msg("the encoder reported %d message(s): %s", report_calls, report_text);
-    assert_int_equal(walked, len);
-    assert_true(frames >= SILENT_FRAMES);
-    assert_int_equal(lame_close(gfp), 0);
+    assert_framed(gfp);
 }
 
 int

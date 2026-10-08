@@ -928,6 +928,47 @@ test_lametag_frame_absent_without_tag(LAME_UNUSED void **state)
     lame_close(gfp);
 }
 
+/** @brief The bytes at the start of a written stream that the tag tests compare. */
+#define TAG_PROBE_BYTES 512
+
+/**
+ * @brief Writes an encoded stream to a file and calls lame_mp3_tags_fid() on
+ *        it. Reads the start of the file before and after the call.
+ * @param with_tag  1 for an encoder that writes the LAME tag, 0 for one that
+ *                  does not.
+ * @param before    receives the first #TAG_PROBE_BYTES bytes before the call.
+ * @param after     receives the first #TAG_PROBE_BYTES bytes after the call.
+ *
+ * tmpfile() gives the stream that the documentation asks for: seekable, and
+ * open for reading and writing. It also leaves no file behind.
+ */
+static void
+tags_fid_round(int with_tag, unsigned char *before, unsigned char *after)
+{
+    static unsigned char mp3[MP3CAP];
+    lame_t  gfp = encoder_new(1, with_tag);
+    FILE   *f;
+    int     used;
+
+    used = encode_and_flush(gfp, mp3, MP3CAP);
+    assert_true(used > TAG_PROBE_BYTES);
+
+    f = tmpfile();
+    assert_non_null(f);
+    assert_int_equal((int) fwrite(mp3, 1, (size_t) used, f), used);
+    assert_int_equal(fflush(f), 0);
+    assert_int_equal(fseek(f, 0, SEEK_SET), 0);
+    assert_int_equal((int) fread(before, 1, TAG_PROBE_BYTES, f), TAG_PROBE_BYTES);
+
+    lame_mp3_tags_fid(gfp, f);
+    assert_int_equal(fflush(f), 0);
+    assert_int_equal(fseek(f, 0, SEEK_SET), 0);
+    assert_int_equal((int) fread(after, 1, TAG_PROBE_BYTES, f), TAG_PROBE_BYTES);
+
+    fclose(f);
+    lame_close(gfp);
+}
+
 /**
  * @brief Checks that lame_mp3_tags_fid() replaces the reserved frame in a
  *        written stream.
@@ -935,42 +976,17 @@ test_lametag_frame_absent_without_tag(LAME_UNUSED void **state)
  *
  * LAME reserves a frame at the start of the audio. This frame has no tag
  * until this call writes one into it. So the file must change, and the marker
- * must appear where it was missing before. tmpfile() gives the stream that
- * the documentation asks for: seekable, and open for reading and writing. It
- * also leaves no file behind.
+ * must appear where it was missing before.
  */
 static void
 test_mp3_tags_fid_writes_the_tag(LAME_UNUSED void **state)
 {
-    static unsigned char mp3[MP3CAP];
-    unsigned char before[512], after[512];
-    lame_t  gfp = encoder_new(1, 1);
-    FILE   *f;
-    size_t  nb, na;
-    int     used;
+    unsigned char before[TAG_PROBE_BYTES], after[TAG_PROBE_BYTES];
 
-    used = encode_and_flush(gfp, mp3, MP3CAP);
-    assert_true(used > (int) sizeof before);
-
-    f = tmpfile();
-    assert_non_null(f);
-    assert_int_equal((int) fwrite(mp3, 1, (size_t) used, f), used);
-    assert_int_equal(fflush(f), 0);
-    assert_int_equal(fseek(f, 0, SEEK_SET), 0);
-    nb = fread(before, 1, sizeof before, f);
-    assert_int_equal((int) nb, (int) sizeof before);
-    assert_false(mem_contains(before, nb, "Xing"));
-
-    lame_mp3_tags_fid(gfp, f);
-    assert_int_equal(fflush(f), 0);
-    assert_int_equal(fseek(f, 0, SEEK_SET), 0);
-    na = fread(after, 1, sizeof after, f);
-    assert_int_equal((int) na, (int) nb);
-    assert_int_not_equal(memcmp(before, after, nb), 0);
-    assert_true(mem_contains(after, na, "Xing"));
-
-    fclose(f);
-    lame_close(gfp);
+    tags_fid_round(1, before, after);
+    assert_false(mem_contains(before, TAG_PROBE_BYTES, "Xing"));
+    assert_int_not_equal(memcmp(before, after, TAG_PROBE_BYTES), 0);
+    assert_true(mem_contains(after, TAG_PROBE_BYTES, "Xing"));
 }
 
 /**
@@ -984,32 +1000,32 @@ test_mp3_tags_fid_writes_the_tag(LAME_UNUSED void **state)
 static void
 test_mp3_tags_fid_noop_without_tag(LAME_UNUSED void **state)
 {
-    static unsigned char mp3[MP3CAP];
-    unsigned char before[512], after[512];
-    lame_t  gfp = encoder_new(1, 0);
-    FILE   *f;
-    size_t  nb, na;
-    int     used;
+    unsigned char before[TAG_PROBE_BYTES], after[TAG_PROBE_BYTES];
 
-    used = encode_and_flush(gfp, mp3, MP3CAP);
-    assert_true(used > (int) sizeof before);
+    tags_fid_round(0, before, after);
+    assert_false(mem_contains(before, TAG_PROBE_BYTES, "Xing"));
+    assert_int_equal(memcmp(before, after, TAG_PROBE_BYTES), 0);
+}
 
-    f = tmpfile();
-    assert_non_null(f);
-    assert_int_equal((int) fwrite(mp3, 1, (size_t) used, f), used);
-    assert_int_equal(fflush(f), 0);
-    assert_int_equal(fseek(f, 0, SEEK_SET), 0);
-    nb = fread(before, 1, sizeof before, f);
+/**
+ * @brief Creates a CBR stereo encoder instance that reports through
+ *        report_capture(), and empties the collector.
+ * @return the instance, after lame_init_params().
+ */
+static lame_t
+capture_encoder_new(void)
+{
+    lame_t  gfp = lame_init();
 
-    lame_mp3_tags_fid(gfp, f);
-    assert_int_equal(fflush(f), 0);
-    assert_int_equal(fseek(f, 0, SEEK_SET), 0);
-    na = fread(after, 1, sizeof after, f);
-    assert_int_equal((int) na, (int) nb);
-    assert_int_equal(memcmp(before, after, nb), 0);
-
-    fclose(f);
-    lame_close(gfp);
+    assert_non_null(gfp);
+    assert_int_equal(lame_set_msgf(gfp, report_capture), 0);
+    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
+    assert_int_equal(lame_set_in_samplerate(gfp, RATE), 0);
+    assert_int_equal(lame_set_VBR(gfp, vbr_off), 0);
+    assert_int_equal(lame_set_brate(gfp, CBR_KBPS), 0);
+    assert_int_equal(lame_init_params(gfp), 0);
+    report_reset();
+    return gfp;
 }
 
 /**
@@ -1023,17 +1039,8 @@ test_mp3_tags_fid_noop_without_tag(LAME_UNUSED void **state)
 static void
 test_print_config_routes_through_callback(LAME_UNUSED void **state)
 {
-    lame_t  gfp = lame_init();
+    lame_t  gfp = capture_encoder_new();
 
-    assert_non_null(gfp);
-    assert_int_equal(lame_set_msgf(gfp, report_capture), 0);
-    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
-    assert_int_equal(lame_set_in_samplerate(gfp, RATE), 0);
-    assert_int_equal(lame_set_VBR(gfp, vbr_off), 0);
-    assert_int_equal(lame_set_brate(gfp, CBR_KBPS), 0);
-    assert_int_equal(lame_init_params(gfp), 0);
-
-    report_reset();
     assert_int_equal(report_calls, 0);
     lame_print_config(gfp);
     assert_true(report_calls > 0);
@@ -1055,17 +1062,8 @@ test_print_config_routes_through_callback(LAME_UNUSED void **state)
 static void
 test_print_internals_routes_through_callback(LAME_UNUSED void **state)
 {
-    lame_t  gfp = lame_init();
+    lame_t  gfp = capture_encoder_new();
 
-    assert_non_null(gfp);
-    assert_int_equal(lame_set_msgf(gfp, report_capture), 0);
-    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
-    assert_int_equal(lame_set_in_samplerate(gfp, RATE), 0);
-    assert_int_equal(lame_set_VBR(gfp, vbr_off), 0);
-    assert_int_equal(lame_set_brate(gfp, CBR_KBPS), 0);
-    assert_int_equal(lame_init_params(gfp), 0);
-
-    report_reset();
     assert_int_equal(report_calls, 0);
     lame_print_internals(gfp);
     assert_true(report_calls > 0);
