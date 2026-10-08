@@ -97,6 +97,7 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_get_audio_float$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_parse_pathlen$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_encode_error_text$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_classify_suffix$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_merge_argv$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_id3tag$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_parse_id3$(EXEEXT) \
@@ -201,6 +202,15 @@ test_choose_table_vector_OBJECTS =  \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(top_builddir)/libmp3lame/vector/liblamevectorroutines.la \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_6)
+am__test_classify_suffix_SOURCES_DIST = test_classify_suffix.c \
+	parse_test_stubs.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_classify_suffix_OBJECTS = test_classify_suffix-test_classify_suffix.$(OBJEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_classify_suffix-parse_test_stubs.$(OBJEXT)
+test_classify_suffix_OBJECTS = $(am_test_classify_suffix_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_classify_suffix_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1)
 am__test_decode_scale_SOURCES_DIST = test_decode_scale.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_decode_scale_OBJECTS = test_decode_scale-test_decode_scale.$(OBJEXT)
 test_decode_scale_OBJECTS = $(am_test_decode_scale_OBJECTS)
@@ -460,6 +470,8 @@ am__depfiles_remade = $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametim
 	./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po \
 	./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po \
 	./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po \
+	./$(DEPDIR)/test_classify_suffix-parse_test_stubs.Po \
+	./$(DEPDIR)/test_classify_suffix-test_classify_suffix.Po \
 	./$(DEPDIR)/test_decode_scale-test_decode_scale.Po \
 	./$(DEPDIR)/test_decoder_api-test_decoder_api.Po \
 	./$(DEPDIR)/test_encode_api-test_encode_api.Po \
@@ -520,8 +532,9 @@ SOURCES = $(test_bitstream_headers_SOURCES) \
 	$(test_calc_sfb_noise_vector_SOURCES) \
 	$(test_choose_table_neon_SOURCES) \
 	$(test_choose_table_vector_SOURCES) \
-	$(test_decode_scale_SOURCES) $(test_decoder_api_SOURCES) \
-	$(test_encode_api_SOURCES) $(test_encode_clipgain_SOURCES) \
+	$(test_classify_suffix_SOURCES) $(test_decode_scale_SOURCES) \
+	$(test_decoder_api_SOURCES) $(test_encode_api_SOURCES) \
+	$(test_encode_clipgain_SOURCES) \
 	$(test_encode_error_text_SOURCES) \
 	$(test_encode_mono_interleaved_SOURCES) \
 	$(test_encode_nonfinite_SOURCES) $(test_file_times_SOURCES) \
@@ -540,6 +553,7 @@ DIST_SOURCES = $(am__test_bitstream_headers_SOURCES_DIST) \
 	$(am__test_calc_sfb_noise_vector_SOURCES_DIST) \
 	$(am__test_choose_table_neon_SOURCES_DIST) \
 	$(am__test_choose_table_vector_SOURCES_DIST) \
+	$(am__test_classify_suffix_SOURCES_DIST) \
 	$(am__test_decode_scale_SOURCES_DIST) \
 	$(am__test_decoder_api_SOURCES_DIST) \
 	$(am__test_encode_api_SOURCES_DIST) \
@@ -1097,6 +1111,20 @@ SH_LOG_COMPILER = $(SHELL)
 @ENABLE_UNIT_TESTS_TRUE@	$(LTLIBICONV) -lm
 
 
+# The file name suffixes of frontend/parse.c; compiled in and stubbed like
+# test_parse_pathlen.
+@ENABLE_UNIT_TESTS_TRUE@test_classify_suffix_SOURCES = test_classify_suffix.c parse_test_stubs.c
+@ENABLE_UNIT_TESTS_TRUE@test_classify_suffix_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/frontend \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_classify_suffix_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	$(LTLIBICONV) -lm
+
+
 # merge_argv() is likewise static in frontend/parse.c; same include/link setup.
 @ENABLE_UNIT_TESTS_TRUE@test_merge_argv_SOURCES = test_merge_argv.c parse_test_stubs.c
 @ENABLE_UNIT_TESTS_TRUE@test_merge_argv_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
@@ -1560,6 +1588,10 @@ test_choose_table_vector$(EXEEXT): $(test_choose_table_vector_OBJECTS) $(test_ch
 	@rm -f test_choose_table_vector$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_choose_table_vector_OBJECTS) $(test_choose_table_vector_LDADD) $(LIBS)
 
+test_classify_suffix$(EXEEXT): $(test_classify_suffix_OBJECTS) $(test_classify_suffix_DEPENDENCIES) $(EXTRA_test_classify_suffix_DEPENDENCIES) 
+	@rm -f test_classify_suffix$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_classify_suffix_OBJECTS) $(test_classify_suffix_LDADD) $(LIBS)
+
 test_decode_scale$(EXEEXT): $(test_decode_scale_OBJECTS) $(test_decode_scale_DEPENDENCIES) $(EXTRA_test_decode_scale_DEPENDENCIES) 
 	@rm -f test_decode_scale$(EXEEXT)
 	$(AM_V_CCLD)$(test_decode_scale_LINK) $(test_decode_scale_OBJECTS) $(test_decode_scale_LDADD) $(LIBS)
@@ -1701,6 +1733,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_classify_suffix-parse_test_stubs.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_classify_suffix-test_classify_suffix.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_decode_scale-test_decode_scale.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_decoder_api-test_decoder_api.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_api-test_encode_api.Po@am__quote@ # am--include-marker
@@ -1824,6 +1858,34 @@ test_choose_table_vector-test_choose_table_vector.obj: test_choose_table_vector.
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_choose_table_vector.c' object='test_choose_table_vector-test_choose_table_vector.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_choose_table_vector_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_choose_table_vector-test_choose_table_vector.obj `if test -f 'test_choose_table_vector.c'; then $(CYGPATH_W) 'test_choose_table_vector.c'; else $(CYGPATH_W) '$(srcdir)/test_choose_table_vector.c'; fi`
+
+test_classify_suffix-test_classify_suffix.o: test_classify_suffix.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_classify_suffix_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_classify_suffix-test_classify_suffix.o -MD -MP -MF $(DEPDIR)/test_classify_suffix-test_classify_suffix.Tpo -c -o test_classify_suffix-test_classify_suffix.o `test -f 'test_classify_suffix.c' || echo '$(srcdir)/'`test_classify_suffix.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_classify_suffix-test_classify_suffix.Tpo $(DEPDIR)/test_classify_suffix-test_classify_suffix.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_classify_suffix.c' object='test_classify_suffix-test_classify_suffix.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_classify_suffix_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_classify_suffix-test_classify_suffix.o `test -f 'test_classify_suffix.c' || echo '$(srcdir)/'`test_classify_suffix.c
+
+test_classify_suffix-test_classify_suffix.obj: test_classify_suffix.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_classify_suffix_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_classify_suffix-test_classify_suffix.obj -MD -MP -MF $(DEPDIR)/test_classify_suffix-test_classify_suffix.Tpo -c -o test_classify_suffix-test_classify_suffix.obj `if test -f 'test_classify_suffix.c'; then $(CYGPATH_W) 'test_classify_suffix.c'; else $(CYGPATH_W) '$(srcdir)/test_classify_suffix.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_classify_suffix-test_classify_suffix.Tpo $(DEPDIR)/test_classify_suffix-test_classify_suffix.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_classify_suffix.c' object='test_classify_suffix-test_classify_suffix.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_classify_suffix_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_classify_suffix-test_classify_suffix.obj `if test -f 'test_classify_suffix.c'; then $(CYGPATH_W) 'test_classify_suffix.c'; else $(CYGPATH_W) '$(srcdir)/test_classify_suffix.c'; fi`
+
+test_classify_suffix-parse_test_stubs.o: parse_test_stubs.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_classify_suffix_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_classify_suffix-parse_test_stubs.o -MD -MP -MF $(DEPDIR)/test_classify_suffix-parse_test_stubs.Tpo -c -o test_classify_suffix-parse_test_stubs.o `test -f 'parse_test_stubs.c' || echo '$(srcdir)/'`parse_test_stubs.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_classify_suffix-parse_test_stubs.Tpo $(DEPDIR)/test_classify_suffix-parse_test_stubs.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='parse_test_stubs.c' object='test_classify_suffix-parse_test_stubs.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_classify_suffix_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_classify_suffix-parse_test_stubs.o `test -f 'parse_test_stubs.c' || echo '$(srcdir)/'`parse_test_stubs.c
+
+test_classify_suffix-parse_test_stubs.obj: parse_test_stubs.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_classify_suffix_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_classify_suffix-parse_test_stubs.obj -MD -MP -MF $(DEPDIR)/test_classify_suffix-parse_test_stubs.Tpo -c -o test_classify_suffix-parse_test_stubs.obj `if test -f 'parse_test_stubs.c'; then $(CYGPATH_W) 'parse_test_stubs.c'; else $(CYGPATH_W) '$(srcdir)/parse_test_stubs.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_classify_suffix-parse_test_stubs.Tpo $(DEPDIR)/test_classify_suffix-parse_test_stubs.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='parse_test_stubs.c' object='test_classify_suffix-parse_test_stubs.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_classify_suffix_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_classify_suffix-parse_test_stubs.obj `if test -f 'parse_test_stubs.c'; then $(CYGPATH_W) 'parse_test_stubs.c'; else $(CYGPATH_W) '$(srcdir)/parse_test_stubs.c'; fi`
 
 test_decode_scale-test_decode_scale.o: test_decode_scale.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_decode_scale_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_decode_scale-test_decode_scale.o -MD -MP -MF $(DEPDIR)/test_decode_scale-test_decode_scale.Tpo -c -o test_decode_scale-test_decode_scale.o `test -f 'test_decode_scale.c' || echo '$(srcdir)/'`test_decode_scale.c
@@ -2637,6 +2699,13 @@ test_encode_error_text.log: test_encode_error_text$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_classify_suffix.log: test_classify_suffix$(EXEEXT)
+	@p='test_classify_suffix$(EXEEXT)'; \
+	b='test_classify_suffix'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 test_merge_argv.log: test_merge_argv$(EXEEXT)
 	@p='test_merge_argv$(EXEEXT)'; \
 	b='test_merge_argv'; \
@@ -2928,6 +2997,8 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po
+	-rm -f ./$(DEPDIR)/test_classify_suffix-parse_test_stubs.Po
+	-rm -f ./$(DEPDIR)/test_classify_suffix-test_classify_suffix.Po
 	-rm -f ./$(DEPDIR)/test_decode_scale-test_decode_scale.Po
 	-rm -f ./$(DEPDIR)/test_decoder_api-test_decoder_api.Po
 	-rm -f ./$(DEPDIR)/test_encode_api-test_encode_api.Po
@@ -3016,6 +3087,8 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_calc_sfb_noise_vector-test_calc_sfb_noise_vector.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_neon-test_choose_table_neon.Po
 	-rm -f ./$(DEPDIR)/test_choose_table_vector-test_choose_table_vector.Po
+	-rm -f ./$(DEPDIR)/test_classify_suffix-parse_test_stubs.Po
+	-rm -f ./$(DEPDIR)/test_classify_suffix-test_classify_suffix.Po
 	-rm -f ./$(DEPDIR)/test_decode_scale-test_decode_scale.Po
 	-rm -f ./$(DEPDIR)/test_decoder_api-test_decoder_api.Po
 	-rm -f ./$(DEPDIR)/test_encode_api-test_encode_api.Po

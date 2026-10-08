@@ -20,7 +20,8 @@ SH_LOG_COMPILER = $(SHELL)
 if ENABLE_UNIT_TESTS
 
 check_PROGRAMS = test_sanity test_get_audio_aiff test_get_audio_wav \
-	test_get_audio_float test_parse_pathlen test_encode_error_text test_merge_argv \
+	test_get_audio_float test_parse_pathlen test_encode_error_text test_classify_suffix \
+	test_merge_argv \
 	test_id3tag test_parse_id3 test_encode_nonfinite test_encode_mono_interleaved \
 	test_totalframes test_set_get test_lib_info test_vector_routines \
 	test_vector_ladder test_decoder_api test_encode_clipgain \
@@ -153,6 +154,18 @@ test_encode_error_text_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_encode_error_text_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	$(LTLIBICONV) -lm
+
+# The file name suffixes of frontend/parse.c; compiled in and stubbed like
+# test_parse_pathlen.
+test_classify_suffix_SOURCES = test_classify_suffix.c parse_test_stubs.c
+test_classify_suffix_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/frontend \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_classify_suffix_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	$(LTLIBICONV) -lm
 

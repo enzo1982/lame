@@ -272,49 +272,6 @@ mp3x_prevalidate_result_clear(Mp3xPrevalidateResult *result)
 
 
 /* ==========================================================================
- * File-extension classification
- *
- * parse.c:filename_to_type only matches the last 4 characters and so would
- * reject .wave, .aiff, .aifc (their last 4 chars are "wave", "aiff", "aifc"
- * - none of which the function recognizes). Our classifier accepts all the
- * extensions the GUI filter advertises. The format decision still belongs
- * to init_infile's header parsers - this is just the hint
- * that picks which opener runs.
- * ========================================================================== */
-
-sound_file_format
-mp3x_classify_extension(const char *path)
-{
-    const char *dot;
-
-    if (path == NULL)
-        return sf_unknown;
-
-    dot = strrchr(path, '.');
-    if (dot == NULL || dot == path)
-        return sf_unknown;
-    dot++;   /* skip the dot */
-
-    if (g_ascii_strcasecmp(dot, "wav")  == 0 ||
-        g_ascii_strcasecmp(dot, "wave") == 0)
-        return sf_wave;
-
-    if (g_ascii_strcasecmp(dot, "aif")  == 0 ||
-        g_ascii_strcasecmp(dot, "aiff") == 0 ||
-        g_ascii_strcasecmp(dot, "aifc") == 0)
-        return sf_aiff;
-
-    if (g_ascii_strcasecmp(dot, "mp1")  == 0 ||
-        g_ascii_strcasecmp(dot, "mp2")  == 0 ||
-        g_ascii_strcasecmp(dot, "mp3")  == 0 ||
-        g_ascii_strcasecmp(dot, "mpg")  == 0)
-        return sf_mp123;
-
-    return sf_unknown;
-}
-
-
-/* ==========================================================================
  * Filename sanitization
  *
  * Used for save-dialog default filenames. Strips directory components and
@@ -465,7 +422,7 @@ mp3x_session_install(Mp3xSession *s,
           pre-classified extension hint is set first; if our classifier
           did not recognize the extension, we let init_infile's own header
           parser decide. */
-    s->input_format = mp3x_classify_extension(path);
+    s->input_format = frontend_classify_suffix(path);
     if (s->input_format != sf_unknown)
         global_reader.input_format = s->input_format;
 

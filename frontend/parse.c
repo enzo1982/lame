@@ -1450,37 +1450,6 @@ local_strncasecmp(const char *s1, const char *s2, int n)
 
 
 
-/* LAME is a simple frontend which just uses the file extension */
-/* to determine the file type.  Trying to analyze the file */
-/* contents is well beyond the scope of LAME and should not be added. */
-static int
-filename_to_type(const char *FileName)
-{
-    size_t  len = strlen(FileName);
-
-    if (len < 4)
-        return sf_unknown;
-
-    FileName += len - 4;
-    if (0 == local_strcasecmp(FileName, ".mpg"))
-        return sf_mp123;
-    if (0 == local_strcasecmp(FileName, ".mp1"))
-        return sf_mp123;
-    if (0 == local_strcasecmp(FileName, ".mp2"))
-        return sf_mp123;
-    if (0 == local_strcasecmp(FileName, ".mp3"))
-        return sf_mp123;
-    if (0 == local_strcasecmp(FileName, ".wav"))
-        return sf_wave;
-    if (0 == local_strcasecmp(FileName, ".aif"))
-        return sf_aiff;
-    if (0 == local_strcasecmp(FileName, ".raw"))
-        return sf_raw;
-    if (0 == local_strcasecmp(FileName, ".ogg"))
-        return sf_ogg;
-    return sf_unknown;
-}
-
 static int
 resample_rate(double freq)
 {
@@ -1591,20 +1560,65 @@ size_t scanBasename(char const* s, char const** a, char const** b)
     return s2-s1;
 }
 
+/**
+ * @internal
+ * @brief The file name suffixes that the frontends know, with the input
+ *        format that each one hints at.
+ *
+ * generateOutPath() replaces any of these suffixes with the suffix of the
+ * output. frontend_classify_suffix() takes the input format from them. A
+ * format of @c sf_unknown means that the suffix is known but does not say
+ * how to read the file.
+ */
+static const struct {
+    const char *suffix;         /**< the suffix, with its dot */
+    sound_file_format format;   /**< the input format it hints at */
+} known_suffixes[] = {
+    { ".wav", sf_wave }, { ".wave", sf_wave },
+    { ".aif", sf_aiff }, { ".aiff", sf_aiff }, { ".aifc", sf_aiff },
+    { ".raw", sf_raw }, { ".pcm", sf_unknown },
+    { ".mp1", sf_mp123 }, { ".mp2", sf_mp123 }, { ".mp3", sf_mp123 }, { ".mpg", sf_mp123 },
+    { ".mpa", sf_unknown },
+    { ".ogg", sf_ogg },
+    { ".cda", sf_unknown }, { ".au", sf_unknown }, { ".snd", sf_unknown },
+    { ".flac", sf_unknown }, { ".wv", sf_unknown }, { ".ofr", sf_unknown },
+    { ".tak", sf_unknown }, { ".mp4", sf_unknown }, { ".m4a", sf_unknown },
+    { ".w64", sf_unknown }
+};
+
+/**
+ * @internal
+ * @brief Returns the input format that the suffix of a file name hints at.
+ *
+ * The frontends use only the suffix. The header parsers of init_infile()
+ * still decide the format of a file that has one.
+ *
+ * @param path  the file name.
+ * @return the format, or @c sf_unknown when the suffix is not known or does
+ *         not hint at a format.
+ */
+sound_file_format
+frontend_classify_suffix(const char *path)
+{
+    char const *suffix;
+    size_t  i;
+
+    if (path == NULL)
+        return sf_unknown;
+    (void) scanBasename(path, NULL, &suffix);
+    for (i = 0; i < dimension_of(known_suffixes); ++i) {
+        if (local_strcasecmp(suffix, known_suffixes[i].suffix) == 0)
+            return known_suffixes[i].format;
+    }
+    return sf_unknown;
+}
+
 static 
 int isCommonSuffix(char const* s_ext)
 {
-    char const* suffixes[] = 
-    { ".WAV", ".RAW", ".MP1", ".MP2"
-    , ".MP3", ".MPG", ".MPA", ".CDA"
-    , ".OGG", ".AIF", ".AIFF", ".AU"
-    , ".SND", ".FLAC", ".WV", ".OFR"
-    , ".TAK", ".MP4", ".M4A", ".PCM"
-    , ".W64"
-    };
     size_t i;
-    for (i = 0; i < dimension_of(suffixes); ++i) {
-        if (local_strcasecmp(s_ext, suffixes[i]) == 0) {
+    for (i = 0; i < dimension_of(known_suffixes); ++i) {
+        if (local_strcasecmp(s_ext, known_suffixes[i].suffix) == 0) {
             return 1;
         }
     }
@@ -2911,7 +2925,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 
     /* if user did not explicitly specify input is mp3, check file name */
     if (global_reader.input_format == sf_unknown)
-        global_reader.input_format = filename_to_type(inPath);
+        global_reader.input_format = frontend_classify_suffix(inPath);
 
 #if !defined(HAVE_MPG123)
     if (is_mpeg_file_format(global_reader.input_format)) {

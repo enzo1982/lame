@@ -248,17 +248,6 @@ void           mp3x_prevalidate_result_clear(Mp3xPrevalidateResult *result);
 
 
 /* --------------------------------------------------------------------------
- * File-extension classification
- *
- * Returns sf_wave, sf_aiff, sf_mp123 for known extensions, sf_unknown
-   otherwise. Case-insensitive; broader than parse.c's filename_to_type
-   (which only matches the last 4 characters and so would miss .wave/.aiff/
-   .aifc). The format decision still belongs to init_infile's
-   header parsers - this is just the hint that picks which opener runs. */
-sound_file_format mp3x_classify_extension(const char *path);
-
-
-/* --------------------------------------------------------------------------
  * Filename sanitization
  *
  * Returns a heap-owned basename with the extension stripped and every
