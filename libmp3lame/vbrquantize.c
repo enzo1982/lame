@@ -1039,11 +1039,24 @@ quantizeAndCountBits(const algo_t * that)
 
 
 static int
+tryThatOne(algo_t const* that, const int sftemp[SFBMAX], const int vbrsfmin[SFBMAX], int vbrmax)
+{
+    FLOAT const xrpow_max = that->cod_info->xrpow_max;
+    int     nbits = LARGE_BITS;
+    that->alloc(that, sftemp, vbrsfmin, vbrmax);
+    bitcount(that);
+    nbits = quantizeAndCountBits(that);
+    nbits += that->cod_info->part2_length;
+    that->cod_info->xrpow_max = xrpow_max;
+    return nbits;
+}
+
+
+static int
 tryGlobalStepsize(const algo_t * that, const int sfwork[SFBMAX],
                   const int vbrsfmin[SFBMAX], int delta)
 {
-    FLOAT const xrpow_max = that->cod_info->xrpow_max;
-    int     sftemp[SFBMAX], i, nbits;
+    int     sftemp[SFBMAX], i;
     int     gain, vbrmax = 0;
     for (i = 0; i < SFBMAX; ++i) {
         gain = sfwork[i] + delta;
@@ -1058,11 +1071,7 @@ tryGlobalStepsize(const algo_t * that, const int sfwork[SFBMAX],
         }
         sftemp[i] = gain;
     }
-    that->alloc(that, sftemp, vbrsfmin, vbrmax);
-    bitcount(that);
-    nbits = quantizeAndCountBits(that);
-    that->cod_info->xrpow_max = xrpow_max;
-    return nbits;
+    return tryThatOne(that, sftemp, vbrsfmin, vbrmax) - that->cod_info->part2_length;
 }
 
 
@@ -1170,17 +1179,68 @@ flattenDistribution(const int sfwork[SFBMAX], const int vbrsfmin[SFBMAX],
 }
 
 
+/** \internal \brief The argument of flattenDistribution() that bisect_flatten() varies. */
+typedef enum {
+    FLATTEN_DEPTH,              /**< the cut depth k, at the global gain of the granule */
+    FLATTEN_GAIN                /**< the global gain p, at the full depth */
+} flatten_arg_t;
+
+/**
+ * \internal
+ * \brief Finds by bisection the smallest value of one argument of
+ *        flattenDistribution() whose result fits the target, and leaves the
+ *        granule quantized with it.
+ * \param that      the quantizer state.
+ * \param sfwork    the scalefactors.
+ * \param vbrsfmin  the smallest scalefactor of each band.
+ * \param wrk       work space for the flattened scalefactors.
+ * \param dm        the depth of the distribution.
+ * \param p         the global gain of the granule.
+ * \param arg       the argument that the search varies.
+ * \param lo        the smallest value to try.
+ * \param hi        the largest value to try.
+ * \param target    the number of bits that the granule may use.
+ * \return 1 if a value fits, 0 if none does.
+ */
 static int
-tryThatOne(algo_t const* that, const int sftemp[SFBMAX], const int vbrsfmin[SFBMAX], int vbrmax)
+bisect_flatten(algo_t const *that, const int sfwork[SFBMAX], const int vbrsfmin[SFBMAX],
+               int wrk[SFBMAX], int dm, int p, flatten_arg_t arg, int lo, int hi, int target)
 {
-    FLOAT const xrpow_max = that->cod_info->xrpow_max;
-    int     nbits = LARGE_BITS;
-    that->alloc(that, sftemp, vbrsfmin, vbrmax);
-    bitcount(that);
-    nbits = quantizeAndCountBits(that);
-    nbits += that->cod_info->part2_length;
-    that->cod_info->xrpow_max = xrpow_max;
-    return nbits;
+    int     bi = (lo + hi) / 2;
+    int     bi_ok = -1;
+    int     bu = lo;
+    int     bo = hi;
+
+    for (;;) {
+        int const sfmax = arg == FLATTEN_DEPTH
+            ? flattenDistribution(sfwork, vbrsfmin, wrk, dm, bi, p)
+            : flattenDistribution(sfwork, vbrsfmin, wrk, dm, dm, bi);
+        int const nbits = tryThatOne(that, wrk, vbrsfmin, sfmax);
+
+        if (nbits <= target) {
+            bi_ok = bi;
+            bo = bi - 1;
+        }
+        else {
+            bu = bi + 1;
+        }
+        if (bu <= bo) {
+            bi = (bu + bo) / 2;
+        }
+        else {
+            break;
+        }
+    }
+    if (bi_ok < 0) {
+        return 0;
+    }
+    if (bi != bi_ok) {
+        int const sfmax = arg == FLATTEN_DEPTH
+            ? flattenDistribution(sfwork, vbrsfmin, wrk, dm, bi_ok, p)
+            : flattenDistribution(sfwork, vbrsfmin, wrk, dm, dm, bi_ok);
+        (void) tryThatOne(that, wrk, vbrsfmin, sfmax);
+    }
+    return 1;
 }
 
 
@@ -1190,74 +1250,67 @@ outOfBitsStrategy(algo_t const* that, const int sfwork[SFBMAX], const int vbrsfm
     int     wrk[SFBMAX];
     int const dm = sfDepth(sfwork);
     int const p = that->cod_info->global_gain;
-    int     nbits;
 
-    /* PART 1 */
-    {
-        int     bi = dm / 2;
-        int     bi_ok = -1;
-        int     bu = 0;
-        int     bo = dm;
-        for (;;) {
-            int const sfmax = flattenDistribution(sfwork, vbrsfmin, wrk, dm, bi, p);
-            nbits = tryThatOne(that, wrk, vbrsfmin, sfmax);
-            if (nbits <= target) {
-                bi_ok = bi;
-                bo = bi - 1;
-            }
-            else {
-                bu = bi + 1;
-            }
-            if (bu <= bo) {
-                bi = (bu + bo) / 2;
-            }
-            else {
-                break;
-            }
-        }
-        if (bi_ok >= 0) {
-            if (bi != bi_ok) {
-                int const sfmax = flattenDistribution(sfwork, vbrsfmin, wrk, dm, bi_ok, p);
-                nbits = tryThatOne(that, wrk, vbrsfmin, sfmax);
-            }
-            return;
-        }
+    /* First flatten the distribution, then raise the global gain. */
+    if (bisect_flatten(that, sfwork, vbrsfmin, wrk, dm, p, FLATTEN_DEPTH, 0, dm, target)) {
+        return;
     }
-
-    /* PART 2: */
-    {
-        int     bi = (255 + p) / 2;
-        int     bi_ok = -1;
-        int     bu = p;
-        int     bo = 255;
-        for (;;) {
-            int const sfmax = flattenDistribution(sfwork, vbrsfmin, wrk, dm, dm, bi);
-            nbits = tryThatOne(that, wrk, vbrsfmin, sfmax);
-            if (nbits <= target) {
-                bi_ok = bi;
-                bo = bi - 1;
-            }
-            else {
-                bu = bi + 1;
-            }
-            if (bu <= bo) {
-                bi = (bu + bo) / 2;
-            }
-            else {
-                break;
-            }
-        }
-        if (bi_ok >= 0) {
-            if (bi != bi_ok) {
-                int const sfmax = flattenDistribution(sfwork, vbrsfmin, wrk, dm, dm, bi_ok);
-                nbits = tryThatOne(that, wrk, vbrsfmin, sfmax);
-            }
-            return;
-        }
+    if (bisect_flatten(that, sfwork, vbrsfmin, wrk, dm, p, FLATTEN_GAIN, p, 255, target)) {
+        return;
     }
 
     /* fall back to old code, likely to be never called */
     searchGlobalStepsizeMax(that, wrk, vbrsfmin, target);
+}
+
+
+/**
+ * \internal
+ * \brief Splits a bit budget in proportion to weights.
+ * \param out    receives the share of each part.
+ * \param f      the weight of each part.
+ * \param s      the sum of the weights. All shares are 0 when it is not above 0.
+ * \param n      the number of parts, 1 or 2.
+ * \param total  the budget.
+ */
+static void
+split_in_proportion(int out[2], float const f[2], float s, int n, int total)
+{
+    int     i;
+
+    for (i = 0; i < n; ++i) {
+        if (s > 0) {
+            out[i] = total * f[i] / s;
+        }
+        else {
+            out[i] = 0;
+        }
+    }
+}
+
+/**
+ * \internal
+ * \brief Gives a part's budget above its use plus a slack to the other part.
+ *
+ * The first part gives first; then the second gives to the first.
+ *
+ * \param m      the budgets of the two parts.
+ * \param use    the bits that each part uses.
+ * \param slack  the bits that a part keeps above its use.
+ */
+static void
+rebalance_pair(int m[2], int const use[2], int slack)
+{
+    if (m[0] > use[0] + slack) {
+        m[1] += m[0];
+        m[1] -= use[0] + slack;
+        m[0] = use[0] + slack;
+    }
+    if (m[1] > use[1] + slack) {
+        m[0] += m[1];
+        m[0] -= use[1] + slack;
+        m[1] = use[1] + slack;
+    }
 }
 
 
@@ -1428,25 +1481,9 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
                         f[ch] = 0;
                     }
                 }
-                for (ch = 0; ch < nch; ++ch) {
-                    if (s > 0) {
-                        max_nbits_ch[gr][ch] = MAX_BITS_PER_GRANULE * f[ch] / s;
-                    }
-                    else {
-                        max_nbits_ch[gr][ch] = 0;
-                    }
-                }
+                split_in_proportion(max_nbits_ch[gr], f, s, nch, MAX_BITS_PER_GRANULE);
                 if (nch > 1) {
-                    if (max_nbits_ch[gr][0] > use_nbits_ch[gr][0] + 32) {
-                        max_nbits_ch[gr][1] += max_nbits_ch[gr][0];
-                        max_nbits_ch[gr][1] -= use_nbits_ch[gr][0] + 32;
-                        max_nbits_ch[gr][0] = use_nbits_ch[gr][0] + 32;
-                    }
-                    if (max_nbits_ch[gr][1] > use_nbits_ch[gr][1] + 32) {
-                        max_nbits_ch[gr][0] += max_nbits_ch[gr][1];
-                        max_nbits_ch[gr][0] -= use_nbits_ch[gr][1] + 32;
-                        max_nbits_ch[gr][1] = use_nbits_ch[gr][1] + 32;
-                    }
+                    rebalance_pair(max_nbits_ch[gr], use_nbits_ch[gr], 32);
                     if (max_nbits_ch[gr][0] > MAX_BITS_PER_CHANNEL) {
                         max_nbits_ch[gr][0] = MAX_BITS_PER_CHANNEL;
                     }
@@ -1473,26 +1510,10 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
                         f[gr] = 0;
                     }
                 }
-                for (gr = 0; gr < ngr; ++gr) {
-                    if (s > 0) {
-                        max_nbits_gr[gr] = max_nbits_fr * f[gr] / s;
-                    }
-                    else {
-                        max_nbits_gr[gr] = 0;
-                    }
-                }
+                split_in_proportion(max_nbits_gr, f, s, ngr, max_nbits_fr);
             }
             if (ngr > 1) {
-                if (max_nbits_gr[0] > use_nbits_gr[0] + 125) {
-                    max_nbits_gr[1] += max_nbits_gr[0];
-                    max_nbits_gr[1] -= use_nbits_gr[0] + 125;
-                    max_nbits_gr[0] = use_nbits_gr[0] + 125;
-                }
-                if (max_nbits_gr[1] > use_nbits_gr[1] + 125) {
-                    max_nbits_gr[0] += max_nbits_gr[1];
-                    max_nbits_gr[0] -= use_nbits_gr[1] + 125;
-                    max_nbits_gr[1] = use_nbits_gr[1] + 125;
-                }
+                rebalance_pair(max_nbits_gr, use_nbits_gr, 125);
                 for (gr = 0; gr < ngr; ++gr) {
                     if (max_nbits_gr[gr] > MAX_BITS_PER_GRANULE) {
                         max_nbits_gr[gr] = MAX_BITS_PER_GRANULE;
@@ -1510,25 +1531,9 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
                         f[ch] = 0;
                     }
                 }
-                for (ch = 0; ch < nch; ++ch) {
-                    if (s > 0) {
-                        max_nbits_ch[gr][ch] = max_nbits_gr[gr] * f[ch] / s;
-                    }
-                    else {
-                        max_nbits_ch[gr][ch] = 0;
-                    }
-                }
+                split_in_proportion(max_nbits_ch[gr], f, s, nch, max_nbits_gr[gr]);
                 if (nch > 1) {
-                    if (max_nbits_ch[gr][0] > use_nbits_ch[gr][0] + 32) {
-                        max_nbits_ch[gr][1] += max_nbits_ch[gr][0];
-                        max_nbits_ch[gr][1] -= use_nbits_ch[gr][0] + 32;
-                        max_nbits_ch[gr][0] = use_nbits_ch[gr][0] + 32;
-                    }
-                    if (max_nbits_ch[gr][1] > use_nbits_ch[gr][1] + 32) {
-                        max_nbits_ch[gr][0] += max_nbits_ch[gr][1];
-                        max_nbits_ch[gr][0] -= use_nbits_ch[gr][1] + 32;
-                        max_nbits_ch[gr][1] = use_nbits_ch[gr][1] + 32;
-                    }
+                    rebalance_pair(max_nbits_ch[gr], use_nbits_ch[gr], 32);
                     for (ch = 0; ch < nch; ++ch) {
                         if (max_nbits_ch[gr][ch] > MAX_BITS_PER_CHANNEL) {
                             max_nbits_ch[gr][ch] = MAX_BITS_PER_CHANNEL;
