@@ -169,7 +169,6 @@ typedef double FLOAT8;
 typedef FLOAT sample_t;
 
 #define dimension_of(array) (sizeof(array)/sizeof(array[0]))
-#define beyond(array) (array+dimension_of(array))
 /* ##-pasting does not expand its operands, so pasting __LINE__ directly would
  * yield the literal token "__LINE__" instead of the current line number,
  * making every use in a translation unit collide on the same enum tag. The

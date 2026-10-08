@@ -195,22 +195,6 @@ test_tag_spec_flags(lame_internal_flags const *gfc, unsigned int tst)
     return (gfc->tag_spec.flags & tst) != 0u ? 1 : 0;
 }
 
-#if 0
-static void
-debug_tag_spec_flags(lame_internal_flags * gfc, const char* info)
-{
-    MSGF(gfc, "%s\n", info);
-    MSGF(gfc, "CHANGED_FLAG  : %d\n", test_tag_spec_flags(gfc, CHANGED_FLAG )); 
-    MSGF(gfc, "ADD_V2_FLAG   : %d\n", test_tag_spec_flags(gfc, ADD_V2_FLAG  )); 
-    MSGF(gfc, "V1_ONLY_FLAG  : %d\n", test_tag_spec_flags(gfc, V1_ONLY_FLAG )); 
-    MSGF(gfc, "V2_ONLY_FLAG  : %d\n", test_tag_spec_flags(gfc, V2_ONLY_FLAG )); 
-    MSGF(gfc, "SPACE_V1_FLAG : %d\n", test_tag_spec_flags(gfc, SPACE_V1_FLAG)); 
-    MSGF(gfc, "PAD_V2_FLAG   : %d\n", test_tag_spec_flags(gfc, PAD_V2_FLAG  ));
-    // adding debugging functionality for the ID3v2.4 flag
-    MSGF(gfc, "V2_4_UTF8_FLAG: %d\n", test_tag_spec_flags(gfc, V2_4_UTF8_FLAG));
-}
-#endif
-
 static int
 is_lame_internal_flags_null(lame_t gfp)
 {
@@ -253,9 +237,6 @@ copyV1ToV2(lame_t gfp, int frame_id, char const *s)
             id3v2_add_latin1_lng(gfp, frame_id, 0, s);
         }
         gfc->tag_spec.flags = flags;
-#if 0
-        debug_tag_spec_flags(gfc, "copyV1ToV2");
-#endif
     }
 }
 
@@ -2311,9 +2292,6 @@ lame_get_id3v2_tag(lame_t gfp, unsigned char *buffer, size_t size)
     if (test_tag_spec_flags(gfc, V1_ONLY_FLAG)) {
         return 0;
     }
-#if 0
-    debug_tag_spec_flags(gfc, "lame_get_id3v2_tag");
-#endif
     {
         int usev2 = test_tag_spec_flags(gfc, ADD_V2_FLAG | V2_ONLY_FLAG);
         /* calculate length of four fields which may not fit in verion 1 tag */
@@ -2469,9 +2447,6 @@ id3tag_write_v2(lame_t gfp)
         return 0;
     }
     gfc = gfp->internal_flags;
-#if 0
-    debug_tag_spec_flags(gfc, "write v2");
-#endif
     if (test_tag_spec_flags(gfc, V1_ONLY_FLAG)) {
         return 0;
     }

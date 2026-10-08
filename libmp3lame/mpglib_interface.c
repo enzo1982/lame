@@ -107,27 +107,6 @@ lame_decode_init(void)
 
 
 
-/* copy mono samples */
-#define COPY_MONO(DST_TYPE, SRC_TYPE)                                                           \
-    DST_TYPE *pcm_l = (DST_TYPE *)pcm_l_raw;                                                    \
-    SRC_TYPE const *p_samples = (SRC_TYPE const *)p;                                            \
-    for (i = 0; i < processed_samples; i++)                                                     \
-      *pcm_l++ = (DST_TYPE)(*p_samples++);
-
-/* copy stereo samples */
-#define COPY_STEREO(DST_TYPE, SRC_TYPE)                                                         \
-    DST_TYPE *pcm_l = (DST_TYPE *)pcm_l_raw, *pcm_r = (DST_TYPE *)pcm_r_raw;                    \
-    SRC_TYPE const *p_samples = (SRC_TYPE const *)p;                                            \
-    for (i = 0; i < processed_samples; i++) {                                                   \
-      *pcm_l++ = (DST_TYPE)(*p_samples++);                                                      \
-      *pcm_r++ = (DST_TYPE)(*p_samples++);                                                      \
-    }
-
-
-
-
-#define OUTSIZE_CLIPPED   (4096*sizeof(short))
-
 /*! Decode one frame through the old global decoder, with delay and padding. */
 /*!
   \deprecated This function does nothing. Use \c hip_decode1_headersB(), which
@@ -360,7 +339,7 @@ report_delay_padding(hip_t hip, int *enc_delay, int *enc_padding)
     }
 }
 
-int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
+static int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
     unsigned char *pcm_l, unsigned char *pcm_r,
     int *enc_delay, int *enc_padding,
     mp3data_struct *mp3data,
@@ -501,9 +480,6 @@ int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
 }
 #endif
 
-
-/* we forbid input with more than 1152 samples per channel for output in the unclipped mode */
-#define OUTSIZE_UNCLIPPED (1152*2*sizeof(FLOAT))
 
 int
 hip_decode1_unclipped(hip_t hip, LAME_UNUSED unsigned char *buffer, LAME_UNUSED size_t len,

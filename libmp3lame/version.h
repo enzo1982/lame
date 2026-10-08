@@ -63,6 +63,10 @@
 
 # define LAME_VERSION_STRING STR(LAME_MAJOR_VERSION) "." STR(LAME_MINOR_VERSION) LAME_PATCH_LEVEL_STRING
 
+#ifndef RC_INVOKED
+const char *get_lame_tag_encoder_short_version(void);
+#endif
+
 #endif /* LAME_VERSION_H */
 
 /* End of version.h */

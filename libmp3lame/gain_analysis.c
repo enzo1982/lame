@@ -52,12 +52,7 @@
  *  will return the recommended dB level change for all samples analyzed
  *  SINCE THE LAST TIME you called GetTitleGain() OR InitGainAnalysis().
  *
- *    GetAlbumGain()
- *
- *  will return the recommended dB level change for all samples analyzed
- *  since InitGainAnalysis() was called and finalized with GetTitleGain().
- *
- *  Pseudo-code to process an album:
+ *  Pseudo-code to process several songs:
  *
  *    Float_t       l_samples [4096];
  *    Float_t       r_samples [4096];
@@ -71,7 +66,6 @@
  *            AnalyzeSamples ( left_samples, right_samples, num_samples, 2 );
  *        fprintf ("Recommended dB change for song %2d: %+6.2f dB\n", i, GetTitleGain() );
  *    }
- *    fprintf ("Recommended dB change for whole album: %+6.2f dB\n", GetAlbumGain() );
  */
 
 /*
@@ -356,8 +350,6 @@ InitGainAnalysis(replaygain_t * rgData, long samplefreq)
     rgData->lout = rgData->loutbuf + MAX_ORDER;
     rgData->rout = rgData->routbuf + MAX_ORDER;
 
-    memset(rgData->B, 0, sizeof(rgData->B));
-
     return INIT_GAIN_ANALYSIS_OK;
 }
 
@@ -544,7 +536,6 @@ GetTitleGain(replaygain_t * rgData)
     retval = analyzeResult(rgData->A, sizeof(rgData->A) / sizeof(*(rgData->A)));
 
     for (i = 0; i < sizeof(rgData->A) / sizeof(*(rgData->A)); i++) {
-        rgData->B[i] += rgData->A[i];
         rgData->A[i] = 0;
     }
 
@@ -559,15 +550,5 @@ GetTitleGain(replaygain_t * rgData)
     rgData->lsum = rgData->rsum = 0.;
     return retval;
 }
-
-#if 0
-static Float_t GetAlbumGain(replaygain_t const* rgData);
-
-Float_t
-GetAlbumGain(replaygain_t const* rgData)
-{
-    return analyzeResult(rgData->B, sizeof(rgData->B) / sizeof(*(rgData->B)));
-}
-#endif
 
 /* end of gain_analysis.c */

@@ -85,9 +85,7 @@ extern  "C" {
         double  lsum;
         double  rsum;
         int     freqindex;
-        int     first;
         uint32_t A[STEPS_per_dB * MAX_dB];
-        uint32_t B[STEPS_per_dB * MAX_dB];
 
     };
 #ifndef replaygain_data_defined

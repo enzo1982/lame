@@ -1327,13 +1327,7 @@ lame_init_params(lame_global_flags * gfp)
         cfg->findPeakSample = 1;
 
     if (cfg->findReplayGain) {
-        if (InitGainAnalysis(gfc->sv_rpg.rgdata, cfg->samplerate_out) == INIT_GAIN_ANALYSIS_ERROR) {
-            /* Actually this never happens, our samplerates are the ones RG accepts!
-             * But just in case, turn RG off
-             */
-            assert(0);
-            cfg->findReplayGain = 0;
-        }
+        (void) InitGainAnalysis(gfc->sv_rpg.rgdata, cfg->samplerate_out);
     }
 
 #ifdef HAVE_MPG123
@@ -2508,21 +2502,6 @@ lame_encode_flush(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buff
         }
         mp3count += imp3;
     }
-#if 0
-    {
-        int const ed = gfc->ov_enc.encoder_delay;
-        int const ep = gfc->ov_enc.encoder_padding;
-        int const ns = (gfc->ov_enc.frame_number * pcm_samples_per_frame) - (ed + ep);
-        double  duration = ns;
-        duration /= cfg->samplerate_out;
-        MSGF(gfc, "frames=%d\n", gfc->ov_enc.frame_number);
-        MSGF(gfc, "pcm_samples_per_frame=%d\n", pcm_samples_per_frame);
-        MSGF(gfc, "encoder delay=%d\n", ed);
-        MSGF(gfc, "encoder padding=%d\n", ep);
-        MSGF(gfc, "sample count=%d (%g)\n", ns, cfg->samplerate_in * duration);
-        MSGF(gfc, "duration=%g sec\n", duration);
-    }
-#endif
     return mp3count;
 }
 

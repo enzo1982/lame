@@ -69,8 +69,6 @@
 #define XING_BITRATE2  64
 #define XING_BITRATE25 32
 
-extern const char* get_lame_tag_encoder_short_version(void);
-
 static const char VBRTag0[] = { "Xing" };
 static const char VBRTag1[] = { "Info" };
 
