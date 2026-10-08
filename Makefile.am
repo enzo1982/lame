@@ -33,6 +33,7 @@ EXTRA_DIST = \
 	maintainer/check-dist.ps1 \
 	maintainer/gen-api-docs.sh \
 	maintainer/gen-usage.py \
+	maintainer/check-optdoc.py \
 	maintainer/gen-build-matrix.sh \
 	maintainer/gen-build-matrix.ps1 \
 	maintainer/setup-windows-deps.ps1 \

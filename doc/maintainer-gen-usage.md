@@ -35,11 +35,17 @@ The generated part of `USAGE` says this at its top.
 
 ## Checking it
 
-`build/optdoc.py` takes the option names that the parser accepts and looks for
-each of them in `doc/man/lame.1`, `doc/html/detailed.html` and `USAGE`. It
-reports which names are missing from each file. It also reports index links in
-`detailed.html` that point to an anchor that the page does not define, because
-`USAGE` shows such a link as a heading with nothing below it.
+`maintainer/check-optdoc.py` takes the option names that the parser accepts and
+looks for each of them in `doc/man/lame.1`, `doc/html/detailed.html` and
+`USAGE`. It reports which names are missing from each file. It also reports
+index links in `detailed.html` that point to an anchor that the page does not
+define, because `USAGE` shows such a link as a heading with nothing below it.
+It exits with a non-zero status when it finds either. Like the generator, it
+takes the tree with `--srcdir DIR`.
+
+```
+python3 maintainer/check-optdoc.py
+```
 
 The script handles only the HTML constructs that `detailed.html` uses. If new
 markup appears there and the output is wrong, look at the script first.
