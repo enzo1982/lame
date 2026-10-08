@@ -528,25 +528,24 @@ test_upsampled_chunks_fit(const blade_exports *be)
 }
 
 /**
- * @brief Encodes a short tone into a file, and leaves the stream open.
+ * @brief Encodes a short tone into a file with the given configuration, and
+ *        leaves the stream open.
  * @param be          the resolved entry points.
- * @param with_tag    whether the stream reserves a frame for the LAME tag.
+ * @param cfg         the configuration of the stream.
  * @param path        the file to write.
  * @param hbe         receives the open stream.
  * @return 1 when the stream was opened and the file written, else 0.
  */
 static int
-encode_short_file(const blade_exports *be, int with_tag, const char *path, HBE_STREAM *hbe)
+encode_config_file(const blade_exports *be, BE_CONFIG *cfg, const char *path, HBE_STREAM *hbe)
 {
     enum { CHUNKS = 8 };
-    BE_CONFIG cfg;
     DWORD   samples = 0, room = 0, written = 0, total = 0, n, i;
     unsigned char *out;
     SHORT  *pcm;
     int     ok;
 
-    make_config(&cfg, with_tag);
-    if (be->init(&cfg, &samples, &room, hbe) != BE_ERR_SUCCESSFUL) {
+    if (be->init(cfg, &samples, &room, hbe) != BE_ERR_SUCCESSFUL) {
         return 0;
     }
     out = (unsigned char *) malloc(room * (CHUNKS + 1));
@@ -565,6 +564,23 @@ encode_short_file(const blade_exports *be, int with_tag, const char *path, HBE_S
     free(out);
     free(pcm);
     return ok;
+}
+
+/**
+ * @brief As encode_config_file(), with the configuration of make_config().
+ * @param be          the resolved entry points.
+ * @param with_tag    whether the stream reserves a frame for the LAME tag.
+ * @param path        the file to write.
+ * @param hbe         receives the open stream.
+ * @return 1 when the stream was opened and the file written, else 0.
+ */
+static int
+encode_short_file(const blade_exports *be, int with_tag, const char *path, HBE_STREAM *hbe)
+{
+    BE_CONFIG cfg;
+
+    make_config(&cfg, with_tag);
+    return encode_config_file(be, &cfg, path, hbe);
 }
 
 /**
@@ -637,6 +653,95 @@ test_unknown_vbr_method_refused(const blade_exports *be)
     CHECK_EQ_U(be->init(&cfg, &samples, &room, &hbe), BE_ERR_SUCCESSFUL,
                "VBR method MTRH is accepted");
     be->close(hbe);
+}
+
+/**
+ * @brief Checks what an encode call reports when the encoder rejects its
+ *        input: a floating point sample that is not finite.
+ *
+ * The encoder returns a negative error. The DLL reports every negative result
+ * of an encode or flush call as BE_ERR_BUFFER_TOO_SMALL, with no bytes
+ * written.
+ *
+ * @param be the resolved entry points.
+ */
+static void
+test_rejected_input_reported(const blade_exports *be)
+{
+    BE_CONFIG cfg;
+    HBE_STREAM hbe = 0;
+    DWORD   samples = 0, room = 0, written = 1;
+    FLOAT   pcm_l[MP3_SAMPLES_PER_FRAME], pcm_r[MP3_SAMPLES_PER_FRAME];
+    unsigned char *out;
+    int     i;
+
+    make_config(&cfg, 0);
+    if (be->init(&cfg, &samples, &room, &hbe) != BE_ERR_SUCCESSFUL
+        || (out = (unsigned char *) malloc(room)) == NULL) {
+        CHECK(0, "a stream for the rejected input opens");
+        be->close(hbe);
+        return;
+    }
+    for (i = 0; i < MP3_SAMPLES_PER_FRAME; i++) {
+        pcm_l[i] = 0;
+        pcm_r[i] = 0;
+    }
+    pcm_l[0] = (FLOAT) HUGE_VAL;
+    CHECK_EQ_U(be->chunk_float(hbe, MP3_SAMPLES_PER_FRAME, pcm_l, pcm_r, out, &written),
+               BE_ERR_BUFFER_TOO_SMALL,
+               "a chunk with an infinite sample is reported as BE_ERR_BUFFER_TOO_SMALL");
+    CHECK_EQ_U(written, 0, "and no bytes are reported written");
+    free(out);
+    be->close(hbe);
+}
+
+/**
+ * @brief Checks the ABR preset at a bitrate above the highest one: the DLL
+ *        encodes ABR at 320 kbit/s.
+ *
+ * The DLL passes the bitrate of the ABR preset to lame_set_preset(), where
+ * values from 1000 up name other presets. A request for 1001 kbit/s must not
+ * select the VBR preset that 1001 names. The LAME tag records the method.
+ *
+ * @param be    the resolved entry points.
+ * @param dir   directory for the scratch file, with a trailing separator.
+ */
+static void
+test_abr_preset_above_range(const blade_exports *be, const char *dir)
+{
+    BE_CONFIG cfg;
+    HBE_STREAM hbe = 0;
+    char    path[MAX_PATH];
+    unsigned char *buf = NULL;
+    long    size = 0;
+    FILE   *fp;
+
+    sprintf(path, "%slame_blade_test_abr.mp3", dir);
+    make_config(&cfg, 1);
+    cfg.format.LHV1.nPreset = LQP_ABR;
+    cfg.format.LHV1.dwVbrAbr_bps = 1001000;
+    if (!encode_config_file(be, &cfg, path, &hbe)) {
+        CHECK(0, "a stream with the ABR preset at 1001 kbit/s is encoded");
+        be->close(hbe);
+        return;
+    }
+    CHECK_EQ_U(be->info_tag(hbe, path), BE_ERR_SUCCESSFUL, "its LAME tag is written");
+    fp = fopen(path, "rb");
+    if (fp != NULL && fseek(fp, 0, SEEK_END) == 0 && (size = ftell(fp)) > MP3_HEADER_BYTES
+        && fseek(fp, 0, SEEK_SET) == 0 && (buf = (unsigned char *) malloc((size_t) size)) != NULL
+        && fread(buf, 1, (size_t) size, fp) == (size_t) size && mp3_is_frame_sync(buf)) {
+        long const first = mp3_frame_bytes(mp3_bitrate_index(buf), mp3_padding_bytes(buf), RATE);
+
+        CHECK_EQ_U(mp3_lame_tag_vbr_method(buf, first < size ? first : size), MP3_TAG_METHOD_ABR,
+                   "the ABR preset at 1001 kbit/s encodes ABR, not the preset that 1001 names");
+    } else {
+        CHECK(0, "the file with the LAME tag can be read");
+    }
+    if (fp != NULL) {
+        fclose(fp);
+    }
+    free(buf);
+    remove(path);
 }
 
 /**
@@ -749,6 +854,8 @@ main(int argc, char **argv)
 
     test_upsampled_chunks_fit(&be);
     test_unknown_vbr_method_refused(&be);
+    test_rejected_input_reported(&be);
+    test_abr_preset_above_range(&be, dir);
     test_released_stream(&be, dir);
 
     FreeLibrary(mod);

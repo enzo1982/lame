@@ -258,6 +258,43 @@ static void release_stream( lame_global_flags* gfp )
     }
 }
 
+/**
+ * \internal
+ * \brief Returns an ABR bitrate within the range LAME encodes, 8 to 320 kbit/s.
+ * \param kbps  the bitrate in kbit/s, already converted from bit/s by the caller.
+ * \return \a kbps, raised to 8 or lowered to 320 when it is outside the range.
+ */
+static int
+abr_kbps_in_range(DWORD kbps)
+{
+    if (kbps > 320)
+        return 320;
+    if (kbps < 8)
+        return 8;
+    return (int) kbps;
+}
+
+/**
+ * \internal
+ * \brief Turns the result of an encode or flush call into the result of the
+ *        DLL function.
+ * \param nOutputBytes  what the call returned: the bytes it wrote, or a
+ *                      negative error.
+ * \param pdwOutput     receives the bytes written, or 0 after an error.
+ * \return BE_ERR_SUCCESSFUL, or BE_ERR_BUFFER_TOO_SMALL for every negative
+ *         result.
+ */
+static BE_ERR
+report_output(int nOutputBytes, PDWORD pdwOutput)
+{
+    if (nOutputBytes < 0) {
+        *pdwOutput = 0;
+        return BE_ERR_BUFFER_TOO_SMALL;
+    }
+    *pdwOutput = (DWORD) nOutputBytes;
+    return BE_ERR_SUCCESSFUL;
+}
+
 __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples, PDWORD dwBufferSize, PHBE_STREAM phbeStream)
 {
     int actual_bitrate;
@@ -336,18 +373,7 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
 
     if(lameConfig.format.LHV1.nPreset == LQP_ABR)		// --ALT-PRESET ABR
     {
-        actual_bitrate = lameConfig.format.LHV1.dwVbrAbr_bps / 1000;
-
-        // limit range
-        if( actual_bitrate > 320)
-        {
-            actual_bitrate = 320;
-        }
-
-        if( actual_bitrate < 8 )
-        {
-            actual_bitrate = 8;
-        }
+        actual_bitrate = abr_kbps_in_range(lameConfig.format.LHV1.dwVbrAbr_bps / 1000);
 
         lame_set_preset( gfp, actual_bitrate );
     }    
@@ -448,18 +474,8 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
             lame_set_VBR( gfp, vbr_abr );
 
             /* calculate to kbps, round to nearest kbps */
-            lame_set_VBR_mean_bitrate_kbps( gfp, ( lameConfig.format.LHV1.dwVbrAbr_bps + 500 ) / 1000 );
-
-            /* limit range */
-            if( lame_get_VBR_mean_bitrate_kbps( gfp ) > 320)
-            {
-                lame_set_VBR_mean_bitrate_kbps( gfp, 320 );
-            }
-
-            if( lame_get_VBR_mean_bitrate_kbps( gfp ) < 8 )
-            {
-                lame_set_VBR_mean_bitrate_kbps( gfp, 8 );
-            }
+            lame_set_VBR_mean_bitrate_kbps( gfp,
+                abr_kbps_in_range( ( lameConfig.format.LHV1.dwVbrAbr_bps + 500 ) / 1000 ) );
         }
 
     }
@@ -612,17 +628,7 @@ __declspec(dllexport) BE_ERR	beFlushNoGap(HBE_STREAM hbeStream, PBYTE pOutput, P
     // Init the global flags structure
     nOutputSamples = lame_encode_flush_nogap( gfp, pOutput, (int) dwMP3BufferSize );
 
-    if ( nOutputSamples < 0 )
-    {
-        *pdwOutput = 0;
-        return BE_ERR_BUFFER_TOO_SMALL;
-    }
-    else
-    {
-        *pdwOutput = nOutputSamples;
-    }
-
-    return BE_ERR_SUCCESSFUL;
+    return report_output( nOutputSamples, pdwOutput );
 }
 
 __declspec(dllexport) BE_ERR	beDeinitStream(HBE_STREAM hbeStream, PBYTE pOutput, PDWORD pdwOutput)
@@ -633,17 +639,7 @@ __declspec(dllexport) BE_ERR	beDeinitStream(HBE_STREAM hbeStream, PBYTE pOutput,
 
     nOutputSamples = lame_encode_flush( gfp, pOutput, (int) dwMP3BufferSize );
 
-    if ( nOutputSamples < 0 )
-    {
-        *pdwOutput = 0;
-        return BE_ERR_BUFFER_TOO_SMALL;
-    }
-    else
-    {
-        *pdwOutput = nOutputSamples;
-    }
-
-    return BE_ERR_SUCCESSFUL;
+    return report_output( nOutputSamples, pdwOutput );
 }
 
 
@@ -762,17 +758,7 @@ __declspec(dllexport) BE_ERR	beEncodeChunk(HBE_STREAM hbeStream, DWORD nSamples,
     }
 
 
-    if ( nOutputSamples < 0 )
-    {
-        *pdwOutput=0;
-        return BE_ERR_BUFFER_TOO_SMALL;
-    }
-    else
-    {
-        *pdwOutput = (DWORD)nOutputSamples;
-    }
-
-    return BE_ERR_SUCCESSFUL;
+    return report_output( nOutputSamples, pdwOutput );
 }
 
 
@@ -786,17 +772,7 @@ __declspec(dllexport) BE_ERR	beEncodeChunkFloatS16NI(HBE_STREAM hbeStream, DWORD
 
     nOutputSamples = lame_encode_buffer_float(gfp,buffer_l,buffer_r,nSamples,pOutput,(int) dwMP3BufferSize);
 
-    if ( nOutputSamples >= 0 )
-    {
-        *pdwOutput = (DWORD) nOutputSamples;
-    }
-    else
-    {
-        *pdwOutput=0;
-        return BE_ERR_BUFFER_TOO_SMALL;
-    }
-
-    return BE_ERR_SUCCESSFUL;
+    return report_output( nOutputSamples, pdwOutput );
 }
 
 static int

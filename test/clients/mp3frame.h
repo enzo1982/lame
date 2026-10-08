@@ -282,16 +282,50 @@ mp3_frame_length(const unsigned char *h)
 #define MP3_TAG_LOWPASS_UNIT_HZ     100
 /** @brief What mp3_lame_tag_lowpass_hz() returns when there is no tag. */
 #define MP3_TAG_ABSENT              (-1)
+/** @brief Offset of the revision and VBR method byte from the marker. The
+    method is in its low 4 bits. */
+#define MP3_TAG_METHOD_OFFSET       (MP3_TAG_LAME_OFFSET + MP3_TAG_ENCODER_BYTES)
+#define MP3_TAG_METHOD_MASK         0x0F
+/** @brief The VBR method values of the LAME tag for ABR and for the default
+    VBR mode. */
+#define MP3_TAG_METHOD_ABR          2
+#define MP3_TAG_METHOD_VBR_MTRH     4
+
+/**
+ * @brief Returns where the Xing or Info marker of a LAME tag is in the first
+ *        frame of a stream.
+ *
+ * The LAME tag is in the first frame of the stream, the Xing frame. An Xing
+ * or Info marker follows the header and the side information. The LAME tag
+ * follows the TOC. This function searches the first frame for the marker. So
+ * it does not need to know the size of the side information.
+ *
+ * @param buf    the stream.
+ * @param frame  the length of its first frame, in bytes.
+ * @return the offset of the marker, or -1 when the first frame has no LAME
+ *         tag whose fields up to the lowpass byte fit into it.
+ */
+static inline long
+mp3_lame_tag_at(const unsigned char *buf, long frame)
+{
+    long off;
+
+    for (off = MP3_HEADER_BYTES; off + MP3_TAG_LOWPASS_OFFSET < frame; off++) {
+        if ((memcmp(buf + off, "Xing", MP3_TAG_MARKER_BYTES) == 0
+             || memcmp(buf + off, "Info", MP3_TAG_MARKER_BYTES) == 0)
+            && memcmp(buf + off + MP3_TAG_LAME_OFFSET, "LAME",
+                      MP3_TAG_MARKER_BYTES) == 0) {
+            return off;
+        }
+    }
+    return -1;
+}
 
 /**
  * @brief Returns the lowpass frequency that the LAME tag of a stream records, in Hz.
  *
- * The LAME tag is in the first frame of the stream, the Xing frame. An Xing
- * or Info marker follows the header and the side information. The LAME tag
- * follows the TOC. The encoder writes the lowpass it applied into the LAME
- * tag, in units of 100 Hz, with zero for no filter. This function searches
- * the first frame for the marker. So it does not need to know the size of the
- * side information.
+ * The encoder writes the lowpass it applied into the LAME tag, in units of
+ * 100 Hz, with zero for no filter.
  *
  * @param buf    the stream.
  * @param frame  the length of its first frame, in bytes.
@@ -301,17 +335,28 @@ mp3_frame_length(const unsigned char *h)
 static inline int
 mp3_lame_tag_lowpass_hz(const unsigned char *buf, long frame)
 {
-    long off;
+    long const off = mp3_lame_tag_at(buf, frame);
 
-    for (off = MP3_HEADER_BYTES; off + MP3_TAG_LOWPASS_OFFSET < frame; off++) {
-        if ((memcmp(buf + off, "Xing", MP3_TAG_MARKER_BYTES) == 0
-             || memcmp(buf + off, "Info", MP3_TAG_MARKER_BYTES) == 0)
-            && memcmp(buf + off + MP3_TAG_LAME_OFFSET, "LAME",
-                      MP3_TAG_MARKER_BYTES) == 0) {
-            return buf[off + MP3_TAG_LOWPASS_OFFSET] * MP3_TAG_LOWPASS_UNIT_HZ;
-        }
-    }
-    return MP3_TAG_ABSENT;
+    if (off < 0)
+        return MP3_TAG_ABSENT;
+    return buf[off + MP3_TAG_LOWPASS_OFFSET] * MP3_TAG_LOWPASS_UNIT_HZ;
+}
+
+/**
+ * @brief Returns the VBR method from a stream's LAME tag.
+ * @param buf    the stream.
+ * @param frame  the length of its first frame, in bytes.
+ * @return the method, for example ::MP3_TAG_METHOD_ABR, or @c MP3_TAG_ABSENT
+ *         when the first frame has no LAME tag.
+ */
+static inline int
+mp3_lame_tag_vbr_method(const unsigned char *buf, long frame)
+{
+    long const off = mp3_lame_tag_at(buf, frame);
+
+    if (off < 0)
+        return MP3_TAG_ABSENT;
+    return buf[off + MP3_TAG_METHOD_OFFSET] & MP3_TAG_METHOD_MASK;
 }
 
 #endif /* LAME_TEST_CLIENTS_MP3FRAME_H */
