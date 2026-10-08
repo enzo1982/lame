@@ -49,14 +49,20 @@
 extern "C" {
 #endif
 
-typedef void (*lame_report_function)(const char *format, va_list ap);
-
 #if defined(WIN32) || defined(_WIN32)
 #undef CDECL
 #define CDECL __cdecl
 #else
 #define CDECL
 #endif
+
+/**
+ * The type of the functions that receive the library's messages, errors and
+ * debug reports: see lame_set_msgf(), lame_set_errorf() and
+ * lame_set_debugf(). Such a function uses the calling convention of the
+ * library's functions, also in a program built with another default.
+ */
+typedef void (CDECL *lame_report_function)(const char *format, va_list ap);
 
 #define DEPRECATED_OR_OBSOLETE_CODE_REMOVED 1
 

@@ -576,6 +576,11 @@
 			        crashing on it. It allocated its FIR input and filter
 			        buffers without checking the result, then dereferenced
 			        them while precomputing the filter coefficients.</li>
+			    <li>A Windows program built with <i>__stdcall</i> as its
+			        default calling convention no longer crashes when LAME
+			        calls a report function it set with
+			        <i>lame_set_msgf()</i>, <i>lame_set_errorf()</i> or
+			        <i>lame_set_debugf()</i>.</li>
 			</ul>
 		    </li>
 		    <li><b>Windows components</b>
