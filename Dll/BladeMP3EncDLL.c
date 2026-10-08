@@ -37,7 +37,6 @@ extern "C" {
 #endif
 
 #define         Min(A, B)       ((A) < (B) ? (A) : (B))
-#define         Max(A, B)       ((A) > (B) ? (A) : (B))
 
 #define _RELEASEDEBUG 0
 
@@ -47,10 +46,6 @@ const BYTE MINORVERSION = 32;
 
 
 // Local variables
-static DWORD				dwSampleBufferSize=0;
-/* the output buffer size beInitStream() advised: every encode and flush call
-   is told no more room than that */
-static DWORD				dwMP3BufferSize=0;
 static HMODULE				gs_hModule=NULL;
 static BOOL					gs_bLogFile=FALSE;
 static lame_global_flags*	gfp_save = NULL;
@@ -121,7 +116,7 @@ static void DebugVPrintf(const char* pzFormat, va_list ap)
         }
     }
 
-#if defined _DEBUG || defined _RELEASEDEBUG
+#if defined _DEBUG || _RELEASEDEBUG
     OutputDebugStringA( szBuffer );
 #endif
 }
@@ -312,6 +307,27 @@ report_output(int nOutputBytes, PDWORD pdwOutput)
     }
     *pdwOutput = (DWORD) nOutputBytes;
     return BE_ERR_SUCCESSFUL;
+}
+
+/**
+ * \internal
+ * \brief Returns the output buffer size for one encode or flush call of a
+ *        stream: lame.h's figure for one frame, counted at the output rate,
+ *        since upsampling multiplies what a call returns.
+ * \param gfp  the stream, after lame_init_params().
+ * \return the size in bytes.
+ */
+static DWORD
+mp3_buffer_size(lame_global_flags *gfp)
+{
+    DWORD const samples = (DWORD) lame_get_framesize( gfp );
+    int const in_rate = lame_get_in_samplerate( gfp );
+    int const out_rate = lame_get_out_samplerate( gfp );
+    double ratio = 1;
+
+    if ( in_rate > 0 && out_rate > in_rate )
+        ratio = (double) out_rate / in_rate;
+    return (DWORD)( 1.25 * samples * ratio + 7200 );
 }
 
 __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples, PDWORD dwBufferSize, PHBE_STREAM phbeStream)
@@ -615,18 +631,7 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
     // One frame of samples per call, for all channels
     *dwSamples = lame_get_framesize( gfp ) * lame_get_num_channels( gfp );
 
-    // Set the input sample buffer size, so we know what we can expect
-    dwSampleBufferSize = *dwSamples;
-
-    // Set MP3 buffer size: lame.h's figure for one call, counted at the
-    // output rate, since upsampling multiplies what a call returns
-    {
-        double ratio = (double) lame_get_out_samplerate( gfp ) / lame_get_in_samplerate( gfp );
-        if ( ratio < 1 )
-            ratio = 1;
-        *dwBufferSize=(DWORD)( 1.25 * ( *dwSamples / lame_get_num_channels( gfp ) ) * ratio + 7200 );
-    }
-    dwMP3BufferSize = *dwBufferSize;
+    *dwBufferSize = mp3_buffer_size( gfp );
 
     // The settings, into the log
     lame_print_config( gfp );
@@ -645,7 +650,7 @@ __declspec(dllexport) BE_ERR	beFlushNoGap(HBE_STREAM hbeStream, PBYTE pOutput, P
     lame_global_flags*	gfp = (lame_global_flags*)hbeStream;
 
     // Init the global flags structure
-    nOutputSamples = lame_encode_flush_nogap( gfp, pOutput, (int) dwMP3BufferSize );
+    nOutputSamples = lame_encode_flush_nogap( gfp, pOutput, (int) mp3_buffer_size( gfp ) );
 
     return report_output( nOutputSamples, pdwOutput );
 }
@@ -656,7 +661,7 @@ __declspec(dllexport) BE_ERR	beDeinitStream(HBE_STREAM hbeStream, PBYTE pOutput,
 
     lame_global_flags*	gfp = (lame_global_flags*)hbeStream;
 
-    nOutputSamples = lame_encode_flush( gfp, pOutput, (int) dwMP3BufferSize );
+    nOutputSamples = lame_encode_flush( gfp, pOutput, (int) mp3_buffer_size( gfp ) );
 
     return report_output( nOutputSamples, pdwOutput );
 }
@@ -769,11 +774,11 @@ __declspec(dllexport) BE_ERR	beEncodeChunk(HBE_STREAM hbeStream, DWORD nSamples,
 
     if ( 1 == lame_get_num_channels( gfp ) )
     {
-        nOutputSamples = lame_encode_buffer(gfp,pSamples,pSamples,dwSamples,pOutput,(int) dwMP3BufferSize);
+        nOutputSamples = lame_encode_buffer(gfp,pSamples,pSamples,dwSamples,pOutput,(int) mp3_buffer_size( gfp ));
     }
     else
     {
-        nOutputSamples = lame_encode_buffer_interleaved(gfp,pSamples,dwSamples,pOutput,(int) dwMP3BufferSize);
+        nOutputSamples = lame_encode_buffer_interleaved(gfp,pSamples,dwSamples,pOutput,(int) mp3_buffer_size( gfp ));
     }
 
 
@@ -789,7 +794,7 @@ __declspec(dllexport) BE_ERR	beEncodeChunkFloatS16NI(HBE_STREAM hbeStream, DWORD
     int nOutputSamples;
     lame_global_flags*	gfp = (lame_global_flags*)hbeStream;
 
-    nOutputSamples = lame_encode_buffer_float(gfp,buffer_l,buffer_r,nSamples,pOutput,(int) dwMP3BufferSize);
+    nOutputSamples = lame_encode_buffer_float(gfp,buffer_l,buffer_r,nSamples,pOutput,(int) mp3_buffer_size( gfp ));
 
     return report_output( nOutputSamples, pdwOutput );
 }
