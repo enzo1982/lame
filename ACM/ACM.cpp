@@ -48,10 +48,6 @@
 #include "resource.h"
 #include "ACMStream.h"
 
-#ifdef ENABLE_DECODING
-#include "DecodeStream.h"
-#endif // ENABLE_DECODING
-
 #include "ACM.h"
 
 #ifndef IDC_HAND
@@ -358,28 +354,12 @@ ACM::ACM( HMODULE hModule )
 	my_EncodingProperties.ParamsRestore();
 
 	/// \todo get the debug level from the registry
-	unsigned char DebugFileName[512];
-
 	char tmp[128];
 	wsprintf(tmp,"LAMEacm 0x%08X",this);
 	my_debug.setPrefix(tmp); /// \todo get it from the registry
 	my_debug.setIncludeTime(true);  /// \todo get it from the registry
 
-	// Check in the registry if we have to Output Debug information
-	DebugFileName[0] = '\0';
-
-	HKEY OssKey;
-	if (RegOpenKeyEx( HKEY_LOCAL_MACHINE, "SOFTWARE\\MUKOLI", 0, KEY_READ , &OssKey ) == ERROR_SUCCESS) {
-		DWORD DataType;
-		DWORD DebugFileNameSize = 512;
-		if (RegQueryValueEx( OssKey, "DebugFile", NULL, &DataType, DebugFileName, &DebugFileNameSize ) == ERROR_SUCCESS) {
-			if (DataType == REG_SZ) {
-				my_debug.setUseFile(true);
-				my_debug.setDebugFile((char *)DebugFileName);
-				my_debug.OutPut("Debug file is %s",(char *)DebugFileName);
-			}
-		}
-	}
+	ConfigureDebugFromRegistry(my_debug);
         lstrcpynA(VersionString, get_lame_version(), sizeof VersionString);
 	FillRateTables();
 	BuildBitrateTable();
@@ -1081,36 +1061,6 @@ inline DWORD ACM::OnStreamOpen(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 			break;
 		case PERSONAL_FORMAT:
 			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Open stream for PERSONAL source (%05d samples %d channels %d bits/sample %d kbps)",a_StreamInstance->pwfxSrc->nSamplesPerSec,a_StreamInstance->pwfxSrc->nChannels,a_StreamInstance->pwfxSrc->wBitsPerSample,8 * a_StreamInstance->pwfxSrc->nAvgBytesPerSec);
-			if (a_StreamInstance->pwfxDst->wFormatTag == WAVE_FORMAT_PCM)
-			{
-#ifdef ENABLE_DECODING
-				if ((a_StreamInstance->fdwOpen & ACM_STREAMOPENF_QUERY) == 0)
-				{
-					/// \todo create the decoding stream
-					my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Open stream for PCM output (%05d samples %d channels %d bits/sample %d B/s)",a_StreamInstance->pwfxDst->nSamplesPerSec,a_StreamInstance->pwfxDst->nChannels,a_StreamInstance->pwfxDst->wBitsPerSample,a_StreamInstance->pwfxDst->nAvgBytesPerSec);
-
-					DecodeStream * the_stream = DecodeStream::Create();
-					a_StreamInstance->dwInstance = (DWORD) the_stream;
-
-					if (the_stream != NULL)
-					{
-						if (the_stream->init(a_StreamInstance->pwfxDst->nSamplesPerSec,
-											 a_StreamInstance->pwfxDst->nChannels,
-											 a_StreamInstance->pwfxDst->nAvgBytesPerSec,
-											 a_StreamInstance->pwfxSrc->nAvgBytesPerSec))
-							Result = MMSYSERR_NOERROR;
-						else
-							DecodeStream::Erase( the_stream );
-					}
-				}
-				else
-				{
-					/// \todo decoding verification
-					my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Open stream is valid");
-					Result = MMSYSERR_NOERROR;
-				}
-#endif // ENABLE_DECODING
-			}
 			break;
 	}
 
@@ -1139,18 +1089,6 @@ inline DWORD ACM::OnStreamSize(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACMDRV
 				Result = MMSYSERR_NOERROR;
 			}
 		}
-        else if (PERSONAL_FORMAT == a_StreamInstance->pwfxSrc->wFormatTag &&
-			 WAVE_FORMAT_PCM== a_StreamInstance->pwfxDst->wFormatTag)
-		{
-#ifdef ENABLE_DECODING
-			DecodeStream * the_stream = (DecodeStream *) a_StreamInstance->dwInstance;
-			if (the_stream != NULL)
-			{
-				the_StreamSize->cbDstLength = the_stream->GetOutputSizeForInput(the_StreamSize->cbSrcLength);
-				Result = MMSYSERR_NOERROR;
-			}
-#endif // ENABLE_DECODING
-		}
 		break;
 	default:
 		Result = MMSYSERR_INVALFLAG;
@@ -1169,13 +1107,6 @@ inline DWORD ACM::OnStreamClose(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 		PERSONAL_FORMAT == a_StreamInstance->pwfxDst->wFormatTag)
     {
 	ACMStream::Erase( (ACMStream *) a_StreamInstance->dwInstance );
-	}
-    else if (PERSONAL_FORMAT == a_StreamInstance->pwfxSrc->wFormatTag &&
-		 WAVE_FORMAT_PCM== a_StreamInstance->pwfxDst->wFormatTag)
-    {
-#ifdef ENABLE_DECODING
-		DecodeStream::Erase( (DecodeStream *) a_StreamInstance->dwInstance );
-#endif // ENABLE_DECODING
 	}
 
 	// nothing to do yet
@@ -1204,16 +1135,6 @@ inline DWORD ACM::OnStreamPrepareHeader(LPACMDRVSTREAMINSTANCE a_StreamInstance,
 		
 		if (the_stream->open(my_EncodingProperties))
 			Result = MMSYSERR_NOERROR;
-	}
-	else if (PERSONAL_FORMAT == a_StreamInstance->pwfxSrc->wFormatTag &&
-		     WAVE_FORMAT_PCM == a_StreamInstance->pwfxDst->wFormatTag)
-	{
-#ifdef ENABLE_DECODING
-		DecodeStream * the_stream = (DecodeStream *)a_StreamInstance->dwInstance;
-		
-		if (the_stream->open())
-			Result = MMSYSERR_NOERROR;
-#endif // ENABLE_DECODING
 	}
 
 	return Result;
@@ -1247,20 +1168,6 @@ inline DWORD ACM::OnStreamUnPrepareHeader(LPACMDRVSTREAMINSTANCE a_StreamInstanc
 	}
 	Result = MMSYSERR_NOERROR;
 	}
-    else if (PERSONAL_FORMAT == a_StreamInstance->pwfxSrc->wFormatTag &&
-		 WAVE_FORMAT_PCM== a_StreamInstance->pwfxDst->wFormatTag)
-    {
-#ifdef ENABLE_DECODING
-		DecodeStream * the_stream = (DecodeStream *)a_StreamInstance->dwInstance;
-		DWORD OutputSize = a_StreamHeader->cbDstLength;
-		
-		if (the_stream->close(a_StreamHeader->pbDst, &OutputSize) && (OutputSize <= a_StreamHeader->cbDstLength))
-		{
-			a_StreamHeader->cbDstLengthUsed = OutputSize;
-			Result = MMSYSERR_NOERROR;
-	}
-#endif // ENABLE_DECODING
-	}
 
 	return Result;
 }
@@ -1280,20 +1187,6 @@ inline DWORD ACM::OnStreamConvert(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACM
 			if (the_stream->ConvertBuffer( a_StreamHeader ))
 				Result = MMSYSERR_NOERROR;
 		}
-	}
-	else if (PERSONAL_FORMAT == a_StreamInstance->pwfxSrc->wFormatTag &&
-		     WAVE_FORMAT_PCM == a_StreamInstance->pwfxDst->wFormatTag)
-	{
-		my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "OnStreamConvert SRC = MP3 (decode)");
-
-#ifdef ENABLE_DECODING
-		DecodeStream * the_stream = (DecodeStream *) a_StreamInstance->dwInstance;
-		if (the_stream != NULL)
-		{
-			if (the_stream->ConvertBuffer( a_StreamHeader ))
-				Result = MMSYSERR_NOERROR;
-		}
-#endif // ENABLE_DECODING
 	}
 	else
 		my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "OnStreamConvert unsupported conversion");

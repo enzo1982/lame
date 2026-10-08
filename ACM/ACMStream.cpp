@@ -57,6 +57,36 @@ const bool ACMStream::Erase(const ACMStream * a_ACMStream)
 
 // class methods
 
+/**
+	\brief Sends the debug output to the file that the registry names, if it
+	names one.
+
+	The file name is the string value DebugFile under
+	HKEY_LOCAL_MACHINE\\SOFTWARE\\MUKOLI. A value that is not a string, or
+	that does not fit into 512 bytes, leaves the output where it is.
+
+	\param dbg  the debug output to configure.
+*/
+void ConfigureDebugFromRegistry(ADbg & dbg)
+{
+	unsigned char DebugFileName[512];
+	HKEY OssKey;
+
+	if (RegOpenKeyEx( HKEY_LOCAL_MACHINE, "SOFTWARE\\MUKOLI", 0, KEY_READ , &OssKey ) == ERROR_SUCCESS) {
+		DWORD DataType;
+		DWORD DebugFileNameSize = sizeof(DebugFileName) - 1;
+		if (RegQueryValueEx( OssKey, "DebugFile", NULL, &DataType, DebugFileName, &DebugFileNameSize ) == ERROR_SUCCESS
+		    && DataType == REG_SZ) {
+			// A string value need not carry its terminator.
+			DebugFileName[DebugFileNameSize] = '\0';
+			dbg.setUseFile(true);
+			dbg.setDebugFile((char *)DebugFileName);
+			dbg.OutPut("Debug file is %s",(char *)DebugFileName);
+		}
+		RegCloseKey(OssKey);
+	}
+}
+
 ACMStream::ACMStream() :
  m_WorkingBufferUseSize(0),
  gfp(NULL)
@@ -64,26 +94,9 @@ ACMStream::ACMStream() :
 	 /// \todo get the debug level from the registry
 my_debug = new ADbg(DEBUG_LEVEL_CREATION);
 	if (my_debug != NULL) {
-		unsigned char DebugFileName[512];
-
 		my_debug->setPrefix("LAMEstream"); /// \todo get it from the registry
-my_debug->setIncludeTime(true);  /// \todo get it from the registry
-
-// Check in the registry if we have to Output Debug information
-DebugFileName[0] = '\0';
-
-		HKEY OssKey;
-		if (RegOpenKeyEx( HKEY_LOCAL_MACHINE, "SOFTWARE\\MUKOLI", 0, KEY_READ , &OssKey ) == ERROR_SUCCESS) {
-			DWORD DataType;
-			DWORD DebugFileNameSize = 512;
-			if (RegQueryValueEx( OssKey, "DebugFile", NULL, &DataType, DebugFileName, &DebugFileNameSize ) == ERROR_SUCCESS) {
-				if (DataType == REG_SZ) {
-					my_debug->setUseFile(true);
-					my_debug->setDebugFile((char *)DebugFileName);
-					my_debug->OutPut("Debug file is %s",(char *)DebugFileName);
-				}
-			}
-		}
+		my_debug->setIncludeTime(true);  /// \todo get it from the registry
+		ConfigureDebugFromRegistry(*my_debug);
 		my_debug->OutPut(DEBUG_LEVEL_FUNC_START, "ACMStream Creation (0X%08X)",this);
 	}
 	else {

@@ -9,11 +9,6 @@ Build it from the vs_lame_clients.slnx solution in the vc_solution folder.
 
 ---------------
 
-Define ENABLE_DECODING if you want to use the decoding (alpha state, doesn't decode at the
- moment, so use it only if you plan to develop)
-
----------------
-
 To release this codec you will need :
 - lameACM.acm (result of the build process)
 - lameACM.inf

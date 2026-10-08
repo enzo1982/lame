@@ -97,7 +97,6 @@ copy ..\ACM\lame_acm.xml $(TargetDir)*.*
     <ClCompile Include="..\ACM\ACM.cpp" />
     <ClCompile Include="..\ACM\ACMStream.cpp" />
     <ClCompile Include="..\ACM\AEncodeProperties.cpp" />
-    <ClCompile Include="..\ACM\DecodeStream.cpp" />
     <ClCompile Include="..\ACM\main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -111,7 +110,6 @@ copy ..\ACM\lame_acm.xml $(TargetDir)*.*
     <ClInclude Include="..\ACM\ACMStream.h" />
     <ClInclude Include="..\ACM\adebug.h" />
     <ClInclude Include="..\ACM\AEncodeProperties.h" />
-    <ClInclude Include="..\ACM\DecodeStream.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\ACM\acm.rc" />

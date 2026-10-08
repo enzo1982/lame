@@ -45,6 +45,8 @@ typedef enum vbr_mode_e vbr_mode;
 typedef struct lame_global_struct lame_global_flags;
 
 
+void ConfigureDebugFromRegistry(ADbg & dbg);
+
 class ACMStream
 {
 public:

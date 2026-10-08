@@ -82,7 +82,6 @@
     <ClCompile Include="..\ACM\ACM.cpp" />
     <ClCompile Include="..\ACM\ACMStream.cpp" />
     <ClCompile Include="..\ACM\AEncodeProperties.cpp" />
-    <ClCompile Include="..\ACM\DecodeStream.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\test\clients\ctest.h" />

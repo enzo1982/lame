@@ -11,8 +11,6 @@ EXTRA_DIST = \
 	ACMStream.h \
 	AEncodeProperties.cpp \
 	AEncodeProperties.h \
-	DecodeStream.cpp \
-	DecodeStream.h \
 	LameACM.inf \
 	TODO \
 	acm.rc \

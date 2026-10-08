@@ -28,9 +28,6 @@
     <ClCompile Include="..\ACM\AEncodeProperties.cpp">
       <Filter>Source</Filter>
     </ClCompile>
-    <ClCompile Include="..\ACM\DecodeStream.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
     <ClCompile Include="..\ACM\main.cpp">
       <Filter>Source</Filter>
     </ClCompile>
@@ -54,9 +51,6 @@
       <Filter>Include</Filter>
     </ClInclude>
     <ClInclude Include="..\ACM\AEncodeProperties.h">
-      <Filter>Include</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ACM\DecodeStream.h">
       <Filter>Include</Filter>
     </ClInclude>
   </ItemGroup>
