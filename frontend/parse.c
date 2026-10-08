@@ -1808,27 +1808,40 @@ set_path_arg(char const *const src, char *const dst)
 }
 
 
+/**
+ * @internal
+ * @brief The settings of one parse_args_() run that an option leaves for a later
+ *        option or for the checks after the last one.
+ */
+typedef struct {
+    int     input_file;        /**< 1 when an input file name was given */
+    int     autoconvert;       /**< -a: the stereo input is encoded as mono */
+    int     nogap;             /**< --nogap: the file names are nogap inputs */
+    int     nogap_tags;        /**< 1 to write VBR tags in nogap mode */
+    int     count_nogap;       /**< the number of nogap input files */
+    int     noreplaygain;      /**< the user switched ReplayGain off */
+    int     vector_selected;   /**< --vector was given; it wins over --noasm */
+    int     noasm_none;        /**< --noasm sse was given; nothing may raise it */
+    int     id3tag_mode;       /**< which ID3 versions are written, ID3TAG_MODE */
+    int     ignore_tag_errors; /**< errors in tag values are ignored */
+    enum TextEncoding id3_tenc; /**< the text encoding of the tag options */
+} parse_state;
+
 static int
 parse_args_(lame_global_flags * gfp, int argc, char **argv,
            char *const inPath, char *const outPath, char *const outDir,
            char **nogap_inPath, int *num_nogap)
 {
-    int     input_file = 0;  /* set to 1 if we parse an input file name  */
+    parse_state st;
     int     i;
-    int     autoconvert = 0;
-    int     nogap = 0;
-    int     nogap_tags = 0;  /* set to 1 to use VBR tags in NOGAP mode */
     const char *ProgramName = argv[0];
-    int     count_nogap = 0;
-    int     noreplaygain = 0; /* is RG explicitly disabled by the user */
-    int     vector_selected = 0; /* --vector was given; it wins over --noasm */
-    int     noasm_none = 0;  /* --noasm sse was given; nothing may raise it */
-    int     id3tag_mode = ID3TAG_MODE_DEFAULT;
-    int     ignore_tag_errors = 0;  /* Ignore errors in values passed for tags */
+
+    memset(&st, 0, sizeof(st));
+    st.id3tag_mode = ID3TAG_MODE_DEFAULT;
 #ifdef ID3TAGS_EXTENDED
-    enum TextEncoding id3_tenc = TENC_UTF16;
+    st.id3_tenc = TENC_UTF16;
 #else
-    enum TextEncoding id3_tenc = TENC_LATIN1;
+    st.id3_tenc = TENC_LATIN1;
 #endif
 
 #if defined(HAVE_ICONV) && defined(HAVE_LANGINFO_H)
@@ -1858,7 +1871,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
             char   *nextArg = i + 1 < argc ? argv[i + 1] : "";
             argUsed = 0;
             if (!*token) { /* The user wants to use stdin and/or stdout. */
-                input_file = 1;
+                st.input_file = 1;
                 if (inPath[0] == '\0')
                     strncpy(inPath, argv[i], PATH_MAX + 1);
                 else if (outPath[0] == '\0')
@@ -2001,16 +2014,16 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     argUsed = 1;
                     if (set_vector_routines(gfp, nextArg) != 0)
                         return -1;
-                    vector_selected = 1;
+                    st.vector_selected = 1;
 
                 T_ELIF("noasm")
                     argUsed = 1;
                     if (local_strcasecmp(nextArg, "sse") == 0) {
                         error_printf("WARNING: --noasm sse is deprecated,"
                                      " use --vector none instead\n");
-                        if (!vector_selected) {
+                        if (!st.vector_selected) {
                             (void) lame_set_vector_routines(gfp, "none");
-                            noasm_none = 1;
+                            st.noasm_none = 1;
                         }
                     }
                     else if (local_strcasecmp(nextArg, "avx2") == 0) {
@@ -2019,7 +2032,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         /* The option could be repeated to turn off more than
                            one tier, so a second mapping may only lower the
                            selection: "sse" already asked for none. */
-                        if (!vector_selected && !noasm_none)
+                        if (!st.vector_selected && !st.noasm_none)
                             (void) lame_set_vector_routines(gfp, "sse2");
                     }
                     else {
@@ -2040,7 +2053,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 #endif
 
                 T_ELIF("noreplaygain")
-                    noreplaygain = 1;
+                    st.noreplaygain = 1;
                 lame_set_findReplayGain(gfp, 0);
 
 
@@ -2063,50 +2076,50 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                 /* options for ID3 tag */
 #ifdef ID3TAGS_EXTENDED
                 T_ELIF2("id3v2-utf16","id3v2-ucs2") /* id3v2-ucs2 for compatibility only */
-                    id3_tenc = TENC_UTF16;
+                    st.id3_tenc = TENC_UTF16;
                     id3tag_add_v2(gfp);
 
                 T_ELIF("id3v2-utf8")
-                    id3_tenc = TENC_UTF8;
+                    st.id3_tenc = TENC_UTF8;
                     id3tag_add_v2_4_UTF8(gfp);
 
                 T_ELIF("id3v2-latin1")
-                    id3_tenc = TENC_LATIN1;
+                    st.id3_tenc = TENC_LATIN1;
                     id3tag_add_v2(gfp);
 #endif
 
                 T_ELIF("tt")
                     argUsed = 1;
-                    id3_tag(gfp, 't', id3_tenc, nextArg);
+                    id3_tag(gfp, 't', st.id3_tenc, nextArg);
 
                 T_ELIF("ta")
                     argUsed = 1;
-                    id3_tag(gfp, 'a', id3_tenc, nextArg);
+                    id3_tag(gfp, 'a', st.id3_tenc, nextArg);
 
                 T_ELIF("tl")
                     argUsed = 1;
-                    id3_tag(gfp, 'l', id3_tenc, nextArg);
+                    id3_tag(gfp, 'l', st.id3_tenc, nextArg);
 
                 T_ELIF("ty")
                     argUsed = 1;
-                    id3_tag(gfp, 'y', id3_tenc, nextArg);
+                    id3_tag(gfp, 'y', st.id3_tenc, nextArg);
 
                 T_ELIF("tc")
                     argUsed = 1;
-                    id3_tag(gfp, 'c', id3_tenc, nextArg);
+                    id3_tag(gfp, 'c', st.id3_tenc, nextArg);
 
                 T_ELIF("tn")
-                    int ret = id3_tag(gfp, 'n', id3_tenc, nextArg);
+                    int ret = id3_tag(gfp, 'n', st.id3_tenc, nextArg);
                     argUsed = 1;
                     if (ret != 0) {
-                        if (0 == ignore_tag_errors) {
-                            if (id3tag_mode == ID3TAG_MODE_V1_ONLY) {
+                        if (0 == st.ignore_tag_errors) {
+                            if (st.id3tag_mode == ID3TAG_MODE_V1_ONLY) {
                                 if (global_ui_config.silent < 9) {
                                     error_printf("The track number has to be between 1 and 255 for ID3v1.\n");
                                 }
                                 return -1;
                             }
-                            else if (id3tag_mode == ID3TAG_MODE_V2_ONLY) {
+                            else if (st.id3tag_mode == ID3TAG_MODE_V2_ONLY) {
                                 /* track will be stored as-is in ID3v2 case, so no problem here */
                             }
                             else {
@@ -2121,20 +2134,20 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     int ret = 0;
                     argUsed = 1;
                     if (nextArg != 0 && strlen(nextArg) > 0) {
-                        ret = id3_tag(gfp, 'g', id3_tenc, nextArg);
+                        ret = id3_tag(gfp, 'g', st.id3_tenc, nextArg);
                     }
                     if (ret != 0) {
-                        if (0 == ignore_tag_errors) {
+                        if (0 == st.ignore_tag_errors) {
                             if (ret == -1) {
                                 error_printf("Unknown ID3v1 genre number: '%s'.\n", nextArg);
                                 return -1;
                             }
                             else if (ret == -2) {
-                                if (id3tag_mode == ID3TAG_MODE_V1_ONLY) {
+                                if (st.id3tag_mode == ID3TAG_MODE_V1_ONLY) {
                                     error_printf("Unknown ID3v1 genre: '%s'.\n", nextArg);
                                     return -1;
                                 }
-                                else if (id3tag_mode == ID3TAG_MODE_V2_ONLY) {
+                                else if (st.id3tag_mode == ID3TAG_MODE_V2_ONLY) {
                                     /* genre will be stored as-is in ID3v2 case, so no problem here */
                                 }
                                 else {
@@ -2153,7 +2166,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 
                 T_ELIF("tv")
                     argUsed = 1;
-                    if (id3_tag(gfp, 'v', id3_tenc, nextArg)) {
+                    if (id3_tag(gfp, 'v', st.id3_tenc, nextArg)) {
                         if (global_ui_config.silent < 9) {
                             error_printf("Invalid field value: '%s'. Ignored\n", nextArg);
                         }
@@ -2162,24 +2175,24 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                 T_ELIF("ti")
                     argUsed = 1;
                     if (set_id3_albumart(gfp, nextArg) != 0) {
-                        if (! ignore_tag_errors) {
+                        if (! st.ignore_tag_errors) {
                             return -1;
                         }
                     }
 
                 T_ELIF("ignore-tag-errors")
-                    ignore_tag_errors = 1;
+                    st.ignore_tag_errors = 1;
 
                 T_ELIF("add-id3v2")
                     id3tag_add_v2(gfp);
 
                 T_ELIF("id3v1-only")
                     id3tag_v1_only(gfp);
-                    id3tag_mode = ID3TAG_MODE_V1_ONLY;
+                    st.id3tag_mode = ID3TAG_MODE_V1_ONLY;
 
                 T_ELIF("id3v2-only")
                     id3tag_v2_only(gfp);
-                    id3tag_mode = ID3TAG_MODE_V2_ONLY;
+                    st.id3tag_mode = ID3TAG_MODE_V2_ONLY;
 
                 T_ELIF("space-id3v1")
                     id3tag_space_v1(gfp);
@@ -2348,7 +2361,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         global_ui_config.update_interval = (float) double_value;
 
                 T_ELIF("nogaptags")
-                    nogap_tags = 1;
+                    st.nogap_tags = 1;
 
                 T_ELIF("nogapout")
                     int const arg_n = (int)lame_strnlen(nextArg, PATH_MAX);
@@ -2371,7 +2384,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                     argUsed = 1;
 
                 T_ELIF("nogap")
-                    nogap = 1;
+                    st.nogap = 1;
 
                 T_ELIF("swap-channel")
                     global_reader.swap_channel = 1;
@@ -2663,7 +2676,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         break;
                     case 'T': /* do write VBR tag */
                         (void) lame_set_bWriteVbrTag(gfp, 1);
-                        nogap_tags = 1;
+                        st.nogap_tags = 1;
                         global_decoder.disable_wav_header = 0;
                         break;
                     case 'r': /* force raw pcm input file */
@@ -2681,7 +2694,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                         lame_set_error_protection(gfp, 1);
                         break;
                     case 'a': /* autoconvert input file from stereo to mono - for mono mp3 encoding */
-                        autoconvert = 1;
+                        st.autoconvert = 1;
                         (void) lame_set_mode(gfp, MONO);
                         break;
                     case 'd':   /*(void) lame_set_allow_diff_short( gfp, 1 ); */
@@ -2771,12 +2784,12 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
             }
         }
         else {
-            if (nogap) {
-                if ((num_nogap != NULL) && (count_nogap < *num_nogap)) {
-                    if (set_path_arg(argv[i], nogap_inPath[count_nogap]) < 0)
+            if (st.nogap) {
+                if ((num_nogap != NULL) && (st.count_nogap < *num_nogap)) {
+                    if (set_path_arg(argv[i], nogap_inPath[st.count_nogap]) < 0)
                         return -1;
-                    ++count_nogap;
-                    input_file = 1;
+                    ++st.count_nogap;
+                    st.input_file = 1;
                 }
                 else {
                     /* sorry, calling program did not allocate enough space */
@@ -2795,7 +2808,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                 if (inPath[0] == '\0') {
                     if (set_path_arg(argv[i], inPath) < 0)
                         return -1;
-                    input_file = 1;
+                    st.input_file = 1;
                 }
                 else {
                     if (outPath[0] == '\0') {
@@ -2814,12 +2827,12 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
     if (unusable_number)
         return -1;
 
-    if (!input_file) {
+    if (!st.input_file) {
         usage(Console_IO.Console_fp, ProgramName);
         return -1;
     }
 
-    if (lame_get_decode_only(gfp) && count_nogap > 0) {
+    if (lame_get_decode_only(gfp) && st.count_nogap > 0) {
         error_printf("combination of nogap and decode not supported!\n");
         return -1;
     }
@@ -2835,7 +2848,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 #endif
 
     /* With nogap the caller names each output file from outDir. */
-    if (outPath[0] == '\0' && count_nogap == 0) { /* no explicit output file */
+    if (outPath[0] == '\0' && st.count_nogap == 0) { /* no explicit output file */
         if (inPath[0] == '-') {
             /* if input is stdin, default output is stdout */
             strcpy(outPath, "-");
@@ -2849,11 +2862,11 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
     }
 
     /* RG is enabled by default */
-    if (!noreplaygain)
+    if (!st.noreplaygain)
         lame_set_findReplayGain(gfp, 1);
 
     /* disable VBR tags with nogap unless the VBR tags are forced */
-    if (nogap && lame_get_bWriteVbrTag(gfp) && nogap_tags == 0) {
+    if (st.nogap && lame_get_bWriteVbrTag(gfp) && st.nogap_tags == 0) {
         console_printf("Note: Disabling VBR Xing/Info tag since it interferes with --nogap\n");
         lame_set_bWriteVbrTag(gfp, 0);
     }
@@ -2875,7 +2888,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 #endif
 
     /* default guess for number of channels */
-    if (autoconvert)
+    if (st.autoconvert)
         (void) lame_set_num_channels(gfp, 2);
     else if (MONO == lame_get_mode(gfp))
         (void) lame_set_num_channels(gfp, 1);
@@ -2892,7 +2905,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
         }
     }
     if (num_nogap != NULL)
-        *num_nogap = count_nogap;
+        *num_nogap = st.count_nogap;
     return 0;
 }
 
