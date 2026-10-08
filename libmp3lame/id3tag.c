@@ -67,6 +67,7 @@ char   *strchr(), *strrchr();
 #include "id3tag.h"
 #include "lame_global_flags.h"
 #include "util.h"
+#include "obsolete_api.h"
 #include "bitstream.h"
 
 
@@ -1431,9 +1432,6 @@ id3tag_set_textinfo_utf16(lame_t gfp, char const *id, unsigned short const *text
     }
 }
 
-extern int
-id3tag_set_textinfo_ucs2(lame_t gfp, char const *id, unsigned short const *text);
-
 /*! Set an ID3v2 text frame, taking UCS-2 text. */
 /*!
   \ingroup api_tags
@@ -1567,9 +1565,6 @@ id3tag_set_comment_utf16(lame_t gfp, char const *lang, unsigned short const *des
     }
     return id3v2_add_ucs2(gfp, ID_COMMENT, lang, desc, text);
 }
-
-extern int
-id3tag_set_comment_ucs2(lame_t gfp, char const *lang, unsigned short const *desc, unsigned short const *text);
 
 
 /*! Add a comment frame, taking UCS-2 text. */
@@ -2229,9 +2224,6 @@ id3tag_set_fieldvalue_utf16(lame_t gfp, const unsigned short *fieldvalue)
     }
     return -1;
 }
-
-extern int
-id3tag_set_fieldvalue_ucs2(lame_t gfp, const unsigned short *fieldvalue);
 
 /*! Set an arbitrary ID3v2 text frame, taking UCS-2. */
 /*!

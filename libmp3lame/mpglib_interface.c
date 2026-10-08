@@ -70,46 +70,8 @@
 #endif
 
 #include "util.h"
+#include "obsolete_api.h"
 
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-/*
- * OBSOLETE:
- * - kept to let it link
- * - forward declaration to silence compiler
- */
-int CDECL lame_decode_init(void);
-int CDECL lame_decode(
-        unsigned char *  mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[] );
-int CDECL lame_decode_headers(
-        unsigned char*   mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[],
-        mp3data_struct*  mp3data );
-int CDECL lame_decode1(
-        unsigned char*  mp3buf,
-        int             len,
-        short           pcm_l[],
-        short           pcm_r[] );
-int CDECL lame_decode1_headers(
-        unsigned char*   mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[],
-        mp3data_struct*  mp3data );
-int CDECL lame_decode1_headersB(
-        unsigned char*   mp3buf,
-        int              len,
-        short            pcm_l[],
-        short            pcm_r[],
-        mp3data_struct*  mp3data,
-        int              *enc_delay,
-        int              *enc_padding );
-int CDECL lame_decode_exit(void);
-#endif
 
 /*! Shut the old global decoder down. */
 /*!
@@ -249,6 +211,44 @@ lame_decode(LAME_UNUSED unsigned char *buffer, LAME_UNUSED int len,
 
 
 
+/**
+ * \internal
+ * \brief Creates a decoder for hip_decode_init() and hip_decode_init_gapless().
+ * \param gapless  non-zero to let libmpg123 remove the encoder delay and
+ *                 padding, zero to leave them in the output.
+ * \return the decoder instance, or NULL as hip_decode_init() describes.
+ */
+static hip_t
+hip_new(LAME_UNUSED int gapless)
+{
+    hip_t hip = lame_calloc(hip_global_flags, 1);
+    if(!hip)
+        return hip;
+#ifdef HAVE_MPG123
+    mpg123_init();
+    hip->mh = mpg123_new(NULL, NULL);
+    /* Could allocate on demand only. */
+    memset(&hip->mi, 0, sizeof(hip->mi));
+    /* Gapless decoding is on by default in libmpg123; set it either way. The
+       other entry points report the encoder delay and padding, so a caller
+       without it can remove them itself. */
+    mpg123_param(hip->mh, gapless ? MPG123_ADD_FLAGS : MPG123_REMOVE_FLAGS, MPG123_GAPLESS, 0.);
+    /* We are going to feed buffers. */
+    if(mpg123_open_feed(hip->mh) != MPG123_OK)
+    {
+        mpg123_delete(hip->mh);
+        free(hip);
+        hip = NULL;
+    }
+#else
+    /* Nothing here can decode, so refuse to hand out a decoder at all rather
+       than one that fails on every later call. */
+    free(hip);
+    hip = NULL;
+#endif
+    return hip;
+}
+
 /*! Create a decoder. */
 /*!
   The first call of the decoding API. Pass the returned decoder instance to
@@ -267,31 +267,7 @@ lame_decode(LAME_UNUSED unsigned char *buffer, LAME_UNUSED int len,
 */
 hip_t hip_decode_init(void)
 {
-    hip_t hip = lame_calloc(hip_global_flags, 1);
-    if(!hip)
-        return hip;
-#ifdef HAVE_MPG123
-    mpg123_init();
-    hip->mh = mpg123_new(NULL, NULL);
-    /* Could allocate on demand only. */
-    memset(&hip->mi, 0, sizeof(hip->mi));
-    /* Since encoder delay/padding is communicated, I presume implicit
-       handling of gapless decoding is not expected. */
-    mpg123_param(hip->mh, MPG123_REMOVE_FLAGS, MPG123_GAPLESS, 0.);
-    /* We are going to feed buffers. */
-    if(mpg123_open_feed(hip->mh) != MPG123_OK)
-    {
-        mpg123_delete(hip->mh);
-        free(hip);
-        hip = NULL;
-    }
-#else
-    /* Nothing here can decode, so refuse to hand out a decoder at all rather
-       than one that fails on every later call. */
-    free(hip);
-    hip = NULL;
-#endif
-    return hip;
+    return hip_new(0);
 }
 
 /*! Create a decoder that trims the encoder's padding itself. */
@@ -311,28 +287,7 @@ hip_t hip_decode_init(void)
 */
 hip_t hip_decode_init_gapless(void)
 {
-    hip_t hip = lame_calloc(hip_global_flags, 1);
-    if(!hip)
-        return hip;
-#ifdef HAVE_MPG123
-    mpg123_init();
-    hip->mh = mpg123_new(NULL, NULL);
-    /* Could allocate on demand only. */
-    memset(&hip->mi, 0, sizeof(hip->mi));
-    /* Default on, but make it explicit. */
-    mpg123_param(hip->mh, MPG123_ADD_FLAGS, MPG123_GAPLESS, 0.);
-    /* We are going to feed buffers. */
-    if(mpg123_open_feed(hip->mh) != MPG123_OK)
-    {
-        mpg123_delete(hip->mh);
-        free(hip);
-        hip = NULL;
-    }
-#else
-    free(hip);
-    hip = NULL;
-#endif
-    return hip;
+    return hip_new(1);
 }
 
 

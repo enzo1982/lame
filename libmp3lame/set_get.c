@@ -48,6 +48,7 @@
 #include "bitstream.h"  /* because of compute_flushbits */
 
 #include "set_get.h"
+#include "obsolete_api.h"
 #include "lame_global_flags.h"
 
 /*
@@ -525,13 +526,6 @@ lame_get_decode_only(const lame_global_flags * gfp)
 }
 
 
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-/* 1=encode a Vorbis .ogg file.  default=0 */
-/* DEPRECATED */
-int CDECL lame_set_ogg(lame_global_flags *, int);
-int CDECL lame_get_ogg(const lame_global_flags *);
-#else
-#endif
 
 /*! Encode a Vorbis .ogg file. */
 /*!
@@ -674,16 +668,6 @@ lame_get_mode(const lame_global_flags * gfp)
 }
 
 
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-/*
-  mode_automs.  Use a M/S mode with a switching threshold based on
-  compression ratio
-  DEPRECATED
-*/
-int CDECL lame_set_mode_automs(lame_global_flags *, int);
-int CDECL lame_get_mode_automs(const lame_global_flags *);
-#else
-#endif
 
 /*! Use an M/S mode with a threshold based on the compression ratio. */
 /*!
@@ -928,24 +912,6 @@ lame_get_decode_on_the_fly(const lame_global_flags * gfp)
     return 0;
 }
 
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-/* DEPRECATED: now does the same as lame_set_findReplayGain()
-   default = 0 (disabled) */
-int CDECL lame_set_ReplayGain_input(lame_global_flags *, int);
-int CDECL lame_get_ReplayGain_input(const lame_global_flags *);
-
-/* DEPRECATED: now does the same as
-   lame_set_decode_on_the_fly() && lame_set_findReplayGain()
-   default = 0 (disabled) */
-int CDECL lame_set_ReplayGain_decode(lame_global_flags *, int);
-int CDECL lame_get_ReplayGain_decode(const lame_global_flags *);
-
-/* DEPRECATED: now does the same as lame_set_decode_on_the_fly()
-   default = 0 (disabled) */
-int CDECL lame_set_findPeakSample(lame_global_flags *, int);
-int CDECL lame_get_findPeakSample(const lame_global_flags *);
-#else
-#endif
 
 /*! Find the peak sample. */
 /*!
@@ -1422,12 +1388,6 @@ lame_get_error_protection(const lame_global_flags * gfp)
 }
 
 
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-/* padding_type. 0=pad no frames  1=pad all frames 2=adjust padding(default) */
-int CDECL lame_set_padding_type(lame_global_flags *, Padding_type);
-Padding_type CDECL lame_get_padding_type(const lame_global_flags *);
-#else
-#endif
 
 /*! Choose how frames are padded. */
 /*!
@@ -2808,11 +2768,6 @@ lame_get_athaa_type(const lame_global_flags * gfp)
 }
 
 
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-int CDECL lame_set_athaa_loudapprox(lame_global_flags * gfp, int athaa_loudapprox);
-int CDECL lame_get_athaa_loudapprox(const lame_global_flags * gfp);
-#else
-#endif
 
 /*! Select the loudness approximation the adaptive ATH uses. */
 /*!
@@ -2890,10 +2845,6 @@ lame_get_athaa_sensitivity(const lame_global_flags * gfp)
     return 0;
 }
 
-
-/* Predictability limit (ISO tonality formula) */
-int     lame_set_cwlimit(lame_global_flags * gfp, int cwlimit);
-int     lame_get_cwlimit(const lame_global_flags * gfp);
 
 /*! Set the predictability limit of the ISO tonality formula. */
 /*!
@@ -4362,10 +4313,6 @@ lame_get_msfix(const lame_global_flags * gfp)
     return 0;
 }
 
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-int CDECL lame_set_preset_expopts(lame_global_flags *, int);
-#else
-#endif
 
 /*! Select the experimental options of a preset. */
 /*!

@@ -84,6 +84,7 @@ noinst_HEADERS= \
 	lame_global_flags.h \
 	machine.h \
 	newmdct.h \
+	obsolete_api.h \
 	psymodel.h \
 	quantize.h  \
 	quantize_pvt.h \

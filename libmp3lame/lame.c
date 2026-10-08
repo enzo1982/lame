@@ -50,6 +50,7 @@
 #include "bitstream.h"
 #include "quantize_pvt.h"
 #include "set_get.h"
+#include "obsolete_api.h"
 #include "quantize.h"
 #include "psymodel.h"
 #include "version.h"
@@ -331,113 +332,50 @@ lame_init_qval(lame_global_flags * gfp)
     lame_internal_flags *const gfc = gfp->internal_flags;
     SessionConfig_t *const cfg = &gfc->cfg;
 
-    switch (gfp->quality) {
-    default:
-    case 9:            /* no psymodel, no noise shaping */
-        cfg->noise_shaping = 0;
-        cfg->noise_shaping_amp = 0;
-        cfg->noise_shaping_stop = 0;
-        cfg->use_best_huffman = 0;
-        cfg->full_outer_loop = 0;
-        break;
+    /* One row for each quality setting, 0 (best) to 9 (fastest).
+       noise_shaping: 1 turns it on, unless the caller chose a level, and
+       sets subblock_gain if the caller left it unset; 0 turns it off.
+       substep: the substep_shaping, if the caller left it at 0. */
+    static const struct {
+        signed char noise_shaping, substep, amp, stop, best_huffman, full_outer_loop;
+    } qval[10] = {
+        /*    ns  substep amp stop huffman outer */
+        /* 0 */ {1, 2, 2, 1, 1, 1},  /* type 2 huffman left out for its slowness, in favor of the full outer loop search */
+        /* 1 */ {1, 2, 2, 1, 1, 0},
+        /* 2 */ {1, 2, 1, 1, 1, 0},
+        /* 3 */ {1, 0, 1, 1, 1, 0},
+        /* 4 */ {1, 0, 0, 0, 1, 0},
+        /* 5 */ {1, 0, 0, 0, 0, 0},
+        /* 6 */ {1, 0, 0, 0, 0, 0},
+        /* 7 */ {0, 0, 0, 0, 0, 0},  /* psymodel for short blocks and m/s switching, no noise shaping */
+        /* 8 */ {0, 0, 0, 0, 0, 0},  /* not used: 8 becomes 7 */
+        /* 9 */ {0, 0, 0, 0, 0, 0}   /* no psymodel, no noise shaping */
+    };
+    int     q = gfp->quality;
 
-    case 8:
+    if (q < 0 || q > 9)
+        q = 9;
+    if (q == 8) {
         gfp->quality = 7;
-        /* fall through */
-    case 7:            /* use psymodel (for short block and m/s switching), but no noise shapping */
+        q = 7;
+    }
+    if (qval[q].noise_shaping) {
+        if (cfg->noise_shaping == 0)
+            cfg->noise_shaping = 1;
+        if (cfg->subblock_gain == -1)
+            cfg->subblock_gain = 1;
+    }
+    else {
         cfg->noise_shaping = 0;
-        cfg->noise_shaping_amp = 0;
-        cfg->noise_shaping_stop = 0;
-        cfg->use_best_huffman = 0;
-        cfg->full_outer_loop = 0;
-        if (cfg->vbr == vbr_mt || cfg->vbr == vbr_mtrh) {
-            cfg->full_outer_loop  = -1;
-        }
-        break;
-
-    case 6:
-        if (cfg->noise_shaping == 0)
-            cfg->noise_shaping = 1;
-        cfg->noise_shaping_amp = 0;
-        cfg->noise_shaping_stop = 0;
-        if (cfg->subblock_gain == -1)
-            cfg->subblock_gain = 1;
-        cfg->use_best_huffman = 0;
-        cfg->full_outer_loop = 0;
-        break;
-
-    case 5:
-        if (cfg->noise_shaping == 0)
-            cfg->noise_shaping = 1;
-        cfg->noise_shaping_amp = 0;
-        cfg->noise_shaping_stop = 0;
-        if (cfg->subblock_gain == -1)
-            cfg->subblock_gain = 1;
-        cfg->use_best_huffman = 0;
-        cfg->full_outer_loop = 0;
-        break;
-
-    case 4:
-        if (cfg->noise_shaping == 0)
-            cfg->noise_shaping = 1;
-        cfg->noise_shaping_amp = 0;
-        cfg->noise_shaping_stop = 0;
-        if (cfg->subblock_gain == -1)
-            cfg->subblock_gain = 1;
-        cfg->use_best_huffman = 1;
-        cfg->full_outer_loop = 0;
-        break;
-
-    case 3:
-        if (cfg->noise_shaping == 0)
-            cfg->noise_shaping = 1;
-        cfg->noise_shaping_amp = 1;
-        cfg->noise_shaping_stop = 1;
-        if (cfg->subblock_gain == -1)
-            cfg->subblock_gain = 1;
-        cfg->use_best_huffman = 1;
-        cfg->full_outer_loop = 0;
-        break;
-
-    case 2:
-        if (cfg->noise_shaping == 0)
-            cfg->noise_shaping = 1;
-        if (gfc->sv_qnt.substep_shaping == 0)
-            gfc->sv_qnt.substep_shaping = 2;
-        cfg->noise_shaping_amp = 1;
-        cfg->noise_shaping_stop = 1;
-        if (cfg->subblock_gain == -1)
-            cfg->subblock_gain = 1;
-        cfg->use_best_huffman = 1; /* inner loop */
-        cfg->full_outer_loop = 0;
-        break;
-
-    case 1:
-        if (cfg->noise_shaping == 0)
-            cfg->noise_shaping = 1;
-        if (gfc->sv_qnt.substep_shaping == 0)
-            gfc->sv_qnt.substep_shaping = 2;
-        cfg->noise_shaping_amp = 2;
-        cfg->noise_shaping_stop = 1;
-        if (cfg->subblock_gain == -1)
-            cfg->subblock_gain = 1;
-        cfg->use_best_huffman = 1;
-        cfg->full_outer_loop = 0;
-        break;
-
-    case 0:
-        if (cfg->noise_shaping == 0)
-            cfg->noise_shaping = 1;
-        if (gfc->sv_qnt.substep_shaping == 0)
-            gfc->sv_qnt.substep_shaping = 2;
-        cfg->noise_shaping_amp = 2;
-        cfg->noise_shaping_stop = 1;
-        if (cfg->subblock_gain == -1)
-            cfg->subblock_gain = 1;
-        cfg->use_best_huffman = 1; /*type 2 disabled because of it slowness,
-                                      in favor of full outer loop search */
-        cfg->full_outer_loop = 1;
-        break;
+    }
+    if (qval[q].substep != 0 && gfc->sv_qnt.substep_shaping == 0)
+        gfc->sv_qnt.substep_shaping = qval[q].substep;
+    cfg->noise_shaping_amp = qval[q].amp;
+    cfg->noise_shaping_stop = qval[q].stop;
+    cfg->use_best_huffman = qval[q].best_huffman;
+    cfg->full_outer_loop = qval[q].full_outer_loop;
+    if (q == 7 && (cfg->vbr == vbr_mt || cfg->vbr == vbr_mtrh)) {
+        cfg->full_outer_loop = -1;
     }
 
     /*  Amplified noise shaping degrades CBR and ABR instead of improving them,
@@ -2614,11 +2552,6 @@ lame_close(lame_global_flags * gfp)
     return ret;
 }
 
-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
-int CDECL
-lame_encode_finish(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buffer_size);
-#else
-#endif
 
 /*! Flush the stream and release the instance in one call. */
 /*!

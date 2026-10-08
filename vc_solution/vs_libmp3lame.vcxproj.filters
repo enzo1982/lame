@@ -127,6 +127,9 @@
     <ClInclude Include="..\libmp3lame\newmdct.h">
       <Filter>Include</Filter>
     </ClInclude>
+    <ClInclude Include="..\libmp3lame\obsolete_api.h">
+      <Filter>Include</Filter>
+    </ClInclude>
     <ClInclude Include="..\libmp3lame\psymodel.h">
       <Filter>Include</Filter>
     </ClInclude>

@@ -367,14 +367,6 @@ FindNearestBitrate(int bRate, /* legal rates from 8 to 320 */
 
 
 
-#ifndef Min
-#define         Min(A, B)       ((A) < (B) ? (A) : (B))
-#endif
-#ifndef Max
-#define         Max(A, B)       ((A) > (B) ? (A) : (B))
-#endif
-
-
 /* Used to find table index when
  * we need bitrate-based values
  * determined using tables
