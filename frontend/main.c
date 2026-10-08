@@ -470,15 +470,6 @@ char* lame_getenv(char const* var)
     free(wvar);
     return str;
 }
-#else
-char* lame_getenv(char const* var)
-{
-    char* str = getenv(var);
-    if (str) {
-        return strdup(str);
-    }
-    return 0;
-}
 #endif
 
 #else
@@ -488,6 +479,14 @@ FILE* lame_fopen(char const* file, char const* mode)
     return fopen(file, mode);
 }
 
+int main(int argc, char *argv[])
+{
+    return c_main(argc, argv);
+}
+
+#endif
+
+#if !defined(_WIN32) || defined(__MINGW32__)
 char* lame_getenv(char const* var)
 {
     char* str = getenv(var);
@@ -496,12 +495,6 @@ char* lame_getenv(char const* var)
     }
     return 0;
 }
-
-int main(int argc, char *argv[])
-{
-    return c_main(argc, argv);
-}
-
 #endif
 
 

@@ -472,20 +472,40 @@ static int getIntValue(char const* token, char const* arg, int* ptr)
 }
 
 #ifdef ID3TAGS_EXTENDED
+/**
+ * @internal
+ * @brief Returns the ID3v2 text frame that a tag option sets.
+ * @param type  the letter of the option: a, t, l, g, n or y.
+ * @return the four-character frame identifier. NULL for the comment (c), a
+ *         user frame (v) and any other letter.
+ */
+static char const *
+id3v2_text_frame(int type)
+{
+    switch (type)
+    {
+        case 'a': return "TPE1";
+        case 't': return "TIT2";
+        case 'l': return "TALB";
+        case 'g': return "TCON";
+        case 'n': return "TRCK";
+        case 'y': return "TYER";
+    }
+    return NULL;
+}
+
 /* Set an ID3v2 tag field from UTF-16 data. The data pointer is genuinely
    UTF-16 here, so the UTF-16 id3tag_* setters are used throughout. */
 static int
 set_id3v2tag_utf16(lame_global_flags* gfp, int type, unsigned short const* str)
 {
+    char const *const id = id3v2_text_frame(type);
+
+    if (id != NULL)
+        return id3tag_set_textinfo_utf16(gfp, id, str);
     switch (type)
     {
-        case 'a': return id3tag_set_textinfo_utf16(gfp, "TPE1", str);
-        case 't': return id3tag_set_textinfo_utf16(gfp, "TIT2", str);
-        case 'l': return id3tag_set_textinfo_utf16(gfp, "TALB", str);
-        case 'g': return id3tag_set_textinfo_utf16(gfp, "TCON", str);
         case 'c': return id3tag_set_comment_utf16(gfp, 0, 0, str);
-        case 'n': return id3tag_set_textinfo_utf16(gfp, "TRCK", str);
-        case 'y': return id3tag_set_textinfo_utf16(gfp, "TYER", str);
         case 'v': return id3tag_set_fieldvalue_utf16(gfp, str);
     }
     return -3;
@@ -498,15 +518,13 @@ set_id3v2tag_utf16(lame_global_flags* gfp, int type, unsigned short const* str)
 static int
 set_id3v2tag_utf8(lame_global_flags* gfp, int type, char const* str)
 {
+    char const *const id = id3v2_text_frame(type);
+
+    if (id != NULL)
+        return id3tag_set_textinfo_utf8(gfp, id, str);
     switch (type)
     {
-        case 'a': return id3tag_set_textinfo_utf8(gfp, "TPE1", str);
-        case 't': return id3tag_set_textinfo_utf8(gfp, "TIT2", str);
-        case 'l': return id3tag_set_textinfo_utf8(gfp, "TALB", str);
-        case 'g': return id3tag_set_textinfo_utf8(gfp, "TCON", str);
         case 'c': return id3tag_set_comment_utf8(gfp, 0, 0, str);
-        case 'n': return id3tag_set_textinfo_utf8(gfp, "TRCK", str);
-        case 'y': return id3tag_set_textinfo_utf8(gfp, "TYER", str);
         case 'v': return id3tag_set_fieldvalue_utf8(gfp, str);
     }
     return -3;
