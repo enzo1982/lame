@@ -251,10 +251,10 @@ id3v2AddLameVersion(lame_t gfp)
     const size_t lenb = strlen(b);
 
     if (lenb > 0) {
-        sprintf(buffer, "LAME %s version %s (%s)", b, v, u);
+        snprintf(buffer, sizeof(buffer), "LAME %s version %s (%s)", b, v, u);
     }
     else {
-        sprintf(buffer, "LAME version %s (%s)", v, u);
+        snprintf(buffer, sizeof(buffer), "LAME version %s (%s)", v, u);
     }
     copyV1ToV2(gfp, ID_ENCODER, buffer);
 }
@@ -279,7 +279,7 @@ id3v2AddAudioDuration(lame_t gfp, double ms)
     else {
         playlength_ms = (uint64_t) ms;
     }
-    sprintf(buffer, "%llu", (unsigned long long) playlength_ms);
+    snprintf(buffer, sizeof(buffer), "%llu", (unsigned long long) playlength_ms);
     copyV1ToV2(gfp, ID_PLAYLENGTH, buffer);
 }
 
@@ -2541,7 +2541,7 @@ lame_get_id3v1_tag(lame_t gfp, unsigned char *buffer, size_t size)
         p = set_text_field(p, gfc->tag_spec.title, 30, pad);
         p = set_text_field(p, gfc->tag_spec.artist, 30, pad);
         p = set_text_field(p, gfc->tag_spec.album, 30, pad);
-        sprintf(year, "%d", gfc->tag_spec.year);
+        snprintf(year, sizeof(year), "%d", gfc->tag_spec.year);
         p = set_text_field(p, gfc->tag_spec.year ? year : NULL, 4, pad);
         /* limit comment field to 28 bytes if a track is specified */
         p = set_text_field(p, gfc->tag_spec.comment, gfc->tag_spec.track_id3v1 ? 28 : 30, pad);
