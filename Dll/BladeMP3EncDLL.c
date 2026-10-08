@@ -58,18 +58,25 @@ static lame_global_flags*	gfp_save = NULL;
 static lame_global_flags*	gfp_released = NULL;
 
 // Local function prototypes
-static void dump_config( 	lame_global_flags*	gfp );
+static void DebugVPrintf( const char* pzFormat, va_list ap );
 static void DebugPrintf( const char* pzFormat, ... );
 static void DispErr( char const* strErr );
 static void PresetOptions( lame_global_flags *gfp, LONG myPreset );
 
 
-static void DebugPrintf(const char* pzFormat, ...)
+/**
+ * \internal
+ * \brief Writes a formatted message to the log file beside the DLL, when the
+ *        log is switched on, and to the debugger in debug builds. It has the
+ *        type of a libmp3lame report function.
+ * \param pzFormat  the printf format.
+ * \param ap        its arguments.
+ */
+static void DebugVPrintf(const char* pzFormat, va_list ap)
 {
     char	szBuffer[1024]={'\0',};
     char	szFileName[MAX_PATH+1]={'\0',};
     DWORD	dwNameLen;
-    va_list ap;
 
     // Get the full module (DLL) file name.  Zero means the call failed and
     // the buffer size means the name did not fit; a name that did not fit is
@@ -89,9 +96,6 @@ static void DebugPrintf(const char* pzFormat, ...)
         szFileName[ dwNameLen - 2 ] = 'x';
         szFileName[ dwNameLen - 1 ] = 't';
     }
-
-    // start at beginning of the list
-    va_start(ap, pzFormat);
 
     // copy it to the string buffer.  _vsnprintf writes no terminator when
     // the text does not fit, so the last byte is kept for one.
@@ -120,7 +124,19 @@ static void DebugPrintf(const char* pzFormat, ...)
 #if defined _DEBUG || defined _RELEASEDEBUG
     OutputDebugStringA( szBuffer );
 #endif
+}
 
+/**
+ * \internal
+ * \brief DebugVPrintf() with the arguments in the call.
+ * \param pzFormat  the printf format.
+ */
+static void DebugPrintf(const char* pzFormat, ...)
+{
+    va_list ap;
+
+    va_start(ap, pzFormat);
+    DebugVPrintf(pzFormat, ap);
     va_end(ap);
 }
 
@@ -582,22 +598,16 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
         lame_set_quality( gfp, lameConfig.format.LHV1.nQuality & 0xFF );
     }
 
+    // The library's messages, into the log; lame_init_params() takes them over
+    lame_set_msgf( gfp, DebugVPrintf );
+
     if ( 0 != ( nInitReturn = lame_init_params( gfp ) ) )
     {
         return nInitReturn;
     }
 
-    //LAME encoding call will accept any number of samples.  
-    if ( 0 == lame_get_version( gfp ) )
-    {
-        // For MPEG-II, only 576 samples per frame per channel
-        *dwSamples= 576 * lame_get_num_channels( gfp );
-    }
-    else
-    {
-        // For MPEG-I, 1152 samples per frame per channel
-        *dwSamples= 1152 * lame_get_num_channels( gfp );
-    }
+    // One frame of samples per call, for all channels
+    *dwSamples = lame_get_framesize( gfp ) * lame_get_num_channels( gfp );
 
     // Set the input sample buffer size, so we know what we can expect
     dwSampleBufferSize = *dwSamples;
@@ -612,8 +622,9 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
     }
     dwMP3BufferSize = *dwBufferSize;
 
-    // For debugging purposes
-    dump_config( gfp );
+    // The settings, into the log
+    lame_print_config( gfp );
+    lame_print_internals( gfp );
 
     // Everything went OK, thus return SUCCESSFUL
     return BE_ERR_SUCCESSFUL;
@@ -958,93 +969,6 @@ BOOL APIENTRY DllMain(HANDLE hModule,
         break;
     }
     return TRUE;
-}
-
-
-static void dump_config( lame_global_flags* gfp )
-{
-    DebugPrintf("\n\nLame_enc configuration options:\n");
-    DebugPrintf("==========================================================\n");
-
-    DebugPrintf("version                =%d\n",lame_get_version( gfp ) );
-    DebugPrintf("Layer                  =3\n");
-    DebugPrintf("mode                   =");
-    switch ( lame_get_mode( gfp ) )
-    {
-    case STEREO:       DebugPrintf( "Stereo\n" ); break;
-    case JOINT_STEREO: DebugPrintf( "Joint-Stereo\n" ); break;
-    case DUAL_CHANNEL: DebugPrintf( "Forced Stereo\n" ); break;
-    case MONO:         DebugPrintf( "Mono\n" ); break;
-    case NOT_SET:      /* FALLTROUGH */
-    default:           DebugPrintf( "Error (unknown)\n" ); break;
-    }
-
-    DebugPrintf("Input sample rate      =%.1f kHz\n", lame_get_in_samplerate( gfp ) /1000.0 );
-    DebugPrintf("Output sample rate     =%.1f kHz\n", lame_get_out_samplerate( gfp ) /1000.0 );
-
-    DebugPrintf("bitrate                =%d kbps\n", lame_get_brate( gfp ) );
-    DebugPrintf("Quality Setting        =%d\n", lame_get_quality( gfp ) );
-
-    DebugPrintf("Low pass frequency     =%d\n", lame_get_lowpassfreq( gfp ) );
-    DebugPrintf("Low pass width         =%d\n", lame_get_lowpasswidth( gfp ) );
-
-    DebugPrintf("High pass frequency    =%d\n", lame_get_highpassfreq( gfp ) );
-    DebugPrintf("High pass width        =%d\n", lame_get_highpasswidth( gfp ) );
-
-    DebugPrintf("No short blocks        =%d\n", lame_get_no_short_blocks( gfp ) );
-    DebugPrintf("Force short blocks     =%d\n", lame_get_force_short_blocks( gfp ) );
-
-    DebugPrintf("de-emphasis            =%d\n", lame_get_emphasis( gfp ) );
-    DebugPrintf("private flag           =%d\n", lame_get_extension( gfp ) );
-
-    DebugPrintf("copyright flag         =%d\n", lame_get_copyright( gfp ) );
-    DebugPrintf("original flag          =%d\n",	lame_get_original( gfp ) );
-    DebugPrintf("CRC                    =%s\n", lame_get_error_protection( gfp ) ? "on" : "off" );
-    DebugPrintf("Fast mode              =%s\n", ( lame_get_quality( gfp ) )? "enabled" : "disabled" );
-    DebugPrintf("Force mid/side stereo  =%s\n", ( lame_get_force_ms( gfp ) )?"enabled":"disabled" );
-    DebugPrintf("Disable Reservoir      =%d\n", lame_get_disable_reservoir( gfp ) );
-    DebugPrintf("Allow diff-short       =%d\n", lame_get_allow_diff_short( gfp ) );
-    DebugPrintf("Interchannel masking   =%f\n", lame_get_interChRatio( gfp ) );
-    DebugPrintf("Strict ISO Encoding    =%s\n", ( lame_get_strict_ISO( gfp ) ) ?"Yes":"No");
-    DebugPrintf("Scale                  =%5.2f\n", lame_get_scale( gfp ) );
-
-    DebugPrintf("VBR                    =%s, VBR_q =%d, VBR method =",
-        ( lame_get_VBR( gfp ) !=vbr_off ) ? "enabled": "disabled",
-        lame_get_VBR_q( gfp ) );
-
-    switch ( lame_get_VBR( gfp ) )
-    {
-    case vbr_off:	DebugPrintf( "vbr_off\n" );	break;
-    case vbr_mt :	DebugPrintf( "vbr_mt \n" );	break;
-    case vbr_rh :	DebugPrintf( "vbr_rh \n" );	break;
-    case vbr_mtrh:	DebugPrintf( "vbr_mtrh \n" );	break;
-    case vbr_abr: 
-        DebugPrintf( "vbr_abr (average bitrate %d kbps)\n", lame_get_VBR_mean_bitrate_kbps( gfp ) );
-        break;
-    default:
-        DebugPrintf("error, unknown VBR setting\n");
-        break;
-    }
-
-    DebugPrintf("Vbr Min bitrate        =%d kbps\n", lame_get_VBR_min_bitrate_kbps( gfp ) );
-    DebugPrintf("Vbr Max bitrate        =%d kbps\n", lame_get_VBR_max_bitrate_kbps( gfp ) );
-
-    DebugPrintf("Write VBR Header       =%s\n", ( lame_get_bWriteVbrTag( gfp ) ) ?"Yes":"No");
-    DebugPrintf("VBR Hard min           =%d\n", lame_get_VBR_hard_min( gfp ) );
-
-    DebugPrintf("ATH Only               =%d\n", lame_get_ATHonly( gfp ) );
-    DebugPrintf("ATH short              =%d\n", lame_get_ATHshort( gfp ) );
-    DebugPrintf("ATH no                 =%d\n", lame_get_noATH( gfp ) );
-    DebugPrintf("ATH type               =%d\n", lame_get_ATHtype( gfp ) );
-    DebugPrintf("ATH lower              =%f\n", lame_get_ATHlower( gfp ) );
-    DebugPrintf("ATH aa                 =%d\n", lame_get_athaa_type( gfp ) );
-    //DebugPrintf("ATH aa  loudapprox     =%d\n", lame_get_athaa_loudapprox( gfp ) );
-    DebugPrintf("ATH aa  sensitivity    =%f\n", lame_get_athaa_sensitivity( gfp ) );
-
-    DebugPrintf("Experimental nspsytune =%d\n", lame_get_exp_nspsytune( gfp ) );
-    DebugPrintf("Experimental X         =%d\n", lame_get_experimentalX( gfp ) );
-    DebugPrintf("Experimental Y         =%d\n", lame_get_experimentalY( gfp ) );
-    DebugPrintf("Experimental Z         =%d\n", lame_get_experimentalZ( gfp ) );
 }
 
 

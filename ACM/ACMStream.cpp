@@ -30,6 +30,9 @@
 #endif // STRICT
 
 #include <assert.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
 #include <windows.h>
 
 #include "adebug.h"
@@ -118,6 +121,37 @@ ACMStream::~ACMStream()
 	}
 }
 
+/// The longest library report line that the debug log keeps whole, in bytes.
+static const size_t REPORT_LINE_BYTES = 1000;
+
+/// The debug log that acm_report() writes to. Set around the calls that
+/// report, per thread, so two streams opened at once keep their own logs.
+static thread_local const ADbg *acm_report_target = NULL;
+
+/**
+ * \brief Writes one report of the library into the debug log of the stream
+ *        that is reporting. It has the type of a libmp3lame report function.
+ *
+ * The log ends each entry itself, so a line break at the end of the report is
+ * dropped.
+ *
+ * \param format  the printf format.
+ * \param ap      its arguments.
+ */
+static void
+acm_report(const char *format, va_list ap)
+{
+	char line[REPORT_LINE_BYTES];
+	size_t len;
+
+	if (acm_report_target == NULL || vsnprintf(line, sizeof(line), format, ap) < 0)
+		return;
+	len = strnlen(line, sizeof(line));
+	while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
+		line[--len] = '\0';
+	acm_report_target->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "%s", line);
+}
+
 bool ACMStream::init(const int nSamplesPerSec, const int nOutputSamplesPerSec, const int nChannels, const int nOutputChannels, const int nAvgBytesPerSec, const vbr_mode mode)
 {
 	bool bResult = false;
@@ -201,75 +235,19 @@ bool ACMStream::open(const AEncodeProperties & the_Properties)
         // output stream to the beginning after encoding is finished.   
 	lame_set_bWriteVbrTag( gfp, 0 );
 
+	// The library's messages and the settings, into the debug log of this
+	// stream; lame_init_params() takes the message function over
+	acm_report_target = my_debug;
+	lame_set_msgf( gfp, acm_report );
 	if (0 == lame_init_params( gfp ))
 	{
-		//LAME encoding call will accept any number of samples.  
-		if ( 0 == lame_get_version( gfp ) )
-		{
-			// For MPEG-II, only 576 samples per frame per channel
-			my_SamplesPerBlock = 576 * lame_get_num_channels( gfp );
-		}
-		else
-		{
-			// For MPEG-I, 1152 samples per frame per channel
-			my_SamplesPerBlock = 1152 * lame_get_num_channels( gfp );
-		}
+		// One frame of samples per call, for all channels
+		my_SamplesPerBlock = lame_get_framesize( gfp ) * lame_get_num_channels( gfp );
+
+		lame_print_config( gfp );
+		lame_print_internals( gfp );
 	}
-
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "version                =%d",lame_get_version( gfp ) );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "Layer                  =3");
-	switch ( lame_get_mode( gfp ) )
-	{
-		case STEREO:       my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG,  "mode                   =Stereo" ); break;
-		case JOINT_STEREO: my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG,  "mode                   =Joint-Stereo" ); break;
-		case DUAL_CHANNEL: my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG,  "mode                   =Forced Stereo" ); break;
-		case MONO:         my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG,  "mode                   =Mono" ); break;
-		case NOT_SET:      /* FALLTROUGH */
-		default:           my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG,  "mode                   =Error (unknown)" ); break;
-	}
-
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "sampling frequency     =%.1f kHz", lame_get_in_samplerate( gfp ) /1000.0 );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "bitrate                =%d kbps", lame_get_brate( gfp ) );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "Vbr Min bitrate        =%d kbps", lame_get_VBR_min_bitrate_kbps( gfp ) );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "Vbr Max bitrate        =%d kbps", lame_get_VBR_max_bitrate_kbps( gfp ) );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "Quality Setting        =%d", lame_get_quality( gfp ) );
-
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "Low pass frequency     =%d", lame_get_lowpassfreq( gfp ) );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "Low pass width         =%d", lame_get_lowpasswidth( gfp ) );
-
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "High pass frequency    =%d", lame_get_highpassfreq( gfp ) );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "High pass width        =%d", lame_get_highpasswidth( gfp ) );
-
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "No Short Blocks        =%d", lame_get_no_short_blocks( gfp ) );
-
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "de-emphasis            =%d", lame_get_emphasis( gfp ) );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "private flag           =%d", lame_get_extension( gfp ) );
-
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "copyright flag         =%d", lame_get_copyright( gfp ) );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "original flag          =%d",	lame_get_original( gfp ) );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "CRC                    =%s", lame_get_error_protection( gfp ) ? "on" : "off" );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "Fast mode              =%s", ( lame_get_quality( gfp ) )? "enabled" : "disabled" );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "Force mid/side stereo  =%s", ( lame_get_force_ms( gfp ) )?"enabled":"disabled" );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "Disable Resorvoir      =%d", lame_get_disable_reservoir( gfp ) );
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "VBR                    =%s, VBR_q =%d, VBR method =",
-					( lame_get_VBR( gfp ) !=vbr_off ) ? "enabled": "disabled",
-		            lame_get_VBR_q( gfp ) );
-
-	switch ( lame_get_VBR( gfp ) )
-	{
-		case vbr_off:	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG,  "vbr_off" );	break;
-		case vbr_mt :	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG,  "vbr_mt" );	break;
-		case vbr_rh :	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG,  "vbr_rh" );	break;
-		case vbr_mtrh:	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG,  "vbr_mtrh" );	break;
-		case vbr_abr: 
-			my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG,  "vbr_abr (average bitrate %d kbps)", lame_get_VBR_mean_bitrate_kbps( gfp ) );
-		break;
-		default:
-			my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "error, unknown VBR setting");
-		break;
-	}
-
-	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "Write VBR Header       =%s\n", ( lame_get_bWriteVbrTag( gfp ) ) ?"Yes":"No");
+	acm_report_target = NULL;
 
 #ifdef FROM_DLL
 beConfig.format.LHV1.dwReSampleRate		= my_OutSamplesPerSec;	  // force the user resampling
