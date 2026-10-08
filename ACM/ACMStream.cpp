@@ -110,7 +110,7 @@ bool ACMStream::init(const int nSamplesPerSec, const int nOutputSamplesPerSec, c
 	bool bResult = false;
 
 	my_SamplesPerSec  = nSamplesPerSec;
-	my_OutBytesPerSec = nOutputSamplesPerSec;
+	my_OutSamplesPerSec = nOutputSamplesPerSec;
 	my_Channels       = nChannels;
 	my_OutChannels    = nOutputChannels;
 	my_AvgBytesPerSec = nAvgBytesPerSec;
@@ -134,7 +134,7 @@ bool ACMStream::open(const AEncodeProperties & the_Properties)
 	lame_set_in_samplerate( gfp, my_SamplesPerSec );
 
 	// Set output sample frequency
-	lame_set_out_samplerate( gfp, my_OutBytesPerSec );
+	lame_set_out_samplerate( gfp, my_OutSamplesPerSec );
 
 	lame_set_num_channels( gfp, my_Channels );
 	// LAME mixes a stereo input down when the mode is MONO.
@@ -154,7 +154,7 @@ bool ACMStream::open(const AEncodeProperties & the_Properties)
 
 		lame_set_VBR_mean_bitrate_kbps( gfp, (my_AvgBytesPerSec * 8 + 500) / 1000 );
 
-		if (24000 > lame_get_in_samplerate( gfp ))
+		if (24000 > lame_get_out_samplerate( gfp ))
 		{
 			// For MPEG-II
 			lame_set_VBR_min_bitrate_kbps( gfp, 8);
@@ -259,7 +259,7 @@ bool ACMStream::open(const AEncodeProperties & the_Properties)
 	my_debug->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "Write VBR Header       =%s\n", ( lame_get_bWriteVbrTag( gfp ) ) ?"Yes":"No");
 
 #ifdef FROM_DLL
-beConfig.format.LHV1.dwReSampleRate		= my_OutBytesPerSec;	  // force the user resampling
+beConfig.format.LHV1.dwReSampleRate		= my_OutSamplesPerSec;	  // force the user resampling
 #endif // FROM_DLL
 
 	bResult = true;
@@ -300,9 +300,9 @@ DWORD ACMStream::GetOutputSizeForInput(const DWORD the_SrcLength) const
 /*	double OutputInputRatio;
 
 	if (my_VBRMode == vbr_off)
-		OutputInputRatio = double(my_AvgBytesPerSec) / double(my_OutBytesPerSec * 2);
+		OutputInputRatio = double(my_AvgBytesPerSec) / double(my_OutSamplesPerSec * 2);
 	else // reserve the space for 320 kbps
-		OutputInputRatio = 40000.0 / double(my_OutBytesPerSec * 2);
+		OutputInputRatio = 40000.0 / double(my_OutSamplesPerSec * 2);
 
 	OutputInputRatio *= 1.15; // allow 15% more*/
 

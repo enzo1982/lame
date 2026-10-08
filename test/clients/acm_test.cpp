@@ -1136,12 +1136,24 @@ out:
 /** @brief Length of each encode in the settings test. */
 #define SETTINGS_TEST_SECONDS 2
 
+/**
+ * @brief The fdwFlags values of the codec's own MP3 formats. The codec writes
+ *        2 into an ABR format and 4 into a CBR format, and reads the value back
+ *        when a stream opens.
+ */
+#define ACM_FLAGS_ABR 2
+#define ACM_FLAGS_CBR 4
+
 /** @brief What one encode through the ACM produced. */
 typedef struct {
     int frames;     /**< frames in the output */
     int borrowed;   /**< frames whose main_data_begin is not 0 */
     int joint;      /**< frames in joint stereo mode */
     int mono;       /**< frames in mono mode */
+    int off_rate;   /**< frames whose sample rate is not the rate of the stream */
+    long samples;   /**< samples per channel in all frames */
+    int min_kbps;   /**< the lowest bitrate of a frame, in kbit/s */
+    int max_kbps;   /**< the highest bitrate of a frame, in kbit/s */
 } frame_counts;
 
 /**
@@ -1152,15 +1164,19 @@ typedef struct {
  * the configuration file before this call.
  *
  * @param driver        the path of the codec.
- * @param out_channels  the number of channels of the MP3 format to open.
+ * @param out_rate      the sample rate of the MP3 format to open, in Hz.
+ * @param out_channels  the number of channels of that format.
  * @param bps           the bitrate of that format, in bit/s.
+ * @param flags         the fdwFlags of that format, ::ACM_FLAGS_ABR or
+ *                      ::ACM_FLAGS_CBR.
  * @param c             receives the counts. They are 0 if the encode did not
  *                      run.
  * @return the result of acmStreamOpen(). If the stream opens and a later step
  *         fails, the step is recorded as a failed check.
  */
 static MMRESULT
-encode_stereo_tone(const char *driver, WORD out_channels, DWORD bps, frame_counts *c)
+encode_stereo_tone(const char *driver, DWORD out_rate, WORD out_channels, DWORD bps,
+                   DWORD flags, frame_counts *c)
 {
     const DWORD rate = 44100;
     const DWORD samples = rate * SETTINGS_TEST_SECONDS;
@@ -1194,7 +1210,8 @@ encode_stereo_tone(const char *driver, WORD out_channels, DWORD bps, frame_count
         goto out;
     }
     fill_pcm_format(&pcm, rate, 2);
-    fill_mp3_format(&mp3, rate, out_channels, bps);
+    fill_mp3_format(&mp3, out_rate, out_channels, bps);
+    mp3.fdwFlags = flags;
     opened = acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) &mp3, NULL, 0, 0, 0);
     if (opened != MMSYSERR_NOERROR) {
         has = NULL;
@@ -1235,21 +1252,27 @@ encode_stereo_tone(const char *driver, WORD out_channels, DWORD bps, frame_count
        the buffer. */
     while (off + MP3_HEADER_BYTES + MP3_CRC_BYTES + 2 <= hdr.cbDstLengthUsed) {
         const BYTE *h = dst + off;
-        int index, framelen;
+        int framelen;
 
         if (!mp3_is_frame_sync(h)) {
             ++off;
             continue;
         }
-        index = mp3_bitrate_index(h);
-        if (index == MP3_BITRATE_FREE_FORMAT || index == MP3_BITRATE_INVALID) {
-            break;
-        }
-        framelen = mp3_frame_bytes(index, mp3_padding_bytes(h), rate);
+        framelen = mp3_frame_length(h);
         if (framelen <= 0) {
             break;
         }
         ++c->frames;
+        c->samples += mp3_frame_samples(h);
+        if (c->min_kbps == 0 || mp3_frame_kbps(h) < c->min_kbps) {
+            c->min_kbps = mp3_frame_kbps(h);
+        }
+        if (mp3_frame_kbps(h) > c->max_kbps) {
+            c->max_kbps = mp3_frame_kbps(h);
+        }
+        if (mp3_sample_rate(h) != out_rate) {
+            ++c->off_rate;
+        }
         if (mp3_main_data_begin(h) != 0) {
             ++c->borrowed;
         }
@@ -1353,8 +1376,32 @@ write_settings(const char *elements)
 }
 
 /**
- * @brief Checks that the defaults, the bit reservoir setting and the forced
- *        Mono setting reach the encoder.
+ * @brief Checks that the frames of an encode describe as many seconds as its
+ *        input.
+ *
+ * The frames are read before the encoder is flushed, so the last frames can
+ * be missing. The first frames hold the encoder delay. So the length may fall
+ * short by up to three frames and run over by up to one.
+ *
+ * @param c     the counts of the encode.
+ * @param rate  the sample rate of the stream, in Hz.
+ * @param what  the name of the check.
+ */
+static void
+check_duration(const frame_counts *c, DWORD rate, const char *what)
+{
+    const double seconds = (double) c->samples / (double) rate;
+    const double frame = (c->frames > 0) ? seconds / c->frames : 0.0;
+
+    printf("        %d frame(s) at %lu Hz, %.3f s, %d to %d kbit/s\n", c->frames, (unsigned long) rate,
+           seconds, c->min_kbps, c->max_kbps);
+    CHECK(c->frames > 0 && seconds >= SETTINGS_TEST_SECONDS - 3 * frame
+          && seconds <= SETTINGS_TEST_SECONDS + frame, what);
+}
+
+/**
+ * @brief Checks that the defaults, the bit reservoir setting, the forced Mono
+ *        setting and Smart Output reach the encoder.
  *
  * - Without a configuration file, every frame is joint stereo, and some frames
  *   use bytes of earlier frames.
@@ -1364,6 +1411,11 @@ write_settings(const char *elements)
  * - With Mono not forced, the control: the codec suggests stereo, does not
  *   open the stereo to mono stream, and encodes a stereo stream as joint
  *   stereo.
+ * - With Smart Output, 44100 Hz stereo at 32 kbit/s opens as an 11025 Hz
+ *   stream, in CBR and in ABR. Every frame is 11025 Hz, and the frames last as
+ *   long as the input. A 44100 Hz stream is the control for the length. The
+ *   ABR stream uses the MPEG-2.5 range, so some frames are below 32 kbit/s.
+ * - Without Smart Output, the 11025 Hz stream does not open.
  *
  * An installed codec reads its configuration file from its own folder. Here
  * the test adds the codec with @c ACM_DRIVERADDF_FUNCTION, and then the codec
@@ -1380,11 +1432,14 @@ test_settings_reach_the_encoder(const char *driver)
     char *saved = NULL;
     long saved_len = -1;
     FILE *f;
+    const DWORD rate = 44100;
+    /* The rate and bitrate that Smart Output picks for 44100 Hz stereo. */
+    const DWORD low_rate = 11025, low_bps = 32000;
     frame_counts c;
     MMRESULT mr;
     /* The first and the last frame may be missing, as in test_under_the_acm(). */
     const int expected_frames =
-        (int) (mp3_frames_per_second(44100) * SETTINGS_TEST_SECONDS) - 2;
+        (int) (mp3_frames_per_second(rate) * SETTINGS_TEST_SECONDS) - 2;
 
     printf("the settings that reach the encoder\n");
 
@@ -1408,7 +1463,7 @@ test_settings_reach_the_encoder(const char *driver)
 
     /* The defaults: joint stereo, and the reservoir in use. */
     ::DeleteFileA(config);
-    mr = encode_stereo_tone(driver, 2, 128000, &c);
+    mr = encode_stereo_tone(driver, rate, 2, 128000, ACM_FLAGS_ABR, &c);
     CHECK_MM(mr, "the default settings open a stereo stream");
     printf("        default: %d frame(s), %d use earlier bytes, %d joint stereo\n",
            c.frames, c.borrowed, c.joint);
@@ -1424,7 +1479,7 @@ test_settings_reach_the_encoder(const char *driver)
                         "            <Bit_reservoir use=\"false\" />\n")) {
         CHECK(0, "the configuration file can be written");
     } else {
-        mr = encode_stereo_tone(driver, 2, 128000, &c);
+        mr = encode_stereo_tone(driver, rate, 2, 128000, ACM_FLAGS_ABR, &c);
         CHECK_MM(mr, "a stereo stream opens with the reservoir switched off");
         printf("        switched off: %d frame(s), %d use earlier bytes\n", c.frames, c.borrowed);
         CHECK(c.frames >= expected_frames, "the encode without the reservoir has all of its frames");
@@ -1435,7 +1490,7 @@ test_settings_reach_the_encoder(const char *driver)
         CHECK(0, "the configuration file can be written");
     } else {
         CHECK_EQ_U(suggested_channels(driver), 1, "with Mono forced, the codec suggests mono for stereo");
-        mr = encode_stereo_tone(driver, 1, 64000, &c);
+        mr = encode_stereo_tone(driver, rate, 1, 64000, ACM_FLAGS_ABR, &c);
         CHECK_MM(mr, "with Mono forced, a stereo to mono stream opens");
         printf("        Mono forced: %d frame(s), %d mono\n", c.frames, c.mono);
         CHECK(c.frames >= expected_frames, "the forced mono encode has all of its frames");
@@ -1446,13 +1501,42 @@ test_settings_reach_the_encoder(const char *driver)
         CHECK(0, "the configuration file can be written");
     } else {
         CHECK_EQ_U(suggested_channels(driver), 2, "with Mono not forced, the codec suggests stereo");
-        mr = encode_stereo_tone(driver, 1, 64000, &c);
+        mr = encode_stereo_tone(driver, rate, 1, 64000, ACM_FLAGS_ABR, &c);
         CHECK(mr != MMSYSERR_NOERROR, "with Mono not forced, a stereo to mono stream does not open");
-        mr = encode_stereo_tone(driver, 2, 128000, &c);
+        mr = encode_stereo_tone(driver, rate, 2, 128000, ACM_FLAGS_ABR, &c);
         CHECK_MM(mr, "with Mono not forced, a stereo stream opens");
         printf("        Mono not forced: %d frame(s), %d joint stereo\n", c.frames, c.joint);
         CHECK(c.frames >= expected_frames, "the stereo encode has all of its frames");
         CHECK_EQ_U(c.joint, c.frames, "with Mono not forced, a stereo stream is joint stereo");
+    }
+
+    /* 44100 Hz stereo at 32 kbit/s is compressed 1:44, more than the ratio of
+       15, so Smart Output encodes it at 11025 Hz. */
+    if (!write_settings("            <Smart use=\"true\" ratio=\"15\" />\n")) {
+        CHECK(0, "the configuration file can be written");
+    } else {
+        mr = encode_stereo_tone(driver, rate, 2, 128000, ACM_FLAGS_CBR, &c);
+        CHECK_MM(mr, "with Smart Output, a 44100 Hz stream opens");
+        check_duration(&c, rate, "a 44100 Hz stream lasts as long as its input");
+        mr = encode_stereo_tone(driver, low_rate, 2, low_bps, ACM_FLAGS_CBR, &c);
+        CHECK_MM(mr, "with Smart Output, a 44100 Hz to 11025 Hz CBR stream opens");
+        CHECK_EQ_U(c.off_rate, 0, "every frame of the CBR stream is 11025 Hz");
+        check_duration(&c, low_rate, "the 11025 Hz CBR stream lasts as long as its input");
+        mr = encode_stereo_tone(driver, low_rate, 2, low_bps, ACM_FLAGS_ABR, &c);
+        CHECK_MM(mr, "with Smart Output, a 44100 Hz to 11025 Hz ABR stream opens");
+        CHECK_EQ_U(c.off_rate, 0, "every frame of the ABR stream is 11025 Hz");
+        check_duration(&c, low_rate, "the 11025 Hz ABR stream lasts as long as its input");
+        /* With the MPEG-1 range, the lowest rate is the mean, and ABR becomes
+           CBR. Index 0 of the table is free format. */
+        CHECK(c.min_kbps < mp3_bitrate_kbps[1],
+              "the 11025 Hz ABR stream goes below 32 kbit/s, the lowest MPEG-1 rate");
+    }
+
+    if (!write_settings("            <Smart use=\"false\" />\n")) {
+        CHECK(0, "the configuration file can be written");
+    } else {
+        mr = encode_stereo_tone(driver, low_rate, 2, low_bps, ACM_FLAGS_CBR, &c);
+        CHECK(mr != MMSYSERR_NOERROR, "without Smart Output, a 44100 Hz to 11025 Hz stream does not open");
     }
 
     ::DeleteFileA(config);

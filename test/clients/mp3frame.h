@@ -166,6 +166,103 @@ mp3_frames_per_second(unsigned long rate)
     return (double) rate / (double) MP3_SAMPLES_PER_FRAME;
 }
 
+/** @brief The version bits of an MPEG-2 frame, in the second header byte. */
+#define MP3_VERSION_MPEG2           0x10
+/** @brief The version bits of an MPEG-2.5 frame, in the second header byte. */
+#define MP3_VERSION_MPEG25          0x00
+/** @brief An MPEG-2 or MPEG-2.5 Layer III frame holds 576 samples. */
+#define MP3_SAMPLES_PER_FRAME_LSF   576
+/** @brief The sample rate bits are bits 2 and 3 of the third header byte. */
+#define MP3_SAMPLE_RATE_SHIFT       2
+/** @brief Mask for the two sample rate bits, after the shift. */
+#define MP3_SAMPLE_RATE_MASK        3
+/** @brief The sample rate value that is reserved in every version. */
+#define MP3_SAMPLE_RATE_RESERVED    3
+
+/** @brief Bitrates in kbit/s by index, MPEG-2 and MPEG-2.5 Layer III. */
+static const int mp3_lsf_bitrate_kbps[MP3_BITRATE_INVALID] = {
+    0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160
+};
+
+/**
+ * @brief Returns the sample rate of the frame at @a h.
+ * @param h the frame header.
+ * @return the sample rate in Hz. 0 when the version or the sample rate bits
+ *         hold a reserved value.
+ */
+static inline unsigned long
+mp3_sample_rate(const unsigned char *h)
+{
+    static const unsigned long mpeg1[] = { 44100, 48000, 32000 };
+    static const unsigned long mpeg2[] = { 22050, 24000, 16000 };
+    static const unsigned long mpeg25[] = { 11025, 12000, 8000 };
+    const int index = (h[MP3_HEADER_BITRATE_BYTE] >> MP3_SAMPLE_RATE_SHIFT) & MP3_SAMPLE_RATE_MASK;
+
+    if (index == MP3_SAMPLE_RATE_RESERVED)
+        return 0;
+    switch (h[MP3_HEADER_SYNC_BYTE] & MP3_VERSION_MASK) {
+    case MP3_VERSION_MPEG1:
+        return mpeg1[index];
+    case MP3_VERSION_MPEG2:
+        return mpeg2[index];
+    case MP3_VERSION_MPEG25:
+        return mpeg25[index];
+    default:
+        return 0;
+    }
+}
+
+/**
+ * @brief Returns the number of samples in the frame at @a h.
+ * @param h the frame header.
+ * @return 1152 for an MPEG-1 frame, 576 for an MPEG-2 or MPEG-2.5 frame.
+ */
+static inline int
+mp3_frame_samples(const unsigned char *h)
+{
+    if ((h[MP3_HEADER_SYNC_BYTE] & MP3_VERSION_MASK) == MP3_VERSION_MPEG1)
+        return MP3_SAMPLES_PER_FRAME;
+    return MP3_SAMPLES_PER_FRAME_LSF;
+}
+
+/**
+ * @brief Returns the bitrate of the frame at @a h, from the table of its MPEG
+ *        version.
+ * @param h the frame header.
+ * @return the bitrate in kbit/s. 0 for a free format frame and for the
+ *         reserved bitrate index.
+ */
+static inline int
+mp3_frame_kbps(const unsigned char *h)
+{
+    const int index = mp3_bitrate_index(h);
+
+    if (index == MP3_BITRATE_INVALID)
+        return 0;
+    if ((h[MP3_HEADER_SYNC_BYTE] & MP3_VERSION_MASK) == MP3_VERSION_MPEG1)
+        return mp3_bitrate_kbps[index];
+    return mp3_lsf_bitrate_kbps[index];
+}
+
+/**
+ * @brief Returns the length in bytes of the frame at @a h, padding included,
+ *        for any MPEG version.
+ * @param h the frame header.
+ * @return the length. 0 when the header has free format, a reserved bitrate
+ *         or a reserved sample rate.
+ */
+static inline int
+mp3_frame_length(const unsigned char *h)
+{
+    const unsigned long rate = mp3_sample_rate(h);
+    const int kbps = mp3_frame_kbps(h);
+
+    if (rate == 0 || kbps == 0)
+        return 0;
+    return (mp3_frame_samples(h) / MP3_BITS_PER_BYTE) * kbps * MP3_BITS_PER_KBIT / (int) rate
+        + mp3_padding_bytes(h);
+}
+
 /** @brief The Xing or Info marker at the start of the Xing frame is four bytes. */
 #define MP3_TAG_MARKER_BYTES        4
 /**

@@ -67,11 +67,11 @@ protected:
 	lame_global_flags * gfp;
 
 	ADbg * my_debug;
-	int my_SamplesPerSec;
+	int my_SamplesPerSec;     // of the input
+	int my_OutSamplesPerSec;  // of the encoded stream
 	int my_Channels;     // of the input
 	int my_OutChannels;  // of the encoded stream
 	int my_AvgBytesPerSec;
-	int my_OutBytesPerSec;
 	vbr_mode my_VBRMode;
 	DWORD  my_SamplesPerBlock;
 

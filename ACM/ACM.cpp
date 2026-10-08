@@ -1061,7 +1061,7 @@ inline DWORD ACM::OnStreamOpen(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 						{
 							MPEGLAYER3WAVEFORMAT * casted = (MPEGLAYER3WAVEFORMAT *) a_StreamInstance->pwfxDst;
 							vbr_mode a_mode = (casted->fdwFlags-2 == 0)?vbr_abr:vbr_off;
-							if (the_stream->init(a_StreamInstance->pwfxDst->nSamplesPerSec,
+							if (the_stream->init(a_StreamInstance->pwfxSrc->nSamplesPerSec,
 												 OutputFrequency,
 												 a_StreamInstance->pwfxSrc->nChannels,
 												 a_StreamInstance->pwfxDst->nChannels,
