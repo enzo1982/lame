@@ -101,6 +101,12 @@ public:
 	inline bool GetNoBiResMode() const { return bNoBitRes; }
 
 	/**
+		\brief Returns the Windows module of the codec, whose folder holds the
+		settings file.
+	*/
+	inline HMODULE GetModule() const { return my_hModule; }
+
+	/**
 		\brief Returns true if the settings force the selected channel mode.
 
 		Only Mono can be forced: then the codec encodes stereo input as mono.

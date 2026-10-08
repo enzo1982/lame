@@ -1145,8 +1145,9 @@ test_suggest_unencodable_rate(HACMDRIVER had)
  * @brief Checks that the codec returns an error for a destination buffer that
  *        is too small for its output, and never writes past the buffer.
  *
- * When the header is unprepared, the codec flushes the encoder into the same
- * destination buffer. Here the application chooses the buffer size. It is far
+ * The conversion carries ACM_STREAMCONVERTF_END, so the codec also flushes
+ * the encoder into the destination buffer. Here the application chooses the
+ * buffer size. It is far
  * below what acmStreamSize() recommends. Guard bytes follow the buffer, and
  * the codec does not know about them. Every guard byte must be unchanged
  * after the conversion and the unprepare. A conversion that fails must also
@@ -1219,6 +1220,319 @@ out:
     if (has != NULL) {
         acmStreamClose(has, 0);
     }
+}
+
+/** @brief The sample rate of the stream lifetime tests, in Hz. */
+#define LIFETIME_RATE 44100
+/** @brief One second of source for the stream lifetime tests, in sample frames. */
+#define LIFETIME_FRAMES LIFETIME_RATE
+/** @brief Stereo input for the stream lifetime tests. */
+#define LIFETIME_CHANNELS 2
+/** @brief LAME's encoder delay: the samples that the MP3 stream holds before the first input sample. */
+#define ENCODER_DELAY_SAMPLES 576
+/** @brief How many streams the leak check opens. */
+#define LEAK_ROUNDS 8
+
+/** @brief One prepared header, and the destination buffer it owns. */
+typedef struct {
+    ACMSTREAMHEADER hdr;    /**< the header */
+    int prepared;           /**< set while the header is prepared */
+} stream_part;
+
+/**
+ * @brief Prepares a header for part of a stereo source, with a destination
+ *        buffer of the size that the codec asks for.
+ * @param has     the stream
+ * @param part    receives the header. Release it with release_part().
+ * @param src     the first sample frame of the part
+ * @param frames  the sample frames of the part
+ * @return the result of the first call that failed, or MMSYSERR_NOERROR
+ */
+static MMRESULT
+prepare_part(HACMSTREAM has, stream_part *part, const short *src, DWORD frames)
+{
+    DWORD src_bytes = frames * LIFETIME_CHANNELS * sizeof(short);
+    DWORD dst_bytes = 0;
+    MMRESULT mr;
+
+    memset(part, 0, sizeof(*part));
+    mr = acmStreamSize(has, src_bytes, &dst_bytes, ACM_STREAMSIZEF_SOURCE);
+    if (mr != MMSYSERR_NOERROR) {
+        return mr;
+    }
+    part->hdr.cbStruct = sizeof(part->hdr);
+    part->hdr.pbSrc = (BYTE *) src;
+    part->hdr.cbSrcLength = src_bytes;
+    part->hdr.pbDst = (BYTE *) malloc(dst_bytes);
+    part->hdr.cbDstLength = dst_bytes;
+    if (part->hdr.pbDst == NULL) {
+        return MMSYSERR_NOMEM;
+    }
+    mr = acmStreamPrepareHeader(has, &part->hdr, 0);
+    part->prepared = (mr == MMSYSERR_NOERROR);
+    return mr;
+}
+
+/**
+ * @brief Converts a prepared header and appends what it returns to a stream.
+ * @param has    the stream
+ * @param part   the prepared header
+ * @param flags  the conversion flags besides ACM_STREAMCONVERTF_BLOCKALIGN
+ * @param out    receives the bytes of the conversion at its end
+ * @return the result of acmStreamConvert()
+ */
+static MMRESULT
+convert_part(HACMSTREAM has, stream_part *part, DWORD flags, std::vector<BYTE> *out)
+{
+    MMRESULT mr = acmStreamConvert(has, &part->hdr, ACM_STREAMCONVERTF_BLOCKALIGN | flags);
+
+    if (mr == MMSYSERR_NOERROR) {
+        out->insert(out->end(), part->hdr.pbDst, part->hdr.pbDst + part->hdr.cbDstLengthUsed);
+    }
+    return mr;
+}
+
+/**
+ * @brief Unprepares a header if it is prepared, and frees its destination buffer.
+ * @param has   the stream
+ * @param part  the header
+ */
+static void
+release_part(HACMSTREAM has, stream_part *part)
+{
+    if (part->prepared) {
+        acmStreamUnprepareHeader(has, &part->hdr, 0);
+        part->prepared = 0;
+    }
+    free(part->hdr.pbDst);
+    part->hdr.pbDst = NULL;
+}
+
+/**
+ * @brief Opens a stream from 44100 Hz stereo PCM to 128 kbit/s MP3.
+ * @param had  the opened driver
+ * @param has  receives the stream
+ * @return the result of acmStreamOpen()
+ */
+static MMRESULT
+open_lifetime_stream(HACMDRIVER had, HACMSTREAM *has)
+{
+    WAVEFORMATEX pcm;
+    MPEGLAYER3WAVEFORMAT mp3;
+
+    fill_pcm_format(&pcm, LIFETIME_RATE, LIFETIME_CHANNELS);
+    fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 128000);
+    *has = NULL;
+    return acmStreamOpen(has, had, &pcm, (WAVEFORMATEX *) &mp3, NULL, 0, 0, 0);
+}
+
+/**
+ * @brief Encodes a stereo source on a stream of its own, in one conversion
+ *        with ACM_STREAMCONVERTF_END.
+ * @param had     the opened driver
+ * @param src     the source
+ * @param frames  its sample frames
+ * @param out     receives the MP3 stream
+ * @return 1 if every call succeeded, else 0
+ */
+static int
+encode_whole(HACMDRIVER had, const short *src, DWORD frames, std::vector<BYTE> *out)
+{
+    HACMSTREAM has;
+    stream_part part;
+    int ok;
+
+    out->clear();
+    if (open_lifetime_stream(had, &has) != MMSYSERR_NOERROR) {
+        return 0;
+    }
+    ok = prepare_part(has, &part, src, frames) == MMSYSERR_NOERROR
+        && convert_part(has, &part, ACM_STREAMCONVERTF_END, out) == MMSYSERR_NOERROR;
+    release_part(has, &part);
+    acmStreamClose(has, 0);
+    return ok;
+}
+
+/**
+ * @brief Encodes a stereo source on one stream, in two halves with a header
+ *        each.
+ *
+ * With @a prepare_late, the second header is prepared after the first one is
+ * converted, as by an application that prepares each buffer when it fills
+ * it. Otherwise both headers are prepared before the first conversion, as by
+ * an application with two buffers in turn. The second conversion carries
+ * ACM_STREAMCONVERTF_END.
+ *
+ * @param had           the opened driver
+ * @param src           the source
+ * @param frames        its sample frames, an even number
+ * @param prepare_late  1 to prepare the second header after the first conversion
+ * @param first_flags   further flags of the first conversion
+ * @param second_flags  further flags of the second conversion
+ * @param first         receives what the first conversion returns
+ * @param second        receives what the second conversion returns
+ * @return 1 if every call succeeded, else 0
+ */
+static int
+encode_two_headers(HACMDRIVER had, const short *src, DWORD frames, int prepare_late,
+                   DWORD first_flags, DWORD second_flags, std::vector<BYTE> *first,
+                   std::vector<BYTE> *second)
+{
+    const DWORD half = frames / 2;
+    HACMSTREAM has;
+    stream_part a, b;
+    int ok;
+
+    first->clear();
+    second->clear();
+    memset(&b, 0, sizeof(b));
+    if (open_lifetime_stream(had, &has) != MMSYSERR_NOERROR) {
+        return 0;
+    }
+    ok = prepare_part(has, &a, src, half) == MMSYSERR_NOERROR
+        && (prepare_late
+            || prepare_part(has, &b, src + half * LIFETIME_CHANNELS, half) == MMSYSERR_NOERROR)
+        && convert_part(has, &a, first_flags, first) == MMSYSERR_NOERROR
+        && (!prepare_late
+            || prepare_part(has, &b, src + half * LIFETIME_CHANNELS, half) == MMSYSERR_NOERROR)
+        && convert_part(has, &b, ACM_STREAMCONVERTF_END | second_flags, second) == MMSYSERR_NOERROR;
+    release_part(has, &a);
+    release_part(has, &b);
+    acmStreamClose(has, 0);
+    return ok;
+}
+
+/**
+ * @brief Converts the two halves of a stereo source with exactly the flags
+ *        given: no ACM_STREAMCONVERTF_BLOCKALIGN is added.
+ *
+ * @param had           the opened driver
+ * @param src           the source
+ * @param frames        its sample frames, an even number
+ * @param first_flags   the flags of the first conversion
+ * @param second_flags  the flags of the second conversion
+ * @param joined        receives what both conversions return, one after the other
+ * @return 1 if every call succeeded, else 0
+ */
+static int
+encode_halves_with_flags(HACMDRIVER had, const short *src, DWORD frames, DWORD first_flags,
+                         DWORD second_flags, std::vector<BYTE> *joined)
+{
+    const DWORD half = frames / 2;
+    HACMSTREAM has;
+    stream_part a, b;
+    int ok;
+
+    joined->clear();
+    memset(&b, 0, sizeof(b));
+    if (open_lifetime_stream(had, &has) != MMSYSERR_NOERROR) {
+        return 0;
+    }
+    ok = prepare_part(has, &a, src, half) == MMSYSERR_NOERROR
+        && prepare_part(has, &b, src + half * LIFETIME_CHANNELS, half) == MMSYSERR_NOERROR
+        && acmStreamConvert(has, &a.hdr, first_flags) == MMSYSERR_NOERROR;
+    if (ok) {
+        joined->insert(joined->end(), a.hdr.pbDst, a.hdr.pbDst + a.hdr.cbDstLengthUsed);
+        ok = acmStreamConvert(has, &b.hdr, second_flags) == MMSYSERR_NOERROR;
+    }
+    if (ok) {
+        joined->insert(joined->end(), b.hdr.pbDst, b.hdr.pbDst + b.hdr.cbDstLengthUsed);
+    }
+    release_part(has, &a);
+    release_part(has, &b);
+    acmStreamClose(has, 0);
+    return ok;
+}
+
+/**
+ * @brief Checks that one stream holds one encoder from the open to the
+ *        close, whatever the headers.
+ *
+ * - One conversion with ACM_STREAMCONVERTF_END returns the whole MP3 stream.
+ *   Its frames hold every input sample and the encoder delay.
+ * - The same source in two headers, the second one prepared after the first
+ *   conversion, gives the same bytes as one header.
+ * - A stream with two headers keeps no memory after it is closed. Each of
+ *   ::LEAK_ROUNDS streams would otherwise keep one encoder.
+ * - ACM_STREAMCONVERTF_START on the second conversion begins a new MP3
+ *   stream: the second half is encoded as on a stream of its own. Both
+ *   headers are prepared first here. The second half without START is the
+ *   control. It continues the first half, so it differs.
+ * - After a conversion with ACM_STREAMCONVERTF_END, the next conversion
+ *   begins a new MP3 stream without START too.
+ * - A client that never sends END: the first conversion without
+ *   ACM_STREAMCONVERTF_BLOCKALIGN after one with it returns the end of the
+ *   MP3 stream, so the halves give the bytes of the one-header encode. A
+ *   client that never sets BLOCKALIGN gets no end before its END: flags 0,
+ *   then END, give the same bytes.
+ *
+ * @param had the opened driver
+ */
+static void
+test_stream_lifetime(HACMDRIVER had)
+{
+    const DWORD half = LIFETIME_FRAMES / 2;
+    std::vector<short> src(LIFETIME_FRAMES * LIFETIME_CHANNELS);
+    std::vector<BYTE> whole, first, second, restarted, half_alone, after_end, joined;
+    mp3_scan scan;
+    long blocks_before, blocks_after;
+    DWORD i;
+    int round;
+
+    printf("one encoder for the life of a stream\n");
+    for (i = 0; i < LIFETIME_FRAMES; i++) {
+        short v = ctest_tone(i, LIFETIME_RATE, TONE_HZ, TONE_AMPLITUDE);
+        src[LIFETIME_CHANNELS * i] = v;
+        src[LIFETIME_CHANNELS * i + 1] = v;
+    }
+
+    CHECK(encode_whole(had, &src[0], LIFETIME_FRAMES, &whole),
+          "one second is encoded with one header");
+    mp3_scan_frames(whole.data(), (long) whole.size(), LIFETIME_RATE, &scan);
+    printf("        %lu bytes, %d frame(s)\n", (unsigned long) whole.size(), scan.frames);
+    CHECK((DWORD) scan.frames * MP3_SAMPLES_PER_FRAME >= LIFETIME_FRAMES + ENCODER_DELAY_SAMPLES,
+          "the conversion with END returns the end of the MP3 stream");
+
+    CHECK(encode_two_headers(had, &src[0], LIFETIME_FRAMES, 1, 0, 0, &first, &second),
+          "the same second is encoded with two headers on one stream");
+    printf("        %lu + %lu bytes\n", (unsigned long) first.size(), (unsigned long) second.size());
+    first.insert(first.end(), second.begin(), second.end());
+    CHECK(first == whole, "two headers give the same MP3 stream as one header");
+
+    blocks_before = ctest_heap_blocks();
+    for (round = 0; round < LEAK_ROUNDS; round++) {
+        encode_two_headers(had, &src[0], LIFETIME_FRAMES, 1, 0, 0, &first, &second);
+    }
+    blocks_after = ctest_heap_blocks();
+    printf("        heap blocks %ld before and %ld after %d streams\n", blocks_before,
+           blocks_after, LEAK_ROUNDS);
+    CHECK(blocks_before >= 0 && blocks_after - blocks_before < LEAK_ROUNDS,
+          "a stream with two headers keeps no memory after it is closed");
+
+    CHECK(encode_two_headers(had, &src[0], LIFETIME_FRAMES, 0, 0, ACM_STREAMCONVERTF_START,
+                             &first, &restarted),
+          "the second header starts the stream again");
+    CHECK(encode_two_headers(had, &src[0], LIFETIME_FRAMES, 0, 0, 0, &first, &second),
+          "the second header continues the stream");
+    CHECK(encode_whole(had, &src[half * LIFETIME_CHANNELS], half, &half_alone),
+          "the second half is encoded on a stream of its own");
+    CHECK(restarted == half_alone, "after START the second half is a new MP3 stream");
+    CHECK(second != half_alone, "without START the second half continues the stream");
+    CHECK(encode_two_headers(had, &src[0], LIFETIME_FRAMES, 0, ACM_STREAMCONVERTF_END, 0,
+                             &first, &after_end),
+          "the second header follows a header with END");
+    CHECK(after_end == half_alone, "after END the second half is a new MP3 stream");
+
+    CHECK(encode_halves_with_flags(had, &src[0], LIFETIME_FRAMES, ACM_STREAMCONVERTF_BLOCKALIGN,
+                                   0, &joined),
+          "two halves are encoded, the second without BLOCKALIGN and without END");
+    printf("        %lu bytes, one header with END %lu\n", (unsigned long) joined.size(),
+           (unsigned long) whole.size());
+    CHECK(joined == whole, "the conversion that drops BLOCKALIGN returns the end of the MP3 stream");
+    CHECK(encode_halves_with_flags(had, &src[0], LIFETIME_FRAMES, 0, ACM_STREAMCONVERTF_END,
+                                   &joined),
+          "two halves are encoded without BLOCKALIGN, the second with END");
+    CHECK(joined == whole, "without BLOCKALIGN at all, only END ends the MP3 stream");
 }
 
 /**
@@ -1404,6 +1718,7 @@ test_under_the_acm(const char *driver)
     }
 
     test_small_destination_buffer(had);
+    test_stream_lifetime(had);
 
 out:
     free(src);
@@ -1532,10 +1847,9 @@ encode_stereo_tone(const char *driver, DWORD out_rate, WORD out_channels, DWORD 
         acmStreamUnprepareHeader(has, &hdr, 0);
         goto out;
     }
-    /* Walk the frames before the header is unprepared: the unprepare flushes
-       the encoder into the same buffer. The side information follows the
-       header and the CRC, so a frame is read only when that much of it is in
-       the buffer. */
+    /* The conversion carries END, so the buffer holds the whole stream. The
+       side information follows the header and the CRC, so a frame is read
+       only when that much of it is in the buffer. */
     while (off + MP3_HEADER_BYTES + MP3_CRC_BYTES + 2 <= hdr.cbDstLengthUsed) {
         const BYTE *h = dst + off;
         int framelen;
@@ -1635,6 +1949,54 @@ suggested_channels(const char *driver)
 }
 
 /**
+ * @brief Tries to open a stream at one sample rate, from stereo PCM to MP3,
+ *        on a driver opened for this call alone.
+ *
+ * The driver reads its configuration when it is opened, so the caller writes
+ * the configuration file before this call.
+ *
+ * @param driver      the path of the codec.
+ * @param rate        the sample rate of both formats, in Hz.
+ * @param open_flags  the flags for acmStreamOpen().
+ * @return the result of acmStreamOpen().
+ */
+static MMRESULT
+stream_open_result(const char *driver, DWORD rate, DWORD open_flags)
+{
+    HMODULE mod = LoadLibraryA(driver);
+    FARPROC proc = (mod != NULL) ? GetProcAddress(mod, "DriverProc") : NULL;
+    HACMDRIVERID hadid = NULL;
+    HACMDRIVER had = NULL;
+    HACMSTREAM has = NULL;
+    WAVEFORMATEX pcm;
+    MPEGLAYER3WAVEFORMAT mp3;
+    MMRESULT mr = MMSYSERR_ERROR;
+
+    if (proc == NULL) {
+        return mr;
+    }
+    mr = acmDriverAdd(&hadid, (HINSTANCE) mod, (LPARAM) proc, 0, ACM_DRIVERADDF_FUNCTION);
+    if (mr == MMSYSERR_NOERROR) {
+        mr = acmDriverOpen(&had, hadid, 0);
+    }
+    if (mr == MMSYSERR_NOERROR) {
+        fill_pcm_format(&pcm, rate, 2);
+        fill_mp3_format(&mp3, rate, 2, 128000);
+        mr = acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) &mp3, NULL, 0, 0, open_flags);
+        if (mr == MMSYSERR_NOERROR && has != NULL) {
+            acmStreamClose(has, 0);
+        }
+    }
+    if (had != NULL) {
+        acmDriverClose(had, 0);
+    }
+    if (hadid != NULL) {
+        acmDriverRemove(hadid, 0);
+    }
+    return mr;
+}
+
+/**
  * @brief Writes a configuration file with the given elements in its current
  *        configuration.
  * @param elements the XML elements, one or more lines.
@@ -1665,9 +2027,9 @@ write_settings(const char *elements)
  * @brief Checks that the frames of an encode describe as many seconds as its
  *        input.
  *
- * The frames are read before the encoder is flushed, so the last frames can
- * be missing. The first frames hold the encoder delay. So the length may fall
- * short by up to three frames and run over by up to one.
+ * The encode ends with ACM_STREAMCONVERTF_END, so its frames hold the whole
+ * input. They also hold the encoder delay at the start and the padding of the
+ * last frame. Together these are less than four frames.
  *
  * @param c     the counts of the encode.
  * @param rate  the sample rate of the stream, in Hz.
@@ -1681,8 +2043,151 @@ check_duration(const frame_counts *c, DWORD rate, const char *what)
 
     printf("        %d frame(s) at %lu Hz, %.3f s, %d to %d kbit/s\n", c->frames, (unsigned long) rate,
            seconds, c->min_kbps, c->max_kbps);
-    CHECK(c->frames > 0 && seconds >= SETTINGS_TEST_SECONDS - 3 * frame
-          && seconds <= SETTINGS_TEST_SECONDS + frame, what);
+    CHECK(c->frames > 0 && seconds >= SETTINGS_TEST_SECONDS
+          && seconds < SETTINGS_TEST_SECONDS + 4 * frame, what);
+}
+
+/**
+ * @brief Counts the MPEG frames of an encode, and those that carry a CRC, in
+ *        the part of the stream from a given byte on.
+ *
+ * A conversion need not end at a frame boundary, so the stream is walked from
+ * its start, and a frame counts for the part its header lies in.
+ *
+ * @param mp3     the encoded bytes.
+ * @param from    the first byte of the part.
+ * @param rate    their sample rate, in Hz.
+ * @param frames  receives the number of frames in the part.
+ * @return the number of frames in the part with a CRC.
+ */
+static int
+crc_frames(const std::vector<BYTE> &mp3, size_t from, unsigned long rate, int *frames)
+{
+    size_t i = 0;
+    int crc = 0;
+
+    *frames = 0;
+    while (i + MP3_HEADER_BYTES <= mp3.size() && mp3_is_frame_sync(&mp3[i])) {
+        int const n = mp3_frame_bytes(mp3_bitrate_index(&mp3[i]), mp3_padding_bytes(&mp3[i]), rate);
+
+        if (n <= 0)
+            break;
+        if (i >= from) {
+            ++*frames;
+            if ((mp3[i + MP3_HEADER_SYNC_BYTE] & MP3_PROTECTION_MASK) == 0)
+                crc++;
+        }
+        i += (size_t) n;
+    }
+    return crc;
+}
+
+/**
+ * @brief Encodes the first half of one second, then changes the CRC setting
+ *        in the configuration file and converts the second half.
+ * @param driver       the path of the codec.
+ * @param second_flags further flags of the second conversion, besides
+ *                     BLOCKALIGN and END.
+ * @param first        receives what the first conversion returns.
+ * @param second       receives what the second conversion returns.
+ * @return 1 if every call succeeded, else 0.
+ */
+static int
+encode_across_a_crc_change(const char *driver, DWORD second_flags, std::vector<BYTE> *first,
+                           std::vector<BYTE> *second)
+{
+    HMODULE mod = LoadLibraryA(driver);
+    FARPROC proc = (mod != NULL) ? GetProcAddress(mod, "DriverProc") : NULL;
+    HACMDRIVERID hadid = NULL;
+    HACMDRIVER had = NULL;
+    HACMSTREAM has = NULL;
+    std::vector<short> src(LIFETIME_FRAMES * LIFETIME_CHANNELS);
+    const DWORD half = LIFETIME_FRAMES / 2;
+    stream_part a, b;
+    DWORD i;
+    int ok = 0;
+
+    first->clear();
+    second->clear();
+    memset(&a, 0, sizeof(a));
+    memset(&b, 0, sizeof(b));
+    for (i = 0; i < LIFETIME_FRAMES; i++) {
+        short v = ctest_tone(i, LIFETIME_RATE, TONE_HZ, TONE_AMPLITUDE);
+        src[LIFETIME_CHANNELS * i] = v;
+        src[LIFETIME_CHANNELS * i + 1] = v;
+    }
+    if (proc == NULL || !write_settings("            <CRC use=\"true\" />\n")
+        || acmDriverAdd(&hadid, (HINSTANCE) mod, (LPARAM) proc, 0, ACM_DRIVERADDF_FUNCTION) != MMSYSERR_NOERROR
+        || acmDriverOpen(&had, hadid, 0) != MMSYSERR_NOERROR
+        || !write_settings("            <CRC use=\"false\" />\n")
+        || open_lifetime_stream(had, &has) != MMSYSERR_NOERROR) {
+        goto out;
+    }
+    ok = prepare_part(has, &a, &src[0], half) == MMSYSERR_NOERROR
+        && prepare_part(has, &b, &src[half * LIFETIME_CHANNELS], half) == MMSYSERR_NOERROR
+        && convert_part(has, &a, 0, first) == MMSYSERR_NOERROR
+        && write_settings("            <CRC use=\"true\" />\n")
+        && convert_part(has, &b, ACM_STREAMCONVERTF_END | second_flags, second) == MMSYSERR_NOERROR;
+    release_part(has, &a);
+    release_part(has, &b);
+out:
+    if (has != NULL) {
+        acmStreamClose(has, 0);
+    }
+    if (had != NULL) {
+        acmDriverClose(had, 0);
+    }
+    if (hadid != NULL) {
+        acmDriverRemove(hadid, 0);
+    }
+    if (mod != NULL) {
+        FreeLibrary(mod);
+    }
+    return ok;
+}
+
+/**
+ * @brief Checks that a START takes the settings that the configuration file
+ *        holds at that moment, and that a stream keeps its settings without
+ *        one.
+ *
+ * The driver opens with the CRC on. The file switches it off after that,
+ * before the stream opens, and on again after the first half. So the first
+ * half carries no CRC only if the stream read the file when it opened. With
+ * START on the second conversion, its frames carry a CRC; without, they do
+ * not.
+ *
+ * @param driver the path of the codec.
+ */
+static void
+test_settings_on_start(const char *driver)
+{
+    std::vector<BYTE> first, second;
+    int frames_first, frames_second, crc_first, crc_second;
+    char detail[CTEST_DETAIL_CHARS];
+
+    /* With START the second conversion begins an MP3 stream of its own. */
+    CHECK(encode_across_a_crc_change(driver, ACM_STREAMCONVERTF_START, &first, &second),
+          "one second is encoded across a change of the CRC setting, with START");
+    crc_first = crc_frames(first, 0, LIFETIME_RATE, &frames_first);
+    crc_second = crc_frames(second, 0, LIFETIME_RATE, &frames_second);
+    sprintf(detail, "%d of %d frames, then %d of %d", crc_first, frames_first, crc_second, frames_second);
+    ctest_record(frames_first > 0 && crc_first == 0, "before the change no frame carries a CRC", detail);
+    ctest_record(frames_second > 0 && crc_second == frames_second,
+                 "after START every frame carries the CRC the file now asks for", detail);
+
+    /* Without START the second conversion continues the stream. */
+    CHECK(encode_across_a_crc_change(driver, 0, &first, &second),
+          "the same encode without START");
+    {
+        size_t const split = first.size();
+
+        first.insert(first.end(), second.begin(), second.end());
+        crc_second = crc_frames(first, split, LIFETIME_RATE, &frames_second);
+    }
+    sprintf(detail, "%d of %d frames", crc_second, frames_second);
+    ctest_record(frames_second > 0 && crc_second == 0, "without START the stream keeps its settings",
+                 detail);
 }
 
 /**
@@ -1833,7 +2338,17 @@ test_settings_reach_the_encoder(const char *driver)
     } else {
         mr = encode_stereo_tone(driver, low_rate, 2, low_bps, ACM_FLAGS_CBR, &c);
         CHECK(mr != MMSYSERR_NOERROR, "without Smart Output, a 44100 Hz to 11025 Hz stream does not open");
+        /* The codec accepts the formats of a 50 Hz stream. lame_init_params()
+           rejects it: the lowest MP3 rate is more than 128 times as high.
+           48000 Hz is the control. */
+        CHECK_EQ_U(stream_open_result(driver, 50, 0), ACMERR_NOTPOSSIBLE,
+                   "a 50 Hz stream, which LAME rejects, does not open");
+        CHECK_EQ_U(stream_open_result(driver, 50, ACM_STREAMOPENF_QUERY), ACMERR_NOTPOSSIBLE,
+                   "a query for a 50 Hz stream fails");
+        CHECK_MM(stream_open_result(driver, 48000, 0), "a 48000 Hz stream opens");
     }
+
+    test_settings_on_start(driver);
 
     ::DeleteFileA(config);
     if (saved != NULL) {

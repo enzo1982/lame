@@ -407,14 +407,14 @@ switch (msg) {
 	// prepares an ACMSTREAMHEADER structure for
 	// an ACM stream conversion
 		my_debug.OutPut(DEBUG_LEVEL_MSG, "ACMDM_STREAM_PREPARE");
-		dwRes = OnStreamPrepareHeader((LPACMDRVSTREAMINSTANCE)lParam1, (LPACMSTREAMHEADER) lParam2);
+		dwRes = OnStreamPrepareHeader((LPACMSTREAMHEADER) lParam2);
         break; 
 
 	case ACMDM_STREAM_UNPREPARE:
 	// cleans up the preparation performed by
 	// the ACMDM_STREAM_PREPARE message for an ACM stream
 		my_debug.OutPut(DEBUG_LEVEL_MSG, "ACMDM_STREAM_UNPREPARE");
-		dwRes = OnStreamUnPrepareHeader((LPACMDRVSTREAMINSTANCE)lParam1, (LPACMSTREAMHEADER) lParam2);
+		dwRes = OnStreamUnPrepareHeader((LPACMSTREAMHEADER) lParam2);
         break; 
 
 	case ACMDM_STREAM_CONVERT:
@@ -914,6 +914,11 @@ inline DWORD ACM::OnStreamOpen(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 {
 	DWORD Result = ACMERR_NOTPOSSIBLE;
 
+	// The settings as the settings file holds them now: the configuration
+	// dialog may have changed them in another program since this driver
+	// instance read them
+	my_EncodingProperties.ParamsRestore();
+
 	//
 	//  the most important condition to check before doing anything else
 	//  is that this ACM driver can actually perform the conversion we are
@@ -954,29 +959,28 @@ inline DWORD ACM::OnStreamOpen(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 				{
 					Result = ACMERR_NOTPOSSIBLE;
 				} else {
-					if ((a_StreamInstance->fdwOpen & ACM_STREAMOPENF_QUERY) == 0)
-					{
-						ACMStream * the_stream = ACMStream::Create();
-						a_StreamInstance->dwInstance = (DWORD) the_stream;
+					// The encoder starts here. A query starts it and
+					// closes it again, so a query fails for the same
+					// settings as an open.
+					ACMStream * the_stream = ACMStream::Create();
 
-						if (the_stream != NULL)
-						{
-							MPEGLAYER3WAVEFORMAT * casted = (MPEGLAYER3WAVEFORMAT *) a_StreamInstance->pwfxDst;
-							vbr_mode a_mode = IsABRFormatFlags(casted->fdwFlags)?vbr_abr:vbr_off;
-							if (the_stream->init(a_StreamInstance->pwfxSrc->nSamplesPerSec,
-												 OutputFrequency,
-												 a_StreamInstance->pwfxSrc->nChannels,
-												 a_StreamInstance->pwfxDst->nChannels,
-												 a_StreamInstance->pwfxDst->nAvgBytesPerSec,
-												 a_mode))
-								Result = MMSYSERR_NOERROR;
-							else
-								ACMStream::Erase( the_stream );
-						}
-					}
-					else
+					if (the_stream != NULL)
 					{
-						Result = MMSYSERR_NOERROR;
+						MPEGLAYER3WAVEFORMAT * casted = (MPEGLAYER3WAVEFORMAT *) a_StreamInstance->pwfxDst;
+						vbr_mode a_mode = IsABRFormatFlags(casted->fdwFlags)?vbr_abr:vbr_off;
+						if (the_stream->init(a_StreamInstance->pwfxSrc->nSamplesPerSec,
+											 OutputFrequency,
+											 a_StreamInstance->pwfxSrc->nChannels,
+											 a_StreamInstance->pwfxDst->nChannels,
+											 a_StreamInstance->pwfxDst->nAvgBytesPerSec,
+											 a_mode)
+							&& the_stream->open(my_EncodingProperties))
+							Result = MMSYSERR_NOERROR;
+
+						if (Result == MMSYSERR_NOERROR && (a_StreamInstance->fdwOpen & ACM_STREAMOPENF_QUERY) == 0)
+							a_StreamInstance->dwInstance = (DWORD) the_stream;
+						else
+							ACMStream::Erase( the_stream );
 					}
 				}
 			}
@@ -1037,10 +1041,14 @@ inline DWORD ACM::OnStreamClose(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 	return Result;
 }
 
-inline DWORD ACM::OnStreamPrepareHeader(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACMSTREAMHEADER a_StreamHeader)
-{
-	DWORD Result = ACMERR_NOTPOSSIBLE;
+/*!
+	Prepares a stream header. The encoder needs nothing prepared.
 
+	\param a_StreamHeader the header to prepare
+	\return MMSYSERR_NOERROR
+*/
+inline DWORD ACM::OnStreamPrepareHeader(LPACMSTREAMHEADER a_StreamHeader)
+{
 	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "  prepare : Src : %d (0x%08X) / %d - Dst : %d (0x%08X) / %d"
 												, a_StreamHeader->cbSrcLength
 												, a_StreamHeader->pbSrc
@@ -1050,48 +1058,25 @@ inline DWORD ACM::OnStreamPrepareHeader(LPACMDRVSTREAMINSTANCE a_StreamInstance,
 												, a_StreamHeader->cbDstLengthUsed
 											  );
 
-	if (WAVE_FORMAT_PCM == a_StreamInstance->pwfxSrc->wFormatTag &&
-		PERSONAL_FORMAT == a_StreamInstance->pwfxDst->wFormatTag)
-	{
-		ACMStream * the_stream = (ACMStream *)a_StreamInstance->dwInstance;
-		
-		if (the_stream->open(my_EncodingProperties))
-			Result = MMSYSERR_NOERROR;
-	}
-
-	return Result;
+	return MMSYSERR_NOERROR;
 }
 
-inline DWORD ACM::OnStreamUnPrepareHeader(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACMSTREAMHEADER a_StreamHeader)
-{
-	DWORD Result = ACMERR_NOTPOSSIBLE;
+/*!
+	Releases a stream header that OnStreamPrepareHeader() prepared.
 
+	\param a_StreamHeader the header to release
+	\return MMSYSERR_NOERROR
+*/
+inline DWORD ACM::OnStreamUnPrepareHeader(LPACMSTREAMHEADER a_StreamHeader)
+{
 	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "unprepare : Src : %d / %d - Dst : %d / %d"
 											, a_StreamHeader->cbSrcLength
 											, a_StreamHeader->cbSrcLengthUsed
 											, a_StreamHeader->cbDstLength
 											, a_StreamHeader->cbDstLengthUsed
 											);
-    if (WAVE_FORMAT_PCM == a_StreamInstance->pwfxSrc->wFormatTag &&
-		PERSONAL_FORMAT == a_StreamInstance->pwfxDst->wFormatTag)
-    {
-	ACMStream * the_stream = (ACMStream *)a_StreamInstance->dwInstance;
-	DWORD OutputSize = a_StreamHeader->cbDstLength;
 
-	/* The header is released either way: an application that cannot
-	   unprepare it cannot close the stream. What does not fit is lost. */
-	if (the_stream->close(a_StreamHeader->pbDst, &OutputSize) && (OutputSize <= a_StreamHeader->cbDstLength))
-	{
-		a_StreamHeader->cbDstLengthUsed = OutputSize;
-	}
-	else
-	{
-		a_StreamHeader->cbDstLengthUsed = 0;
-	}
-	Result = MMSYSERR_NOERROR;
-	}
-
-	return Result;
+	return MMSYSERR_NOERROR;
 }
 
 inline DWORD ACM::OnStreamConvert(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACMDRVSTREAMHEADER a_StreamHeader)

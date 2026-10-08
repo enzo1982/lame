@@ -93,6 +93,9 @@ void ConfigureDebugFromRegistry(ADbg & dbg)
 
 ACMStream::ACMStream() :
  gfp(NULL),
+ my_Ended(false),
+ my_Aligned(false),
+ my_Module(NULL),
  my_debug(DEBUG_LEVEL_CREATION)
 {
 	 /// \todo get the debug level from the registry
@@ -158,13 +161,85 @@ bool ACMStream::init(const int nSamplesPerSec, const int nOutputSamplesPerSec, c
 
 }
 
+/**
+	\brief Reads the encoder settings and starts the encoder of the stream.
+
+	Each new MP3 stream on this stream reads the settings again, from the
+	settings file (restart()).
+
+	\param the_Properties the settings of the codec.
+	\return false if LAME rejects the settings. The stream then has no
+	        encoder.
+*/
 bool ACMStream::open(const AEncodeProperties & the_Properties)
 {
-	bool bResult = false;
+	my_Module = the_Properties.GetModule();
+	read_settings(the_Properties);
+	return start();
+}
+
+/**
+	\brief Starts a new MP3 stream with the settings that the settings file
+	holds now, so that a change made in the configuration dialog since the
+	stream opened applies. The formats of the stream stay as they were
+	opened.
+
+	\return false if LAME rejects the settings. The stream then has no
+	        encoder.
+*/
+bool ACMStream::restart()
+{
+	AEncodeProperties now(my_Module);
+
+	now.ParamsRestore();
+	read_settings(now);
+	return start();
+}
+
+/**
+	\brief Takes the settings that start() passes to LAME from the settings
+	of the codec, for the formats the stream was opened with.
+
+	\param the_Properties the settings of the codec.
+*/
+void ACMStream::read_settings(const AEncodeProperties & the_Properties)
+{
+	// LAME mixes a stereo input down when the mode is MONO.
+	if (my_OutChannels == 1)
+		my_Mode = MONO;
+	else if (the_Properties.GetChannelModeValue() == MONO)
+		my_Mode = JOINT_STEREO; // Mono without Force: a stereo stream stays stereo
+	else
+		my_Mode = (MPEG_mode_e)the_Properties.GetChannelModeValue(); /// \todo Get the mode from the default configuration
+
+	my_Copyright = the_Properties.GetCopyrightMode();
+	my_Original  = the_Properties.GetOriginalMode();
+	my_CRC       = the_Properties.GetCRCMode();
+	my_Private   = the_Properties.GetPrivateMode();
+	my_NoBitRes  = the_Properties.GetNoBiResMode();
+}
+
+/**
+	\brief Starts a new encoder with the settings that open() or restart()
+	read. The encoder that runs, if any, is closed first.
+
+	\return false if lame_init() or lame_init_params() fails. The stream
+	        then has no encoder.
+*/
+bool ACMStream::start()
+{
+	int init_result;
+
+	if (gfp != NULL)
+		lame_close( gfp );
+	my_Ended = false;
+	my_Aligned = false;
 
 	// Init the MP3 Stream
 	// Init the global flags structure
 	gfp = lame_init();
+	if (gfp == NULL)
+		return false;
 
 	// Set input sample frequency
 	lame_set_in_samplerate( gfp, my_SamplesPerSec );
@@ -173,13 +248,7 @@ bool ACMStream::open(const AEncodeProperties & the_Properties)
 	lame_set_out_samplerate( gfp, my_OutSamplesPerSec );
 
 	lame_set_num_channels( gfp, my_Channels );
-	// LAME mixes a stereo input down when the mode is MONO.
-	if (my_OutChannels == 1)
-		lame_set_mode( gfp, MONO );
-	else if (the_Properties.GetChannelModeValue() == MONO)
-		lame_set_mode( gfp, JOINT_STEREO ); // Mono without Force: a stereo stream stays stereo
-	else
-		lame_set_mode( gfp, (MPEG_mode_e)the_Properties.GetChannelModeValue()) ; /// \todo Get the mode from the default configuration
+	lame_set_mode( gfp, my_Mode );
 
 //	lame_set_VBR( gfp, vbr_off ); /// \note VBR not supported for the moment
 	lame_set_VBR( gfp, my_VBRMode ); /// \note VBR not supported for the moment
@@ -211,15 +280,15 @@ bool ACMStream::open(const AEncodeProperties & the_Properties)
 
 	/// \todo Get the mode from the default configuration
 	// Set copyright flag?
-	lame_set_copyright( gfp, the_Properties.GetCopyrightMode()?1:0 );
+	lame_set_copyright( gfp, my_Copyright?1:0 );
 	// Do we have to tag  it as non original 
-	lame_set_original( gfp, the_Properties.GetOriginalMode()?1:0 );
+	lame_set_original( gfp, my_Original?1:0 );
 	// Add CRC?
-	lame_set_error_protection( gfp, the_Properties.GetCRCMode()?1:0 );
+	lame_set_error_protection( gfp, my_CRC?1:0 );
 	// Set private bit?
-	lame_set_extension( gfp, the_Properties.GetPrivateMode()?1:0 );
+	lame_set_extension( gfp, my_Private?1:0 );
 	// Use the bit reservoir?
-	lame_set_disable_reservoir( gfp, the_Properties.GetNoBiResMode()?1:0 );
+	lame_set_disable_reservoir( gfp, my_NoBitRes?1:0 );
 	// INFO tag support not possible in ACM - it requires rewinding 
         // output stream to the beginning after encoding is finished.   
 	lame_set_bWriteVbrTag( gfp, 0 );
@@ -228,44 +297,23 @@ bool ACMStream::open(const AEncodeProperties & the_Properties)
 	// stream; lame_init_params() takes the message function over
 	acm_report_target = &my_debug;
 	lame_set_msgf( gfp, acm_report );
-	if (0 == lame_init_params( gfp ))
+	init_result = lame_init_params( gfp );
+	if (init_result == 0)
 	{
 		lame_print_config( gfp );
 		lame_print_internals( gfp );
 	}
 	acm_report_target = NULL;
 
-	bResult = true;
-
-	return bResult;
-}
-
-bool ACMStream::close(LPBYTE pOutputBuffer, DWORD *pOutputSize)
-{
-
-bool bResult = false;
-
-	int nOutputSamples = 0;
-
-    /* the caller passes the destination buffer's size in *pOutputSize */
-    nOutputSamples = lame_encode_flush( gfp, pOutputBuffer, (int) *pOutputSize );
-
-	if ( nOutputSamples < 0 )
+	if (init_result != 0)
 	{
-		// BUFFER_TOO_SMALL
-*pOutputSize = 0;
-	}
-	else
-{
-		*pOutputSize = nOutputSamples;
-
-		bResult = true;
+		my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "lame_init_params() failed (%d)", init_result);
+		lame_close( gfp );
+		gfp = NULL;
+		return false;
 	}
 
-	// lame will be closed in destructor
-        //lame_close( gfp );
-
-	return bResult;
+	return true;
 }
 
 DWORD ACMStream::GetOutputSizeForInput(const DWORD the_SrcLength) const
@@ -289,6 +337,25 @@ my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Result = %d",Result);
 	return Result;
 }
 
+/**
+	\brief Encodes the source buffer of a conversion into its destination
+	buffer.
+
+	With ACM_STREAMCONVERTF_START in the conversion flags, a new MP3 stream
+	starts, with the settings the settings file holds now: the samples that
+	the encoder holds from earlier conversions are dropped. With
+	ACM_STREAMCONVERTF_END, the encoder is flushed after the source buffer,
+	and the end of the MP3 stream follows the encoded data in the destination
+	buffer. The first conversion without ACM_STREAMCONVERTF_BLOCKALIGN after
+	one with it does the same: it is the last one of the data, and a client
+	that never sends END marks the end so. The conversion after either starts
+	a new MP3 stream, with or without ACM_STREAMCONVERTF_START.
+
+	\param a_StreamHeader the buffers and the conversion flags. The function
+	       sets the bytes used of both buffers.
+	\return false if the encoder cannot start, or if the destination buffer
+	        is too small.
+*/
 bool ACMStream::ConvertBuffer(LPACMDRVSTREAMHEADER a_StreamHeader)
 {
 	bool result;
@@ -296,6 +363,23 @@ bool ACMStream::ConvertBuffer(LPACMDRVSTREAMHEADER a_StreamHeader)
 my_debug.OutPut(DEBUG_LEVEL_FUNC_DEBUG, "enter ACMStream::ConvertBuffer");
 
 	DWORD InSize = a_StreamHeader->cbSrcLength / 2, OutSize = a_StreamHeader->cbDstLength; // 2 for 8<->16 bits
+	bool const aligned = (a_StreamHeader->fdwConvert & ACM_STREAMCONVERTF_BLOCKALIGN) != 0;
+
+	if ((a_StreamHeader->fdwConvert & ACM_STREAMCONVERTF_START) != 0 || my_Ended)
+		restart();
+
+	// END, or the last conversion of a client that does not send it
+	bool const ending = (a_StreamHeader->fdwConvert & ACM_STREAMCONVERTF_END) != 0
+		|| (my_Aligned && !aligned);
+	if (aligned)
+		my_Aligned = true;
+	if (gfp == NULL)
+	{
+		my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "the stream has no encoder");
+		a_StreamHeader->cbSrcLengthUsed = 0;
+		a_StreamHeader->cbDstLengthUsed = 0;
+		return false;
+	}
 
 // Encode it
 int dwSamples;
@@ -310,6 +394,18 @@ int dwSamples;
 	else
 	{
 		nOutputSamples = lame_encode_buffer_interleaved(gfp,(PSHORT)a_StreamHeader->pbSrc,dwSamples,a_StreamHeader->pbDst,a_StreamHeader->cbDstLength);
+	}
+
+	if (nOutputSamples >= 0 && ending)
+	{
+		DWORD const room = a_StreamHeader->cbDstLength - (DWORD) nOutputSamples;
+		int flushed = -1;
+
+		// lame_encode_flush() takes a size of 0 as no limit
+		if (room > 0)
+			flushed = lame_encode_flush( gfp, a_StreamHeader->pbDst + nOutputSamples, (int) room );
+		nOutputSamples = flushed < 0 ? flushed : nOutputSamples + flushed;
+		my_Ended = true;
 	}
 
 	a_StreamHeader->cbSrcLengthUsed = a_StreamHeader->cbSrcLength;

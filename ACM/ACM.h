@@ -79,8 +79,8 @@ protected:
 	inline DWORD OnStreamOpen(LPACMDRVSTREAMINSTANCE a_StreamInstance);
 	inline DWORD OnStreamClose(LPACMDRVSTREAMINSTANCE a_StreamInstance);
 	inline DWORD OnStreamSize(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACMDRVSTREAMSIZE the_StreamSize);
-	inline DWORD OnStreamPrepareHeader(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACMSTREAMHEADER a_StreamHeader);
-	inline DWORD OnStreamUnPrepareHeader(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACMSTREAMHEADER a_StreamHeader);
+	inline DWORD OnStreamPrepareHeader(LPACMSTREAMHEADER a_StreamHeader);
+	inline DWORD OnStreamUnPrepareHeader(LPACMSTREAMHEADER a_StreamHeader);
 	inline DWORD OnStreamConvert(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACMDRVSTREAMHEADER a_StreamHeader);
 
 	void GetMP3FormatForIndex(const DWORD the_Index, WAVEFORMATEX & the_Format, unsigned short the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const;
