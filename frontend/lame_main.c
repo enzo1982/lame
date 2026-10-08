@@ -316,13 +316,36 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
     return -1;
 }
 
+/**
+ * @internal
+ * @brief Closes the output, a file or standard output, and tells whether
+ *        everything written to it arrived.
+ *
+ * A write that fails only when the last buffered bytes leave, at a seek or at
+ * the close, shows here.
+ *
+ * @param outf  the output.
+ * @return 0 if the output had no write error and closed, else -1.
+ */
+static int
+close_output(FILE * outf)
+{
+    int const write_error = ferror(outf);
+
+    return fclose(outf) != 0 || write_error ? -1 : 0;
+}
+
 static int
 lame_decoder(lame_t gfp, FILE * outf, char *inPath, char *outPath)
 {
     int     ret;
 
     ret = lame_decoder_loop(gfp, outf, inPath, outPath);
-    fclose(outf);       /* close the output file */
+    if (close_output(outf) != 0 && ret == 0) {
+        if (frontend_config.ui_config.silent < 10)
+            error_printf("Error writing to the output file\n");
+        ret = -1;
+    }
     close_infile();     /* close the input file */
     if (ret == 0)
         preserve_file_times(inPath, outPath);
@@ -814,7 +837,10 @@ lame_encoder(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char 
     int     ret;
 
     ret = lame_encoder_loop(gf, outf, nogap, inPath, outPath);
-    fclose(outf);       /* close the output file */
+    if (close_output(outf) != 0 && ret == 0) {
+        error_printf("Error writing to the output file\n");
+        ret = ENCODE_OUTPUT_FAILED;
+    }
     close_infile();     /* close the input file */
     if (ret == 0)
         preserve_file_times(inPath, outPath);
