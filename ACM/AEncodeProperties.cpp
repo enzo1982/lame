@@ -58,9 +58,13 @@
 /** \brief The highest bitrate that LAME encodes, in kbit/s. */
 static const unsigned int ABR_BITRATE_LIMIT = 320;
 
-const unsigned int AEncodeProperties::the_Bitrates[18] = {320, 256, 224, 192, 160, 144, 128, 112, 96, 80, 64, 56, 48, 40, 32, 24, 16, 8 };
-const unsigned int AEncodeProperties::the_MPEG1_Bitrates[14] = {320, 256, 224, 192, 160, 128, 112, 96, 80, 64, 56, 48, 40, 32 };
-const unsigned int AEncodeProperties::the_MPEG2_Bitrates[14] = {160, 144, 128, 112, 96, 80, 64, 56, 48, 40, 32, 24, 16, 8};
+// The bitrates of the standard, in kbit/s, highest first: those of MPEG-1, those
+// of MPEG-2 (which MPEG-2.5 uses here too), and both lists together.
+// FillBitrateTables() fills them from the library before anything reads them.
+// The dialog and the configuration file use positions in the_Bitrates.
+unsigned int AEncodeProperties::the_Bitrates[18];
+unsigned int AEncodeProperties::the_MPEG1_Bitrates[14];
+unsigned int AEncodeProperties::the_MPEG2_Bitrates[14];
 const unsigned int AEncodeProperties::the_ChannelModes[4] = { STEREO, JOINT_STEREO, DUAL_CHANNEL, MONO };
 //const char         AEncodeProperties::the_Presets[][13] = {"None", "CD", "Studio", "Hi-Fi", "Phone", "Voice", "Radio", "Tape", "FM", "AM", "SW"};
 //const LAME_QUALTIY_PRESET AEncodeProperties::the_Presets[] = {LQP_NOPRESET, LQP_R3MIX_QUALITY, LQP_NORMAL_QUALITY, LQP_LOW_QUALITY, LQP_HIGH_QUALITY, LQP_VERYHIGH_QUALITY, LQP_VOICE_QUALITY, LQP_PHONE, LQP_SW, LQP_AM, LQP_FM, LQP_VOICE, LQP_RADIO, LQP_TAPE, LQP_HIFI, LQP_CD, LQP_STUDIO};
@@ -330,9 +334,45 @@ const char * AEncodeProperties::GetChannelModeString(int a_channelID) const
 	}
 }
 
+/**
+	\brief Fills the_MPEG1_Bitrates, the_MPEG2_Bitrates and the_Bitrates from
+	the library, highest first.
+
+	Each call writes the same values. So it is safe to call it for every
+	instance.
+*/
+void AEncodeProperties::FillBitrateTables()
+{
+	const int count = sizeof(the_MPEG1_Bitrates) / sizeof(the_MPEG1_Bitrates[0]);
+	const int total = sizeof(the_Bitrates) / sizeof(the_Bitrates[0]);
+	int i, j1 = 0, j2 = 0, k = 0;
+
+	for (i = 0; i < count; i++)
+	{
+		// lame_get_bitrate() takes the frame header's index, 1 to 14,
+		// lowest first; MPEG version 1 is MPEG-1, 0 is MPEG-2.
+		the_MPEG1_Bitrates[i] = (unsigned int) lame_get_bitrate(1, count - i);
+		the_MPEG2_Bitrates[i] = (unsigned int) lame_get_bitrate(0, count - i);
+	}
+	// Both lists merged, each value once.
+	while ((j1 < count || j2 < count) && k < total)
+	{
+		if (j2 == count || (j1 < count && the_MPEG1_Bitrates[j1] > the_MPEG2_Bitrates[j2]))
+			the_Bitrates[k++] = the_MPEG1_Bitrates[j1++];
+		else if (j1 == count || the_MPEG2_Bitrates[j2] > the_MPEG1_Bitrates[j1])
+			the_Bitrates[k++] = the_MPEG2_Bitrates[j2++];
+		else
+		{
+			the_Bitrates[k++] = the_MPEG1_Bitrates[j1++];
+			j2++;
+		}
+	}
+	assert(k == total && j1 == count && j2 == count);
+}
+
 const int AEncodeProperties::GetBitrateString(char * string, int string_size, int a_bitrateID) const
 {
-	assert(a_bitrateID < sizeof(the_Bitrates));
+	assert(a_bitrateID < GetBitrateLentgh());
 	assert(string != NULL);
 
 	if (string_size >= 4)
@@ -357,7 +397,7 @@ const unsigned int AEncodeProperties::OutputChannels(const unsigned int input_ch
 
 const unsigned int AEncodeProperties::GetBitrateValue() const
 {
-	assert(nMinBitrateIndex < sizeof(the_Bitrates));
+	assert(nMinBitrateIndex < GetBitrateLentgh());
 
 	return the_Bitrates[nMinBitrateIndex];
 }
@@ -832,6 +872,8 @@ AEncodeProperties::AEncodeProperties(HMODULE hModule)
  :my_debug(ADbg(DEBUG_LEVEL_CREATION)),
  my_hModule(hModule)
 {
+	FillBitrateTables();
+
 	std::string path = "";
 //	HMODULE htmp = LoadLibrary("out_lame.dll");
 	if (hModule != NULL)

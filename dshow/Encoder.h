@@ -30,11 +30,18 @@
 #include <lame.h>
 
 
-const unsigned int dwBitRateValue[2][14] =
+/**
+ * Returns a bitrate of the standard, in kbit/s, lowest first.
+ *
+ * \param lsf    0 for MPEG-1, 1 for MPEG-2 and MPEG-2.5, which share the
+ *               MPEG-2 bitrates here.
+ * \param index  0 to 13: the frame header's bitrate index, less 1.
+ * \return the bitrate in kbit/s.
+ */
+inline unsigned int BitRateValue(int lsf, int index)
 {
-    {32,40,48,56,64,80,96,112,128,160,192,224,256,320},     // MPEG-1
-    {8,16,24,32,40,48,56,64,80,96,112,128,144,160}          // MPEG-2/2.5
-};
+    return (unsigned int) lame_get_bitrate(lsf ? 0 : 1, index + 1);
+}
 /*
 #define STEREO           0
 #define JOINT_STEREO     1

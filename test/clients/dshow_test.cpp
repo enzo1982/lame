@@ -653,6 +653,67 @@ test_stream_caps(IPin *lame_out, const char *when)
 }
 
 /**
+ * @brief Checks every entry of the capability list for a 44.1 kHz input, in
+ *        order.
+ *
+ * The filter offers the CBR formats whose sample rate divides the input rate.
+ * For 44.1 kHz input these are the MPEG-1 bitrates at 44100 Hz, the MPEG-2
+ * bitrates at 22050 Hz, and the MPEG-2.5 bitrates up to 64 kbit/s at
+ * 11025 Hz, each highest first.
+ *
+ * @param lame_out  the output pin of the filter, with a 44.1 kHz input.
+ */
+static void
+test_stream_caps_list(IPin *lame_out)
+{
+    static const DWORD mpeg1[] = { 320, 256, 224, 192, 160, 128, 112, 96, 80, 64, 56, 48, 40, 32 };
+    static const DWORD mpeg2[] = { 160, 144, 128, 112, 96, 80, 64, 56, 48, 40, 32, 24, 16, 8 };
+    static const DWORD mpeg25[] = { 64, 56, 48, 40, 32, 24, 16, 8 };
+    const int n1 = (int) (sizeof(mpeg1) / sizeof(mpeg1[0]));
+    const int n2 = (int) (sizeof(mpeg2) / sizeof(mpeg2[0]));
+    const int n25 = (int) (sizeof(mpeg25) / sizeof(mpeg25[0]));
+    IAMStreamConfig *cfg = NULL;
+    AUDIO_STREAM_CONFIG_CAPS scc;
+    AM_MEDIA_TYPE *pmt = NULL;
+    int count = 0, size = 0, i, same = 0;
+    HRESULT hr;
+
+    hr = lame_out->QueryInterface(IID_IAMStreamConfig, (void **) &cfg);
+    if (FAILED(hr) || cfg == NULL) {
+        CHECK(0, "the output pin offers IAMStreamConfig for the list");
+        return;
+    }
+    hr = cfg->GetNumberOfCapabilities(&count, &size);
+    CHECK_EQ_U(count, n1 + n2 + n25, "a 44.1 kHz input has 36 CBR formats");
+    for (i = 0; SUCCEEDED(hr) && i < count && i < n1 + n2 + n25; i++) {
+        DWORD rate, kbps;
+
+        if (i < n1) {
+            rate = 44100;
+            kbps = mpeg1[i];
+        } else if (i < n1 + n2) {
+            rate = 22050;
+            kbps = mpeg2[i - n1];
+        } else {
+            rate = 11025;
+            kbps = mpeg25[i - n1 - n2];
+        }
+        pmt = NULL;
+        if (cfg->GetStreamCaps(i, &pmt, (BYTE *) &scc) == S_OK && pmt != NULL
+            && pmt->cbFormat >= sizeof(MPEGLAYER3WAVEFORMAT) && pmt->pbFormat != NULL) {
+            MPEGLAYER3WAVEFORMAT *wf = (MPEGLAYER3WAVEFORMAT *) pmt->pbFormat;
+
+            if (wf->wfx.nSamplesPerSec == rate && wf->wfx.nAvgBytesPerSec * 8 / 1000 == kbps) {
+                ++same;
+            }
+        }
+        free_media_type(pmt);
+    }
+    CHECK_EQ_U(same, n1 + n2 + n25, "each has the expected sample rate and bitrate, in order");
+    cfg->Release();
+}
+
+/**
  * @brief A stream sink whose input pin asks for an allocator alignment.
  *
  * The stock File Writer asks for no alignment. So a graph of stock filters
@@ -1197,6 +1258,7 @@ main(int argc, char **argv)
        which carries no format block either, so this asks the same question
        about the other state a caller can find the pin in. */
     test_stream_caps(lame_out, "with the whole graph connected");
+    test_stream_caps_list(lame_out);
 
     hr = graph->QueryInterface(IID_IMediaControl, (void **) &mc);
     REQUIRE_HR(hr, "the graph offers IMediaControl");

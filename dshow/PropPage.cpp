@@ -229,12 +229,12 @@ INT_PTR CMpegAudEncPropertyPage::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wPa
                 if (dwSampleRate >= 32000)
                 {
                     // Consider MPEG-1
-                    dwBitrate = dwBitRateValue[0][nBitrate];
+                    dwBitrate = BitRateValue(0, nBitrate);
                 }
                 else
                 {
                     // Consider MPEG-2/2.5
-                    dwBitrate = dwBitRateValue[1][nBitrate];
+                    dwBitrate = BitRateValue(1, nBitrate);
                 }
 
                 m_pAEProps->set_Bitrate(dwBitrate);
@@ -254,12 +254,12 @@ INT_PTR CMpegAudEncPropertyPage::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wPa
                 if (dwSampleRate >= 32000)
                 {
                     // Consider MPEG-1
-                    dwMin = dwBitRateValue[0][nVariableMin];
+                    dwMin = BitRateValue(0, nVariableMin);
                 }
                 else
                 {
                     // Consider MPEG-2/2.5
-                    dwMin = dwBitRateValue[1][nVariableMin];
+                    dwMin = BitRateValue(1, nVariableMin);
                 }
 
                 m_pAEProps->set_VariableMin(dwMin);
@@ -279,12 +279,12 @@ INT_PTR CMpegAudEncPropertyPage::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wPa
                 if (dwSampleRate >= 32000)
                 {
                     // Consider MPEG-1
-                    dwMax = dwBitRateValue[0][nVariableMax];
+                    dwMax = BitRateValue(0, nVariableMax);
                 }
                 else
                 {
                     // Consider MPEG-2/2.5
-                    dwMax = dwBitRateValue[1][nVariableMax];
+                    dwMax = BitRateValue(1, nVariableMax);
                 }
 
                 m_pAEProps->set_VariableMax(dwMax);
@@ -493,17 +493,17 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
     m_pAEProps->get_Bitrate(&dwBitrate);
 
     int nBitrateSel = 0;
-    // BitRateValue[][i] is in ascending order
+    // BitRateValue() is in ascending order
     // We use this fact. We also know there are 14 bitrate values available.
     // We are going to use the closest possible, so we can limit loop with 13
-    while (nBitrateSel < 13 && dwBitRateValue[nSt][nBitrateSel] < dwBitrate)
+    while (nBitrateSel < 13 && BitRateValue(nSt, nBitrateSel) < dwBitrate)
         nBitrateSel++;
     SendDlgItemMessage(hwndParent, IDC_COMBO_CBR, CB_SETCURSEL, nBitrateSel, 0);
 
     // check if the specified bitrate is found exactly and correct if not
-    if (dwBitRateValue[nSt][nBitrateSel] != dwBitrate)
+    if (BitRateValue(nSt, nBitrateSel) != dwBitrate)
     {
-        dwBitrate = dwBitRateValue[nSt][nBitrateSel];
+        dwBitrate = BitRateValue(nSt, nBitrateSel);
         // we can change it, because it is independent of any other parameters
         // (but depends on some of them!)
         m_pAEProps->set_Bitrate(dwBitrate);
@@ -550,31 +550,31 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
     int nVariableMinSel = 0;
     int nVariableMaxSel = 0;
     
-    // BitRateValue[][i] is in ascending order
+    // BitRateValue() is in ascending order
     // We use this fact. We also know there are 14 bitrate values available.
     // We are going to use the closest possible, so we can limit loop with 13
-    while (nVariableMinSel<13 && dwBitRateValue[nST][nVariableMinSel] < dwMin)
+    while (nVariableMinSel<13 && BitRateValue(nST, nVariableMinSel) < dwMin)
         nVariableMinSel++;
     SendDlgItemMessage(hwndParent, IDC_COMBO_VBRMIN, CB_SETCURSEL, nVariableMinSel, 0);
 
-    while (nVariableMaxSel<13 && dwBitRateValue[nST][nVariableMaxSel] < dwMax)
+    while (nVariableMaxSel<13 && BitRateValue(nST, nVariableMaxSel) < dwMax)
         nVariableMaxSel++;
     SendDlgItemMessage(hwndParent, IDC_COMBO_VBRMAX, CB_SETCURSEL, nVariableMaxSel, 0);
 
     
     // check if the specified bitrate is found exactly and correct if not
-    if (dwBitRateValue[nST][nVariableMinSel] != dwMin)
+    if (BitRateValue(nST, nVariableMinSel) != dwMin)
     {
-        dwMin = dwBitRateValue[nST][nVariableMinSel];
+        dwMin = BitRateValue(nST, nVariableMinSel);
         // we can change it, because it is independent of any other parameters
         // (but depends on some of them!)
         m_pAEProps->set_VariableMin(dwMin);
     }
 
     // check if the specified bitrate is found exactly and correct if not
-    if (dwBitRateValue[nST][nVariableMaxSel] != dwMax)
+    if (BitRateValue(nST, nVariableMaxSel) != dwMax)
     {
-        dwMax = dwBitRateValue[nST][nVariableMaxSel];
+        dwMax = BitRateValue(nST, nVariableMaxSel);
         // we can change it, because it is independent of any other parameters
         // (but depends on some of them!)
         m_pAEProps->set_VariableMax(dwMax);

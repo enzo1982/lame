@@ -18,6 +18,7 @@
  *   The tests read and write it through public methods only.
  * - Configuration files that parse but have an unexpected shape, ABR ranges
  *   that are not valid, and a save with no file to start from.
+ * - The bitrates that the configuration dialog lists, in their order.
  *
  * Second, the program loads the built @c lameACM.acm and drives it through
  * the Audio Compression Manager. These tests cover the driver details, the
@@ -370,6 +371,34 @@ test_abr_range_config(void)
         CHECK(0, "the configuration file could be written");
     }
     ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Checks the bitrates that the configuration dialog lists, in order.
+ *
+ * The dialog and the configuration file store positions in this list. So the
+ * list must stay the same: every MPEG-1 and MPEG-2 bitrate, highest first,
+ * each once.
+ */
+static void
+test_bitrate_list(void)
+{
+    static const unsigned int expected[] =
+        { 320, 256, 224, 192, 160, 144, 128, 112, 96, 80, 64, 56, 48, 40, 32, 24, 16, 8 };
+    const int n = (int) (sizeof(expected) / sizeof(expected[0]));
+    AEncodeProperties props(NULL);
+    char text[16];
+    int i, same = 0;
+
+    printf("the bitrates the configuration dialog lists\n");
+    CHECK_EQ_U(props.GetBitrateLentgh(), n, "the dialog lists 18 bitrates");
+    for (i = 0; i < n && i < props.GetBitrateLentgh(); i++) {
+        if (props.GetBitrateString(text, sizeof(text), i) > 0
+            && strtoul(text, NULL, 10) == expected[i]) {
+            ++same;
+        }
+    }
+    CHECK_EQ_U(same, n, "every MPEG-1 and MPEG-2 bitrate, highest first, each once");
 }
 
 /**
@@ -1588,6 +1617,7 @@ main(int argc, char **argv)
     test_smart_ratio_round_trip();
     test_malformed_config();
     test_abr_range_config();
+    test_bitrate_list();
     test_save_without_a_file();
 
     if (argc > 1) {

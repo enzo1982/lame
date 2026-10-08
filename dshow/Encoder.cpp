@@ -344,13 +344,9 @@ int getFrameLength(const unsigned char * pdata)
     if (!pdata || pdata[0] != 0xff || (pdata[1] & 0xe0) != 0xe0)
         return -1;
 
-    const int sample_rate_tab[4][4] =
-    {
-        {11025,12000,8000,1},
-        {1,1,1,1},
-        {22050,24000,16000,1},
-        {44100,48000,32000,1}
-    };
+    // The library's MPEG version for each value of the header's version
+    // field: 0 is MPEG-2.5, 1 is reserved, 2 is MPEG-2, 3 is MPEG-1.
+    const int lame_version[4] = { 2, -1, 0, 1 };
 
 #define MPEG_VERSION_RESERVED   1
 #define MPEG_VERSION_1          3
@@ -379,8 +375,8 @@ int getFrameLength(const unsigned char * pdata)
         emphasis        != EMPHASIS_RESERVED)
     {
         int spf         = (version_id == MPEG_VERSION_1) ? 1152 : 576;
-        int sample_rate = sample_rate_tab[version_id][sample_rate_id];
-        int bitrate     = dwBitRateValue[version_id != MPEG_VERSION_1][bitrate_id - 1] * 1000;
+        int sample_rate = lame_get_samplerate(lame_version[version_id], sample_rate_id);
+        int bitrate     = BitRateValue(version_id != MPEG_VERSION_1, bitrate_id - 1) * 1000;
 
         return (bitrate * spf) / (8 * sample_rate) + padding;
     }

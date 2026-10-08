@@ -349,9 +349,10 @@ private:
 	static const unsigned int the_ChannelModes[4];
 	int nChannelIndex;
 
-	static const unsigned int the_Bitrates[18];
-	static const unsigned int the_MPEG1_Bitrates[14];
-	static const unsigned int the_MPEG2_Bitrates[14];
+	static unsigned int the_Bitrates[18];
+	static unsigned int the_MPEG1_Bitrates[14];
+	static unsigned int the_MPEG2_Bitrates[14];
+	static void FillBitrateTables();
 	int nMinBitrateIndex; // CBR and VBR
 	int nMaxBitrateIndex; // only used in VBR mode
 

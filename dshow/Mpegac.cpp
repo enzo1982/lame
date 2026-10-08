@@ -72,51 +72,6 @@
 #define GET_FRAMELENGTH(bitrate, sample_rate) ((WORD)(((sample_rate < 32000 ? 72000 : 144000) * (bitrate))/(sample_rate)))
 #define DECLARE_PTR(type, ptr, expr) type* ptr = (type*)(expr);
 
-// Create a list of all (or mostly all) of the encoder CBR output capabilities which
-// will be parsed into a list of capabilities used by the IAMStreamConfig Interface
-output_caps_t OutputCapabilities[] = 
-{ // {SampleRate, BitRate}
-    { 48000, 320 },{ 48000, 256 },{ 48000, 224 },{ 48000, 192 },            // MPEG 1.0 Spec @ 48KHz
-    { 48000, 160 },{ 48000, 128 },{ 48000, 112 },{ 48000, 96 },
-    { 48000, 80 },{ 48000, 64 },{ 48000, 56 },{ 48000, 48 },
-    { 48000, 40 },{ 48000, 32 },
-
-    { 24000, 160 },{ 24000, 144 },{ 24000, 128 },{ 24000, 112 },            // MPEG 2.0 Spec @ 24KHz
-    { 24000, 96 },{ 24000, 80 },{ 24000, 64 },{ 24000, 56 },
-    { 24000, 48 },{ 24000, 40 },{ 24000, 32 },{ 24000, 24 },
-    { 24000, 16 },{ 24000, 8 },
-
-    { 12000, 64 },{ 12000, 56 },{ 12000, 48 },{ 12000, 40 },                // MPEG 2.5 Spec @ 12KHz
-    { 12000, 32 },{ 12000, 24 },{ 12000, 16 },{ 12000, 8 },
-    // ---------------------------                                          --------------------------
-    { 44100, 320 },{ 44100, 256 },{ 44100, 224 },{ 44100, 192 },            // MPEG 1.0 Spec @ 44.1KHz
-    { 44100, 160 },{ 44100, 128 },{ 44100, 112 },{ 44100, 96 },
-    { 44100, 80 },{ 44100, 64 },{ 44100, 56 },{ 44100, 48 },
-    { 44100, 40 },{ 44100, 32 },
-
-    { 22050, 160 },{ 22050, 144 },{ 22050, 128 },{ 22050, 112 },            // MPEG 2.0 Spec @ 22.05KHz
-    { 22050, 96 },{ 22050, 80 },{ 22050, 64 },{ 22050, 56 },
-    { 22050, 48 },{ 22050, 40 },{ 22050, 32 },{ 22050, 24 },
-    { 22050, 16 },{ 22050, 8 },
-
-    { 11025, 64 },{ 11025, 56 },{ 11025, 48 },{ 11025, 40 },                // MPEG 2.5 Spec @ 11.025KHz
-    { 11025, 32 },{ 11025, 24 },{ 11025, 16 },{ 11025, 8 },
-    // ---------------------------                                          --------------------------
-    { 32000, 320 },{ 32000, 256 },{ 32000, 224 },{ 32000, 192 },            // MPEG 1.0 Spec @ 32KHz
-    { 32000, 160 },{ 32000, 128 },{ 32000, 112 },{ 32000, 96 },
-    { 32000, 80 },{ 32000, 64 },{ 32000, 56 },{ 32000, 48 },
-    { 32000, 40 },{ 32000, 32 },
-
-    { 16000, 160 },{ 16000, 144 },{ 16000, 128 },{ 16000, 112 },            // MPEG 2.0 Spec @ 16KHz
-    { 16000, 96 },{ 16000, 80 },{ 16000, 64 },{ 16000, 56 },
-    { 16000, 48 },{ 16000, 40 },{ 16000, 32 },{ 16000, 24 },
-    { 16000, 16 },{ 16000, 8 },
-
-    { 8000, 64 },{ 8000, 56 },{ 8000, 48 },{ 8000, 40 },                    // MPEG 2.5 Spec @ 8KHz
-    { 8000, 32 },{ 8000, 24 },{ 8000, 16 },{ 8000, 8 }
-};
-
-
 /*  Registration setup stuff */
 //  Setup data
 
@@ -842,18 +797,29 @@ void CMpegAudEnc::LoadOutputCapabilities(DWORD sample_rate)
     // Clear out any existing output capabilities
     ZeroMemory(OutputCaps, sizeof(OutputCaps));
 
-    // Create the set of Constant Bit Rate output capabilities that are
-    // supported for the current input pin sampling rate.
-    for (int i = 0;  i < NUMELMS(OutputCapabilities); i++) {
-        if (0 == sample_rate % OutputCapabilities[i].nSampleRate) {
-
-            // Don't overrun the hard-coded capabilities array limit: the last
-            // writable slot is MAX_IAMSTREAMCONFIG_CAPS - 1.
-            if (m_CapsNum >= (int)MAX_IAMSTREAMCONFIG_CAPS) break;
-
-            // Add this output capability to the OutputCaps list
-            OutputCaps[m_CapsNum] = OutputCapabilities[i];
-            m_CapsNum++;
+    // The rates of the standard whose multiple the input rate is, from the
+    // library's tables: the 48, 44.1 and 32 kHz families in turn, each as
+    // MPEG-1, MPEG-2 and MPEG-2.5, every bitrate of the version, highest
+    // first. The MPEG-2.5 bitrates stop at 64 kbit/s.
+    const int rate_index[3] = { 1, 0, 2 };   // 48000, 44100, 32000 and their halves
+    const int version[3] = { 1, 0, 2 };      // MPEG-1, MPEG-2, MPEG-2.5
+    for (int r = 0; r < 3; r++) {
+        for (int v = 0; v < 3; v++) {
+            int const rate = lame_get_samplerate(version[v], rate_index[r]);
+            if (rate <= 0 || 0 != sample_rate % rate)
+                continue;
+            for (int i = 14; i >= 1; i--) {
+                int const kbps = lame_get_bitrate(version[v], i);
+                if (kbps <= 0)
+                    continue;
+                // Don't overrun the capabilities array: the last writable
+                // slot is MAX_IAMSTREAMCONFIG_CAPS - 1.
+                if (m_CapsNum >= (int)MAX_IAMSTREAMCONFIG_CAPS)
+                    return;
+                OutputCaps[m_CapsNum].nSampleRate = (DWORD) rate;
+                OutputCaps[m_CapsNum].nBitRate = (DWORD) kbps;
+                m_CapsNum++;
+            }
         }
     }
 }
