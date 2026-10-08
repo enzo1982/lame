@@ -385,6 +385,8 @@ private:
 		\param parentNode the XML node that contains the configurations
 	*/
 	void GetValuesFromKey(const std::string & config_name, const TiXmlNode & parentNode);
+	TiXmlElement * LoadEncodings();
+	static TiXmlElement * FindConfig(const TiXmlNode & parent, const std::string & name);
 };
 
 #endif // !defined(_AENCODEPROPERTIES_H__INCLUDED_)

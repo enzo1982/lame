@@ -803,28 +803,9 @@ void AEncodeProperties::ParamsRestore()
 //	DllLocation = "plugins\\lame_enc.dll";
 
 	// get the values from the saved file if possible
-	if (my_stored_data.LoadFile(my_store_location))
+	TiXmlElement* CurrentNode = LoadEncodings();
+	if (CurrentNode != NULL)
 	{
-		TiXmlNode* node;
-
-		node = my_stored_data.FirstChild("lame_acm");
-
-		/* A file can parse and still not be one of ours.  This one sits beside
-		   the codec, where anything may edit or truncate it, and both lookups
-		   answer with a null pointer for a document shaped some other way.
-		   Following one takes down whichever application the ACM loaded this
-		   driver into, so a document that is well formed and wrong is treated
-		   the way one that will not parse at all already is: the defaults
-		   assigned above stand.  The same pair of checks guards every other
-		   place this file is read. */
-		if (node == NULL)
-			return;
-
-		TiXmlElement* CurrentNode = node->FirstChildElement("encodings");
-
-		if (CurrentNode == NULL)
-			return;
-
 		std::string CurrentConfig = "";
 
 		if (CurrentNode->Attribute("default") != NULL)
@@ -898,6 +879,53 @@ AEncodeProperties::AEncodeProperties(HMODULE hModule)
 	my_debug.OutPut("AEncodeProperties creation completed (0x%08X)",this);
 }
 
+/**
+	\brief Loads the configuration file and returns its \c encodings element.
+
+	The file sits beside the codec, where anything may edit or truncate it. A
+	document that parses but has another shape is treated as one that does not
+	parse: following a null pointer would take down the application that the
+	ACM loaded the driver into.
+
+	\return the element. NULL when the file does not load, or has no
+	        \c lame_acm element with an \c encodings element in it.
+*/
+TiXmlElement * AEncodeProperties::LoadEncodings()
+{
+	if (!my_stored_data.LoadFile(my_store_location))
+		return NULL;
+
+	TiXmlNode * node = my_stored_data.FirstChild("lame_acm");
+
+	if (node == NULL)
+		return NULL;
+
+	return node->FirstChildElement("encodings");
+}
+
+/**
+	\brief Returns the \c config element with the given name.
+
+	A \c config element without a name does not match any name.
+
+	\param parent  the element that holds the \c config elements.
+	\param name    the name to look for.
+	\return the element, or NULL if there is none with that name.
+*/
+TiXmlElement * AEncodeProperties::FindConfig(const TiXmlNode & parent, const std::string & name)
+{
+	TiXmlElement * elt = parent.FirstChildElement("config");
+
+	while (elt != NULL)
+	{
+		const std::string * tmpname = elt->Attribute("name");
+		if (tmpname != NULL && tmpname->compare(name) == 0)
+			break;
+		elt = elt->NextSiblingElement("config");
+	}
+	return elt;
+}
+
 /*  Save the values to the right XML saved config.
 
     Whatever the file already holds is read back first, so that saving one
@@ -944,19 +972,7 @@ void AEncodeProperties::SaveValuesToStringKey(const std::string & config_name)
 	}
 
 	// check if the Node corresponding to the config_name already exist.
-	// look all the <config> tags
-	TiXmlElement* tmpNode = ConfigNode->FirstChildElement("config");
-	while (tmpNode != NULL)
-	{
-		const std::string * tmpname = tmpNode->Attribute("name");
-		// a <config> carrying no name is not the one being looked for, and
-		// asking it to compare itself would follow a null pointer
-		if (tmpname != NULL && tmpname->compare(config_name) == 0)
-		{
-			break;
-		}
-		tmpNode = tmpNode->NextSiblingElement("config");
-	}
+	TiXmlElement* tmpNode = FindConfig(*ConfigNode, config_name);
 
 	if (tmpNode == NULL)
 	{
@@ -986,16 +1002,7 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 	TiXmlElement* iterateElmt;
 
 	// find the config that correspond to CurrentConfig
-	iterateElmt = parentNode.FirstChildElement("config");
-	while (iterateElmt != NULL)
-	{
-		const std::string * tmpname = iterateElmt->Attribute("name");
-		if ((tmpname != NULL) && (tmpname->compare(config_name) == 0))
-		{
-			break;
-		}
-		iterateElmt = iterateElmt->NextSiblingElement("config");
-	}
+	iterateElmt = FindConfig(parentNode, config_name);
 
 	if (iterateElmt != NULL)
 	{
@@ -1225,23 +1232,13 @@ bool AEncodeProperties::operator !=(const AEncodeProperties & the_instance) cons
 void AEncodeProperties::SelectSavedParams(const std::string the_string)
 {
 	// get the values from the saved file if possible
-	if (my_stored_data.LoadFile(my_store_location))
+	TiXmlElement* CurrentNode = LoadEncodings();
+
+	if (CurrentNode != NULL)
 	{
-		TiXmlNode* node;
-
-		node = my_stored_data.FirstChild("lame_acm");
-
-		if (node == NULL)
-			return;
-
-		TiXmlElement* CurrentNode = node->FirstChildElement("encodings");
-
-		if (CurrentNode != NULL)
-		{
-			CurrentNode->SetAttribute("default",the_string);
-			GetValuesFromKey(the_string, *CurrentNode);
-			my_stored_data.SaveFile(my_store_location);
-		}
+		CurrentNode->SetAttribute("default",the_string);
+		GetValuesFromKey(the_string, *CurrentNode);
+		my_stored_data.SaveFile(my_store_location);
 	}
 }
 
@@ -1679,22 +1676,11 @@ bool AEncodeProperties::RenameCurrentTo(const std::string & new_config_name)
 {
 	bool bResult = false;
 
-	// display all the names of the saved configs
 	// get the values from the saved file if possible
-	if (my_stored_data.LoadFile(my_store_location))
+	TiXmlElement* CurrentNode = LoadEncodings();
+
+	if (CurrentNode != NULL)
 	{
-		TiXmlNode* node;
-
-		node = my_stored_data.FirstChild("lame_acm");
-
-		if (node == NULL)
-			return bResult;
-
-		TiXmlElement* CurrentNode = node->FirstChildElement("encodings");
-
-		if (CurrentNode == NULL)
-			return bResult;
-
 		if (CurrentNode->Attribute("default") != NULL)
 		{
 			std::string CurrentConfigName = *CurrentNode->Attribute("default");
@@ -1707,25 +1693,11 @@ bool AEncodeProperties::RenameCurrentTo(const std::string & new_config_name)
 			else if (CurrentConfigName != "Current")
 			{
 				// find the config that correspond to CurrentConfig
-				TiXmlElement* iterateElmt = CurrentNode->FirstChildElement("config");
-//				int Idx = 0;
-				while (iterateElmt != NULL)
+				TiXmlElement* iterateElmt = FindConfig(*CurrentNode, CurrentConfigName);
+				if (iterateElmt != NULL)
 				{
-					const std::string * tmpname = iterateElmt->Attribute("name");
-					/**
-						\todo support language names
-					*/
-					if (tmpname != NULL)
-					{
-						if (tmpname->compare(CurrentConfigName) == 0)
-						{
-							iterateElmt->SetAttribute("name",new_config_name);	
-							bResult = true;
-							break;
-						}
-					}
-//					Idx++;
-					iterateElmt = iterateElmt->NextSiblingElement("config");
+					iterateElmt->SetAttribute("name",new_config_name);
+					bResult = true;
 				}
 			}
 
@@ -1747,42 +1719,17 @@ bool AEncodeProperties::DeleteConfig(const std::string & config_name)
 
 	if (config_name != "Current")
 	{
-		// display all the names of the saved configs
 		// get the values from the saved file if possible
-		if (my_stored_data.LoadFile(my_store_location))
+		TiXmlElement* CurrentNode = LoadEncodings();
+
+		if (CurrentNode == NULL)
+			return bResult;
+
+		TiXmlElement* iterateElmt = FindConfig(*CurrentNode, config_name);
+		if (iterateElmt != NULL)
 		{
-			TiXmlNode* node;
-
-			node = my_stored_data.FirstChild("lame_acm");
-
-			if (node == NULL)
-				return bResult;
-
-			TiXmlElement* CurrentNode = node->FirstChildElement("encodings");
-
-			if (CurrentNode == NULL)
-				return bResult;
-
-			TiXmlElement* iterateElmt = CurrentNode->FirstChildElement("config");
-//			int Idx = 0;
-			while (iterateElmt != NULL)
-			{
-				const std::string * tmpname = iterateElmt->Attribute("name");
-				/**
-					\todo support language names
-				*/
-				if (tmpname != NULL)
-				{
-					if (tmpname->compare(config_name) == 0)
-					{
-						CurrentNode->RemoveChild(iterateElmt);
-						bResult = true;
-						break;
-					}
-				}
-//				Idx++;
-				iterateElmt = iterateElmt->NextSiblingElement("config");
-			}
+			CurrentNode->RemoveChild(iterateElmt);
+			bResult = true;
 		}
 
 		if (bResult)
@@ -1805,20 +1752,10 @@ void AEncodeProperties::UpdateConfigs(const HWND HwndDlg)
 
 	// display all the names of the saved configs
 	// get the values from the saved file if possible
-	if (my_stored_data.LoadFile(my_store_location))
+	TiXmlElement* CurrentNode = LoadEncodings();
+
+	if (CurrentNode != NULL)
 	{
-		TiXmlNode* node;
-
-		node = my_stored_data.FirstChild("lame_acm");
-
-		if (node == NULL)
-			return;
-
-		TiXmlElement* CurrentNode = node->FirstChildElement("encodings");
-
-		if (CurrentNode == NULL)
-			return;
-
 		std::string CurrentConfig = "";
 
 		if (CurrentNode->Attribute("default") != NULL)
