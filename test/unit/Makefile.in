@@ -134,11 +134,13 @@ host_triplet = @host@
 # whether mp3rtp can be built, rather than a second opinion about it.
 @ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@am__append_3 = test_rtp_socket
 
-# The frontend's exit status on a failed read. This one drives the built lame
-# binary rather than the library, so it needs the source root for the test
-# input as well as the build root for the binary; both are exported below.
-# It runs only where the frontend is built.
-@ENABLE_UNIT_TESTS_TRUE@@WITH_LAME_FRONTEND_TRUE@am__append_4 = test_exit_status.sh
+# The frontend's exit status on a failed read, and its rejection of
+# --swap-channel for a mono input. These drive the built lame binary rather
+# than the library, so they need the source root for the test input as well as
+# the build root for the binary; both are exported below. They run only where
+# the frontend is built.
+@ENABLE_UNIT_TESTS_TRUE@@WITH_LAME_FRONTEND_TRUE@am__append_4 = test_exit_status.sh \
+@ENABLE_UNIT_TESTS_TRUE@@WITH_LAME_FRONTEND_TRUE@	test_swap_channel.sh
 @ENABLE_UNIT_TESTS_TRUE@@INTERNAL_OPTS_TRUE@am__append_5 = -D_ALLOW_INTERNAL_OPTIONS
 @ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_6 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
 @ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_7 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
@@ -1529,13 +1531,13 @@ SH_LOG_COMPILER = $(SHELL)
 # file, and it is inside the --enable-unit-tests conditional, so neither route
 # would put it in the tarball on its own.
 
-# And the exit-status test, for the same two reasons.
+# And the frontend tests, for the same two reasons.
 EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
 	test_calc_sfb_noise_vector.c test_choose_table_neon.c \
 	test_rtp_socket.c test_unused.h test_fixture.h test_mem.h \
 	test_esc_cases.h test_cpu_probe.h test_bytes.h test_report.h \
 	test_float_bits.h test_encode.h test_pkgconfig.sh \
-	test_exit_status.sh
+	test_exit_status.sh test_swap_channel.sh
 all: all-am
 
 .SUFFIXES:

@@ -49,12 +49,14 @@ TESTS = $(check_PROGRAMS)
 
 TESTS += test_pkgconfig.sh
 
-# The frontend's exit status on a failed read. This one drives the built lame
-# binary rather than the library, so it needs the source root for the test
-# input as well as the build root for the binary; both are exported below.
-# It runs only where the frontend is built.
+# The frontend's exit status on a failed read, and its rejection of
+# --swap-channel for a mono input. These drive the built lame binary rather
+# than the library, so they need the source root for the test input as well as
+# the build root for the binary; both are exported below. They run only where
+# the frontend is built.
 if WITH_LAME_FRONTEND
 TESTS += test_exit_status.sh
+TESTS += test_swap_channel.sh
 endif
 
 # Every test here links libmp3lame, and every one of them has to load the copy
@@ -550,5 +552,5 @@ EXTRA_DIST += test_unused.h test_fixture.h test_mem.h test_esc_cases.h \
 # would put it in the tarball on its own.
 EXTRA_DIST += test_pkgconfig.sh
 
-# And the exit-status test, for the same two reasons.
-EXTRA_DIST += test_exit_status.sh
+# And the frontend tests, for the same two reasons.
+EXTRA_DIST += test_exit_status.sh test_swap_channel.sh

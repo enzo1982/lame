@@ -746,7 +746,17 @@ init_infile(lame_t gfp, char const *inPath)
             lame_set_num_samples(gfp, n > discard ? n - discard : 0);
         }
     }
-    return (global.snd_file != NULL || global.music_in != NULL) ? 1 : -1;
+    if (global.snd_file == NULL && global.music_in == NULL) {
+        return -1;
+    }
+    if (global_reader.swap_channel && lame_get_num_channels(gfp) != 2) {
+        if (global_ui_config.silent < 10) {
+            error_printf("Error: --swap-channel needs an input with two channels\n");
+        }
+        close_infile();
+        return -1;
+    }
+    return 1;
 }
 
 int
