@@ -1374,7 +1374,8 @@ check_duration(const frame_counts *c, DWORD rate, const char *what)
  *        setting and Smart Output reach the encoder.
  *
  * - Without a configuration file, every frame is joint stereo, and some frames
- *   use bytes of earlier frames.
+ *   use bytes of earlier frames. A CBR stream at 128 kbit/s has every frame at
+ *   128 kbit/s; the default stream, ABR, is the control and varies.
  * - With @c Bit_reservoir set to false, no frame uses bytes of earlier frames.
  * - With Mono forced, the codec suggests mono for stereo input, opens a stereo
  *   to mono stream, and writes mono frames.
@@ -1440,6 +1441,15 @@ test_settings_reach_the_encoder(const char *driver)
     CHECK(c.frames >= expected_frames, "the default encode has all of its frames");
     CHECK(c.borrowed > 0, "with the default setting, some frames use the bit reservoir");
     CHECK_EQ_U(c.joint, c.frames, "without a configuration file, every frame is joint stereo");
+    CHECK_NE_U(c.min_kbps, c.max_kbps, "the default stream, ABR, varies its bitrate");
+
+    /* A CBR format keeps every frame at its bitrate. */
+    mr = encode_stereo_tone(driver, rate, 2, 128000, ACM_FLAGS_CBR, &c);
+    CHECK_MM(mr, "without a configuration file, a 128 kbit/s CBR stereo stream opens");
+    printf("        CBR: %d frame(s), %d to %d kbit/s\n", c.frames, c.min_kbps, c.max_kbps);
+    CHECK(c.frames >= expected_frames, "the CBR encode has all of its frames");
+    CHECK_EQ_U(c.min_kbps, 128, "the lowest bitrate of the CBR stream is 128 kbit/s");
+    CHECK_EQ_U(c.max_kbps, 128, "the highest bitrate of the CBR stream is 128 kbit/s");
 
     /* The resampling and VBR keys are settings the codec does not have. A
        file from an older release can carry them, and the codec must still
