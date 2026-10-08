@@ -968,6 +968,66 @@ test_stream_caps_list(IPin *lame_out)
     cfg->Release();
 }
 
+/**
+ * @brief An allocator that fails one request for a buffer and passes every
+ *        other call to a memory allocator of the system.
+ *
+ * It lives in the sink pin that hands it out. It does not need reference
+ * counting and does not do it.
+ */
+class FailingAllocator : public IMemAllocator {
+public:
+    IMemAllocator *inner;   /**< the system allocator that does the work */
+    int     fail_at;        /**< the request for a buffer that fails, counted from 1 */
+    int     requests;       /**< the requests for a buffer so far */
+
+    /** @brief Creates an allocator whose request @p n fails. @param n the request. */
+    FailingAllocator(int n) : inner(NULL), fail_at(n), requests(0)
+    {
+        CoCreateInstance(CLSID_MemoryAllocator, NULL, CLSCTX_INPROC_SERVER, IID_IMemAllocator,
+                         (void **) &inner);
+    }
+    /** @brief Releases the system allocator. */
+    ~FailingAllocator()
+    {
+        if (inner)
+            inner->Release();
+    }
+
+    STDMETHODIMP QueryInterface(REFIID riid, void **ppv)
+    {
+        if (riid == IID_IUnknown || riid == IID_IMemAllocator) {
+            *ppv = static_cast<IMemAllocator *>(this);
+            return S_OK;
+        }
+        *ppv = NULL;
+        return E_NOINTERFACE;
+    }
+    STDMETHODIMP_(ULONG) AddRef() { return 2; }
+    STDMETHODIMP_(ULONG) Release() { return 1; }
+
+    STDMETHODIMP SetProperties(ALLOCATOR_PROPERTIES *want, ALLOCATOR_PROPERTIES *got)
+    {
+        return inner ? inner->SetProperties(want, got) : E_FAIL;
+    }
+    STDMETHODIMP GetProperties(ALLOCATOR_PROPERTIES *p)
+    {
+        return inner ? inner->GetProperties(p) : E_FAIL;
+    }
+    STDMETHODIMP Commit() { return inner ? inner->Commit() : E_FAIL; }
+    STDMETHODIMP Decommit() { return inner ? inner->Decommit() : E_FAIL; }
+    STDMETHODIMP GetBuffer(IMediaSample **s, REFERENCE_TIME *start, REFERENCE_TIME *stop,
+                           DWORD flags)
+    {
+        if (++requests == fail_at) {
+            *s = NULL;
+            return E_OUTOFMEMORY;
+        }
+        return inner ? inner->GetBuffer(s, start, stop, flags) : E_FAIL;
+    }
+    STDMETHODIMP ReleaseBuffer(IMediaSample *s) { return inner ? inner->ReleaseBuffer(s) : E_FAIL; }
+};
+
 /** @brief What a sink pin received in one media sample. */
 typedef struct {
     long    offset;         /**< where its bytes start in the received stream */
@@ -1005,6 +1065,7 @@ public:
     int     deliveries;     /**< number of samples received */
     int     reject_from;    /**< the first sample that Receive() rejects, 0 for none */
     int     rejected;       /**< number of samples rejected */
+    FailingAllocator *failing; /**< the allocator the pin hands out, NULL for none */
 
     /**
      * @brief Creates a pin that asks for @p a bytes of alignment.
@@ -1013,7 +1074,7 @@ public:
      */
     AlignedSinkPin(long a, const GUID &m = MEDIATYPE_Stream) : align(a), major(m), peer(NULL),
         owner(NULL), stream(NULL), length(0), capacity(0), samples(NULL), sample_count(0),
-        sample_capacity(0), deliveries(0), reject_from(0), rejected(0)
+        sample_capacity(0), deliveries(0), reject_from(0), rejected(0), failing(NULL)
     {
         eos = CreateEvent(NULL, TRUE, FALSE, NULL);
     }
@@ -1103,7 +1164,11 @@ public:
     STDMETHODIMP EndFlush() { return S_OK; }
     STDMETHODIMP NewSegment(REFERENCE_TIME, REFERENCE_TIME, double) { return S_OK; }
 
-    STDMETHODIMP GetAllocator(IMemAllocator **a) { *a = NULL; return VFW_E_NO_ALLOCATOR; }
+    STDMETHODIMP GetAllocator(IMemAllocator **a)
+    {
+        *a = failing;
+        return failing ? S_OK : VFW_E_NO_ALLOCATOR;
+    }
     STDMETHODIMP NotifyAllocator(IMemAllocator *, BOOL) { return S_OK; }
     STDMETHODIMP GetAllocatorRequirements(ALLOCATOR_PROPERTIES *p)
     {
@@ -1786,6 +1851,45 @@ test_rejected_delivery(IClassFactory *cf, const WCHAR *wav)
 }
 
 /**
+ * @brief Checks that the encoder stops when it gets no buffer for its output.
+ *
+ * The sink hands out an allocator whose second request for a buffer fails.
+ * The encoder returns the failure from Receive(), so the source stops
+ * sending, in byte stream and in frame output. At most the flush at the end of
+ * the stream reaches the sink after the failure. The same encode with the
+ * system allocator is the control: it delivers more than three samples, so an
+ * encoder that goes on without the lost buffer delivers more than two.
+ *
+ * @param cf   the filter DLL's class factory.
+ * @param wav  the input file.
+ */
+static void
+test_failed_output_buffer(IClassFactory *cf, const WCHAR *wav)
+{
+    static const GUID *const majors[] = { &MEDIATYPE_Stream, &MEDIATYPE_Audio };
+    static const char *const outputs[] = { "byte stream", "frame" };
+    char    detail[CTEST_DETAIL_CHARS], what[96];
+    int     connected, i;
+
+    for (i = 0; i < 2; i++) {
+        AlignedSinkPin all(1, *majors[i]), failing(1, *majors[i]);
+        FailingAllocator alloc(2);
+
+        failing.failing = &alloc;
+        encode_into_aligned_sink(cf, wav, all, &connected);
+        encode_into_aligned_sink(cf, wav, failing, &connected, REJECTED_TIMEOUT_MS);
+        sprintf(detail, "%d samples with the system allocator; %d after request %d of %d failed",
+                all.deliveries, failing.deliveries, alloc.fail_at, alloc.requests);
+        sprintf(what, "the %s output delivers more than three samples with the system allocator",
+                outputs[i]);
+        ctest_record(all.deliveries > 3, what, detail);
+        sprintf(what, "after a failed output buffer the %s output stops delivering", outputs[i]);
+        ctest_record(connected && alloc.requests >= alloc.fail_at && failing.deliveries <= 2, what,
+                     detail);
+    }
+}
+
+/**
  * @brief Checks the output for a downstream pin that takes audio, as a muxer
  *        or a player does: one MP3 frame per media sample, stamped with its
  *        time.
@@ -2115,6 +2219,7 @@ main(int argc, char **argv)
     test_rejected_delivery(cf, wavw);
     test_frame_mode(cf, wavw, rate);
     test_frame_times_follow_a_gap(cf);
+    test_failed_output_buffer(cf, wavw);
     /* LAME reports why it rejects the VBR range of
        test_refused_setting_fails_run(). */
     ctest_stderr_empty(&filter_stderr, "the filter writes nothing to the stderr of its host");

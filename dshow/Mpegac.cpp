@@ -372,8 +372,8 @@ HRESULT CMpegAudEnc::Receive(IMediaSample * pSample)
         if (bytes_processed <= 0)
             return S_OK;
 
-        // A sample that the downstream filter does not take ends the
-        // delivery, and upstream gets the result
+        // A sample that gets no output buffer, or that the downstream filter
+        // does not take, ends the delivery, and upstream gets the result
         HRESULT const delivered = FlushEncodedSamples();
         if (delivered != S_OK)
             return delivered;
@@ -392,8 +392,8 @@ HRESULT CMpegAudEnc::Receive(IMediaSample * pSample)
  * Sends the encoded data that is ready downstream, in the output mode of the
  * filter: blocks of a byte stream, or MP3 frames.
  *
- * \return S_OK, or what Deliver() returned for a sample that the downstream
- *         filter did not take.
+ * \return S_OK, the failure of getting an output buffer, or what Deliver()
+ *         returned for a sample that the downstream filter did not take.
  */
 HRESULT CMpegAudEnc::FlushEncodedSamples()
 {
@@ -405,8 +405,8 @@ HRESULT CMpegAudEnc::FlushEncodedSamples()
  * Sends the encoded data downstream in one block of the stream alignment of
  * the downstream filter, stamped with its byte position, if a block is ready.
  *
- * \return S_OK, or what Deliver() returned if the downstream filter did not
- *         take the block.
+ * \return S_OK, the failure of getting the output buffer, or what Deliver()
+ *         returned if the downstream filter did not take the block.
  */
 HRESULT CMpegAudEnc::FlushStream()
 {
@@ -422,36 +422,35 @@ HRESULT CMpegAudEnc::FlushStream()
         return S_OK;
 
     hr = m_pOutput->GetDeliveryBuffer(&pOutSample, NULL, NULL, 0);
-    if (hr == S_OK && pOutSample)
+    if (FAILED(hr))
+        return hr;
+    hr = pOutSample->GetPointer(&pDst);
+    if (SUCCEEDED(hr))
     {
-        hr = pOutSample->GetPointer(&pDst);
-        if (hr == S_OK && pDst)
-        {
-            CopyMemory(pDst, pblock, iBlockLength);
-            if (iBufferSize > pOutSample->GetSize())
-                iBufferSize = pOutSample->GetSize();
-            if (iBufferSize > iBlockLength)
-                ZeroMemory(pDst + iBlockLength, iBufferSize - iBlockLength);
-            REFERENCE_TIME rtEndPos = m_rtBytePos + iBufferSize;
-            EXECUTE_ASSERT(S_OK == pOutSample->SetTime(&m_rtBytePos, &rtEndPos));
-            pOutSample->SetActualDataLength(iBufferSize);
-            m_rtBytePos += iBlockLength;
-            delivered = m_pOutput->Deliver(pOutSample);
-        }
-        pOutSample->Release();
+        CopyMemory(pDst, pblock, iBlockLength);
+        if (iBufferSize > pOutSample->GetSize())
+            iBufferSize = pOutSample->GetSize();
+        if (iBufferSize > iBlockLength)
+            ZeroMemory(pDst + iBlockLength, iBufferSize - iBlockLength);
+        REFERENCE_TIME rtEndPos = m_rtBytePos + iBufferSize;
+        EXECUTE_ASSERT(S_OK == pOutSample->SetTime(&m_rtBytePos, &rtEndPos));
+        pOutSample->SetActualDataLength(iBufferSize);
+        m_rtBytePos += iBlockLength;
+        delivered = m_pOutput->Deliver(pOutSample);
     }
-    return delivered;
+    pOutSample->Release();
+    return FAILED(hr) ? hr : delivered;
 }
 
 
 /**
  * Sends each MP3 frame that is ready downstream in a media sample of its
  * own, stamped with its time. A resync point that the output has reached
- * moves the time first. The first frame that the downstream filter does not
- * take ends the delivery.
+ * moves the time first. The first frame that gets no output buffer, or that
+ * the downstream filter does not take, ends the delivery.
  *
- * \return S_OK, or what Deliver() returned for the frame that the downstream
- *         filter did not take.
+ * \return S_OK, the failure of getting an output buffer, or what Deliver()
+ *         returned for the frame that the downstream filter did not take.
  */
 HRESULT CMpegAudEnc::FlushFrames()
 {
@@ -482,10 +481,10 @@ HRESULT CMpegAudEnc::FlushFrames()
         REFERENCE_TIME rtStop = rtStart + m_rtFrameTime;
 
         HRESULT hr = m_pOutput->GetDeliveryBuffer(&pOutSample, NULL, NULL, 0);
-        if (hr == S_OK && pOutSample)
+        if (SUCCEEDED(hr))
         {
             hr = pOutSample->GetPointer(&pDst);
-            if (hr == S_OK && pDst)
+            if (SUCCEEDED(hr))
             {
                 CopyMemory(pDst, pframe, frame_size);
                 pOutSample->SetActualDataLength(frame_size);
@@ -495,6 +494,8 @@ HRESULT CMpegAudEnc::FlushFrames()
             }
             pOutSample->Release();
         }
+        if (FAILED(hr))
+            delivered = hr;
         m_samplesOut += m_samplesPerFrame;
         m_rtStreamTime = rtStop;
     }
