@@ -1250,63 +1250,54 @@ inline void AEncodeProperties::SetAttributeBool(TiXmlElement * the_elt,const std
 		the_elt->SetAttribute(the_string, "true");
 }
 
+/**
+	\brief Returns the child element with the given name. Adds an empty one at
+	       the end if the parent has none.
+
+	\param parent the element to look in.
+	\param name   the name of the child element.
+	\return the child element, or NULL if it could not be added.
+*/
+TiXmlElement * AEncodeProperties::ChildElement(TiXmlElement & parent, const char * name)
+{
+	TiXmlElement * child = parent.FirstChildElement(name);
+
+	if (child == NULL)
+	{
+		TiXmlNode * inserted = parent.InsertEndChild(TiXmlElement(name));
+
+		if (inserted != NULL)
+			child = inserted->ToElement();
+	}
+	return child;
+}
+
 void AEncodeProperties::SaveValuesToElement(TiXmlElement * the_element) const
 {
 	// get all the parameters saved in this Element
 	TiXmlElement * tmpElt;
 
 	// Bit Reservoir parameter
-	tmpElt = the_element->FirstChildElement("Bit_reservoir");
-	if (tmpElt == NULL)
-	{
-		tmpElt = new TiXmlElement("Bit_reservoir");
+	tmpElt = ChildElement(*the_element, "Bit_reservoir");
+	if (tmpElt != NULL)
 		SetAttributeBool(tmpElt, "use", !bNoBitRes);
-		the_element->InsertEndChild(*tmpElt);
-	}
-	else
-	{
-		SetAttributeBool(tmpElt, "use", !bNoBitRes);
-	}
+
 	// Copyright parameter
-	tmpElt = the_element->FirstChildElement("Copyright");
-	if (tmpElt == NULL)
-	{
-		tmpElt = new TiXmlElement("Copyright");
+	tmpElt = ChildElement(*the_element, "Copyright");
+	if (tmpElt != NULL)
 		SetAttributeBool( tmpElt, "use", bCopyright);
-		the_element->InsertEndChild(*tmpElt);
-	}
-	else
-	{
-		SetAttributeBool( tmpElt, "use", bCopyright);
-	}
 
 	// Smart Output parameter
-	tmpElt = the_element->FirstChildElement("Smart");
-	if (tmpElt == NULL)
-	{
-		tmpElt = new TiXmlElement("Smart");
-		SetAttributeBool( tmpElt, "use", bSmartOutput);
-		SetAttributeDouble( tmpElt, "ratio", SmartRatioMax);
-		the_element->InsertEndChild(*tmpElt);
-	}
-	else
+	tmpElt = ChildElement(*the_element, "Smart");
+	if (tmpElt != NULL)
 	{
 		SetAttributeBool( tmpElt, "use", bSmartOutput);
 		SetAttributeDouble( tmpElt, "ratio", SmartRatioMax);
 	}
 
 	// Smart Output parameter
-	tmpElt = the_element->FirstChildElement("ABR");
-	if (tmpElt == NULL)
-	{
-		tmpElt = new TiXmlElement("ABR");
-		SetAttributeBool( tmpElt, "use", bAbrOutput);
-		tmpElt->SetAttribute("min", AverageBitrate_Min);
-		tmpElt->SetAttribute("max", AverageBitrate_Max);
-		tmpElt->SetAttribute("step", AverageBitrate_Step);
-		the_element->InsertEndChild(*tmpElt);
-	}
-	else
+	tmpElt = ChildElement(*the_element, "ABR");
+	if (tmpElt != NULL)
 	{
 		SetAttributeBool( tmpElt, "use", bAbrOutput);
 		tmpElt->SetAttribute("min", AverageBitrate_Min);
@@ -1315,54 +1306,23 @@ void AEncodeProperties::SaveValuesToElement(TiXmlElement * the_element) const
 	}
 
 	// CRC parameter
-	tmpElt = the_element->FirstChildElement("CRC");
-	if (tmpElt == NULL)
-	{
-		tmpElt = new TiXmlElement("CRC");
+	tmpElt = ChildElement(*the_element, "CRC");
+	if (tmpElt != NULL)
 		SetAttributeBool( tmpElt, "use", bCRC);
-		the_element->InsertEndChild(*tmpElt);
-	}
-	else
-	{
-		SetAttributeBool( tmpElt, "use", bCRC);
-	}
 
 	// Original parameter
-	tmpElt = the_element->FirstChildElement("Original");
-	if (tmpElt == NULL)
-	{
-		tmpElt = new TiXmlElement("Original");
+	tmpElt = ChildElement(*the_element, "Original");
+	if (tmpElt != NULL)
 		SetAttributeBool( tmpElt, "use", bOriginal);
-		the_element->InsertEndChild(*tmpElt);
-	}
-	else
-	{
-		SetAttributeBool( tmpElt, "use", bOriginal);
-	}
 
 	// Private parameter
-	tmpElt = the_element->FirstChildElement("Private");
-	if (tmpElt == NULL)
-	{
-		tmpElt = new TiXmlElement("Private");
+	tmpElt = ChildElement(*the_element, "Private");
+	if (tmpElt != NULL)
 		SetAttributeBool( tmpElt, "use", bPrivate);
-		the_element->InsertEndChild(*tmpElt);
-	}
-	else
-	{
-		SetAttributeBool( tmpElt, "use", bPrivate);
-	}
 
 	// Channel Mode parameter
-	tmpElt = the_element->FirstChildElement("Channel");
-	if (tmpElt == NULL)
-	{
-		tmpElt = new TiXmlElement("Channel");
-		tmpElt->SetAttribute("mode", GetChannelModeString(nChannelIndex));
-		SetAttributeBool( tmpElt, "force", bForceChannel);
-		the_element->InsertEndChild(*tmpElt);
-	}
-	else
+	tmpElt = ChildElement(*the_element, "Channel");
+	if (tmpElt != NULL)
 	{
 		tmpElt->SetAttribute("mode", GetChannelModeString(nChannelIndex));
 		SetAttributeBool( tmpElt, "force", bForceChannel);

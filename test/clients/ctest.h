@@ -145,6 +145,35 @@ ctest_tone(unsigned long n, unsigned long rate, double hz, double amplitude)
     return (short) (amplitude * sin(CTEST_TWO_PI * hz * (double) n / (double) rate));
 }
 
+/**
+ * @brief Counts the allocated blocks of the process heap.
+ *
+ * The C runtime allocates from the process heap, in this program and in the
+ * component under test. A count before and after a repeated call shows
+ * whether the call keeps memory allocated.
+ *
+ * @return the number of allocated blocks, or -1 if the heap cannot be walked.
+ */
+static inline long
+ctest_heap_blocks(void)
+{
+    HANDLE heap = GetProcessHeap();
+    PROCESS_HEAP_ENTRY entry;
+    long blocks = 0;
+
+    if (!HeapLock(heap)) {
+        return -1;
+    }
+    entry.lpData = NULL;
+    while (HeapWalk(heap, &entry)) {
+        if (entry.wFlags & PROCESS_HEAP_ENTRY_BUSY) {
+            ++blocks;
+        }
+    }
+    HeapUnlock(heap);
+    return blocks;
+}
+
 /** @brief The argument that makes a missing component a failure. */
 #define CTEST_REQUIRE_ARG "--require"
 

@@ -17,7 +17,8 @@
  * - The round trip of the smart output ratio through the configuration file.
  *   The tests read and write it through public methods only.
  * - Configuration files that parse but have an unexpected shape, ABR ranges
- *   that are not valid, and a save with no file to start from.
+ *   that are not valid, and a save with no file to start from. Repeated
+ *   saves keep no memory allocated.
  * - The ABR bitrates of a range whose minimum is below its step.
  * - The bitrates that the configuration dialog lists, in their order.
  *
@@ -565,6 +566,43 @@ test_save_without_a_file(void)
     }
 
     ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Checks that saving the configuration keeps no memory allocated.
+ *
+ * Each save without a file creates every element of the configuration. The
+ * document holds the elements until the next save reads the file again. So
+ * after the first save, the number of allocated blocks stays the same from
+ * one save to the next.
+ */
+static void
+test_save_keeps_no_memory(void)
+{
+    /* Each save creates eight elements. A save that keeps them grows the heap
+       by at least eight blocks. */
+    const long SAVES = 100;
+    char detail[CTEST_DETAIL_CHARS];
+    long before, after, i;
+
+    printf("saving the configuration again and again\n");
+
+    AEncodeProperties held(NULL);
+
+    ::DeleteFileA(CONFIG_NAME);
+    held.ParamsRestore();
+    held.ParamsSave();
+    before = ctest_heap_blocks();
+    for (i = 0; i < SAVES; i++) {
+        ::DeleteFileA(CONFIG_NAME);
+        held.ParamsSave();
+    }
+    after = ctest_heap_blocks();
+    ::DeleteFileA(CONFIG_NAME);
+
+    CHECK(before > 0 && after > 0, "the heap blocks are counted");
+    snprintf(detail, sizeof detail, "%ld blocks before, %ld after %ld saves", before, after, SAVES);
+    ctest_record(after - before < SAVES, "100 saves without a file keep fewer than 100 blocks", detail);
 }
 
 /**
@@ -1722,6 +1760,7 @@ main(int argc, char **argv)
     test_abr_ladder_below_step();
     test_bitrate_list();
     test_save_without_a_file();
+    test_save_keeps_no_memory();
 
     if (ctest_component_path(argc, argv, "lameACM.acm", driver, sizeof(driver), &require)
         == CTEST_FOUND) {
