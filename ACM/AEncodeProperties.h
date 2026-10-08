@@ -34,6 +34,7 @@
 
 #include <windows.h>
 #include <string>
+#include <vector>
 
 #include "ADbg/ADbg.h"
 //#include "BladeMP3EncDLL.h"
@@ -225,6 +226,7 @@ public:
 		\brief Returns the step between the ABR bitrates that the codec offers.
 	*/
 	inline unsigned int GetAbrBitrateStep() const { return AverageBitrate_Step;}
+	static std::vector<unsigned int> AbrLadder(unsigned int min, unsigned int max, unsigned int step);
 
 #if 0
 //	const char * GetDllLocation() const { return DllLocation.c_str(); }

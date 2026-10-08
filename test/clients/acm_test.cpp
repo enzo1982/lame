@@ -18,6 +18,7 @@
  *   The tests read and write it through public methods only.
  * - Configuration files that parse but have an unexpected shape, ABR ranges
  *   that are not valid, and a save with no file to start from.
+ * - The ABR bitrates of a range whose minimum is below its step.
  * - The bitrates that the configuration dialog lists, in their order.
  *
  * Second, the program loads the built @c lameACM.acm and drives it through
@@ -31,11 +32,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <vector>
+
 #include "ctest.h"
 #include "mp3frame.h"
 
+#include <lame.h>
 #include "ACMStream.h"
 #include "AEncodeProperties.h"
+#include "ACM.h"
 #include "../../libmp3lame/version.h"
 
 /** @brief How the codec's long name begins: its own name, then LAME's version. */
@@ -371,6 +376,114 @@ test_abr_range_config(void)
         CHECK(0, "the configuration file could be written");
     }
     ::DeleteFileA(CONFIG_NAME);
+}
+
+/** @brief Gives the test the ABR bitrates of a codec object compiled into it. */
+class AbrProbe : public ACM
+{
+public:
+    /** @brief Creates the codec object. It reads lame_acm.xml in the current directory. */
+    AbrProbe() : ACM(NULL) {}
+
+    /**
+     * @brief Returns the ABR bitrates the codec lists for one MPEG version.
+     * @param lowest  the lowest bitrate of the MPEG version, in kbit/s.
+     * @return the bitrates, highest first.
+     */
+    std::vector<unsigned int> Bitrates(unsigned int lowest) const { return AbrBitrates(lowest); }
+};
+
+/** @brief The input and the result of one run of abr_ladder_worker(). */
+typedef struct {
+    unsigned int lowest;             /**< passed to AbrProbe::Bitrates() */
+    std::vector<unsigned int> got;   /**< the bitrates it returned */
+    int built;                       /**< 1 if the codec object was created */
+} abr_ladder_run;
+
+/**
+ * @brief Creates a codec object and asks it for its ABR bitrates.
+ *
+ * A list that does not end grows until the allocation fails. The exception
+ * then stops the thread, and @c built stays 0.
+ *
+ * @param arg  the abr_ladder_run to fill.
+ * @return 0.
+ */
+static DWORD WINAPI
+abr_ladder_worker(LPVOID arg)
+{
+    abr_ladder_run *run = (abr_ladder_run *) arg;
+
+    try {
+        AbrProbe acm;
+
+        run->got = acm.Bitrates(run->lowest);
+        run->built = 1;
+    }
+    catch (...) {
+        run->built = 0;
+    }
+    return 0;
+}
+
+/**
+ * @brief Checks the ABR bitrates for a range whose minimum is below its step.
+ *
+ * The codec lists the ABR bitrates when it is created. The configuration
+ * dialog draws the same list as slider tics. With a minimum of 8, a maximum
+ * of 200 and a step of 16, the list ends at 8. The codec object is created in
+ * a thread with a time limit, so a list that does not end fails the check and
+ * does not hang the run.
+ */
+static void
+test_abr_ladder_below_step(void)
+{
+    static const unsigned int expected[] =
+        { 200, 184, 168, 152, 136, 120, 104, 88, 72, 56, 40, 24, 8 };
+    const unsigned int n = (unsigned int) (sizeof(expected) / sizeof(expected[0]));
+    /* Creating the codec object takes far less than a second. */
+    const DWORD TIME_LIMIT_MS = 30000;
+    /* The lowest MPEG-2 bitrate. No bitrate of the range is below it. */
+    const unsigned int MPEG2_LOWEST_KBPS = 8;
+    abr_ladder_run run;
+    HANDLE thread;
+    DWORD waited;
+    unsigned int i, same = 0;
+
+    printf("an ABR range whose minimum is below its step\n");
+    ::DeleteFileA(CONFIG_NAME);
+    if (!write_raw_config("<lame_acm>\n    <encodings default=\"Current\">\n        <config name=\"Current\">\n"
+                          "            <ABR use=\"true\" min=\"8\" max=\"200\" step=\"16\" />\n"
+                          "        </config>\n    </encodings>\n</lame_acm>\n")) {
+        CHECK(0, "the configuration file could be written");
+        return;
+    }
+
+    run.lowest = MPEG2_LOWEST_KBPS;
+    run.built = 0;
+    thread = ::CreateThread(NULL, 0, abr_ladder_worker, &run, 0, NULL);
+    if (thread == NULL) {
+        CHECK(0, "the thread that creates the codec object starts");
+        ::DeleteFileA(CONFIG_NAME);
+        return;
+    }
+    waited = ::WaitForSingleObject(thread, TIME_LIMIT_MS);
+    if (waited != WAIT_OBJECT_0) {
+        /* The thread still runs and may hold the heap. The run ends here. */
+        CHECK(0, "the codec lists its ABR bitrates within the time limit");
+        ::ExitProcess((UINT) ctest_summary("acm_test"));
+    }
+    ::CloseHandle(thread);
+    ::DeleteFileA(CONFIG_NAME);
+
+    CHECK(run.built, "the codec object is created");
+    CHECK_EQ_U(run.got.size(), n, "the ABR list has 13 bitrates");
+    for (i = 0; i < n && i < run.got.size(); i++) {
+        if (run.got[i] == expected[i]) {
+            ++same;
+        }
+    }
+    CHECK_EQ_U(same, n, "the ABR list steps from 200 down to 8 kbit/s");
 }
 
 /**
@@ -1543,6 +1656,7 @@ main(int argc, char **argv)
     test_smart_ratio_round_trip();
     test_malformed_config();
     test_abr_range_config();
+    test_abr_ladder_below_step();
     test_bitrate_list();
     test_save_without_a_file();
 

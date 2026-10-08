@@ -1378,15 +1378,16 @@ void ACM::AddFormats(const unsigned int * freqs, unsigned int nfreqs, const unsi
 */
 std::vector<unsigned int> ACM::AbrBitrates(unsigned int lowest) const
 {
+	std::vector<unsigned int> const ladder =
+		AEncodeProperties::AbrLadder(my_EncodingProperties.GetAbrBitrateMin(),
+		                             my_EncodingProperties.GetAbrBitrateMax(),
+		                             my_EncodingProperties.GetAbrBitrateStep());
 	std::vector<unsigned int> list;
-	unsigned int bitrate;
 
-	for (bitrate = my_EncodingProperties.GetAbrBitrateMax();
-	     bitrate >= my_EncodingProperties.GetAbrBitrateMin();
-	     bitrate -= my_EncodingProperties.GetAbrBitrateStep())
+	for (size_t i = 0; i < ladder.size(); i++)
 	{
-		if (bitrate >= lowest)
-			list.push_back(bitrate);
+		if (ladder[i] >= lowest)
+			list.push_back(ladder[i]);
 	}
 	return list;
 }

@@ -1802,6 +1802,26 @@ void AEncodeProperties::UpdateAbrSteps(unsigned int min, unsigned int max, unsig
 {
 }
 */
+/**
+	\brief Returns the bitrates of an ABR range, highest first.
+
+	\param min  the lowest bitrate of the range, in kbit/s
+	\param max  the highest bitrate of the range, in kbit/s
+	\param step the distance between two bitrates, in kbit/s. It must be
+	            greater than 0.
+	\return \a max, \a max - \a step and so on, down to the last bitrate
+	        that is not below \a min. Empty if \a max is below \a min.
+*/
+std::vector<unsigned int> AEncodeProperties::AbrLadder(unsigned int min, unsigned int max, unsigned int step)
+{
+	std::vector<unsigned int> ladder;
+	int bitrate;
+
+	for (bitrate = (int) max; bitrate >= (int) min; bitrate -= (int) step)
+		ladder.push_back((unsigned int) bitrate);
+	return ladder;
+}
+
 void AEncodeProperties::UpdateDlgFromSlides(HWND hwndDlg) const
 {
 	UINT value_min, value_max, value_step, value;
@@ -1839,9 +1859,10 @@ void AEncodeProperties::UpdateDlgFromSlides(HWND hwndDlg) const
 	::SetWindowText(GetDlgItem( hwndDlg, IDC_STATIC_AVERAGE_STEP_VALUE), tmp);
 
 	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_CLEARTICS, TRUE, 0);
-	for(UINT i=value_max; i>=value_min;i-=value_step)
+	std::vector<unsigned int> const tics = AbrLadder(value_min, value_max, value_step);
+	for (size_t i = 0; i < tics.size(); i++)
 	{
-		SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETTIC, 0, i);
+		SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETTIC, 0, tics[i]);
 	}
 	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETLINESIZE, 0, value_step);
 	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETPAGESIZE, 0, value_step);
