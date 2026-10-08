@@ -39,6 +39,7 @@
 #include <cmocka.h>
 
 #include "test_fixture.h"
+#include "test_float_bits.h"
 
 #include "lame.h"
 
@@ -1007,28 +1008,6 @@ test_vbr_with_cbr_bitrate_beyond_tables(void **state)
         assert_true(lame_encode_flush(gf, mp3, sizeof mp3) >= 0);
         lame_close(gf);
     }
-}
-
-/**
- * @brief Builds a float from its IEEE-754 bit pattern, in a way that the
- *        compiler cannot fold.
- *
- * These tests are built with fast floating point math. Under it, the compiler
- * removes a NaN or an infinity that it can see at compile time.
- *
- * @param bits the bit pattern.
- * @return the float with that pattern.
- */
-static float
-float_from_bits(uint32_t bits)
-{
-    uint32_t volatile opaque = bits;
-    uint32_t pattern;
-    float   f;
-
-    pattern = opaque;
-    memcpy(&f, &pattern, sizeof f);
-    return f;
 }
 
 /**

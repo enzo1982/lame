@@ -49,73 +49,13 @@
 #include "test_unused.h"
 
 #include "lame.h"
+#include "test_fixture.h"
+#include "test_float_bits.h"
 
 /** @brief Samples per channel passed to the encoder in one call. */
 #define NSAMPLES 4608
 /** @brief Size of the output buffer, from the worst case in lame.h. */
 #define MP3BUF_SIZE (NSAMPLES * 5 / 4 + 7200)
-
-/** @brief Returns the float with bit pattern @p bits. The compiler cannot fold it. */
-static float
-float_from_bits(uint32_t bits)
-{
-    uint32_t volatile opaque = bits;
-    uint32_t pattern;
-    float   f;
-
-    pattern = opaque;
-    memcpy(&f, &pattern, sizeof f);
-    return f;
-}
-
-/** @brief Returns the double with bit pattern @p bits. The compiler cannot fold it. */
-static double
-double_from_bits(uint64_t bits)
-{
-    uint64_t volatile opaque = bits;
-    uint64_t pattern;
-    double  d;
-
-    pattern = opaque;
-    memcpy(&d, &pattern, sizeof d);
-    return d;
-}
-
-static float
-float_nan(void)
-{
-    return float_from_bits(0x7FC00000u); /* quiet NaN */
-}
-
-static float
-float_inf(int negative)
-{
-    return float_from_bits(negative ? 0xFF800000u : 0x7F800000u);
-}
-
-static double
-double_nan(void)
-{
-    return double_from_bits(0x7FF8000000000000ull);
-}
-
-/**
- * @brief Creates an encoder instance for the given channel count.
- * @param channels number of input channels.
- * @return an initialized encoder instance. The test fails if the setup fails.
- */
-static lame_t
-encoder_new(int channels)
-{
-    lame_t  gfp = lame_init();
-
-    assert_non_null(gfp);
-    assert_int_equal(lame_set_num_channels(gfp, channels), 0);
-    assert_int_equal(lame_set_in_samplerate(gfp, 44100), 0);
-    assert_int_equal(lame_set_VBR(gfp, vbr_default), 0);
-    assert_int_equal(lame_init_params(gfp), 0);
-    return gfp;
-}
 
 /** @brief Fills a float buffer with a finite ramp from -0.25 to +0.25 full scale. */
 static void
@@ -151,7 +91,7 @@ test_ieee_float_valid_is_encoded(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
+    lame_t  gfp = lame_fixture_encoder(2);
 
     fill_valid_float(l, NSAMPLES);
     fill_valid_float(r, NSAMPLES);
@@ -172,7 +112,7 @@ ieee_float_encode_with(int channel, int index, float bad)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
+    lame_t  gfp = lame_fixture_encoder(2);
     int     rc;
 
     fill_valid_float(l, NSAMPLES);
@@ -226,7 +166,7 @@ test_ieee_float_infinities(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
+    lame_t  gfp = lame_fixture_encoder(2);
 
     fill_valid_float(l, NSAMPLES);
     fill_valid_float(r, NSAMPLES);
@@ -251,7 +191,7 @@ test_ieee_float_boundary_accepted(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
+    lame_t  gfp = lame_fixture_encoder(2);
 
     fill_valid_float(l, NSAMPLES);
     fill_valid_float(r, NSAMPLES);
@@ -274,7 +214,7 @@ test_buffer_float_boundary_accepted(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
+    lame_t  gfp = lame_fixture_encoder(2);
     int     i;
 
     for (i = 0; i < NSAMPLES; i++) {
@@ -295,7 +235,7 @@ test_ieee_double_boundary_accepted(LAME_UNUSED void **state)
 {
     static double l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
+    lame_t  gfp = lame_fixture_encoder(2);
     int     i;
 
     for (i = 0; i < NSAMPLES; i++) {
@@ -316,7 +256,7 @@ test_ieee_float_recovers_after_rejection(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
+    lame_t  gfp = lame_fixture_encoder(2);
 
     fill_valid_float(l, NSAMPLES);
     fill_valid_float(r, NSAMPLES);
@@ -339,7 +279,7 @@ test_ieee_float_mono_nan(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(1);
+    lame_t  gfp = lame_fixture_encoder(1);
 
     fill_valid_float(l, NSAMPLES);
     l[5] = float_nan();
@@ -360,7 +300,7 @@ test_buffer_float_nan(LAME_UNUSED void **state)
 {
     static float l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
+    lame_t  gfp = lame_fixture_encoder(2);
     int     i;
 
     for (i = 0; i < NSAMPLES; i++) {
@@ -383,7 +323,7 @@ test_interleaved_ieee_float_nan(LAME_UNUSED void **state)
 {
     static float pcm[2 * NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
+    lame_t  gfp = lame_fixture_encoder(2);
 
     fill_valid_float(pcm, 2 * NSAMPLES);
     pcm[1] = float_nan(); /* right channel of the first frame */
@@ -401,7 +341,7 @@ test_ieee_double_nan(LAME_UNUSED void **state)
 {
     static double l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
+    lame_t  gfp = lame_fixture_encoder(2);
 
     fill_valid_double(l, NSAMPLES);
     fill_valid_double(r, NSAMPLES);
@@ -420,7 +360,7 @@ test_interleaved_ieee_double_nan(LAME_UNUSED void **state)
 {
     static double pcm[2 * NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
+    lame_t  gfp = lame_fixture_encoder(2);
 
     fill_valid_double(pcm, 2 * NSAMPLES);
     pcm[2] = double_nan();
@@ -441,7 +381,7 @@ test_short_int_still_encodes(LAME_UNUSED void **state)
 {
     static short int l[NSAMPLES], r[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
+    lame_t  gfp = lame_fixture_encoder(2);
     int     i;
 
     for (i = 0; i < NSAMPLES; i++) {

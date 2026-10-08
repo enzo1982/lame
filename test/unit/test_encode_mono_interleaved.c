@@ -39,29 +39,12 @@
 #include "test_unused.h"
 
 #include "lame.h"
+#include "test_fixture.h"
 
 /** @brief Samples per channel that the test passes to the encoder in one call. */
 #define NSAMPLES 4608
 /** @brief Size of the output buffer, per the worst case in lame.h. */
 #define MP3BUF_SIZE (NSAMPLES * 5 / 4 + 7200)
-
-/**
- * @brief Creates an encoder instance with the given number of input channels.
- * @param channels Number of input channels.
- * @return An initialized encoder instance. The caller closes it.
- */
-static lame_t
-encoder_new(int channels)
-{
-    lame_t  gfp = lame_init();
-
-    assert_non_null(gfp);
-    assert_int_equal(lame_set_num_channels(gfp, channels), 0);
-    assert_int_equal(lame_set_in_samplerate(gfp, 44100), 0);
-    assert_int_equal(lame_set_VBR(gfp, vbr_default), 0);
-    assert_int_equal(lame_init_params(gfp), 0);
-    return gfp;
-}
 
 /**
  * @brief Checks that a mono session rejects the short interleaved entry point.
@@ -72,7 +55,7 @@ test_mono_interleaved_short_rejected(LAME_UNUSED void **state)
 {
     static short int pcm[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(1);
+    lame_t  gfp = lame_fixture_encoder(1);
     int     i;
 
     for (i = 0; i < NSAMPLES; i++)
@@ -91,7 +74,7 @@ test_mono_interleaved_int_rejected(LAME_UNUSED void **state)
 {
     static int pcm[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(1);
+    lame_t  gfp = lame_fixture_encoder(1);
     int     i;
 
     for (i = 0; i < NSAMPLES; i++)
@@ -110,7 +93,7 @@ test_mono_interleaved_float_rejected(LAME_UNUSED void **state)
 {
     static float pcm[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(1);
+    lame_t  gfp = lame_fixture_encoder(1);
     int     i;
 
     for (i = 0; i < NSAMPLES; i++)
@@ -133,7 +116,7 @@ test_mono_noninterleaved_still_encodes(LAME_UNUSED void **state)
 {
     static short int pcm[NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(1);
+    lame_t  gfp = lame_fixture_encoder(1);
     int     i;
 
     for (i = 0; i < NSAMPLES; i++)
@@ -155,7 +138,7 @@ test_stereo_interleaved_still_encodes(LAME_UNUSED void **state)
 {
     static short int pcm[2 * NSAMPLES];
     unsigned char mp3[MP3BUF_SIZE];
-    lame_t  gfp = encoder_new(2);
+    lame_t  gfp = lame_fixture_encoder(2);
     int     i;
 
     for (i = 0; i < 2 * NSAMPLES; i++)
