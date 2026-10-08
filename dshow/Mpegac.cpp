@@ -67,9 +67,32 @@
 
 #define         DEFAULT_FILTER_MERIT        MERIT_DO_NOT_USE                // Standard compressor merit value
 
-#define GET_DATARATE(kbps) (kbps * 1000 / 8)
-#define GET_FRAMELENGTH(bitrate, sample_rate) ((WORD)(((sample_rate < 32000 ? 72000 : 144000) * (bitrate))/(sample_rate)))
-#define DECLARE_PTR(type, ptr, expr) type* ptr = (type*)(expr);
+/**
+ * Fills a WAVE_FORMAT_MPEGLAYER3 format block for an MP3 stream.
+ *
+ * \param format    the format block. Its other bytes are set to zero.
+ * \param channels  the number of channels.
+ * \param rate      the sample rate, in Hz.
+ * \param kbps      the bitrate, in kbit/s.
+ */
+static void FillMp3Format(MPEGLAYER3WAVEFORMAT & format, WORD channels, DWORD rate, DWORD kbps)
+{
+    ZeroMemory(&format, sizeof(MPEGLAYER3WAVEFORMAT));
+
+    format.wfx.wFormatTag = WAVE_FORMAT_MPEGLAYER3;
+    format.wfx.nChannels = channels;
+    format.wfx.nSamplesPerSec = rate;
+    format.wfx.nAvgBytesPerSec = kbps * 1000 / 8;
+    format.wfx.nBlockAlign = 1;
+    format.wfx.wBitsPerSample = 0;
+    format.wfx.cbSize = sizeof(MPEGLAYER3WAVEFORMAT) - sizeof(WAVEFORMATEX);
+
+    format.wID = MPEGLAYER3_ID_MPEG;
+    format.fdwFlags = MPEGLAYER3_FLAG_PADDING_ISO;
+    format.nBlockSize = (WORD) (((rate < 32000 ? 72000 : 144000) * kbps) / rate);
+    format.nFramesPerBlock = 1;
+    format.nCodecDelay = 0;
+}
 
 /*  Registration setup stuff */
 //  Setup data
@@ -1584,26 +1607,14 @@ HRESULT CMpegAudEncOutPin::GetMediaType(int iPosition, CMediaType *pmt)
 
     // Now configure the remainder of the WAVE_FORMAT_MPEGLAYER3 format block
     // and its parent AM_MEDIA_TYPE structure
-    DECLARE_PTR(MPEGLAYER3WAVEFORMAT, p_mp3wvfmt, pmt->AllocFormatBuffer(sizeof(MPEGLAYER3WAVEFORMAT)));
-    ZeroMemory(p_mp3wvfmt, sizeof(MPEGLAYER3WAVEFORMAT));
-
-    p_mp3wvfmt->wfx.wFormatTag = WAVE_FORMAT_MPEGLAYER3;
-    p_mp3wvfmt->wfx.nChannels = (m_CurrentOutputFormat.ChMode == MONO) ? 1 : 2;
-    p_mp3wvfmt->wfx.nSamplesPerSec = m_CurrentOutputFormat.nSampleRate;
-    p_mp3wvfmt->wfx.nAvgBytesPerSec = GET_DATARATE(m_CurrentOutputFormat.nBitRate);
-    p_mp3wvfmt->wfx.nBlockAlign = 1;
-    p_mp3wvfmt->wfx.wBitsPerSample = 0;
-    p_mp3wvfmt->wfx.cbSize = sizeof(MPEGLAYER3WAVEFORMAT) - sizeof(WAVEFORMATEX);
-
-    p_mp3wvfmt->wID = MPEGLAYER3_ID_MPEG;
-    p_mp3wvfmt->fdwFlags = MPEGLAYER3_FLAG_PADDING_ISO;
-    p_mp3wvfmt->nBlockSize = GET_FRAMELENGTH(m_CurrentOutputFormat.nBitRate, p_mp3wvfmt->wfx.nSamplesPerSec);
-    p_mp3wvfmt->nFramesPerBlock = 1;
-    p_mp3wvfmt->nCodecDelay = 0;
+    MPEGLAYER3WAVEFORMAT *p_mp3wvfmt =
+        (MPEGLAYER3WAVEFORMAT *) pmt->AllocFormatBuffer(sizeof(MPEGLAYER3WAVEFORMAT));
+    if (p_mp3wvfmt == NULL) return E_OUTOFMEMORY;
+    FillMp3Format(*p_mp3wvfmt, (m_CurrentOutputFormat.ChMode == MONO) ? 1 : 2,
+                  m_CurrentOutputFormat.nSampleRate, m_CurrentOutputFormat.nBitRate);
 
     pmt->SetTemporalCompression(FALSE);
     pmt->SetSampleSize(OUT_BUFFER_SIZE);
-    pmt->SetFormat((LPBYTE)p_mp3wvfmt, sizeof(MPEGLAYER3WAVEFORMAT));
     pmt->SetFormatType(&FORMAT_WaveFormatEx);
 
     return NOERROR;
@@ -1803,10 +1814,9 @@ HRESULT STDMETHODCALLTYPE CMpegAudEncOutPin::GetStreamCaps(int iIndex, AM_MEDIA_
     // asks for.
     CMediaType mt;
 
-    DECLARE_PTR(MPEGLAYER3WAVEFORMAT, p_mp3wvfmt,
-                mt.AllocFormatBuffer(sizeof(MPEGLAYER3WAVEFORMAT)));
+    MPEGLAYER3WAVEFORMAT *p_mp3wvfmt =
+        (MPEGLAYER3WAVEFORMAT *) mt.AllocFormatBuffer(sizeof(MPEGLAYER3WAVEFORMAT));
     if (p_mp3wvfmt == NULL) return E_OUTOFMEMORY;
-    ZeroMemory(p_mp3wvfmt, sizeof(MPEGLAYER3WAVEFORMAT));
 
     mt.SetType(&MEDIATYPE_Audio);
     mt.SetSubtype(&MEDIASUBTYPE_MP3);
@@ -1814,26 +1824,15 @@ HRESULT STDMETHODCALLTYPE CMpegAudEncOutPin::GetStreamCaps(int iIndex, AM_MEDIA_
     mt.SetSampleSize(OUT_BUFFER_SIZE);
     mt.SetFormatType(&FORMAT_WaveFormatEx);
 
-    p_mp3wvfmt->wfx.wFormatTag = WAVE_FORMAT_MPEGLAYER3;
-    p_mp3wvfmt->wfx.nChannels = 2;
-    p_mp3wvfmt->wfx.nSamplesPerSec = m_pFilter->OutputCaps[iIndex].nSampleRate;
-    p_mp3wvfmt->wfx.nAvgBytesPerSec = GET_DATARATE(m_pFilter->OutputCaps[iIndex].nBitRate);
-    p_mp3wvfmt->wfx.nBlockAlign = 1;
-    p_mp3wvfmt->wfx.wBitsPerSample = 0;
-    p_mp3wvfmt->wfx.cbSize = sizeof(MPEGLAYER3WAVEFORMAT) - sizeof(WAVEFORMATEX);
-
-    p_mp3wvfmt->wID = MPEGLAYER3_ID_MPEG;
-    p_mp3wvfmt->fdwFlags = MPEGLAYER3_FLAG_PADDING_ISO;
-    p_mp3wvfmt->nBlockSize = GET_FRAMELENGTH(m_pFilter->OutputCaps[iIndex].nBitRate, m_pFilter->OutputCaps[iIndex].nSampleRate);
-    p_mp3wvfmt->nFramesPerBlock = 1;
-    p_mp3wvfmt->nCodecDelay = 0;
+    FillMp3Format(*p_mp3wvfmt, 2, m_pFilter->OutputCaps[iIndex].nSampleRate,
+                  m_pFilter->OutputCaps[iIndex].nBitRate);
 
     *pmt = CreateMediaType(&mt);
     if (*pmt == NULL) return E_OUTOFMEMORY;
 
     // Set up the companion AUDIO_STREAM_CONFIG_CAPS structure
     // We are only using the CHANNELS element of the structure
-    DECLARE_PTR(AUDIO_STREAM_CONFIG_CAPS, pascc, pSCC);
+    AUDIO_STREAM_CONFIG_CAPS *pascc = (AUDIO_STREAM_CONFIG_CAPS *) pSCC;
 
     ZeroMemory(pascc, sizeof(AUDIO_STREAM_CONFIG_CAPS));
     pascc->guid = MEDIATYPE_Audio;

@@ -63,6 +63,11 @@ char ACM::VersionString[VERSION_STRING_CHARS];
 #define VERSION_MSACM MAKE_ACM_VERSION(3, 50, 0)
 
 #define PERSONAL_FORMAT WAVE_FORMAT_MPEGLAYER3
+
+/// The fdwFlags value of the ABR formats that this codec lists.
+static const DWORD FORMAT_FLAGS_ABR = MPEGLAYER3_FLAG_PADDING_OFF;
+/// The fdwFlags value of the CBR formats that this codec lists.
+static const DWORD FORMAT_FLAGS_CBR = 4;
 #define SIZE_FORMAT_STRUCT sizeof(MPEGLAYER3WAVEFORMAT)
 //#define SIZE_FORMAT_STRUCT 0
 
@@ -957,7 +962,7 @@ inline DWORD ACM::OnStreamOpen(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 						if (the_stream != NULL)
 						{
 							MPEGLAYER3WAVEFORMAT * casted = (MPEGLAYER3WAVEFORMAT *) a_StreamInstance->pwfxDst;
-							vbr_mode a_mode = (casted->fdwFlags-2 == 0)?vbr_abr:vbr_off;
+							vbr_mode a_mode = IsABRFormatFlags(casted->fdwFlags)?vbr_abr:vbr_off;
 							if (the_stream->init(a_StreamInstance->pwfxSrc->nSamplesPerSec,
 												 OutputFrequency,
 												 a_StreamInstance->pwfxSrc->nChannels,
@@ -1122,7 +1127,7 @@ inline DWORD ACM::OnStreamConvert(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACM
 bool ACM::IsABRFormatFlags(const DWORD the_Flags)
 {
 	// this is the only way I found to know if we do CBR or ABR
-	return (the_Flags - 2) == 0;
+	return the_Flags == FORMAT_FLAGS_ABR;
 }
 
 /*!
@@ -1163,7 +1168,7 @@ void ACM::FillMP3Format(WAVEFORMATEX & the_Format, const unsigned int the_Freque
 	the_Format.cbSize = MPEGLAYER3_WFX_EXTRA_BYTES;
 	MPEGLAYER3WAVEFORMAT * tmpFormat = (MPEGLAYER3WAVEFORMAT *) &the_Format;
 	tmpFormat->wID             = MPEGLAYER3_ID_MPEG;
-	tmpFormat->fdwFlags        = 2 + ((the_Mode == vbr_abr)?0:2);
+	tmpFormat->fdwFlags        = (the_Mode == vbr_abr) ? FORMAT_FLAGS_ABR : FORMAT_FLAGS_CBR;
 	tmpFormat->nBlockSize      = (WORD) (Block_size * the_Format.nAvgBytesPerSec / the_Format.nSamplesPerSec);
 	tmpFormat->nFramesPerBlock = 1;
 	tmpFormat->nCodecDelay     = 0; // 0x0571 on FHG

@@ -339,26 +339,30 @@ HRESULT CEncoder::Finish()
 }
 
 
-int getFrameLength(const unsigned char * pdata)
+/** \brief Values of the MPEG audio frame header fields that getFrameLength() tests. */
+enum {
+    MPEG_VERSION_RESERVED = 1,  /**< the version field value that is reserved */
+    MPEG_VERSION_1 = 3,         /**< the version field value of MPEG-1 */
+    LAYER_III = 1,              /**< the layer field value of Layer III */
+    BITRATE_FREE = 0,           /**< the bitrate index of a free format stream */
+    BITRATE_RESERVED = 15,      /**< the bitrate index that is reserved */
+    SRATE_RESERVED = 3,         /**< the sample rate index that is reserved */
+    EMPHASIS_RESERVED = 2       /**< the emphasis value that is reserved */
+};
+
+/** \brief Samples in one Layer III frame of MPEG-1, and of MPEG-2 and MPEG-2.5. */
+enum { MPEG1_SAMPLES_PER_FRAME = 1152, MPEG2_SAMPLES_PER_FRAME = 576 };
+
+/**
+ * \brief The library's MPEG version for each value of the header's version
+ *        field: 0 is MPEG-2.5, 1 is reserved, 2 is MPEG-2, 3 is MPEG-1.
+ */
+static const int lame_version[4] = { 2, -1, 0, 1 };
+
+static int getFrameLength(const unsigned char * pdata)
 {
     if (!pdata || pdata[0] != 0xff || (pdata[1] & 0xe0) != 0xe0)
         return -1;
-
-    // The library's MPEG version for each value of the header's version
-    // field: 0 is MPEG-2.5, 1 is reserved, 2 is MPEG-2, 3 is MPEG-1.
-    const int lame_version[4] = { 2, -1, 0, 1 };
-
-#define MPEG_VERSION_RESERVED   1
-#define MPEG_VERSION_1          3
-
-#define LAYER_III               1
-
-#define BITRATE_FREE            0
-#define BITRATE_RESERVED        15
-
-#define SRATE_RESERVED          3
-
-#define EMPHASIS_RESERVED       2
 
     int version_id      = (pdata[1] & 0x18) >> 3;
     int layer           = (pdata[1] & 0x06) >> 1;
@@ -374,7 +378,7 @@ int getFrameLength(const unsigned char * pdata)
         sample_rate_id  != SRATE_RESERVED &&
         emphasis        != EMPHASIS_RESERVED)
     {
-        int spf         = (version_id == MPEG_VERSION_1) ? 1152 : 576;
+        int spf         = (version_id == MPEG_VERSION_1) ? MPEG1_SAMPLES_PER_FRAME : MPEG2_SAMPLES_PER_FRAME;
         int sample_rate = lame_get_samplerate(lame_version[version_id], sample_rate_id);
         int bitrate     = BitRateValue(version_id != MPEG_VERSION_1, bitrate_id - 1) * 1000;
 
