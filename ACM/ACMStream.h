@@ -32,6 +32,7 @@
 #pragma once
 #endif // _MSC_VER >= 1000
 
+#include <windows.h>
 #include <mmreg.h>
 #include <msacm.h>
 #include <msacmdrv.h>
@@ -40,9 +41,7 @@
 
 #include "AEncodeProperties.h"
 
-
-typedef enum vbr_mode_e vbr_mode;
-typedef struct lame_global_struct lame_global_flags;
+#include <lame.h>
 
 
 void ConfigureDebugFromRegistry(ADbg & dbg);

@@ -35,6 +35,7 @@ OF SUCH DAMAGE.
 #if !defined(_DBG_H__INCLUDED_)
 #define _DBG_H__INCLUDED_
 
+#include <string.h>
 #include <windows.h>
 
 static const int MAX_PREFIX_LENGTH = 128;

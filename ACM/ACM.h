@@ -41,11 +41,10 @@
 #include <msacmdrv.h>
 
 
+#include <lame.h>
+
 #include "ADbg/ADbg.h"
-
-class AEncodeProperties;
-
-typedef enum vbr_mode_e vbr_mode;
+#include "AEncodeProperties.h"
 
 class bitrate_item {
 	public:
