@@ -226,14 +226,17 @@ timestatus_finish(void)
 static void
 brhist_init_package(lame_global_flags const* gf)
 {
-    if (global_ui_config.brhist) {
-        if (brhist_init(gf, lame_get_VBR_min_bitrate_kbps(gf), lame_get_VBR_max_bitrate_kbps(gf))) {
-            /* fail to initialize */
-            global_ui_config.brhist = 0;
-        }
+    int     min_kbps = lame_get_VBR_min_bitrate_kbps(gf);
+    int     max_kbps = lame_get_VBR_max_bitrate_kbps(gf);
+
+    if (lame_get_VBR(gf) == vbr_off) {
+        /* CBR, free format included: every frame has the one bitrate */
+        min_kbps = lame_get_brate(gf);
+        max_kbps = min_kbps;
     }
-    else {
-        brhist_init(gf, 128, 128); /* Dirty hack */
+    if (brhist_init(gf, min_kbps, max_kbps)) {
+        /* fail to initialize */
+        global_ui_config.brhist = 0;
     }
 }
 

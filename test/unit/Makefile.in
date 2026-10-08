@@ -139,7 +139,8 @@ host_triplet = @host@
 
 # The frontend's exit status on a failed read, its rejection of
 # --swap-channel for a mono input, the range --preset names in its error
-# message, and the output files of --nogap. These drive the built lame binary rather
+# message, the output files of --nogap, and the bitrate histogram of a CBR
+# encode. These drive the built lame binary rather
 # than the library, so they need the source root for the test input as well as
 # the build root for the binary; both are exported below. They run only where
 # the frontend is built.
@@ -147,7 +148,8 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@@WITH_LAME_FRONTEND_TRUE@	test_swap_channel.sh \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_LAME_FRONTEND_TRUE@	test_pipe_length.sh \
 @ENABLE_UNIT_TESTS_TRUE@@WITH_LAME_FRONTEND_TRUE@	test_preset_range.sh \
-@ENABLE_UNIT_TESTS_TRUE@@WITH_LAME_FRONTEND_TRUE@	test_nogap_files.sh
+@ENABLE_UNIT_TESTS_TRUE@@WITH_LAME_FRONTEND_TRUE@	test_nogap_files.sh \
+@ENABLE_UNIT_TESTS_TRUE@@WITH_LAME_FRONTEND_TRUE@	test_brhist_cbr.sh
 # The exit status of mp3rtp. It skips where mp3rtp is not built.
 @ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@am__append_5 = test_mp3rtp_status.sh
 @ENABLE_UNIT_TESTS_TRUE@@INTERNAL_OPTS_TRUE@am__append_6 = -D_ALLOW_INTERNAL_OPTIONS
@@ -1615,7 +1617,8 @@ EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
 	test_esc_cases.h test_cpu_probe.h test_bytes.h test_report.h \
 	test_float_bits.h test_encode.h test_pkgconfig.sh \
 	test_exit_status.sh test_swap_channel.sh test_pipe_length.sh \
-	test_mp3rtp_status.sh test_preset_range.sh test_nogap_files.sh
+	test_mp3rtp_status.sh test_preset_range.sh test_nogap_files.sh \
+	test_brhist_cbr.sh
 all: all-am
 
 .SUFFIXES:
