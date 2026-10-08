@@ -672,6 +672,9 @@
 			        zeros when the next filter requires aligned buffers. It
 			        refuses to connect if that alignment is larger than its
 			        buffer.</li>
+			    <li>The DirectShow filter stops encoding when the next
+			        filter rejects a sample, and returns the error to the
+			        filter before it.</li>
 			    <li>The Visual Studio build has been brought up to
 			        date: the solutions and project files agree with
 			        each other and with the autotools build; the nmake

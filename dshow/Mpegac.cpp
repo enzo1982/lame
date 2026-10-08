@@ -372,7 +372,11 @@ HRESULT CMpegAudEnc::Receive(IMediaSample * pSample)
         if (bytes_processed <= 0)
             return S_OK;
 
-        FlushEncodedSamples();
+        // A sample that the downstream filter does not take ends the
+        // delivery, and upstream gets the result
+        HRESULT const delivered = FlushEncodedSamples();
+        if (delivered != S_OK)
+            return delivered;
 
         sample_size     -= bytes_processed;
         pSourceBuffer   += bytes_processed;
@@ -388,7 +392,8 @@ HRESULT CMpegAudEnc::Receive(IMediaSample * pSample)
  * Sends the encoded data that is ready downstream, in the output mode of the
  * filter: blocks of a byte stream, or MP3 frames.
  *
- * \return S_OK.
+ * \return S_OK, or what Deliver() returned for a sample that the downstream
+ *         filter did not take.
  */
 HRESULT CMpegAudEnc::FlushEncodedSamples()
 {
@@ -400,13 +405,15 @@ HRESULT CMpegAudEnc::FlushEncodedSamples()
  * Sends the encoded data downstream in one block of the stream alignment of
  * the downstream filter, stamped with its byte position, if a block is ready.
  *
- * \return S_OK.
+ * \return S_OK, or what Deliver() returned if the downstream filter did not
+ *         take the block.
  */
 HRESULT CMpegAudEnc::FlushStream()
 {
     IMediaSample * pOutSample = NULL;
     BYTE * pDst = NULL;
     HRESULT hr = S_OK;
+    HRESULT delivered = S_OK;
     const unsigned char *   pblock      = NULL;
     int iBufferSize;
     int iBlockLength = m_Encoder.GetBlockAligned(&pblock, &iBufferSize, m_cbStreamAlignment);
@@ -429,30 +436,33 @@ HRESULT CMpegAudEnc::FlushStream()
             EXECUTE_ASSERT(S_OK == pOutSample->SetTime(&m_rtBytePos, &rtEndPos));
             pOutSample->SetActualDataLength(iBufferSize);
             m_rtBytePos += iBlockLength;
-            m_pOutput->Deliver(pOutSample);
+            delivered = m_pOutput->Deliver(pOutSample);
         }
         pOutSample->Release();
     }
-    return S_OK;
+    return delivered;
 }
 
 
 /**
  * Sends each MP3 frame that is ready downstream in a media sample of its
  * own, stamped with its time. A resync point that the output has reached
- * moves the time first.
+ * moves the time first. The first frame that the downstream filter does not
+ * take ends the delivery.
  *
- * \return S_OK.
+ * \return S_OK, or what Deliver() returned for the frame that the downstream
+ *         filter did not take.
  */
 HRESULT CMpegAudEnc::FlushFrames()
 {
     IMediaSample * pOutSample = NULL;
     BYTE * pDst = NULL;
+    HRESULT delivered = S_OK;
 
     if (m_rtStreamTime < 0)
         m_rtStreamTime = 0;
 
-    while (1)
+    while (delivered == S_OK)
     {
         const unsigned char *   pframe      = NULL;
         int                     frame_size  = m_Encoder.GetFrame(&pframe);
@@ -481,7 +491,7 @@ HRESULT CMpegAudEnc::FlushFrames()
                 pOutSample->SetActualDataLength(frame_size);
                 pOutSample->SetSyncPoint(TRUE);
                 pOutSample->SetTime(&rtStart, m_setDuration ? &rtStop : NULL);
-                m_pOutput->Deliver(pOutSample);
+                delivered = m_pOutput->Deliver(pOutSample);
             }
             pOutSample->Release();
         }
@@ -489,7 +499,7 @@ HRESULT CMpegAudEnc::FlushFrames()
         m_rtStreamTime = rtStop;
     }
 
-    return S_OK;
+    return delivered;
 }
 
 

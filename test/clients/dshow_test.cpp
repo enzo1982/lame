@@ -927,13 +927,15 @@ public:
     long    length;         /**< bytes in #stream */
     long    capacity;       /**< bytes allocated for #stream */
     int     deliveries;     /**< number of samples received */
+    int     reject_from;    /**< the first sample that Receive() rejects, 0 for none */
+    int     rejected;       /**< number of samples rejected */
 
     /**
      * @brief Creates a pin that asks for @p a bytes of alignment.
      * @param a the alignment.
      */
     AlignedSinkPin(long a) : align(a), peer(NULL), owner(NULL), stream(NULL),
-        length(0), capacity(0), deliveries(0)
+        length(0), capacity(0), deliveries(0), reject_from(0), rejected(0)
     {
         eos = CreateEvent(NULL, TRUE, FALSE, NULL);
     }
@@ -1037,6 +1039,10 @@ public:
         long    n = s->GetActualDataLength();
 
         deliveries++;
+        if (reject_from > 0 && deliveries >= reject_from) {
+            rejected++;
+            return E_FAIL;
+        }
         if (FAILED(s->GetPointer(&p)) || n <= 0)
             return S_OK;
         if (length + n > capacity) {
@@ -1153,11 +1159,12 @@ public:
  * @param wav   the input file.
  * @param sink  the pin to deliver to. It asks for its own alignment.
  * @param connected receives whether the encoder accepted the sink.
- * @return Non-zero when the stream ended within the graph timeout.
+ * @param timeout_ms  how long to wait for the end of the stream.
+ * @return Non-zero when the stream ended within the timeout.
  */
 static int
 encode_into_aligned_sink(IClassFactory *cf, const WCHAR *wav, AlignedSinkPin &sink,
-                         int *connected)
+                         int *connected, DWORD timeout_ms = GRAPH_TIMEOUT_MS)
 {
     IGraphBuilder *graph = NULL;
     IBaseFilter *lame = NULL, *src = NULL;
@@ -1188,7 +1195,7 @@ encode_into_aligned_sink(IClassFactory *cf, const WCHAR *wav, AlignedSinkPin &si
     *connected = 1;
     if (FAILED(graph->QueryInterface(IID_IMediaControl, (void **) &mc)) || FAILED(mc->Run()))
         goto out;
-    until = GetTickCount() + GRAPH_TIMEOUT_MS;
+    until = GetTickCount() + timeout_ms;
     while (!ended && (long) (until - GetTickCount()) > 0) {
         MSG     m;
         DWORD   r = MsgWaitForMultipleObjects(1, &sink.eos, FALSE, 100, QS_ALLINPUT);
@@ -1267,6 +1274,41 @@ test_aligned_stream_end(IClassFactory *cf, const WCHAR *wav)
     sprintf(detail, "connected %d, %ld bytes", connected, big.length);
     ctest_record(!connected, "an alignment the encoder cannot fill is refused at connection",
                  detail);
+}
+
+/** @brief How long test_rejected_delivery() waits for the end of a stream that upstream stopped. */
+#define REJECTED_TIMEOUT_MS 3000
+
+/**
+ * @brief Checks that the encoder stops delivering when the downstream filter
+ *        rejects a sample.
+ *
+ * The sink rejects its second sample with E_FAIL. The encoder returns the
+ * failure from Receive(), so the source stops sending. At most the flush at
+ * the end of the stream reaches the sink after the rejected sample. The same
+ * encode where the sink takes every sample is the control: it delivers more
+ * than three samples, so an encoder that goes on would have more than two
+ * rejected.
+ *
+ * @param cf   the filter DLL's class factory.
+ * @param wav  the input file.
+ */
+static void
+test_rejected_delivery(IClassFactory *cf, const WCHAR *wav)
+{
+    AlignedSinkPin all(1), rejecting(1);
+    char    detail[CTEST_DETAIL_CHARS];
+    int     connected;
+
+    encode_into_aligned_sink(cf, wav, all, &connected);
+    rejecting.reject_from = 2;
+    encode_into_aligned_sink(cf, wav, rejecting, &connected, REJECTED_TIMEOUT_MS);
+    sprintf(detail, "%d samples to a sink that takes all; %d to one that rejects, %d rejected",
+            all.deliveries, rejecting.deliveries, rejecting.rejected);
+    ctest_record(all.deliveries > rejecting.reject_from + 2,
+                 "the control encode delivers more than three samples", detail);
+    ctest_record(connected && rejecting.rejected >= 1 && rejecting.rejected <= 2,
+                 "after a rejected sample the encoder stops delivering", detail);
 }
 
 int
@@ -1465,6 +1507,7 @@ main(int argc, char **argv)
     test_zero_output_rate(lame, lame_out);
     test_refused_setting_fails_run(lame, mc);
     test_aligned_stream_end(cf, wavw);
+    test_rejected_delivery(cf, wavw);
 
 out:
     if (wr_in) wr_in->Release();
