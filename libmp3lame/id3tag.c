@@ -71,6 +71,11 @@ char   *strchr(), *strrchr();
 #include "bitstream.h"
 
 
+/** \internal \brief The result of a tag setter when memory runs out. */
+#define ID3_RESULT_NO_MEMORY (-254)
+/** \internal \brief The result of a tag setter that cannot write the frame. */
+#define ID3_RESULT_NOT_WRITABLE (-255)
+
 static const char *const genre_names[] = {
     /*
      * NOTE: The spelling of these genre names is identical to those found in
@@ -779,7 +784,7 @@ id3tag_set_genre_utf16(lame_t gfp, unsigned short const* text)
         char*   latin1 = local_strdup_utf16_to_latin1(text);
         int     num;
         if (latin1 == 0) {
-            return -254; /* memory problem */
+            return ID3_RESULT_NO_MEMORY;
         }
         num = lookupGenre(latin1);
         free(latin1);
@@ -1087,7 +1092,7 @@ static int
 isSameDescriptor(FrameDataNode const *node, char const *dsc)
 {
     size_t  i;
-    if (node->dsc.enc == 1 && node->dsc.dim > 0) {
+    if (node->dsc.enc == ID3V2_ENC_UCS2 && node->dsc.dim > 0) {
         return 0;
     }
     if (dsc == 0) {
@@ -1105,7 +1110,7 @@ static int
 isSameDescriptorUcs2(FrameDataNode const *node, unsigned short const *dsc)
 {
     size_t  i;
-    if (node->dsc.enc != 1 && node->dsc.dim > 0) {
+    if (node->dsc.enc != ID3V2_ENC_UCS2 && node->dsc.dim > 0) {
         return 0;
     }
     if (dsc == 0) {
@@ -1130,18 +1135,19 @@ isSameDescriptorUcs2(FrameDataNode const *node, unsigned short const *dsc)
  * \param tag       the tag.
  * \param frame_id  the frame identifier.
  * \param lang      the language, as setLang() writes it.
- * \param ucs2      non-zero if \a desc is UCS-2 text, zero if it is 8-bit text.
+ * \param enc       the encoding of \a desc.
  * \param desc      the description. NULL for none.
  * \return the node. NULL if a new node cannot be allocated.
  */
 static FrameDataNode *
-findOrAppendNode(id3tag_spec * tag, uint32_t frame_id, char const *lang, int ucs2, void const *desc)
+findOrAppendNode(id3tag_spec * tag, uint32_t frame_id, char const *lang, id3v2_text_encoding enc,
+                 void const *desc)
 {
     FrameDataNode *node = findNode(tag, frame_id, 0);
     if (isMultiFrame(frame_id)) {
         while (node) {
             if (isSameLang(node->lng, lang)) {
-                int const same = ucs2
+                int const same = (enc == ID3V2_ENC_UCS2)
                     ? isSameDescriptorUcs2(node, (unsigned short const *) desc)
                     : isSameDescriptor(node, (char const *) desc);
                 if (same) {
@@ -1168,66 +1174,62 @@ id3v2_add_ucs2(lame_t gfp, uint32_t frame_id, char const *lng, unsigned short co
         FrameDataNode *node;
         char lang[4];
         setLang(lang, lng);
-        node = findOrAppendNode(&gfc->tag_spec, frame_id, lang, 1, desc);
+        node = findOrAppendNode(&gfc->tag_spec, frame_id, lang, ID3V2_ENC_UCS2, desc);
         if (node == 0) {
-            return -254; /* memory problem */
+            return ID3_RESULT_NO_MEMORY;
         }
         node->fid = frame_id;
         setLang(node->lng, lang);
         node->dsc.dim = local_ucs2_strdup(&node->dsc.ptr.u, desc);
-        node->dsc.enc = 1;
+        node->dsc.enc = ID3V2_ENC_UCS2;
         node->txt.dim = local_ucs2_strdup(&node->txt.ptr.u, text);
-        node->txt.enc = 1;
+        node->txt.enc = ID3V2_ENC_UCS2;
         gfc->tag_spec.flags |= (CHANGED_FLAG | ADD_V2_FLAG);
         return 0;
     }
-    return -255;
+    return ID3_RESULT_NOT_WRITABLE;
 }
 
 /*
 * internal helper, adds encoded text to node.
-* For latin1 (enc=0) or UTF-8 (enc=3).
+* For Latin-1 or UTF-8.
 */
 static int
-id3v2_add_enc(lame_t gfp, uint32_t frame_id, char const *lng, char const *desc, char const *text, int enc)
+id3v2_add_enc(lame_t gfp, uint32_t frame_id, char const *lng, char const *desc, char const *text,
+              id3v2_text_encoding enc)
 {
     lame_internal_flags *gfc = gfp != 0 ? gfp->internal_flags : 0;
     if (gfc != 0) {
         FrameDataNode *node;
         char lang[4];
         setLang(lang, lng);
-        node = findOrAppendNode(&gfc->tag_spec, frame_id, lang, 0, desc);
+        node = findOrAppendNode(&gfc->tag_spec, frame_id, lang, enc, desc);
         if (node == 0) {
-            return -254; /* memory problem */
+            return ID3_RESULT_NO_MEMORY;
         }
         node->fid = frame_id;
         setLang(node->lng, lang);
         node->dsc.dim = local_strdup(&node->dsc.ptr.l, desc);
-        node->dsc.enc = enc; // set specified encoding
+        node->dsc.enc = enc;
         node->txt.dim = local_strdup(&node->txt.ptr.l, text);
-        node->txt.enc = enc; // set specified encoding
+        node->txt.enc = enc;
         gfc->tag_spec.flags |= (CHANGED_FLAG | ADD_V2_FLAG);
         return 0;
     }
-    return -255;
+    return ID3_RESULT_NOT_WRITABLE;
 }
 
-// this function now uses id3v2_add_enc
 static int
 id3v2_add_latin1(lame_t gfp, uint32_t frame_id, char const *lng, char const *desc, char const *text)
 {
-    // call internal helper with encoding = 0 (which indicates latin1)
-    int enc = 0;
-    return id3v2_add_enc(gfp, frame_id, lng, desc, text, enc);
+    return id3v2_add_enc(gfp, frame_id, lng, desc, text, ID3V2_ENC_LATIN1);
 }
 
 // function to add UTF-8-encoded text to node
 static int
 id3v2_add_utf8(lame_t gfp, uint32_t frame_id, char const *lng, char const *desc, char const *text)
 {
-    // call internal helper with encoding = 3 (which indicates UTF8)
-    int enc = 3;
-    return id3v2_add_enc(gfp, frame_id, lng, desc, text, enc);
+    return id3v2_add_enc(gfp, frame_id, lng, desc, text, ID3V2_ENC_UTF8);
 }
 
 static int
@@ -1257,11 +1259,11 @@ id3v2_add_latin1_lng(lame_t gfp, uint32_t frame_id, char const *desc, char const
  * \param gfp         the encoder instance.
  * \param id          the frame identifier.
  * \param fieldvalue  the description, "=", and the text.
- * \param enc         the encoding: 0 for Latin-1, 3 for UTF-8.
+ * \param enc         the encoding, ::ID3V2_ENC_LATIN1 or ::ID3V2_ENC_UTF8.
  * \return 0 on success, -7 if there is no "=", -254 if memory runs out.
  */
 static int
-id3tag_set_userinfo_enc(lame_t gfp, uint32_t id, char const *fieldvalue, int enc)
+id3tag_set_userinfo_enc(lame_t gfp, uint32_t id, char const *fieldvalue, id3v2_text_encoding enc)
 {
     char const separator = '=';
     int     rc = -7;
@@ -1270,7 +1272,7 @@ id3tag_set_userinfo_enc(lame_t gfp, uint32_t id, char const *fieldvalue, int enc
         char*   dup = 0;
         local_strdup(&dup, fieldvalue);
         if (dup == 0) {
-            return -254;    /* memory problem */
+            return ID3_RESULT_NO_MEMORY;
         }
         dup[a] = 0;
         rc = id3v2_add_enc(gfp, id, id3v2_get_language(gfp), dup, dup+a+1, enc);
@@ -1361,7 +1363,7 @@ id3tag_set_textinfo_utf8(lame_t gfp, char const *id, char const *text)
     }
     switch (textinfoKind(frame_id)) {
     case TEXTINFO_USERINFO:
-        return id3tag_set_userinfo_enc(gfp, frame_id, text, 3);
+        return id3tag_set_userinfo_enc(gfp, frame_id, text, ID3V2_ENC_UTF8);
     case TEXTINFO_GENRE:
         return id3tag_set_genre_utf8(gfp, text);
     case TEXTINFO_TEXT:
@@ -1369,7 +1371,7 @@ id3tag_set_textinfo_utf8(lame_t gfp, char const *id, char const *text)
     case TEXTINFO_DESCRIPTION:
         return id3v2_add_utf8_lng(gfp, frame_id, text, 0);
     default:
-        return -255;        /* not supported by now */
+        return ID3_RESULT_NOT_WRITABLE;
     }
 }
 
@@ -1415,7 +1417,7 @@ id3tag_set_textinfo_utf16(lame_t gfp, char const *id, unsigned short const *text
     case TEXTINFO_DESCRIPTION:
         return id3v2_add_ucs2_lng(gfp, frame_id, text, 0);
     default:
-        return -255;        /* not supported by now */
+        return ID3_RESULT_NOT_WRITABLE;
     }
 }
 
@@ -1471,7 +1473,7 @@ id3tag_set_textinfo_latin1(lame_t gfp, char const *id, char const *text)
     }
     switch (textinfoKind(frame_id)) {
     case TEXTINFO_USERINFO:
-        return id3tag_set_userinfo_enc(gfp, frame_id, text, 0);
+        return id3tag_set_userinfo_enc(gfp, frame_id, text, ID3V2_ENC_LATIN1);
     case TEXTINFO_GENRE:
         return id3tag_set_genre(gfp, text);
     case TEXTINFO_TEXT:
@@ -1479,7 +1481,7 @@ id3tag_set_textinfo_latin1(lame_t gfp, char const *id, char const *text)
     case TEXTINFO_DESCRIPTION:
         return id3v2_add_latin1_lng(gfp, frame_id, text, 0);
     default:
-        return -255;        /* not supported by now */
+        return ID3_RESULT_NOT_WRITABLE;
     }
 }
 
@@ -1895,7 +1897,7 @@ id3tag_set_genre(lame_t gfp, const char *genre)
 static size_t
 sizeOfString(FrameString const *s, int terminated)
 {
-    size_t const unit = (s->enc == 1) ? 2 : 1;
+    size_t const unit = (s->enc == ID3V2_ENC_UCS2) ? 2 : 1;
     return (s->dim + (terminated ? 1 : 0)) * unit;
 }
 
@@ -1941,10 +1943,10 @@ sizeOfWxxxNode(FrameDataNode const *node)
         if (node->txt.dim > 0) {
             switch (node->txt.enc) {
             default:
-            case 0:
+            case ID3V2_ENC_LATIN1:
                 n += node->txt.dim;
                 break;
-            case 1:
+            case ID3V2_ENC_UCS2:
                 n += node->txt.dim - 1; /* UCS2 -> Latin1, skip BOM */
                 break;
             }
@@ -2033,7 +2035,7 @@ writeFrameHeader(unsigned char *frame, uint32_t fid, size_t size, int synchsafe)
 static unsigned char *
 writeString(unsigned char *frame, FrameString const *s, int terminated)
 {
-    if (s->enc != 1) {
+    if (s->enc != ID3V2_ENC_UCS2) {
         frame = writeChars(frame, s->ptr.l, s->dim);
         if (terminated) {
             *frame++ = 0;
@@ -2096,7 +2098,7 @@ set_frame_wxxx(unsigned char *frame, FrameDataNode const *node, int synchsafe)
             *frame++ = node->dsc.enc;
             frame = writeString(frame, &node->dsc, 1);
         }
-        if (node->txt.enc != 1) {
+        if (node->txt.enc != ID3V2_ENC_UCS2) {
             frame = writeChars(frame, node->txt.ptr.l, node->txt.dim);
         }
         else {

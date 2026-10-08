@@ -19,6 +19,13 @@ enum {
     MIMETYPE_GIF
 };
 
+/** \internal The text encoding byte of an ID3v2 frame. */
+typedef enum id3v2_text_encoding {
+    ID3V2_ENC_LATIN1 = 0,    /**< ISO-8859-1 */
+    ID3V2_ENC_UCS2 = 1,      /**< UCS-2 with a byte order mark */
+    ID3V2_ENC_UTF8 = 3       /**< UTF-8, ID3v2.4 only */
+} id3v2_text_encoding;
+
 /** \internal A string in an ID3v2 frame: the description or the text. */
 typedef struct FrameString {
     union {
@@ -27,7 +34,7 @@ typedef struct FrameString {
         unsigned char *b;    /* ptr to raw bytes                 */
     } ptr;
     size_t  dim;
-    int     enc;             /* 0:Latin-1, 1:UCS-2, 2:RAW, 3:UTF-8 */
+    id3v2_text_encoding enc;
 } FrameString;
 
 typedef struct FrameDataNode {
