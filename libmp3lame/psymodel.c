@@ -76,9 +76,8 @@
  *    an attack selects short blocks.
  * -# Energy per partition band, from the FFT (calc_energy()).
  * -# Tonality, as the ratio of peak to average energy over three neighboring
- *    partitions (calc_mask_index_l(), vbrpsy_calc_mask_index_s()). Tonal
- *    content masks less than noise, so the index selects how far below the
- *    signal the threshold of the band is.
+ *    partitions (calc_mask_index()). Tonal content masks less than noise, so
+ *    the index selects how far below the signal the threshold of the band is.
  * -# Spreading. Every band masks its neighbors through s3_func().
  *    vbrpsy_mask_add() combines the contributions, and this is not a plain
  *    power sum.
@@ -620,7 +619,7 @@ pecalc_l(III_psy_ratio const *mr, FLOAT masking_lower)
 /**
  * \brief Total, peak and mean FFT line energy for each partition band.
  *
- * calc_mask_index_l() compares the peak and the mean to decide how tonal the
+ * calc_mask_index() compares the peak and the mean to decide how tonal the
  * band is. The total is the strength of the masker.
  */
 static void
@@ -651,7 +650,8 @@ calc_energy(PsyConst_CB2SB_t const *l, FLOAT const *fftenergy, FLOAT * eb, FLOAT
 
 
 /**
- * \brief Tonality index per partition band, for long blocks.
+ * \internal
+ * \brief Tonality index per partition band.
  *
  * Measured as the ratio of the peak line to the mean, over the band and its
  * two neighbors. A spectrum in few lines is tonal, an even spectrum is
@@ -659,16 +659,18 @@ calc_energy(PsyConst_CB2SB_t const *l, FLOAT const *fftenergy, FLOAT * eb, FLOAT
  * below the signal the threshold of the band is, because a tone masks noise
  * much less than noise masks a tone.
  *
- * vbrpsy_calc_mask_index_s() does the same for short blocks.
+ * \param gd        the partition layout of the block type, long or short.
+ * \param max       the peak line energy of each partition.
+ * \param avg       the mean line energy of each partition.
+ * \param mask_idx  receives the index of each partition.
  */
 static void
-calc_mask_index_l(lame_internal_flags const *gfc, FLOAT const *max,
-                  FLOAT const *avg, unsigned char *mask_idx)
+calc_mask_index(PsyConst_CB2SB_t const *gd, FLOAT const *max,
+                FLOAT const *avg, unsigned char *mask_idx)
 {
-    PsyConst_CB2SB_t const *const gdl = &gfc->cd_psy->l;
     FLOAT   m, a;
     int     b, k;
-    int const last_tab_entry = sizeof(tab) / sizeof(tab[0]) - 1;
+    int const last_tab_entry = dimension_of(tab) - 1;
     b = 0;
     a = avg[b] + avg[b + 1];
     assert(a >= 0);
@@ -676,9 +678,9 @@ calc_mask_index_l(lame_internal_flags const *gfc, FLOAT const *max,
         m = max[b];
         if (m < max[b + 1])
             m = max[b + 1];
-        assert((gdl->numlines[b] + gdl->numlines[b + 1] - 1) > 0);
+        assert((gd->numlines[b] + gd->numlines[b + 1] - 1) > 0);
         a = 20.0f * (m * 2.0f - a)
-            / (a * (gdl->numlines[b] + gdl->numlines[b + 1] - 1));
+            / (a * (gd->numlines[b] + gd->numlines[b + 1] - 1));
         k = (int) a;
         if (k > last_tab_entry)
             k = last_tab_entry;
@@ -688,7 +690,7 @@ calc_mask_index_l(lame_internal_flags const *gfc, FLOAT const *max,
         mask_idx[b] = 0;
     }
 
-    for (b = 1; b < gdl->npart - 1; b++) {
+    for (b = 1; b < gd->npart - 1; b++) {
         a = avg[b - 1] + avg[b] + avg[b + 1];
         assert(a >= 0);
         if (a > 0.0f) {
@@ -697,9 +699,9 @@ calc_mask_index_l(lame_internal_flags const *gfc, FLOAT const *max,
                 m = max[b];
             if (m < max[b + 1])
                 m = max[b + 1];
-            assert((gdl->numlines[b - 1] + gdl->numlines[b] + gdl->numlines[b + 1] - 1) > 0);
+            assert((gd->numlines[b - 1] + gd->numlines[b] + gd->numlines[b + 1] - 1) > 0);
             a = 20.0f * (m * 3.0f - a)
-                / (a * (gdl->numlines[b - 1] + gdl->numlines[b] + gdl->numlines[b + 1] - 1));
+                / (a * (gd->numlines[b - 1] + gd->numlines[b] + gd->numlines[b + 1] - 1));
             k = (int) a;
             if (k > last_tab_entry)
                 k = last_tab_entry;
@@ -710,7 +712,7 @@ calc_mask_index_l(lame_internal_flags const *gfc, FLOAT const *max,
         }
     }
     assert(b > 0);
-    assert(b == gdl->npart - 1);
+    assert(b == gd->npart - 1);
 
     a = avg[b - 1] + avg[b];
     assert(a >= 0);
@@ -718,9 +720,9 @@ calc_mask_index_l(lame_internal_flags const *gfc, FLOAT const *max,
         m = max[b - 1];
         if (m < max[b])
             m = max[b];
-        assert((gdl->numlines[b - 1] + gdl->numlines[b] - 1) > 0);
+        assert((gd->numlines[b - 1] + gd->numlines[b] - 1) > 0);
         a = 20.0f * (m * 2.0f - a)
-            / (a * (gdl->numlines[b - 1] + gdl->numlines[b] - 1));
+            / (a * (gd->numlines[b - 1] + gd->numlines[b] - 1));
         k = (int) a;
         if (k > last_tab_entry)
             k = last_tab_entry;
@@ -729,7 +731,7 @@ calc_mask_index_l(lame_internal_flags const *gfc, FLOAT const *max,
     else {
         mask_idx[b] = 0;
     }
-    assert(b == (gdl->npart - 1));
+    assert(b == (gd->npart - 1));
 }
 
 
@@ -1085,84 +1087,6 @@ vbrpsy_skip_masking_s(lame_internal_flags * gfc, int chn, int sblock)
 
 
 /**
- * \brief Tonality index per partition band, for short blocks.
- *
- * \see calc_mask_index_l() for what the index means and how it is used.
- */
-static void
-vbrpsy_calc_mask_index_s(lame_internal_flags const *gfc, FLOAT const *max,
-                         FLOAT const *avg, unsigned char *mask_idx)
-{
-    PsyConst_CB2SB_t const *const gds = &gfc->cd_psy->s;
-    FLOAT   m, a;
-    int     b, k;
-    int const last_tab_entry = dimension_of(tab) - 1;
-    b = 0;
-    a = avg[b] + avg[b + 1];
-    assert(a >= 0);
-    if (a > 0.0f) {
-        m = max[b];
-        if (m < max[b + 1])
-            m = max[b + 1];
-        assert((gds->numlines[b] + gds->numlines[b + 1] - 1) > 0);
-        a = 20.0f * (m * 2.0f - a)
-            / (a * (gds->numlines[b] + gds->numlines[b + 1] - 1));
-        k = (int) a;
-        if (k > last_tab_entry)
-            k = last_tab_entry;
-        mask_idx[b] = k;
-    }
-    else {
-        mask_idx[b] = 0;
-    }
-
-    for (b = 1; b < gds->npart - 1; b++) {
-        a = avg[b - 1] + avg[b] + avg[b + 1];
-        assert(b + 1 < gds->npart);
-        assert(a >= 0);
-        if (a > 0.0) {
-            m = max[b - 1];
-            if (m < max[b])
-                m = max[b];
-            if (m < max[b + 1])
-                m = max[b + 1];
-            assert((gds->numlines[b - 1] + gds->numlines[b] + gds->numlines[b + 1] - 1) > 0);
-            a = 20.0f * (m * 3.0f - a)
-                / (a * (gds->numlines[b - 1] + gds->numlines[b] + gds->numlines[b + 1] - 1));
-            k = (int) a;
-            if (k > last_tab_entry)
-                k = last_tab_entry;
-            mask_idx[b] = k;
-        }
-        else {
-            mask_idx[b] = 0;
-        }
-    }
-    assert(b > 0);
-    assert(b == gds->npart - 1);
-
-    a = avg[b - 1] + avg[b];
-    assert(a >= 0);
-    if (a > 0.0f) {
-        m = max[b - 1];
-        if (m < max[b])
-            m = max[b];
-        assert((gds->numlines[b - 1] + gds->numlines[b] - 1) > 0);
-        a = 20.0f * (m * 2.0f - a)
-            / (a * (gds->numlines[b - 1] + gds->numlines[b] - 1));
-        k = (int) a;
-        if (k > last_tab_entry)
-            k = last_tab_entry;
-        mask_idx[b] = k;
-    }
-    else {
-        mask_idx[b] = 0;
-    }
-    assert(b == (gds->npart - 1));
-}
-
-
-/**
  * \internal
  * \brief Applies the two limits to the masking threshold of a partition.
  *
@@ -1225,31 +1149,14 @@ vbrpsy_compute_masking_s(lame_internal_flags * gfc, const FLOAT(*fftenergy_s)[HB
     PsyStateVar_t *const psv = &gfc->sv_psy;
     PsyConst_CB2SB_t const *const gds = &gfc->cd_psy->s;
     FLOAT   max[CBANDS], avg[CBANDS];
-    int     i, j, b;
+    int     j, b;
     unsigned char mask_idx_s[CBANDS];
 
     memset(max, 0, sizeof(max));
     memset(avg, 0, sizeof(avg));
 
-    for (b = j = 0; b < gds->npart; ++b) {
-        FLOAT   ebb = 0, m = 0;
-        int const n = gds->numlines[b];
-        for (i = 0; i < n; ++i, ++j) {
-            FLOAT const el = fftenergy_s[sblock][j];
-            ebb += el;
-            if (m < el)
-                m = el;
-        }
-        eb[b] = ebb;
-        assert(ebb >= 0);
-        max[b] = m;
-        assert(n > 0);
-        avg[b] = ebb * gds->rnumlines[b];
-        assert(avg[b] >= 0);
-    }
-    assert(b == gds->npart);
-    assert(j == 129);
-    vbrpsy_calc_mask_index_s(gfc, max, avg, mask_idx_s);
+    calc_energy(gds, fftenergy_s[sblock], eb, max, avg);
+    calc_mask_index(gds, max, avg, mask_idx_s);
     for (j = b = 0; b < gds->npart; b++) {
         int     kk = gds->s3ind[b][0];
         int const last = gds->s3ind[b][1];
@@ -1329,7 +1236,7 @@ vbrpsy_compute_masking_l(lame_internal_flags * gfc, const FLOAT fftenergy[HBLKSI
     *    Calculate the energy and the tonality of each partition.
  *********************************************************************/
     calc_energy(gdl, fftenergy, eb_l, max, avg);
-    calc_mask_index_l(gfc, max, avg, mask_idx_l);
+    calc_mask_index(gdl, max, avg, mask_idx_l);
 
  /*********************************************************************
     *      convolve the partitioned energy and unpredictability
