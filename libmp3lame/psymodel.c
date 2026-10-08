@@ -2063,6 +2063,31 @@ partition_ath(SessionConfig_t const *cfg, FLOAT sfreq, int blksize, int first, i
 
 /**
  * \internal
+ * \brief The signal-to-noise ratio that the spreading function is normalized
+ *        to at one Bark value: snr_a up to bvl_a, then a straight line to
+ *        snr_b at bvl_b.
+ * \param bval   the Bark value of the partition.
+ * \param snr_a  the ratio up to bvl_a, in dB.
+ * \param snr_b  the ratio at bvl_b, in dB.
+ * \param bvl_a  the Bark value where the line starts.
+ * \param bvl_b  the Bark value where the line ends.
+ * \return the ratio, in dB.
+ */
+static double
+snr_between(FLOAT bval, FLOAT snr_a, FLOAT snr_b, FLOAT bvl_a, FLOAT bvl_b)
+{
+    double  snr = snr_a;
+
+    if (bval >= bvl_a) {
+        snr = snr_b * (bval - bvl_a) / (bvl_b - bvl_a)
+            + snr_a * (bvl_b - bval) / (bvl_b - bvl_a);
+    }
+    return snr;
+}
+
+
+/**
+ * \internal
  * \brief Build the per-session constant tables the model needs.
  *
  * Called once per encoder instance. It lays out the partition bands for both
@@ -2144,11 +2169,7 @@ psymodel_init(lame_global_flags const *gfp)
 
     /* compute the spreading function */
     for (i = 0; i < gd->l.npart; i++) {
-        double  snr = snr_l_a;
-        if (bval[i] >= bvl_a) {
-            snr = snr_l_b * (bval[i] - bvl_a) / (bvl_b - bvl_a)
-                + snr_l_a * (bvl_b - bval[i]) / (bvl_b - bvl_a);
-        }
+        double const snr = snr_between(bval[i], snr_l_a, snr_l_b, bvl_a, bvl_b);
         norm[i] = pow(10.0, snr / 10.0);
     }
     i = init_s3_values(&gd->l.s3, gd->l.s3ind, gd->l.npart, bval, bval_width, norm);
@@ -2196,11 +2217,7 @@ psymodel_init(lame_global_flags const *gfp)
     j = 0;
     for (i = 0; i < gd->s.npart; i++) {
         double  x;
-        double  snr = snr_s_a;
-        if (bval[i] >= bvl_a) {
-            snr = snr_s_b * (bval[i] - bvl_a) / (bvl_b - bvl_a)
-                + snr_s_a * (bvl_b - bval[i]) / (bvl_b - bvl_a);
-        }
+        double const snr = snr_between(bval[i], snr_s_a, snr_s_b, bvl_a, bvl_b);
         norm[i] = pow(10.0, snr / 10.0);
 
         /* ATH */
