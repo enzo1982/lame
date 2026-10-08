@@ -589,6 +589,78 @@ test_misc_setters(void **state)
     assert_int_equal(lame_set_preset(NULL, V2), -1);
 }
 
+/**
+ * @brief The settings a preset writes, as the getters report them.
+ */
+typedef struct {
+    int     vbr;            /**< lame_get_VBR() */
+    int     vbr_q;          /**< lame_get_VBR_q() */
+    int     vbr_mean;       /**< lame_get_VBR_mean_bitrate_kbps() */
+    int     brate;          /**< lame_get_brate() */
+    int     quality;        /**< lame_get_quality() */
+    int     lowpass;        /**< lame_get_lowpassfreq() */
+} preset_settings;
+
+/**
+ * @brief Reads the settings a preset writes.
+ * @param gfp  the encoder instance.
+ * @return the settings.
+ */
+static preset_settings
+read_preset_settings(lame_t gfp)
+{
+    preset_settings s;
+
+    s.vbr = (int) lame_get_VBR(gfp);
+    s.vbr_q = lame_get_VBR_q(gfp);
+    s.vbr_mean = lame_get_VBR_mean_bitrate_kbps(gfp);
+    s.brate = lame_get_brate(gfp);
+    s.quality = lame_get_quality(gfp);
+    s.lowpass = lame_get_lowpassfreq(gfp);
+    return s;
+}
+
+/**
+ * @brief lame_set_preset() returns -1 for a value that is no preset and
+ *        changes no setting; each kind of known value returns as documented.
+ *
+ * The values next to the known ranges are the ones a caller misses by one:
+ * below and above the bitrates, between and around the VBR quality steps,
+ * after the named presets.
+ *
+ * @param state  the encoder instance of the fixture.
+ */
+static void
+test_preset_unknown_rejected(void **state)
+{
+    static const int unknown[] = { 0, ABR_8 - 1, ABR_320 + 1, V9 - 1, V9 + 5, V0 + 1, 999,
+                                   MEDIUM_FAST + 1, -5 };
+    lame_t gfp = (lame_t) *state;
+    preset_settings before, after;
+    size_t i;
+
+    /* a known preset first, so that the settings are not the defaults */
+    assert_int_equal(lame_set_preset(gfp, V5), V5);
+    before = read_preset_settings(gfp);
+    for (i = 0; i < sizeof(unknown) / sizeof(unknown[0]); i++) {
+        assert_int_equal(lame_set_preset(gfp, unknown[i]), -1);
+        after = read_preset_settings(gfp);
+        assert_memory_equal(&after, &before, sizeof(before));
+    }
+
+    assert_int_equal(lame_set_preset(gfp, ABR_8), ABR_8);
+    assert_int_equal(lame_set_preset(gfp, 128), 128);
+    assert_int_equal(lame_set_preset(gfp, ABR_320), ABR_320);
+    assert_int_equal(lame_set_preset(gfp, V9), V9);
+    assert_int_equal(lame_set_preset(gfp, V0), V0);
+    assert_int_equal(lame_set_preset(gfp, STANDARD), V2);
+    assert_int_equal(lame_set_preset(gfp, R3MIX), V3);
+    assert_int_equal(lame_set_preset(gfp, MEDIUM_FAST), V4);
+    assert_int_equal(lame_set_preset(gfp, EXTREME), V0);
+    assert_int_equal(lame_set_preset(gfp, INSANE), 320);
+    assert_int_equal(lame_set_preset(NULL, V2), -1);
+}
+
 /*
  * ---- read-only getters (populated by lame_init_params) ----------------------
  * These read through internal_flags, so they need a configured encoder. They
@@ -1269,6 +1341,8 @@ main(void)
         cmocka_unit_test_setup_teardown(test_replaygain_decode, lame_fixture_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_num_samples, lame_fixture_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_misc_setters, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_preset_unknown_rejected, lame_fixture_setup,
+                                        lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_readonly_getters, lame_fixture_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_unset_markers, lame_fixture_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_athaa_type_explicit_choice_survives,

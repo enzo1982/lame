@@ -3872,23 +3872,23 @@ lame_get_totalframes(const lame_global_flags * gfp)
   earlier calls for the same settings. Later calls overwrite the preset. So
   set the preset first, then change single settings.
 
-  Note that **an unknown preset is not reported**. LAME applies nothing, and
-  the call returns as for a known value. So a caller who passes a value that
-  is neither a bitrate in the range nor one of the constants gets a default
-  encode and no message.
+  A value that is neither a bitrate in the range nor one of the constants is
+  rejected: the call changes nothing and returns -1.
 
   \param gfp     the encoder instance.
   \param preset  a bitrate, a \c preset_mode value, or one of the named
                  presets.
   \return the preset that was applied, not 0. For a named preset this is the
           value it stands for, for example \c V2 for \c STANDARD and 320 for
-          \c INSANE. Otherwise \a preset itself, also for a value LAME does
-          not know. -1 if the instance is not usable.
+          \c INSANE, otherwise \a preset itself. -1 for a value that is no
+          preset, or if the instance is not usable.
 */
 int
 lame_set_preset(lame_global_flags * gfp, int preset)
 {
     if (is_lame_global_flags_valid(gfp)) {
+        if (!preset_is_known(preset))
+            return -1;
         gfp->preset = preset;
         return apply_preset(gfp, preset, 1);
     }

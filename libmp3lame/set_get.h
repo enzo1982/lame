@@ -37,6 +37,7 @@ extern  "C" {
  */
 /*presets*/
     int     apply_preset(lame_global_flags *, int preset, int enforce);
+    int     preset_is_known(int preset);
 
 /* scalefactors scale */
     int CDECL lame_set_sfscale(lame_global_flags *, int);

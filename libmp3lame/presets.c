@@ -312,6 +312,57 @@ apply_abr_preset(lame_global_flags * gfp, int preset, int enforce)
 
 
 
+/**
+ * \internal
+ * \brief Whether a value is one of the VBR quality constants, \c V9 to \c V0:
+ *        410 to 500 in steps of 10.
+ * \param preset  the value.
+ * \return 1 if it is one, else 0.
+ */
+static int
+is_vbr_preset(int preset)
+{
+    return V9 <= preset && preset <= V0 && (V0 - preset) % 10 == 0;
+}
+
+/**
+ * \internal
+ * \brief Whether a value is an average bitrate preset, \c ABR_8 to \c ABR_320.
+ * \param preset  the value.
+ * \return 1 if it is one, else 0.
+ */
+static int
+is_abr_preset(int preset)
+{
+    return ABR_8 <= preset && preset <= ABR_320;
+}
+
+/**
+ * \internal
+ * \brief Whether apply_preset() knows a value: a named preset, a VBR quality
+ *        constant or an average bitrate.
+ *
+ * \param preset  the value.
+ * \return 1 if it is a preset, else 0.
+ */
+int
+preset_is_known(int preset)
+{
+    switch (preset) {
+    case R3MIX:
+    case MEDIUM:
+    case MEDIUM_FAST:
+    case STANDARD:
+    case STANDARD_FAST:
+    case EXTREME:
+    case EXTREME_FAST:
+    case INSANE:
+        return 1;
+    default:
+        return is_vbr_preset(preset) || is_abr_preset(preset);
+    }
+}
+
 int
 apply_preset(lame_global_flags * gfp, int preset, int enforce)
 {
@@ -355,12 +406,11 @@ apply_preset(lame_global_flags * gfp, int preset, int enforce)
     }
 
     gfp->preset = preset;
-    /* V9 to V0 are 410 to 500 in steps of 10 */
-    if (V9 <= preset && preset <= V0 && (V0 - preset) % 10 == 0) {
+    if (is_vbr_preset(preset)) {
         apply_vbr_preset(gfp, (V0 - preset) / 10, enforce);
         return preset;
     }
-    if (8 <= preset && preset <= 320) {
+    if (is_abr_preset(preset)) {
         return apply_abr_preset(gfp, preset, enforce);
     }
 
