@@ -1210,10 +1210,34 @@ presets_longinfo_dm(FILE * msgfp)
 }
 
 
+/** The size of the name of a --preset alias, terminator included. */
+#define PRESET_ALIAS_SIZE 8
+
+/** @internal @brief A --preset alias for an ABR bitrate. */
+typedef struct {
+    char    name[PRESET_ALIAS_SIZE]; /**< the alias */
+    int     kbps;             /**< the ABR bitrate */
+    int     mono;             /**< 1 when the alias also selects mono */
+} preset_alias;
+
+/** The aliases of --preset that select an ABR bitrate. */
+static const preset_alias preset_aliases[] = {
+    { "phone", 16, 1 },
+    { "phon+", 24, 1 }, { "lw", 24, 1 }, { "mw-eu", 24, 1 }, { "sw", 24, 1 },
+    { "mw-us", 40, 1 },
+    { "voice", 56, 1 },
+    { "fm", 112, 0 }, { "radio", 112, 0 }, { "tape", 112, 0 },
+    { "hifi", 160, 0 },
+    { "cd", 192, 0 },
+    { "studio", 256, 0 }
+};
+
 static int
 presets_set(lame_t gfp, int fast, int cbr, const char *preset_name, const char *ProgramName)
 {
     int     mono = 0;
+    int     kbps = atoi(preset_name);
+    size_t  i;
 
     if ((strcmp(preset_name, "help") == 0) && (fast < 1)
         && (cbr < 1)) {
@@ -1223,39 +1247,12 @@ presets_set(lame_t gfp, int fast, int cbr, const char *preset_name, const char *
     }
 
     /*aliases for compatibility with old presets */
-
-    if (strcmp(preset_name, "phone") == 0) {
-        preset_name = "16";
-        mono = 1;
-    }
-    if ((strcmp(preset_name, "phon+") == 0) ||
-        (strcmp(preset_name, "lw") == 0) ||
-        (strcmp(preset_name, "mw-eu") == 0) || (strcmp(preset_name, "sw") == 0)) {
-        preset_name = "24";
-        mono = 1;
-    }
-    if (strcmp(preset_name, "mw-us") == 0) {
-        preset_name = "40";
-        mono = 1;
-    }
-    if (strcmp(preset_name, "voice") == 0) {
-        preset_name = "56";
-        mono = 1;
-    }
-    if (strcmp(preset_name, "fm") == 0) {
-        preset_name = "112";
-    }
-    if ((strcmp(preset_name, "radio") == 0) || (strcmp(preset_name, "tape") == 0)) {
-        preset_name = "112";
-    }
-    if (strcmp(preset_name, "hifi") == 0) {
-        preset_name = "160";
-    }
-    if (strcmp(preset_name, "cd") == 0) {
-        preset_name = "192";
-    }
-    if (strcmp(preset_name, "studio") == 0) {
-        preset_name = "256";
+    for (i = 0; i < dimension_of(preset_aliases); ++i) {
+        if (strncmp(preset_name, preset_aliases[i].name, PRESET_ALIAS_SIZE) == 0) {
+            kbps = preset_aliases[i].kbps;
+            mono = preset_aliases[i].mono;
+            break;
+        }
     }
 
     if (strcmp(preset_name, "medium") == 0) {
@@ -1284,9 +1281,9 @@ presets_set(lame_t gfp, int fast, int cbr, const char *preset_name, const char *
     }
 
     /* Generic ABR Preset */
-    if (((atoi(preset_name)) > 0) && (fast < 1)) {
-        if ((atoi(preset_name)) >= 8 && (atoi(preset_name)) <= 320) {
-            lame_set_preset(gfp, atoi(preset_name));
+    if (kbps > 0 && fast < 1) {
+        if (kbps >= 8 && kbps <= 320) {
+            lame_set_preset(gfp, kbps);
 
             if (cbr == 1)
                 lame_set_VBR(gfp, vbr_off);
