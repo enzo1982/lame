@@ -1500,20 +1500,12 @@ lame_print_internals(const lame_global_flags * gfp)
     /*  everything controlling the stream format
      */
     MSGF(gfc, "\nstream format:\n\n");
-    switch (cfg->version) {
-    case 0:
-        pc = "2.5";
-        break;
-    case 1:
+    if (cfg->version == 1)
         pc = "1";
-        break;
-    case 2:
+    else if (cfg->samplerate_out < 16000)
+        pc = "2.5";
+    else
         pc = "2";
-        break;
-    default:
-        pc = "?";
-        break;
-    }
     MSGF(gfc, "\tMPEG-%s Layer 3\n", pc);
     switch (cfg->mode) {
     case JOINT_STEREO:

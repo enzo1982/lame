@@ -1024,6 +1024,47 @@ test_print_internals_routes_through_callback(LAME_UNUSED void **state)
 }
 
 /**
+ * @brief Returns whether lame_print_internals() prints a given line for an
+ *        encoder with a given output sample rate.
+ * @param rate the input and output sample rate, in Hz.
+ * @param line the text to look for.
+ * @return 1 if the printed text contains @p line, else 0.
+ */
+static int
+internals_contain(int rate, const char *line)
+{
+    lame_t  gfp = lame_init();
+    int     found;
+
+    assert_non_null(gfp);
+    assert_int_equal(lame_set_msgf(gfp, report_capture), 0);
+    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
+    assert_int_equal(lame_set_in_samplerate(gfp, rate), 0);
+    assert_int_equal(lame_set_out_samplerate(gfp, rate), 0);
+    assert_int_equal(lame_init_params(gfp), 0);
+    report_reset();
+    lame_print_internals(gfp);
+    found = mem_contains((const unsigned char *) report_text, report_len, line);
+    lame_close(gfp);
+    return found;
+}
+
+/**
+ * @brief Checks that lame_print_internals() names MPEG-1, MPEG-2 and MPEG-2.5.
+ * @param state cmocka fixture state (unused).
+ *
+ * The three rates are one of each version. "MPEG-2 Layer 3" is not a part of
+ * "MPEG-2.5 Layer 3", so each search finds only its own version.
+ */
+static void
+test_print_internals_names_the_mpeg_version(LAME_UNUSED void **state)
+{
+    assert_true(internals_contain(44100, "MPEG-1 Layer 3"));
+    assert_true(internals_contain(22050, "MPEG-2 Layer 3"));
+    assert_true(internals_contain(11025, "MPEG-2.5 Layer 3"));
+}
+
+/**
  * @brief Checks that the two print calls do nothing for a NULL instance.
  * @param state cmocka fixture state (unused).
  *
@@ -1078,6 +1119,7 @@ main(void)
         cmocka_unit_test(test_print_config_routes_through_callback),
         cmocka_unit_test(test_print_internals_routes_through_callback),
         cmocka_unit_test(test_print_calls_ignore_a_null_instance),
+        cmocka_unit_test(test_print_internals_names_the_mpeg_version),
     };
     return cmocka_run_group_tests(tests, group_setup, NULL);
 }
