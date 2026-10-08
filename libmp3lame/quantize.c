@@ -682,6 +682,32 @@ quant_compare(const int quant_comp,
 
 
 
+/** \internal \brief 2^(3/8): xrpow grows by this for one scalefactor step when steps are 1.5 dB. */
+#define IFQSTEP34_FINE   1.29683955465100964055
+/** \internal \brief 2^(3/4): the same when steps are 3 dB (scalefac_scale set). */
+#define IFQSTEP34_COARSE 1.68179283050742922612
+
+/**
+ * \internal
+ * \brief Amplifies the xrpow values of one band, and keeps the largest value
+ *        of the granule up to date.
+ * \param xr         the first xrpow value of the band.
+ * \param width      the number of values in the band.
+ * \param amp        the factor.
+ * \param xrpow_max  the largest xrpow value of the granule.
+ */
+static inline void
+amp_band(FLOAT * xr, int width, FLOAT amp, FLOAT * xrpow_max)
+{
+    int     l;
+
+    for (l = 0; l < width; l++) {
+        xr[l] *= amp;
+        if (xr[l] > *xrpow_max)
+            *xrpow_max = xr[l];
+    }
+}
+
 /*************************************************************************
  *
  *          amp_scalefac_bands()
@@ -722,10 +748,10 @@ amp_scalefac_bands(lame_internal_flags * gfc,
     int     noise_shaping_amp;
 
     if (cod_info->scalefac_scale == 0) {
-        ifqstep34 = 1.29683955465100964055; /* 2**(.75*.5) */
+        ifqstep34 = IFQSTEP34_FINE;
     }
     else {
-        ifqstep34 = 1.68179283050742922612; /* 2**(.75*1) */
+        ifqstep34 = IFQSTEP34_COARSE;
     }
 
     /* compute maximum value of distort[]  */
@@ -768,7 +794,6 @@ amp_scalefac_bands(lame_internal_flags * gfc,
     j = 0;
     for (sfb = 0; sfb < cod_info->sfbmax; sfb++) {
         int const width = cod_info->width[sfb];
-        int     l;
         j += width;
         if (distort[sfb] < trigger)
             continue;
@@ -779,11 +804,7 @@ amp_scalefac_bands(lame_internal_flags * gfc,
                 return;
         }
         cod_info->scalefac[sfb]++;
-        for (l = -width; l < 0; l++) {
-            xrpow[j + l] *= ifqstep34;
-            if (xrpow[j + l] > cod_info->xrpow_max)
-                cod_info->xrpow_max = xrpow[j + l];
-        }
+        amp_band(xrpow + j - width, width, ifqstep34, &cod_info->xrpow_max);
 
         if (cfg->noise_shaping_amp == 2)
             return;
@@ -803,8 +824,7 @@ amp_scalefac_bands(lame_internal_flags * gfc,
 static void
 inc_scalefac_scale(gr_info * const cod_info, FLOAT xrpow[576])
 {
-    int     l, j, sfb;
-    const FLOAT ifqstep34 = 1.29683955465100964055;
+    int     j, sfb;
 
     j = 0;
     for (sfb = 0; sfb < cod_info->sfbmax; sfb++) {
@@ -815,11 +835,7 @@ inc_scalefac_scale(gr_info * const cod_info, FLOAT xrpow[576])
         j += width;
         if (s & 1) {
             s++;
-            for (l = -width; l < 0; l++) {
-                xrpow[j + l] *= ifqstep34;
-                if (xrpow[j + l] > cod_info->xrpow_max)
-                    cod_info->xrpow_max = xrpow[j + l];
-            }
+            amp_band(xrpow + j - width, width, IFQSTEP34_FINE, &cod_info->xrpow_max);
         }
         cod_info->scalefac[sfb] = s >> 1;
     }
@@ -852,7 +868,7 @@ inc_subblock_gain(const lame_internal_flags * const gfc, gr_info * const cod_inf
     }
 
     for (window = 0; window < 3; window++) {
-        int     s1, s2, l, j;
+        int     s1, s2, j;
         s1 = s2 = 0;
 
         for (sfb = cod_info->sfb_lmax + window; sfb < cod_info->sfbdivide; sfb += 3) {
@@ -899,22 +915,15 @@ inc_subblock_gain(const lame_internal_flags * const gfc, gr_info * const cod_inf
                 amp = IPOW20(gain);
             }
             j += width * (window + 1);
-            for (l = -width; l < 0; l++) {
-                xrpow[j + l] *= amp;
-                if (xrpow[j + l] > cod_info->xrpow_max)
-                    cod_info->xrpow_max = xrpow[j + l];
-            }
+            amp_band(xrpow + j - width, width, amp, &cod_info->xrpow_max);
             j += width * (3 - window - 1);
         }
 
         {
             FLOAT const amp = IPOW20(202);
             j += cod_info->width[sfb] * (window + 1);
-            for (l = -cod_info->width[sfb]; l < 0; l++) {
-                xrpow[j + l] *= amp;
-                if (xrpow[j + l] > cod_info->xrpow_max)
-                    cod_info->xrpow_max = xrpow[j + l];
-            }
+            amp_band(xrpow + j - cod_info->width[sfb], cod_info->width[sfb], amp,
+                     &cod_info->xrpow_max);
         }
     }
     return 0;
@@ -1386,6 +1395,52 @@ get_framebits(lame_internal_flags * gfc, int frameBits[15])
 
 /* RH: this one needs to be overhauled sometime */
 
+/**
+ * \internal
+ * \brief Sets the masking_lower factor of a granule and channel from the
+ *        masking adjustment of its block type.
+ * \param gfc       the encoder state; receives sv_qnt.masking_lower.
+ * \param cod_info  the granule and channel.
+ * \param adjust    subtracted from the masking adjustment, in dB.
+ */
+static void
+set_masking_lower(lame_internal_flags * gfc, gr_info const *cod_info, FLOAT adjust)
+{
+    FLOAT   masking_lower_db;
+
+    if (cod_info->block_type != SHORT_TYPE) { /* NORM, START or STOP type */
+        masking_lower_db = gfc->sv_qnt.mask_adjust - adjust;
+    }
+    else {
+        masking_lower_db = gfc->sv_qnt.mask_adjust_short - adjust;
+    }
+    gfc->sv_qnt.masking_lower = pow(10.0, masking_lower_db * 0.1);
+}
+
+/**
+ * \internal
+ * \brief Scales the bit budget of every granule and channel down in
+ *        proportion, when their sum is above the limit of the frame.
+ * \param cfg       the session; gives the granule and channel counts.
+ * \param max_bits  the budgets.
+ * \param bits      their sum.
+ * \param limit     the bits that the frame can hold.
+ */
+static void
+scale_max_bits(SessionConfig_t const *cfg, int max_bits[2][2], int bits, int limit)
+{
+    int     gr, ch;
+
+    for (gr = 0; gr < cfg->mode_gr; gr++) {
+        for (ch = 0; ch < cfg->channels_out; ch++) {
+            if (bits > limit && bits > 0) {
+                max_bits[gr][ch] *= limit;
+                max_bits[gr][ch] /= bits;
+            }
+        }
+    }
+}
+
 static int
 VBR_old_prepare(lame_internal_flags * gfc,
                 const FLOAT pe[2][2], FLOAT const ms_ener_ratio[2],
@@ -1396,7 +1451,7 @@ VBR_old_prepare(lame_internal_flags * gfc,
     SessionConfig_t const *const cfg = &gfc->cfg;
     EncResult_t *const eov = &gfc->ov_enc;
 
-    FLOAT   masking_lower_db, adjust = 0.0;
+    FLOAT   adjust;
     int     gr, ch;
     int     analog_silence = 1;
     int     avg, mxb, bits = 0;
@@ -1417,13 +1472,11 @@ VBR_old_prepare(lame_internal_flags * gfc,
 
             if (cod_info->block_type != SHORT_TYPE) { /* NORM, START or STOP type */
                 adjust = 1.28 / (1 + exp(3.5 - pe[gr][ch] / 300.)) - 0.05;
-                masking_lower_db = gfc->sv_qnt.mask_adjust - adjust;
             }
             else {
                 adjust = 2.56 / (1 + exp(3.5 - pe[gr][ch] / 300.)) - 0.14;
-                masking_lower_db = gfc->sv_qnt.mask_adjust_short - adjust;
             }
-            gfc->sv_qnt.masking_lower = pow(10.0, masking_lower_db * 0.1);
+            set_masking_lower(gfc, cod_info, adjust);
 
             init_outer_loop(gfc, cod_info);
             bands[gr][ch] = calc_xmin(gfc, &ratio[gr][ch], cod_info, l3_xmin[gr][ch]);
@@ -1435,17 +1488,13 @@ VBR_old_prepare(lame_internal_flags * gfc,
             bits += max_bits[gr][ch];
         }
     }
+    scale_max_bits(cfg, max_bits, bits, frameBits[cfg->vbr_max_bitrate_index]);
     for (gr = 0; gr < cfg->mode_gr; gr++) {
         for (ch = 0; ch < cfg->channels_out; ch++) {
-            if (bits > frameBits[cfg->vbr_max_bitrate_index] && bits > 0) {
-                max_bits[gr][ch] *= frameBits[cfg->vbr_max_bitrate_index];
-                max_bits[gr][ch] /= bits;
-            }
             if (min_bits[gr][ch] > max_bits[gr][ch])
                 min_bits[gr][ch] = max_bits[gr][ch];
-
-        }               /* for ch */
-    }                   /* for gr */
+        }
+    }
 
     return analog_silence;
 }
@@ -1625,15 +1674,7 @@ VBR_new_prepare(lame_internal_flags * gfc,
             bits += max_bits[gr][ch];
         }
     }
-    for (gr = 0; gr < cfg->mode_gr; gr++) {
-        for (ch = 0; ch < cfg->channels_out; ch++) {
-            if (bits > maximum_framebits && bits > 0) {
-                max_bits[gr][ch] *= maximum_framebits;
-                max_bits[gr][ch] /= bits;
-            }
-
-        }               /* for ch */
-    }                   /* for gr */
+    scale_max_bits(cfg, max_bits, bits, maximum_framebits);
     if (analog_silence) {
         *max_resv = 0;
     }
@@ -1943,20 +1984,8 @@ ABR_iteration_loop(lame_internal_flags * gfc, const FLOAT pe[2][2],
             ms_convert(&gfc->l3_side, gr);
         }
         for (ch = 0; ch < cfg->channels_out; ch++) {
-            FLOAT   adjust, masking_lower_db;
             cod_info = &l3_side->tt[gr][ch];
-
-            if (cod_info->block_type != SHORT_TYPE) { /* NORM, START or STOP type */
-                /* adjust = 1.28/(1+exp(3.5-pe[gr][ch]/300.))-0.05; */
-                adjust = 0;
-                masking_lower_db = gfc->sv_qnt.mask_adjust - adjust;
-            }
-            else {
-                /* adjust = 2.56/(1+exp(3.5-pe[gr][ch]/300.))-0.14; */
-                adjust = 0;
-                masking_lower_db = gfc->sv_qnt.mask_adjust_short - adjust;
-            }
-            gfc->sv_qnt.masking_lower = pow(10.0, masking_lower_db * 0.1);
+            set_masking_lower(gfc, cod_info, 0);
 
 
             /*  cod_info, scalefac and xrpow get initialized in init_outer_loop
@@ -2034,20 +2063,8 @@ CBR_iteration_loop(lame_internal_flags * gfc, const FLOAT pe[2][2],
         }
 
         for (ch = 0; ch < cfg->channels_out; ch++) {
-            FLOAT   adjust, masking_lower_db;
             cod_info = &l3_side->tt[gr][ch];
-
-            if (cod_info->block_type != SHORT_TYPE) { /* NORM, START or STOP type */
-                /* adjust = 1.28/(1+exp(3.5-pe[gr][ch]/300.))-0.05; */
-                adjust = 0;
-                masking_lower_db = gfc->sv_qnt.mask_adjust - adjust;
-            }
-            else {
-                /* adjust = 2.56/(1+exp(3.5-pe[gr][ch]/300.))-0.14; */
-                adjust = 0;
-                masking_lower_db = gfc->sv_qnt.mask_adjust_short - adjust;
-            }
-            gfc->sv_qnt.masking_lower = pow(10.0, masking_lower_db * 0.1);
+            set_masking_lower(gfc, cod_info, 0);
 
             /*  init_outer_loop sets up cod_info, scalefac and xrpow
              */
