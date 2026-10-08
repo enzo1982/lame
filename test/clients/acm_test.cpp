@@ -1076,6 +1076,74 @@ test_format_negotiation(HACMDRIVER had)
     }
 }
 
+/**
+ * @brief Checks what the codec returns for its format tags.
+ *
+ * - Asked by index, the codec returns the index that was asked for: 0 for
+ *   MPEG Layer-3, 1 for PCM.
+ * - Asked for the largest format structure of all tags, the codec returns
+ *   the MPEG Layer-3 tag and the size of an MPEGLAYER3WAVEFORMAT. Asked for
+ *   that of the PCM tag, it returns the PCM tag.
+ * - acmMetrics() returns the same size as the largest format of the driver.
+ *   The ACM computes this size from the format tags that it reads by index,
+ *   so this check passes whatever the codec returns for the largest size
+ *   query.
+ *
+ * @param had the opened driver
+ */
+static void
+test_format_tags(HACMDRIVER had)
+{
+    static const DWORD tags[] = { WAVE_FORMAT_MPEGLAYER3, WAVE_FORMAT_PCM };
+    ACMFORMATTAGDETAILSA ftd;
+    DWORD index, largest = 0;
+    MMRESULT mr;
+
+    printf("the format tags of the codec\n");
+    for (index = 0; index < sizeof(tags) / sizeof(tags[0]); index++) {
+        char what[CTEST_DETAIL_CHARS];
+
+        memset(&ftd, 0, sizeof(ftd));
+        ftd.cbStruct = sizeof(ftd);
+        ftd.dwFormatTagIndex = index;
+        mr = acmFormatTagDetailsA(had, &ftd, ACM_FORMATTAGDETAILSF_INDEX);
+        sprintf(what, "the codec describes format tag %lu", (unsigned long) index);
+        CHECK_MM(mr, what);
+        if (mr == MMSYSERR_NOERROR) {
+            sprintf(what, "format tag %lu is 0x%04lX", (unsigned long) index, (unsigned long) tags[index]);
+            CHECK_EQ_U(ftd.dwFormatTag, tags[index], what);
+            sprintf(what, "format tag %lu is reported with index %lu", (unsigned long) index,
+                    (unsigned long) index);
+            CHECK_EQ_U(ftd.dwFormatTagIndex, index, what);
+        }
+    }
+
+    memset(&ftd, 0, sizeof(ftd));
+    ftd.cbStruct = sizeof(ftd);
+    ftd.dwFormatTag = WAVE_FORMAT_UNKNOWN;
+    mr = acmFormatTagDetailsA(had, &ftd, ACM_FORMATTAGDETAILSF_LARGESTSIZE);
+    CHECK_MM(mr, "the codec returns the format tag with the largest format");
+    if (mr == MMSYSERR_NOERROR) {
+        CHECK_EQ_U(ftd.dwFormatTag, WAVE_FORMAT_MPEGLAYER3, "it is MPEG Layer-3");
+        CHECK_EQ_U(ftd.cbFormatSize, sizeof(MPEGLAYER3WAVEFORMAT),
+                   "its size is that of an MPEGLAYER3WAVEFORMAT");
+    }
+
+    memset(&ftd, 0, sizeof(ftd));
+    ftd.cbStruct = sizeof(ftd);
+    ftd.dwFormatTag = WAVE_FORMAT_PCM;
+    mr = acmFormatTagDetailsA(had, &ftd, ACM_FORMATTAGDETAILSF_LARGESTSIZE);
+    CHECK_MM(mr, "the codec returns the largest PCM format");
+    if (mr == MMSYSERR_NOERROR) {
+        CHECK_EQ_U(ftd.dwFormatTag, WAVE_FORMAT_PCM, "it is PCM");
+    }
+
+    mr = acmMetrics((HACMOBJ) had, ACM_METRIC_MAX_SIZE_FORMAT, &largest);
+    CHECK_MM(mr, "acmMetrics() returns the largest format size of the driver");
+    CHECK_EQ_U(largest, sizeof(MPEGLAYER3WAVEFORMAT),
+               "the largest format size is that of an MPEGLAYER3WAVEFORMAT");
+}
+
 /** @brief What the wrapper below returns when the codec faults. */
 static const MMRESULT CALL_FAULTED = (MMRESULT) -1;
 
@@ -1889,6 +1957,7 @@ test_under_the_acm(const char *driver)
     CHECK(formats > 0, "it offers at least one MPEG Layer-3 format");
 
     test_format_negotiation(had);
+    test_format_tags(had);
     test_suggest_unencodable_rate(had);
 
     fill_pcm_format(&pcm, rate, channels);

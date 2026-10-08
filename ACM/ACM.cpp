@@ -149,6 +149,10 @@ static bool IsMP3Frequency(const unsigned int the_Frequency)
 }
 
 static const int FORMAT_TAG_MAX_NB = 2; // PCM and PERSONAL (mandatory to have at least PCM and your format)
+/// The index of the MP3 format tag, the first one
+static const DWORD FORMAT_TAG_INDEX_MP3 = 0;
+/// The index of the PCM format tag, the second one
+static const DWORD FORMAT_TAG_INDEX_PCM = 1;
 static const int FILTER_TAG_MAX_NB = 0; // this is a codec, not a filter
 
 // number of supported PCM formats
@@ -541,7 +545,9 @@ inline DWORD ACM::OnFormatDetails(LPACMFORMATDETAILS a_FormatDetails, const LPAR
 
 /*!
 	Fills in the details of one format tag that this driver supports.
-	The index selects the format tag: 0 is MP3, 1 is PCM.
+	The index selects the format tag: 0 is MP3, 1 is PCM. The largest size
+	query for all tags selects the MP3 format tag: its format structure is
+	the larger one.
 
 	\param a_FormatTagDetails the format tag to describe. The function fills
 	       in its other members.
@@ -567,19 +573,17 @@ inline DWORD ACM::OnFormatTagDetails(LPACMFORMATTAGDETAILS a_FormatTagDetails, c
 		// the format tag at the index the host asks for
 			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "get ACM_FORMATTAGDETAILSF_INDEX for index %03d",a_FormatTagDetails->dwFormatTagIndex);
 
-			if (a_FormatTagDetails->dwFormatTagIndex >= FORMAT_TAG_MAX_NB)
-			{
-				my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "ACM_FORMATTAGDETAILSF_INDEX for unsupported index %03d",a_FormatTagDetails->dwFormatTagIndex);
-				return ACMERR_NOTPOSSIBLE;
-			}
 			switch (a_FormatTagDetails->dwFormatTagIndex)
 			{
-			case 0:
+			case FORMAT_TAG_INDEX_MP3:
 				the_format = PERSONAL_FORMAT;
 				break;
-			default :
+			case FORMAT_TAG_INDEX_PCM:
 				the_format = WAVE_FORMAT_PCM;
 				break;
+			default :
+				my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "ACM_FORMATTAGDETAILSF_INDEX for unsupported index %03d",a_FormatTagDetails->dwFormatTagIndex);
+				return ACMERR_NOTPOSSIBLE;
 			}
 			break;
 
@@ -599,8 +603,22 @@ inline DWORD ACM::OnFormatTagDetails(LPACMFORMATTAGDETAILS a_FormatTagDetails, c
 			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "get ACM_FORMATTAGDETAILSF_FORMATTAG for index 0x%02X, cStandardFormats = %d",a_FormatTagDetails->dwFormatTagIndex,a_FormatTagDetails->cStandardFormats);
 			break;
 		case ACM_FORMATTAGDETAILSF_LARGESTSIZE:
-			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "ACM_FORMATTAGDETAILSF_LARGESTSIZE not used");
-			return ACMERR_NOTPOSSIBLE;
+		// The format tag with the largest format structure, of all tags
+		// (WAVE_FORMAT_UNKNOWN) or of the tag given
+			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "get ACM_FORMATTAGDETAILSF_LARGESTSIZE for format 0x%04X",a_FormatTagDetails->dwFormatTag);
+			switch (a_FormatTagDetails->dwFormatTag)
+			{
+			case WAVE_FORMAT_UNKNOWN:
+			case PERSONAL_FORMAT:
+				the_format = PERSONAL_FORMAT;
+				break;
+			case WAVE_FORMAT_PCM:
+				the_format = WAVE_FORMAT_PCM;
+				break;
+			default:
+				return ACMERR_NOTPOSSIBLE;
+			}
+			break;
 		default:
 			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "OnFormatTagDetails Unknown Format tag query");
 			return ACMERR_NOTPOSSIBLE;
@@ -610,7 +628,7 @@ inline DWORD ACM::OnFormatTagDetails(LPACMFORMATTAGDETAILS a_FormatTagDetails, c
 	if (the_format == WAVE_FORMAT_PCM)
 	{
 		a_FormatTagDetails->dwFormatTag      = WAVE_FORMAT_PCM;
-		a_FormatTagDetails->dwFormatTagIndex = 0;
+		a_FormatTagDetails->dwFormatTagIndex = FORMAT_TAG_INDEX_PCM;
 		a_FormatTagDetails->cbFormatSize     = sizeof(PCMWAVEFORMAT);
 		/// \note 0 may mean we don't know how to decode
 		a_FormatTagDetails->fdwSupport       = ACMDRIVERDETAILS_SUPPORTF_CODEC;
@@ -620,7 +638,7 @@ inline DWORD ACM::OnFormatTagDetails(LPACMFORMATTAGDETAILS a_FormatTagDetails, c
 	else
 	{
 		a_FormatTagDetails->dwFormatTag      = PERSONAL_FORMAT;
-		a_FormatTagDetails->dwFormatTagIndex = 1;
+		a_FormatTagDetails->dwFormatTagIndex = FORMAT_TAG_INDEX_MP3;
 		a_FormatTagDetails->cbFormatSize     = SIZE_FORMAT_STRUCT;
 		a_FormatTagDetails->fdwSupport       = ACMDRIVERDETAILS_SUPPORTF_CODEC;
 		a_FormatTagDetails->cStandardFormats = GetNumberEncodingFormats();
