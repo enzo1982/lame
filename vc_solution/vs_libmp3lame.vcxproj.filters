@@ -124,6 +124,9 @@
     <ClInclude Include="..\libmp3lame\vector\lame_intrin.h">
       <Filter>Include</Filter>
     </ClInclude>
+    <ClInclude Include="..\libmp3lame\vector\xmm_quant_kernel.h">
+      <Filter>Include</Filter>
+    </ClInclude>
     <ClInclude Include="..\libmp3lame\machine.h">
       <Filter>Include</Filter>
     </ClInclude>

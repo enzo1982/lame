@@ -57,7 +57,7 @@ liblamevectorneon_la_SOURCES = $(neon_sources)
 liblamevectorneon_la_CFLAGS = $(AM_CFLAGS) @VECTOR_NEON_FLAGS@
 endif
 
-noinst_HEADERS = lame_intrin.h
+noinst_HEADERS = lame_intrin.h xmm_quant_kernel.h
 
 EXTRA_liblamevectorroutines_la_SOURCES = $(xmm_sources)
 EXTRA_liblamevectoravx2_la_SOURCES = $(avx2_sources)

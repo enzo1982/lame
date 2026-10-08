@@ -59,37 +59,20 @@
 
 #include <emmintrin.h>
 
+#include "xmm_quant_kernel.h"
+
 /* |x| for four lanes: clear the sign bit. */
 #define ABS_MASK_PS (_mm_castsi128_ps(_mm_set1_epi32(0x7fffffff)))
 
-/* One block's quantization: x = xr34*sfpow34, then the two-truncate adj43[]
-   gather, leaving the integer indices l3 as a vector.  Identical in effect to
-   k_34_4()'s default path and to quantize_lines_xrpow_sse2's core. */
-static SSE_FUNCTION __m128i
-quant_block_sse2(__m128 x, const FLOAT * const adj)
-{
-    int     r0, r1, r2, r3;
-
-    /* first truncate -> indices in general registers to subscript adj43[] */
-    r0 = _mm_cvttss_si32(x);
-    r1 = _mm_cvttss_si32(_mm_shuffle_ps(x, x, _MM_SHUFFLE(1, 1, 1, 1)));
-    r2 = _mm_cvttss_si32(_mm_unpackhi_ps(x, x));
-    r3 = _mm_cvttss_si32(_mm_shuffle_ps(x, x, _MM_SHUFFLE(3, 3, 3, 3)));
-
-    x = _mm_add_ps(x, _mm_set_ps(adj[r3], adj[r2], adj[r1], adj[r0]));
-    return _mm_cvttps_epi32(x);       /* second truncate = l3 */
-}
-
 /* d = |xr| - sfpow*pow43[l3], four lanes. */
 static SSE_FUNCTION __m128
-noise_block_sse2(__m128i l3, __m128 vsfpow, const FLOAT * xr, const FLOAT * const pw43)
+noise_block_sse2(__m128i l3, __m128 vsfpow, __m128 absxr, const FLOAT * const pw43)
 {
     int const i0 = _mm_cvtsi128_si32(l3);
     int const i1 = _mm_cvtsi128_si32(_mm_shuffle_epi32(l3, _MM_SHUFFLE(1, 1, 1, 1)));
     int const i2 = _mm_cvtsi128_si32(_mm_shuffle_epi32(l3, _MM_SHUFFLE(2, 2, 2, 2)));
     int const i3 = _mm_cvtsi128_si32(_mm_shuffle_epi32(l3, _MM_SHUFFLE(3, 3, 3, 3)));
     __m128 const p = _mm_set_ps(pw43[i3], pw43[i2], pw43[i1], pw43[i0]);
-    __m128 const absxr = _mm_and_ps(_mm_loadu_ps(xr), ABS_MASK_PS);
 
     return _mm_sub_ps(absxr, _mm_mul_ps(vsfpow, p));
 }
@@ -122,8 +105,8 @@ calc_sfb_noise_x34_sse2(const FLOAT * xr, const FLOAT * xr34, unsigned int bw,
     unsigned int i;
 
     for (i = 0; i < full; ++i) {
-        __m128i const l3 = quant_block_sse2(_mm_mul_ps(_mm_loadu_ps(xr34), vsfpow34), adj);
-        __m128 const d = noise_block_sse2(l3, vsfpow, xr, pw43);
+        __m128i const l3 = quant4_sse2(_mm_mul_ps(_mm_loadu_ps(xr34), vsfpow34), adj);
+        __m128 const d = noise_block_sse2(l3, vsfpow, _mm_and_ps(_mm_loadu_ps(xr), ABS_MASK_PS), pw43);
 
         acc = _mm_add_ss(acc, hsum_pinned_sse2(_mm_mul_ps(d, d)));
         xr += 4;
@@ -150,17 +133,8 @@ calc_sfb_noise_x34_sse2(const FLOAT * xr, const FLOAT * xr34, unsigned int bw,
         default: x34 = _mm_set_ps(0.f, 0.f, 0.f, xr34[0]);
                  x = _mm_set_ps(0.f, 0.f, 0.f, xr[0]); break;
         }
-        l3 = quant_block_sse2(_mm_mul_ps(x34, vsfpow34), adj);
-        {
-            int const i0 = _mm_cvtsi128_si32(l3);
-            int const i1 = _mm_cvtsi128_si32(_mm_shuffle_epi32(l3, _MM_SHUFFLE(1, 1, 1, 1)));
-            int const i2 = _mm_cvtsi128_si32(_mm_shuffle_epi32(l3, _MM_SHUFFLE(2, 2, 2, 2)));
-            int const i3 = _mm_cvtsi128_si32(_mm_shuffle_epi32(l3, _MM_SHUFFLE(3, 3, 3, 3)));
-            __m128 const p = _mm_set_ps(pw43[i3], pw43[i2], pw43[i1], pw43[i0]);
-            __m128 const absxr = _mm_and_ps(x, ABS_MASK_PS);
-
-            d = _mm_and_ps(_mm_sub_ps(absxr, _mm_mul_ps(vsfpow, p)), keep);
-        }
+        l3 = quant4_sse2(_mm_mul_ps(x34, vsfpow34), adj);
+        d = _mm_and_ps(noise_block_sse2(l3, vsfpow, _mm_and_ps(x, ABS_MASK_PS), pw43), keep);
         acc = _mm_add_ss(acc, hsum_pinned_sse2(_mm_mul_ps(d, d)));
     }
     return _mm_cvtss_f32(acc);

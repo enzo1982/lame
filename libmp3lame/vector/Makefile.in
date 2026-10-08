@@ -452,7 +452,7 @@ neon_sources = neon_choose_table.c
 # on 32-bit ARM it carries the whole-file opt-in configure found.
 @WITH_NEON_TRUE@liblamevectorneon_la_SOURCES = $(neon_sources)
 @WITH_NEON_TRUE@liblamevectorneon_la_CFLAGS = $(AM_CFLAGS) @VECTOR_NEON_FLAGS@
-noinst_HEADERS = lame_intrin.h
+noinst_HEADERS = lame_intrin.h xmm_quant_kernel.h
 EXTRA_liblamevectorroutines_la_SOURCES = $(xmm_sources)
 EXTRA_liblamevectoravx2_la_SOURCES = $(avx2_sources)
 EXTRA_liblamevectoravx512_la_SOURCES = $(avx512_sources)

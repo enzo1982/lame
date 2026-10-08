@@ -58,6 +58,28 @@ typedef union {
    zero at every step size. */
 #define XRPOW_SMALLEST_ROOTED 8.271806125530277e-25f
 
+/**
+ * \internal
+ * \brief The xrpow values of four coefficients: |xr|^(3/4), and 0 for a
+ *        coefficient below #XRPOW_SMALLEST_ROOTED.
+ * \param x          the four coefficients.
+ * \param fabs_mask  the mask that clears the sign bit.
+ * \param smallest   #XRPOW_SMALLEST_ROOTED in every lane.
+ * \param sum        adds |xr| of each lane.
+ * \param max        keeps the largest xrpow value of each lane.
+ * \return the four xrpow values.
+ */
+static inline SSE_FUNCTION __m128
+xrpow_block(__m128 x, __m128 fabs_mask, __m128 smallest, __m128 * sum, __m128 * max)
+{
+    x = _mm_and_ps(x, fabs_mask);
+    *sum = _mm_add_ps(*sum, x);
+    x = _mm_and_ps(x, _mm_cmpge_ps(x, smallest));
+    x = _mm_sqrt_ps(_mm_mul_ps(x, _mm_sqrt_ps(x)));
+    *max = _mm_max_ps(*max, x);
+    return x;
+}
+
 SSE_FUNCTION void
 init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int max_nz, FLOAT * sum)
 {
@@ -83,11 +105,8 @@ init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int max_nz, FLOA
 
     for (i = 0; i < upper4; i += 4) {
         vec_tmp._m128 = _mm_loadu_ps(&(cod_info->xr[i])); /* load */
-        vec_tmp._m128 = _mm_and_ps(vec_tmp._m128, vec_fabs_mask); /* fabs */
-        vec_sum._m128 = _mm_add_ps(vec_sum._m128, vec_tmp._m128);
-        vec_tmp._m128 = _mm_and_ps(vec_tmp._m128, _mm_cmpge_ps(vec_tmp._m128, vec_smallest));
-        vec_tmp._m128 = _mm_sqrt_ps(_mm_mul_ps(vec_tmp._m128, _mm_sqrt_ps(vec_tmp._m128)));
-        vec_xrpow_max._m128 = _mm_max_ps(vec_xrpow_max._m128, vec_tmp._m128); /* retrieve max */
+        vec_tmp._m128 = xrpow_block(vec_tmp._m128, vec_fabs_mask, vec_smallest,
+                                    &vec_sum._m128, &vec_xrpow_max._m128);
         _mm_storeu_ps(&(xrpow[i]), vec_tmp._m128); /* store into xrpow[] */
     }
     vec_tmp._m128 = _mm_set_ps1(0);
@@ -95,11 +114,8 @@ init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int max_nz, FLOA
         case 3: vec_tmp._float[2] = cod_info->xr[upper4+2]; /* fall through */
         case 2: vec_tmp._float[1] = cod_info->xr[upper4+1]; /* fall through */
         case 1: vec_tmp._float[0] = cod_info->xr[upper4+0];
-            vec_tmp._m128 = _mm_and_ps(vec_tmp._m128, vec_fabs_mask); /* fabs */
-            vec_sum._m128 = _mm_add_ps(vec_sum._m128, vec_tmp._m128);
-            vec_tmp._m128 = _mm_and_ps(vec_tmp._m128, _mm_cmpge_ps(vec_tmp._m128, vec_smallest));
-            vec_tmp._m128 = _mm_sqrt_ps(_mm_mul_ps(vec_tmp._m128, _mm_sqrt_ps(vec_tmp._m128)));
-            vec_xrpow_max._m128 = _mm_max_ps(vec_xrpow_max._m128, vec_tmp._m128); /* retrieve max */
+            vec_tmp._m128 = xrpow_block(vec_tmp._m128, vec_fabs_mask, vec_smallest,
+                                        &vec_sum._m128, &vec_xrpow_max._m128);
             switch (rest) {
                 case 3: xrpow[upper4+2] = vec_tmp._float[2]; /* fall through */
                 case 2: xrpow[upper4+1] = vec_tmp._float[1]; /* fall through */

@@ -51,6 +51,8 @@
 
 #include <immintrin.h>
 
+#include "xmm_quant_kernel.h"
+
 AVX2_FUNCTION void
 quantize_lines_xrpow_avx2(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix,
                           const FLOAT * const adj)
@@ -84,17 +86,7 @@ quantize_lines_xrpow_avx2(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix
         ix += 4;
     }
     if (remaining) {
-        FLOAT   x0, x1;
-        int     rx0, rx1;
-
-        x0 = *xr++ * istep;
-        x1 = *xr++ * istep;
-        rx0 = (int) x0;
-        rx1 = (int) x1;
-        x0 += adj[rx0];
-        x1 += adj[rx1];
-        *ix++ = (int) x0;
-        *ix++ = (int) x1;
+        quant_pair_c(istep, xr, ix, adj);
     }
 }
 

@@ -54,6 +54,8 @@
 
 #include <emmintrin.h>
 
+#include "xmm_quant_kernel.h"
+
 SSE_FUNCTION void
 quantize_lines_xrpow_sse2(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix,
                           const FLOAT * const adj)
@@ -69,40 +71,12 @@ quantize_lines_xrpow_sse2(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix
     l = l >> 1;
 
     while (l--) {
-        __m128 const x = _mm_mul_ps(_mm_loadu_ps(xr), vistep);
-        int     r0, r1, r2, r3;
-
-        /* The indices have to reach general registers to subscript the table.
-           Each lane is shuffled down and converted on its own, which looks
-           like more work than converting all four at once and reading them
-           back from memory - but four narrow loads cannot all forward from
-           one wide store, and that stall costs more than the shuffles do.
-           Measured: the memory form was slower than the scalar loop it
-           replaced. It is also the sequence gcc and clang emit unaided. */
-        r0 = _mm_cvttss_si32(x);
-        r1 = _mm_cvttss_si32(_mm_shuffle_ps(x, x, _MM_SHUFFLE(1, 1, 1, 1)));
-        r2 = _mm_cvttss_si32(_mm_unpackhi_ps(x, x));
-        r3 = _mm_cvttss_si32(_mm_shuffle_ps(x, x, _MM_SHUFFLE(3, 3, 3, 3)));
-
-        _mm_storeu_si128((__m128i *) ix,
-                         _mm_cvttps_epi32(_mm_add_ps(x,
-                                                     _mm_set_ps(adj[r3], adj[r2],
-                                                                adj[r1], adj[r0]))));
+        _mm_storeu_si128((__m128i *) ix, quant4_sse2(_mm_mul_ps(_mm_loadu_ps(xr), vistep), adj));
         xr += 4;
         ix += 4;
     }
     if (remaining) {
-        FLOAT   x0, x1;
-        int     rx0, rx1;
-
-        x0 = *xr++ * istep;
-        x1 = *xr++ * istep;
-        rx0 = (int) x0;
-        rx1 = (int) x1;
-        x0 += adj[rx0];
-        x1 += adj[rx1];
-        *ix++ = (int) x0;
-        *ix++ = (int) x1;
+        quant_pair_c(istep, xr, ix, adj);
     }
 }
 
