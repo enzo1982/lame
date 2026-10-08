@@ -701,6 +701,10 @@
 			        output, it no longer drops that audio and goes on; it
 			        stops encoding and returns the error to the filter
 			        before it.</li>
+			    <li>After a seek or another flush of the graph, the
+			        DirectShow filter no longer delivers MP3 data from
+			        before the flush. It begins a new MP3 stream with the
+			        data after it, also after the end of the stream.</li>
 			    <li>The DirectShow filter no longer leaks a registry handle
 			        each time it saves its settings.</li>
 			    <li>The Visual Studio build has been brought up to

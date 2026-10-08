@@ -1066,6 +1066,9 @@ public:
     int     reject_from;    /**< the first sample that Receive() rejects, 0 for none */
     int     rejected;       /**< number of samples rejected */
     FailingAllocator *failing; /**< the allocator the pin hands out, NULL for none */
+    int     flushing;       /**< set between BeginFlush() and EndFlush() */
+    int     flush_mark;     /**< #sample_count at the last BeginFlush(), -1 before one */
+    int     while_flushing; /**< samples that arrived during a flush, and were rejected */
 
     /**
      * @brief Creates a pin that asks for @p a bytes of alignment.
@@ -1074,7 +1077,8 @@ public:
      */
     AlignedSinkPin(long a, const GUID &m = MEDIATYPE_Stream) : align(a), major(m), peer(NULL),
         owner(NULL), stream(NULL), length(0), capacity(0), samples(NULL), sample_count(0),
-        sample_capacity(0), deliveries(0), reject_from(0), rejected(0), failing(NULL)
+        sample_capacity(0), deliveries(0), reject_from(0), rejected(0), failing(NULL),
+        flushing(0), flush_mark(-1), while_flushing(0)
     {
         eos = CreateEvent(NULL, TRUE, FALSE, NULL);
     }
@@ -1160,8 +1164,8 @@ public:
     STDMETHODIMP EnumMediaTypes(IEnumMediaTypes **) { return E_NOTIMPL; }
     STDMETHODIMP QueryInternalConnections(IPin **, ULONG *) { return E_NOTIMPL; }
     STDMETHODIMP EndOfStream() { SetEvent(eos); return S_OK; }
-    STDMETHODIMP BeginFlush() { return S_OK; }
-    STDMETHODIMP EndFlush() { return S_OK; }
+    STDMETHODIMP BeginFlush() { flushing = 1; flush_mark = sample_count; return S_OK; }
+    STDMETHODIMP EndFlush() { flushing = 0; return S_OK; }
     STDMETHODIMP NewSegment(REFERENCE_TIME, REFERENCE_TIME, double) { return S_OK; }
 
     STDMETHODIMP GetAllocator(IMemAllocator **a)
@@ -1183,6 +1187,11 @@ public:
         long    n = s->GetActualDataLength();
 
         deliveries++;
+        if (flushing) {
+            /* A pin that is flushing rejects samples */
+            while_flushing++;
+            return S_FALSE;
+        }
         if (reject_from > 0 && deliveries >= reject_from) {
             rejected++;
             return E_FAIL;
@@ -1397,6 +1406,8 @@ out:
 #define PUSH_FRAMES_PER_SAMPLE (PUSH_RATE / 10)
 /** @brief The bytes of each pushed media sample. */
 #define PUSH_BYTES_PER_SAMPLE (PUSH_FRAMES_PER_SAMPLE * PUSH_CHANNELS * (long) sizeof(short))
+/** @brief The stop time of a segment without an end, in 100 ns units. */
+#define SEGMENT_END_UNITS ((REFERENCE_TIME) 0x7FFFFFFFFFFFFFFF)
 /** @brief The duration of each pushed media sample, in 100 ns units. */
 #define PUSH_SAMPLE_UNITS ((REFERENCE_TIME) PUSH_FRAMES_PER_SAMPLE * 10000000 / PUSH_RATE)
 
@@ -1682,7 +1693,8 @@ public:
  *
  * Pushes @p count media samples of 100 ms of the test tone. Their times follow
  * each other without a gap, except that the times from sample @p gap_at on are
- * @p gap_units later.
+ * @p gap_units later. With @p flush_at, the encoder is flushed before that
+ * sample, as for a seek, and the times and the tone start again at 0.
  *
  * @param cf         the filter DLL's class factory.
  * @param sink       the pin to deliver to.
@@ -1690,12 +1702,13 @@ public:
  * @param gap_at     the first sample after the gap. 0 for no gap.
  * @param gap_units  the gap, in 100 ns units.
  * @param connected  receives whether both connections were made.
+ * @param flush_at   the first sample after the flush. 0 for no flush.
  * @return Non-zero when every sample was taken and the stream ended within
  *         the timeout.
  */
 static int
 encode_pushed(IClassFactory *cf, AlignedSinkPin &sink, int count, int gap_at,
-              REFERENCE_TIME gap_units, int *connected)
+              REFERENCE_TIME gap_units, int *connected, int flush_at = 0)
 {
     IGraphBuilder *graph = NULL;
     IBaseFilter *lame = NULL;
@@ -1726,9 +1739,15 @@ encode_pushed(IClassFactory *cf, AlignedSinkPin &sink, int count, int gap_at,
     if (FAILED(graph->QueryInterface(IID_IMediaControl, (void **) &mc)) || FAILED(mc->Run()))
         goto out;
     for (i = 0; i < count && pushed; i++) {
-        REFERENCE_TIME start = i * PUSH_SAMPLE_UNITS + (gap_at > 0 && i >= gap_at ? gap_units : 0);
+        int const n = flush_at > 0 && i >= flush_at ? i - flush_at : i;
+        REFERENCE_TIME start = n * PUSH_SAMPLE_UNITS + (gap_at > 0 && i >= gap_at ? gap_units : 0);
 
-        pushed = src.Push((unsigned long) i * PUSH_FRAMES_PER_SAMPLE, start) == S_OK;
+        if (flush_at > 0 && i == flush_at) {
+            lame_in->BeginFlush();
+            lame_in->EndFlush();
+            lame_in->NewSegment(0, SEGMENT_END_UNITS, 1.0);
+        }
+        pushed = src.Push((unsigned long) n * PUSH_FRAMES_PER_SAMPLE, start) == S_OK;
     }
     lame_in->EndOfStream();
     until = GetTickCount() + GRAPH_TIMEOUT_MS;
@@ -1848,6 +1867,50 @@ test_rejected_delivery(IClassFactory *cf, const WCHAR *wav)
                  "the control encode delivers more than three samples", detail);
     ctest_record(connected && rejecting.rejected >= 1 && rejecting.rejected <= 2,
                  "after a rejected sample the encoder stops delivering", detail);
+}
+
+/**
+ * @brief Checks that a flush discards what the encoder holds and that the
+ *        data after it is encoded as by a new encoder.
+ *
+ * One second of pushed PCM, a flush as for a seek, and one second more whose
+ * times and tone start again at 0. The same one second alone is the
+ * reference. In frame output:
+ * - nothing reaches the sink while it is flushing;
+ * - the frames after the flush are the frames of the reference.
+ * In byte stream output, nothing reaches the sink while it is flushing either.
+ *
+ * @param cf  the filter DLL's class factory.
+ */
+static void
+test_flush_restarts_the_encoder(IClassFactory *cf)
+{
+    const int half = 10;
+    AlignedSinkPin reference(1, MEDIATYPE_Audio), flushed(1, MEDIATYPE_Audio), bytes(1);
+    char    detail[CTEST_DETAIL_CHARS];
+    int     connected = 0, ok;
+    long    after = -1;
+
+    ok = encode_pushed(cf, reference, half, 0, 0, &connected);
+    ctest_record(ok && reference.sample_count > 0, "one second of pushed PCM is encoded alone", NULL);
+    ok = encode_pushed(cf, flushed, 2 * half, 0, 0, &connected, half);
+    sprintf(detail, "%d frames before the flush, %d after; %d refused while flushing",
+            flushed.flush_mark, flushed.sample_count - flushed.flush_mark, flushed.while_flushing);
+    ctest_record(ok && flushed.flush_mark > 0, "a flush in the middle of the encode is passed downstream",
+                 detail);
+    ctest_record(flushed.while_flushing == 0, "nothing reaches the sink while it is flushing", detail);
+    if (flushed.flush_mark >= 0 && flushed.flush_mark < flushed.sample_count)
+        after = flushed.samples[flushed.flush_mark].offset;
+    sprintf(detail, "%ld bytes after the flush, %ld encoded alone",
+            after >= 0 ? flushed.length - after : -1L, reference.length);
+    ctest_record(after >= 0 && flushed.length - after == reference.length
+                 && memcmp(flushed.stream + after, reference.stream, reference.length) == 0,
+                 "after a flush the frames are those of a new encoder", detail);
+
+    ok = encode_pushed(cf, bytes, 2 * half, 0, 0, &connected, half);
+    sprintf(detail, "%d refused while flushing", bytes.while_flushing);
+    ctest_record(ok && bytes.flush_mark > 0 && bytes.while_flushing == 0,
+                 "in byte stream output too, nothing reaches the sink while it is flushing", detail);
 }
 
 /**
@@ -2220,6 +2283,7 @@ main(int argc, char **argv)
     test_frame_mode(cf, wavw, rate);
     test_frame_times_follow_a_gap(cf);
     test_failed_output_buffer(cf, wavw);
+    test_flush_restarts_the_encoder(cf);
     /* LAME reports why it rejects the VBR range of
        test_refused_setting_fails_run(). */
     ctest_stderr_empty(&filter_stderr, "the filter writes nothing to the stderr of its host");

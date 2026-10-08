@@ -203,6 +203,7 @@ private:
     HRESULT FlushStream();
     HRESULT FlushFrames();
     IStream * DownstreamStream();
+    void ResetTimes();
 
     void ReadPresetSettings(MPEG_ENCODER_CONFIG *pmec);
     HRESULT GetConfigField(DWORD MPEG_ENCODER_CONFIG::*field, DWORD *value, LPCTSTR name);
@@ -229,6 +230,7 @@ private:
     int                         m_sync_out_idx;
 
     BOOL                        m_hasFinished;
+    BOOL                        m_restartEncoder;  ///< a flush closed the encoder; the next sample starts a new one
 
     CCritSec                    m_cs;
 

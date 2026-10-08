@@ -277,6 +277,7 @@ CMpegAudEnc::CMpegAudEnc(LPUNKNOWN lpunk, HRESULT *phr)
 
     m_CapsNum = 0;
     m_hasFinished = TRUE;
+    m_restartEncoder = FALSE;
     m_bStreamOutput = FALSE;
     m_currentMediaTypeIndex = 0;
 }
@@ -330,6 +331,15 @@ HRESULT CMpegAudEnc::Receive(IMediaSample * pSample)
 
     if (sample_size <= 0 || pSourceBuffer == NULL || m_hasFinished || (gotValidTime && rtStart < 0))
         return S_OK;
+
+    // The first sample after a flush starts a new MP3 stream
+    if (m_restartEncoder)
+    {
+        HRESULT const started = m_Encoder.Init();
+        if (FAILED(started))
+            return started;
+        m_restartEncoder = FALSE;
+    }
 
     if (gotValidTime)
     {
@@ -418,7 +428,8 @@ HRESULT CMpegAudEnc::FlushStream()
     int iBufferSize;
     int iBlockLength = m_Encoder.GetBlockAligned(&pblock, &iBufferSize, m_cbStreamAlignment);
 
-    if(!iBlockLength)
+    // Nothing ready, or no encoder: after a flush until the next sample
+    if (iBlockLength <= 0)
         return S_OK;
 
     hr = m_pOutput->GetDeliveryBuffer(&pOutSample, NULL, NULL, 0);
@@ -505,6 +516,28 @@ HRESULT CMpegAudEnc::FlushFrames()
 
 
 /**
+ * Starts the times of the output again: the stream time, the byte position,
+ * the sample counts and the resync points.
+ */
+void CMpegAudEnc::ResetTimes()
+{
+    m_samplesIn = m_samplesOut = 0;
+    m_rtStreamTime = -1;
+    m_rtBytePos = 0;
+
+    for (int i = 0; i < RESYNC_COUNT; i++)
+    {
+        m_sync[i].sample   = 0;
+        m_sync[i].delta    = 0;
+        m_sync[i].applied  = TRUE;
+    }
+
+    m_sync_in_idx = 0;
+    m_sync_out_idx = 0;
+}
+
+
+/**
  * Prepares the filter for new data: computes the frame size and frame time for
  * the output sample rate, resets the time stamps, and initializes the encoder.
  */
@@ -527,9 +560,7 @@ HRESULT CMpegAudEnc::StartStreaming()
     }
     m_samplesPerFrame   = (dwOutSampleRate >= 32000) ? MPEG1_SAMPLES_PER_FRAME : MPEG2_SAMPLES_PER_FRAME;
     m_rtFrameTime = MulDiv(10000000, m_samplesPerFrame, dwOutSampleRate);
-    m_samplesIn = m_samplesOut = 0;
-    m_rtStreamTime = -1;
-    m_rtBytePos = 0;
+    ResetTimes();
 
     // initialize encoder
     HRESULT hr = m_Encoder.Init();
@@ -537,16 +568,7 @@ HRESULT CMpegAudEnc::StartStreaming()
         return hr;
 
     m_hasFinished   = FALSE;
-
-    for (int i = 0; i < RESYNC_COUNT; i++)
-    {
-        m_sync[i].sample   = 0;
-        m_sync[i].delta    = 0;
-        m_sync[i].applied  = TRUE;
-    }
-
-    m_sync_in_idx = 0;
-    m_sync_out_idx = 0;
+    m_restartEncoder = FALSE;
 
     get_SetDuration(&m_setDuration);
     get_SampleOverlap(&m_allowOverlap);
@@ -625,9 +647,11 @@ HRESULT CMpegAudEnc::EndOfStream()
 
 
 /**
- * Starts a flush. The encoded data that is left is sent downstream. For stream
- * output, the size of the output stream is set. Then the stream time and the
- * byte position start again at the beginning.
+ * Starts a flush. What the encoder holds belongs to the data before the
+ * flush, which the filters downstream discard: the encoder is closed without
+ * delivering it, and the first sample after the flush starts a new one. For
+ * stream output, the size of the output stream is set. Then the times start
+ * again at the beginning.
  */
 HRESULT CMpegAudEnc::BeginFlush()
 {
@@ -637,9 +661,9 @@ HRESULT CMpegAudEnc::BeginFlush()
     {
         CAutoLock lock(&m_cs);
 
-        // Flush data
-        m_Encoder.Finish();
-        FlushEncodedSamples();
+        m_Encoder.Close(NULL);
+        m_restartEncoder = TRUE;
+        m_hasFinished = FALSE;  // a flush after the end of the stream starts a new one
 
         IStream *pStream = DownstreamStream();
         if(pStream)
@@ -649,8 +673,7 @@ HRESULT CMpegAudEnc::BeginFlush()
             pStream->SetSize(size);
             pStream->Release();
         }
-        m_rtStreamTime = -1;
-        m_rtBytePos = 0;
+        ResetTimes();
     }
 
     return hr;
