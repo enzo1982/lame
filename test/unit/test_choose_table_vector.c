@@ -45,26 +45,10 @@
 #include "quantize_pvt.h"
 #include "vector/lame_intrin.h"
 #include "test_esc_cases.h"
+#include "test_cpu_probe.h"
 
 /** Longest region that the encoder passes to the routines. */
 #define MAX_LEN 576
-
-/** @brief Checks whether the running CPU has AVX2. */
-static int
-have_avx2(void)
-{
-#if defined( HAVE_AVX2_INTRINSICS )
-# if defined( __AVX2__ )
-    return 1;
-# elif defined( LAME_CPU_SUPPORTS )
-    return __builtin_cpu_supports("avx2") != 0;
-# else
-    return 0;               /* no way to ask; skip rather than crash */
-# endif
-#else
-    return 0;
-#endif
-}
 
 /**
  * @brief Calls the AVX2 maximum, or returns 0 if the build does not have it.

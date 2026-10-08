@@ -50,6 +50,7 @@
 #include "util.h"
 #include "quantize_pvt.h"
 #include "vector/lame_intrin.h"
+#include "test_cpu_probe.h"
 
 #if defined( HAVE_SSE2_INTRINSICS )
 # include <xmmintrin.h>
@@ -78,23 +79,6 @@ tables_init(void)
         adj_t[i] = (FLOAT) (0.4054 + 0.001 * (double) (i % 97));
 }
 
-/** @brief Checks whether the running CPU has AVX2. */
-static int
-have_avx2(void)
-{
-#if defined( HAVE_AVX2_INTRINSICS )
-# if defined( __AVX2__ )
-    return 1;
-# elif defined( LAME_CPU_SUPPORTS )
-    return __builtin_cpu_supports("avx2") != 0;
-# else
-    return 0;               /* no way to ask; skip rather than crash */
-# endif
-#else
-    return 0;
-#endif
-}
-
 /**
  * @brief Calls the AVX2 form, or does nothing if the build does not have it.
  *
@@ -108,33 +92,6 @@ avx2_quantize(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix, const FLOA
     quantize_lines_xrpow_avx2(l, istep, xr, ix, adj);
 #else
     (void) l; (void) istep; (void) xr; (void) ix; (void) adj;
-#endif
-}
-
-/**
- * @brief Checks whether the running CPU has the AVX-512 subsets that the tier
- *        needs.
- *
- * The check requires all four subsets, because the kernels use all four. A
- * CPU with only the foundation subset would fault on the others.
- */
-static int
-have_avx512(void)
-{
-#if defined( HAVE_AVX512_INTRINSICS )
-# if defined( __AVX512F__ ) && defined( __AVX512VL__ ) \
-  && defined( __AVX512BW__ ) && defined( __AVX512DQ__ )
-    return 1;
-# elif defined( LAME_CPU_SUPPORTS_AVX512 )
-    return __builtin_cpu_supports("avx512f") != 0
-        && __builtin_cpu_supports("avx512vl") != 0
-        && __builtin_cpu_supports("avx512bw") != 0
-        && __builtin_cpu_supports("avx512dq") != 0;
-# else
-    return 0;               /* no way to ask; skip rather than crash */
-# endif
-#else
-    return 0;
 #endif
 }
 
