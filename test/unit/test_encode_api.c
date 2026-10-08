@@ -51,6 +51,7 @@
 
 #include "test_mem.h"
 #include "test_report.h"
+#include "test_encode.h"
 
 #include "test_unused.h"
 
@@ -238,17 +239,10 @@ encode_variant(enum variant variant, unsigned char *out, int cap)
 static int
 encode_and_flush(lame_t gfp, unsigned char *out, int cap)
 {
-    int     used = 0, call, n;
+    int const n = encode_collect(gfp, pcm_l, pcm_r, NSAMPLES, NCALLS, NSAMPLES, out, cap);
 
-    for (call = 0; call < NCALLS; call++) {
-        n = lame_encode_buffer(gfp, pcm_l + call * NSAMPLES, pcm_r + call * NSAMPLES,
-                               NSAMPLES, out + used, cap - used);
-        assert_true(n >= 0);
-        used += n;
-    }
-    n = lame_encode_flush(gfp, out + used, cap - used);
     assert_true(n >= 0);
-    return used + n;
+    return n;
 }
 
 /**

@@ -43,6 +43,7 @@
 #include <cmocka.h>
 
 #include "lame.h"
+#include "test_encode.h"
 #include "machine.h"
 #include "encoder.h"
 #include "util.h"
@@ -98,15 +99,9 @@ encode_sine(double amplitude_fraction, size_t * out_len)
     lame_set_VBR(gf, vbr_off);
     assert_true(lame_init_params(gf) >= 0);
 
-    for (i = 0; i + CHUNK <= FRAMES; i += CHUNK) {
-        n = lame_encode_buffer(gf, l + i, r + i, CHUNK, mp3 + used,
-                               (int) (MP3_ROOM - used));
-        assert_true(n >= 0);
-        used += (size_t) n;
-    }
-    n = lame_encode_flush(gf, mp3 + used, (int) (MP3_ROOM - used));
+    n = encode_collect(gf, l, r, CHUNK, FRAMES / CHUNK, CHUNK, mp3, (int) MP3_ROOM);
     assert_true(n >= 0);
-    used += (size_t) n;
+    used = (size_t) n;
 
     lame_close(gf);
     free(l);

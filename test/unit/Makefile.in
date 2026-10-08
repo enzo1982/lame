@@ -1532,7 +1532,8 @@ EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
 	test_calc_sfb_noise_vector.c test_choose_table_neon.c \
 	test_rtp_socket.c test_unused.h test_fixture.h test_mem.h \
 	test_esc_cases.h test_cpu_probe.h test_bytes.h test_report.h \
-	test_float_bits.h test_pkgconfig.sh test_exit_status.sh
+	test_float_bits.h test_encode.h test_pkgconfig.sh \
+	test_exit_status.sh
 all: all-am
 
 .SUFFIXES:

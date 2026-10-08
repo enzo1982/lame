@@ -43,6 +43,7 @@
 #include <cmocka.h>
 
 #include "test_report.h"
+#include "test_encode.h"
 
 #include "test_unused.h"
 
@@ -55,7 +56,6 @@
 #define SILENT_FRAMES     260
 /** Frames of ordinary audio after the silence. These frames spend the reservoir. */
 #define SIGNAL_FRAMES     40
-#define MP3BUF_SIZE       (5 * SAMPLES_PER_FRAME / 4 + 7200)
 /** Buffer size for the whole encode, with a large margin. The 128 kbit/s control produces the largest stream. */
 #define STREAM_SIZE       (256 * 1024)
 
@@ -137,37 +137,27 @@ walk_frames(unsigned char const *mp3, int len, int *frames)
 static int
 encode(lame_t gfp, int silent, int loud, unsigned char *mp3, int mp3_size)
 {
-    unsigned char frame[MP3BUF_SIZE];
-    short   left[SAMPLES_PER_FRAME];
-    short   right[SAMPLES_PER_FRAME];
-    int     collected = 0;
+    static short left[(SILENT_FRAMES + SIGNAL_FRAMES) * SAMPLES_PER_FRAME];
+    static short right[(SILENT_FRAMES + SIGNAL_FRAMES) * SAMPLES_PER_FRAME];
     int     i, f, rc;
 
+    assert_true(silent + loud <= SILENT_FRAMES + SIGNAL_FRAMES);
     memset(left, 0, sizeof left);
     memset(right, 0, sizeof right);
-    for (f = 0; f < silent + loud; f++) {
-        if (f == silent) {
-            for (i = 0; i < SAMPLES_PER_FRAME; i++) {
-                /* a loud sawtooth: it costs bits in every band, which is what
-                   makes the frame spend from the reservoir the silence filled */
-                short const v = (short) (12000 - 48 * (i % 500));
+    for (f = silent; f < silent + loud; f++) {
+        for (i = 0; i < SAMPLES_PER_FRAME; i++) {
+            /* a loud sawtooth: it costs bits in every band, which is what
+               makes the frame spend from the reservoir the silence filled */
+            short const v = (short) (12000 - 48 * (i % 500));
 
-                left[i] = v;
-                right[i] = (short) -v;
-            }
+            left[f * SAMPLES_PER_FRAME + i] = v;
+            right[f * SAMPLES_PER_FRAME + i] = (short) -v;
         }
-        rc = lame_encode_buffer(gfp, left, right, SAMPLES_PER_FRAME,
-                                frame, (int) sizeof frame);
-        assert_true(rc >= 0);
-        assert_true(collected + rc <= mp3_size);
-        memcpy(mp3 + collected, frame, (size_t) rc);
-        collected += rc;
     }
-    rc = lame_encode_flush(gfp, frame, (int) sizeof frame);
+    rc = encode_collect(gfp, left, right, SAMPLES_PER_FRAME, silent + loud, SAMPLES_PER_FRAME,
+                        mp3, mp3_size);
     assert_true(rc >= 0);
-    assert_true(collected + rc <= mp3_size);
-    memcpy(mp3 + collected, frame, (size_t) rc);
-    return collected + rc;
+    return rc;
 }
 
 /**

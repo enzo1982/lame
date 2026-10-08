@@ -42,6 +42,7 @@
 #include "test_unused.h"
 
 #include "lame.h"
+#include "test_encode.h"
 
 /* The obsolete decoder entry points are still built and exported, but
    DEPRECATED_OR_OBSOLETE_CODE_REMOVED compiles their declarations out of the
@@ -97,7 +98,7 @@ encode_a_stream(unsigned char *mp3, int cap, int with_tag)
     lame_global_flags *gf = lame_init();
     short  *pcm_l = malloc(NSAMPLES * sizeof(short));
     short  *pcm_r = malloc(NSAMPLES * sizeof(short));
-    int     i, c, n, total = -1;
+    int     i, total = -1;
 
     if (gf == NULL || pcm_l == NULL || pcm_r == NULL)
         goto done;
@@ -116,21 +117,11 @@ encode_a_stream(unsigned char *mp3, int cap, int with_tag)
         pcm_r[i] = (short) (16000.0 * sin(2.0 * PI * 660.0 * t));
     }
 
-    total = 0;
-    for (c = 0; c < NCALLS; c++) {
-        n = lame_encode_buffer(gf, pcm_l, pcm_r, NSAMPLES, mp3 + total, cap - total);
-        if (n < 0) {
-            total = -1;
-            goto done;
-        }
-        total += n;
-    }
-    n = lame_encode_flush(gf, mp3 + total, cap - total);
-    if (n < 0) {
+    total = encode_collect(gf, pcm_l, pcm_r, NSAMPLES, NCALLS, 0, mp3, cap);
+    if (total < 0) {
         total = -1;
         goto done;
     }
-    total += n;
 
     if (with_tag) {
         size_t  want = lame_get_lametag_frame(gf, NULL, 0);
