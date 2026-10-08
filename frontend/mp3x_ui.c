@@ -484,6 +484,22 @@ make_all_files_filter(void)
     return f;
 }
 
+/**
+ * \internal
+ * \brief Returns whether a file dialog ended with an error that the user must
+ *        see. Closing or cancelling the dialog is not such an error.
+ *
+ * \param err  the error of the dialog's finish call.
+ * \return TRUE for an error to show, FALSE when the user closed or cancelled
+ *         the dialog.
+ */
+static gboolean
+file_dialog_failed(const GError *err)
+{
+    return !g_error_matches(err, GTK_DIALOG_ERROR, GTK_DIALOG_ERROR_DISMISSED)
+        && !g_error_matches(err, GTK_DIALOG_ERROR, GTK_DIALOG_ERROR_CANCELLED);
+}
+
 static void
 on_open_dialog_finished(GObject *source, GAsyncResult *res, gpointer user_data)
 {
@@ -501,10 +517,7 @@ on_open_dialog_finished(GObject *source, GAsyncResult *res, gpointer user_data)
     GFile   *gfile = gtk_file_dialog_open_finish(dlg, res, &err);
 
     if (gfile == NULL) {
-        /* GTK_DIALOG_ERROR_DISMISSED and GTK_DIALOG_ERROR_CANCELLED are
-           silent. Other errors get a modal dialog. */
-        if (!g_error_matches(err, GTK_DIALOG_ERROR, GTK_DIALOG_ERROR_DISMISSED) &&
-            !g_error_matches(err, GTK_DIALOG_ERROR, GTK_DIALOG_ERROR_CANCELLED)) {
+        if (file_dialog_failed(err)) {
             mp3x_driver_show_error(d, "Could not open file: %s", err->message);
         }
         g_clear_error(&err);
@@ -864,8 +877,7 @@ on_save_dialog_finished(GObject *source, GAsyncResult *res, gpointer user_data)
     GFile  *gfile = gtk_file_dialog_save_finish(dlg, res, &err);
 
     if (gfile == NULL) {
-        if (!g_error_matches(err, GTK_DIALOG_ERROR, GTK_DIALOG_ERROR_DISMISSED) &&
-            !g_error_matches(err, GTK_DIALOG_ERROR, GTK_DIALOG_ERROR_CANCELLED)) {
+        if (file_dialog_failed(err)) {
             mp3x_driver_show_error(d, "Could not save: %s", err->message);
         }
         g_clear_error(&err);
@@ -947,15 +959,26 @@ request_start_save(Mp3xDriver *d, int export_kind)
                          req);
 }
 
-static void act_screenshot   (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_COMPOSITE); }
-static void act_export_pcm   (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_PCM); }
-static void act_export_resynth(GSimpleAction*a, GVariant*p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_RESYNTH); }
-static void act_export_mdct0 (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_MDCT0); }
-static void act_export_mdct1 (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_MDCT1); }
-static void act_export_psy0  (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_PSY0); }
-static void act_export_psy1  (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_PSY1); }
-static void act_export_sfb0  (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_SFB0); }
-static void act_export_sfb1  (GSimpleAction *a, GVariant *p, gpointer d) { (void)a;(void)p; request_start_save(d, MP3X_GRAPH_SFB1); }
+/**
+ * \internal
+ * \brief The win.export action: File > Save Screenshot and the items of
+ *        File > Export.
+ *
+ * \param a  the action.
+ * \param p  the target, an int32 Mp3xGraph. A value outside the enumeration
+ *           does nothing; the action can be activated from outside the menu.
+ * \param d  the driver.
+ */
+static void
+act_export(GSimpleAction *a, GVariant *p, gpointer d)
+{
+    gint32 const graph = g_variant_get_int32(p);
+
+    (void)a;
+    if (graph < MP3X_GRAPH_COMPOSITE || graph > MP3X_GRAPH_SFB1)
+        return;
+    request_start_save(d, graph);
+}
 
 
 /* ==========================================================================
@@ -1774,15 +1797,7 @@ static const GActionEntry mp3x_win_actions[] = {
     { .name = "open",      .activate = act_open },
     { .name = "recent",    .activate = act_open_recent, .parameter_type = "s" },
     { .name = "close",     .activate = act_close },
-    { .name = "screenshot", .activate = act_screenshot },
-    { .name = "export-pcm",     .activate = act_export_pcm },
-    { .name = "export-resynth", .activate = act_export_resynth },
-    { .name = "export-mdct-0",  .activate = act_export_mdct0 },
-    { .name = "export-mdct-1",  .activate = act_export_mdct1 },
-    { .name = "export-psy-0",   .activate = act_export_psy0 },
-    { .name = "export-psy-1",   .activate = act_export_psy1 },
-    { .name = "export-sfb-0",   .activate = act_export_sfb0 },
-    { .name = "export-sfb-1",   .activate = act_export_sfb1 },
+    { .name = "export",    .activate = act_export, .parameter_type = "i" },
 
     /* Transport */
     { .name = "playpause", .activate = act_playpause },
@@ -1839,6 +1854,24 @@ menu_append_radio(GMenu *menu, const char *label, const char *action, const char
     g_object_unref(it);
 }
 
+/**
+ * \internal
+ * \brief Appends a menu item that saves one graph, or the screenshot, through
+ *        win.export.
+ *
+ * \param menu   the menu.
+ * \param label  the text of the item.
+ * \param graph  what the item saves.
+ */
+static void
+menu_append_export(GMenu *menu, const char *label, Mp3xGraph graph)
+{
+    GMenuItem *it = g_menu_item_new(label, NULL);
+    g_menu_item_set_action_and_target_value(it, "win.export", g_variant_new_int32(graph));
+    g_menu_append_item(menu, it);
+    g_object_unref(it);
+}
+
 static GMenuModel *
 build_menubar(gboolean native_app_menu)
 {
@@ -1855,27 +1888,27 @@ build_menubar(gboolean native_app_menu)
     g_object_unref(sub);
 
     g_menu_append(m, "Close", "win.close");
-    g_menu_append(m, "Save Screenshot…", "win.screenshot");
+    menu_append_export(m, "Save Screenshot…", MP3X_GRAPH_COMPOSITE);
 
     sub = g_menu_new();                                  /* Export ▸ */
-    g_menu_append(sub, "PCM Waveform…",       "win.export-pcm");
-    g_menu_append(sub, "Re-synthesis…",       "win.export-resynth");
+    menu_append_export(sub, "PCM Waveform…",  MP3X_GRAPH_PCM);
+    menu_append_export(sub, "Re-synthesis…",  MP3X_GRAPH_RESYNTH);
 
     sub2 = g_menu_new();                                  /* MDCT ▸ */
-    g_menu_append(sub2, "Granule 0…", "win.export-mdct-0");
-    g_menu_append(sub2, "Granule 1…", "win.export-mdct-1");
+    menu_append_export(sub2, "Granule 0…", MP3X_GRAPH_MDCT0);
+    menu_append_export(sub2, "Granule 1…", MP3X_GRAPH_MDCT1);
     g_menu_append_submenu(sub, "MDCT", G_MENU_MODEL(sub2));
     g_object_unref(sub2);
 
     sub2 = g_menu_new();                                  /* FFT/Psy ▸ */
-    g_menu_append(sub2, "Granule 0…", "win.export-psy-0");
-    g_menu_append(sub2, "Granule 1…", "win.export-psy-1");
+    menu_append_export(sub2, "Granule 0…", MP3X_GRAPH_PSY0);
+    menu_append_export(sub2, "Granule 1…", MP3X_GRAPH_PSY1);
     g_menu_append_submenu(sub, "FFT / Psychoacoustic", G_MENU_MODEL(sub2));
     g_object_unref(sub2);
 
     sub2 = g_menu_new();                                  /* Scalefactors ▸ */
-    g_menu_append(sub2, "Granule 0…", "win.export-sfb-0");
-    g_menu_append(sub2, "Granule 1…", "win.export-sfb-1");
+    menu_append_export(sub2, "Granule 0…", MP3X_GRAPH_SFB0);
+    menu_append_export(sub2, "Granule 1…", MP3X_GRAPH_SFB1);
     g_menu_append_submenu(sub, "Scalefactors", G_MENU_MODEL(sub2));
     g_object_unref(sub2);
 
@@ -2143,11 +2176,7 @@ update_action_sensitivity(Mp3xDriver *d)
     if (m == NULL) return;
 
     static const char *const file_actions[] = {
-        "close", "screenshot",
-        "export-pcm", "export-resynth",
-        "export-mdct-0", "export-mdct-1",
-        "export-psy-0", "export-psy-1",
-        "export-sfb-0", "export-sfb-1"
+        "close", "export"
     };
     for (gsize i = 0; i < G_N_ELEMENTS(file_actions); i++) {
         GAction *a = g_action_map_lookup_action(m, file_actions[i]);
@@ -2326,8 +2355,13 @@ on_startup(GtkApplication *app, gpointer data)
 
     gtk_application_set_accels_for_action(app, "win.open",  on_macos ? open_mac  : open_pc);
     gtk_application_set_accels_for_action(app, "win.close", on_macos ? close_mac : close_pc);
-    gtk_application_set_accels_for_action(app, "win.screenshot",
+    GVariant *screenshot = g_variant_ref_sink(g_variant_new_int32(MP3X_GRAPH_COMPOSITE));
+    gchar    *screenshot_action = g_action_print_detailed_name("win.export", screenshot);
+
+    gtk_application_set_accels_for_action(app, screenshot_action,
                                           on_macos ? ss_mac : ss_pc);
+    g_free(screenshot_action);
+    g_variant_unref(screenshot);
     gtk_application_set_accels_for_action(app, "app.quit",  on_macos ? quit_mac  : quit_pc);
 
     menubar = build_menubar(on_macos);
