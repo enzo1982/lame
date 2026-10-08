@@ -660,6 +660,21 @@ extern  "C" {
     extern FLOAT freq2bark(FLOAT freq);
     void    disable_FPE(void);
 
+/**
+ * \internal
+ * \brief Stores \a value in 4 bytes, the most significant byte first.
+ * \param bytes  where the 4 bytes go.
+ * \param value  the value.
+ */
+static inline void
+put_be32(unsigned char *bytes, uint32_t value)
+{
+    bytes[0] = (unsigned char) (value >> 24);
+    bytes[1] = (unsigned char) (value >> 16);
+    bytes[2] = (unsigned char) (value >> 8);
+    bytes[3] = (unsigned char) value;
+}
+
 /* log/log10 approximations */
     extern void init_log_table(void);
     extern ieee754_float32_t fast_log2(ieee754_float32_t x);

@@ -188,15 +188,6 @@ ExtractI4(const unsigned char *buf)
     return x;
 }
 
-static void
-CreateI4(unsigned char *buf, uint32_t nValue)
-{
-    /* big endian create */
-    buf[0] = (nValue >> 24) & 0xff;
-    buf[1] = (nValue >> 16) & 0xff;
-    buf[2] = (nValue >> 8) & 0xff;
-    buf[3] = (nValue) & 0xff;
-}
 
 
 
@@ -761,7 +752,7 @@ PutLameVBR(lame_global_flags const *gfp, size_t nMusicLength, uint8_t * pbtStrea
 
 
     /*Write all this information into the stream */
-    CreateI4(&pbtStreamBuffer[nBytesWritten], nQuality);
+    put_be32(&pbtStreamBuffer[nBytesWritten], nQuality);
     nBytesWritten += 4;
 
     /*  LAME tag: the encoder version field has a fixed width of 9 bytes.
@@ -779,7 +770,7 @@ PutLameVBR(lame_global_flags const *gfp, size_t nMusicLength, uint8_t * pbtStrea
     pbtStreamBuffer[nBytesWritten] = nLowpass;
     nBytesWritten++;
 
-    CreateI4(&pbtStreamBuffer[nBytesWritten], nPeakSignalAmplitude);
+    put_be32(&pbtStreamBuffer[nBytesWritten], nPeakSignalAmplitude);
     nBytesWritten += 4;
 
     CreateI2(&pbtStreamBuffer[nBytesWritten], nRadioReplayGain);
@@ -812,7 +803,7 @@ PutLameVBR(lame_global_flags const *gfp, size_t nMusicLength, uint8_t * pbtStrea
     CreateI2(&pbtStreamBuffer[nBytesWritten], cfg->preset);
     nBytesWritten += 2;
 
-    CreateI4(&pbtStreamBuffer[nBytesWritten], (int) nMusicLength);
+    put_be32(&pbtStreamBuffer[nBytesWritten], (int) nMusicLength);
     nBytesWritten += 4;
 
     CreateI2(&pbtStreamBuffer[nBytesWritten], nMusicCRC);
@@ -971,16 +962,16 @@ lame_get_lametag_frame(lame_global_flags const *gfp, unsigned char *buffer, size
     }
 
     /* Put header flags */
-    CreateI4(&buffer[nStreamIndex], FRAMES_FLAG + BYTES_FLAG + TOC_FLAG + VBR_SCALE_FLAG);
+    put_be32(&buffer[nStreamIndex], FRAMES_FLAG + BYTES_FLAG + TOC_FLAG + VBR_SCALE_FLAG);
     nStreamIndex += 4;
 
     /* Put Total Number of frames */
-    CreateI4(&buffer[nStreamIndex], gfc->VBR_seek_table.nVbrNumFrames);
+    put_be32(&buffer[nStreamIndex], gfc->VBR_seek_table.nVbrNumFrames);
     nStreamIndex += 4;
 
     /* Put total audio stream size, including Xing/LAME Header */
     stream_size = gfc->VBR_seek_table.nBytesWritten + gfc->VBR_seek_table.TotalFrameSize;
-    CreateI4(&buffer[nStreamIndex], stream_size);
+    put_be32(&buffer[nStreamIndex], stream_size);
     nStreamIndex += 4;
 
     /* Put TOC */

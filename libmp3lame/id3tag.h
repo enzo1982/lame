@@ -19,19 +19,22 @@ enum {
     MIMETYPE_GIF
 };
 
+/** \internal A string in an ID3v2 frame: the description or the text. */
+typedef struct FrameString {
+    union {
+        char   *l;           /* ptr to Latin-1 chars             */
+        unsigned short *u;   /* ptr to UCS-2 text                */
+        unsigned char *b;    /* ptr to raw bytes                 */
+    } ptr;
+    size_t  dim;
+    int     enc;             /* 0:Latin-1, 1:UCS-2, 2:RAW, 3:UTF-8 */
+} FrameString;
+
 typedef struct FrameDataNode {
     struct FrameDataNode *nxt;
     uint32_t fid;             /* Frame Identifier                 */
     char    lng[4];          /* 3-character language descriptor  */
-    struct {
-        union {
-            char   *l;       /* ptr to Latin-1 chars             */
-            unsigned short *u; /* ptr to UCS-2 text                */
-            unsigned char *b; /* ptr to raw bytes                 */
-        } ptr;
-        size_t  dim;
-        int     enc;         /* 0:Latin-1, 1:UCS-2, 2:RAW, 3:UTF-8 */
-    } dsc  , txt;
+    FrameString dsc, txt;
 } FrameDataNode;
 
 

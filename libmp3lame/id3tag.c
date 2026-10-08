@@ -893,11 +893,7 @@ id3tag_set_albumart(lame_t gfp, const char *image, size_t size)
 static unsigned char *
 set_4_byte_value(unsigned char *bytes, uint32_t value)
 {
-    int     i;
-    for (i = 3; i >= 0; --i) {
-        bytes[i] = value & 0xffUL;
-        value >>= 8;
-    }
+    put_be32(bytes, value);
     return bytes + 4;
 }
 
@@ -976,22 +972,6 @@ toID3v2TagId_ucs2(unsigned short const *s)
     }
     return x;
 }
-
-#if 0
-static int
-isNumericString(uint32_t frame_id)
-{
-    switch (frame_id) {
-    case ID_DATE:
-    case ID_TIME:
-    case ID_TPOS:
-    case ID_TRACK:
-    case ID_YEAR:
-        return 1;
-    }
-    return 0;
-}
-#endif
 
 static int
 isMultiFrame(uint32_t frame_id)
@@ -1151,30 +1131,58 @@ isSameDescriptorUcs2(FrameDataNode const *node, unsigned short const *dsc)
     return dsc[i] == 0;
 }
 
+/**
+ * \internal
+ * \brief Returns the node for a frame, and appends a new node if the tag has
+ *        none for it yet.
+ *
+ * A frame that a tag can hold several times (isMultiFrame()) is found by its
+ * language and its description. Any other frame is found by its identifier.
+ *
+ * \param tag       the tag.
+ * \param frame_id  the frame identifier.
+ * \param lang      the language, as setLang() writes it.
+ * \param ucs2      non-zero if \a desc is UCS-2 text, zero if it is 8-bit text.
+ * \param desc      the description. NULL for none.
+ * \return the node. NULL if a new node cannot be allocated.
+ */
+static FrameDataNode *
+findOrAppendNode(id3tag_spec * tag, uint32_t frame_id, char const *lang, int ucs2, void const *desc)
+{
+    FrameDataNode *node = findNode(tag, frame_id, 0);
+    if (isMultiFrame(frame_id)) {
+        while (node) {
+            if (isSameLang(node->lng, lang)) {
+                int const same = ucs2
+                    ? isSameDescriptorUcs2(node, (unsigned short const *) desc)
+                    : isSameDescriptor(node, (char const *) desc);
+                if (same) {
+                    break;
+                }
+            }
+            node = findNode(tag, frame_id, node);
+        }
+    }
+    if (node == 0) {
+        node = lame_calloc(FrameDataNode, 1);
+        if (node != 0) {
+            appendNode(tag, node);
+        }
+    }
+    return node;
+}
+
 static int
 id3v2_add_ucs2(lame_t gfp, uint32_t frame_id, char const *lng, unsigned short const *desc, unsigned short const *text)
 {
     lame_internal_flags *gfc = gfp != 0 ? gfp->internal_flags : 0;
     if (gfc != 0) {
-        FrameDataNode *node = findNode(&gfc->tag_spec, frame_id, 0);
+        FrameDataNode *node;
         char lang[4];
         setLang(lang, lng);
-        if (isMultiFrame(frame_id)) {
-            while (node) {
-                if (isSameLang(node->lng, lang)) {
-                    if (isSameDescriptorUcs2(node, desc)) {
-                        break;
-                    }
-                }
-                node = findNode(&gfc->tag_spec, frame_id, node);
-            }
-        }
+        node = findOrAppendNode(&gfc->tag_spec, frame_id, lang, 1, desc);
         if (node == 0) {
-            node = lame_calloc(FrameDataNode, 1);
-            if (node == 0) {
-                return -254; /* memory problem */
-            }
-            appendNode(&gfc->tag_spec, node);
+            return -254; /* memory problem */
         }
         node->fid = frame_id;
         setLang(node->lng, lang);
@@ -1197,25 +1205,12 @@ id3v2_add_enc(lame_t gfp, uint32_t frame_id, char const *lng, char const *desc, 
 {
     lame_internal_flags *gfc = gfp != 0 ? gfp->internal_flags : 0;
     if (gfc != 0) {
-        FrameDataNode *node = findNode(&gfc->tag_spec, frame_id, 0);
+        FrameDataNode *node;
         char lang[4];
         setLang(lang, lng);
-        if (isMultiFrame(frame_id)) {
-            while (node) {
-                if (isSameLang(node->lng, lang)) {
-                    if (isSameDescriptor(node, desc)) {
-                        break;
-                    }
-                }
-                node = findNode(&gfc->tag_spec, frame_id, node);
-            }
-        }
+        node = findOrAppendNode(&gfc->tag_spec, frame_id, lang, 0, desc);
         if (node == 0) {
-            node = lame_calloc(FrameDataNode, 1);
-            if (node == 0) {
-                return -254; /* memory problem */
-            }
-            appendNode(&gfc->tag_spec, node);
+            return -254; /* memory problem */
         }
         node->fid = frame_id;
         setLang(node->lng, lang);
@@ -1268,8 +1263,17 @@ id3v2_add_latin1_lng(lame_t gfp, uint32_t frame_id, char const *desc, char const
     return id3v2_add_latin1(gfp, frame_id, lang, desc, text);
 }
 
+/**
+ * \internal
+ * \brief Adds a frame from a "description=text" string in 8-bit text.
+ * \param gfp         the encoder instance.
+ * \param id          the frame identifier.
+ * \param fieldvalue  the description, "=", and the text.
+ * \param enc         the encoding: 0 for Latin-1, 3 for UTF-8.
+ * \return 0 on success, -7 if there is no "=", -254 if memory runs out.
+ */
 static int
-id3tag_set_userinfo_latin1(lame_t gfp, uint32_t id, char const *fieldvalue)
+id3tag_set_userinfo_enc(lame_t gfp, uint32_t id, char const *fieldvalue, int enc)
 {
     char const separator = '=';
     int     rc = -7;
@@ -1281,26 +1285,7 @@ id3tag_set_userinfo_latin1(lame_t gfp, uint32_t id, char const *fieldvalue)
             return -254;    /* memory problem */
         }
         dup[a] = 0;
-        rc = id3v2_add_latin1_lng(gfp, id, dup, dup+a+1);
-        free(dup);
-    }
-    return rc;
-}
-
-static int
-id3tag_set_userinfo_utf8(lame_t gfp, uint32_t id, char const *fieldvalue)
-{
-    char const separator = '=';
-    int     rc = -7;
-    int     a = local_char_pos(fieldvalue, separator);
-    if (a >= 0) {
-        char*   dup = 0;
-        local_strdup(&dup, fieldvalue);
-        if (dup == 0) {
-            return -254;    /* memory problem */
-        }
-        dup[a] = 0;
-        rc = id3v2_add_utf8_lng(gfp, id, dup, dup+a+1);
+        rc = id3v2_add_enc(gfp, id, id3v2_get_language(gfp), dup, dup+a+1, enc);
         free(dup);
     }
     return rc;
@@ -1322,6 +1307,43 @@ id3tag_set_userinfo_ucs2(lame_t gfp, uint32_t id, unsigned short const *fieldval
         free(val);
     }
     return rc;
+}
+
+/** \internal The kinds of frame that the text frame setters tell apart. */
+typedef enum {
+    TEXTINFO_REJECT,         /* not a frame that they write */
+    TEXTINFO_USERINFO,       /* TXXX, WXXX, COMM: "description=text" */
+    TEXTINFO_GENRE,          /* TCON: through the genre setter */
+    TEXTINFO_TEXT,           /* the other T and W frames, and PCST: text only */
+    TEXTINFO_DESCRIPTION     /* USER, WFED: the text is the description */
+} textinfo_kind;
+
+/**
+ * \internal
+ * \brief Returns how the id3tag_set_textinfo_*() functions write a frame.
+ * \param frame_id  the frame identifier.
+ * \return the kind of frame.
+ */
+static textinfo_kind
+textinfoKind(uint32_t frame_id)
+{
+    if (frame_id == ID_TXXX || frame_id == ID_WXXX || frame_id == ID_COMMENT) {
+        return TEXTINFO_USERINFO;
+    }
+    if (frame_id == ID_GENRE) {
+        return TEXTINFO_GENRE;
+    }
+    if (frame_id == ID_PCST) {
+        return TEXTINFO_TEXT;
+    }
+    if (frame_id == ID_USER || frame_id == ID_WFED) {
+        return TEXTINFO_DESCRIPTION; /* iTunes expects WFED to be a text frame */
+    }
+    if (isFrameIdMatching(frame_id, FRAME_ID('T', 0, 0, 0))
+      ||isFrameIdMatching(frame_id, FRAME_ID('W', 0, 0, 0))) {
+        return TEXTINFO_TEXT;
+    }
+    return TEXTINFO_REJECT;
 }
 
 /*! Set an ID3v2 text frame, taking UTF-8 text. */
@@ -1349,31 +1371,18 @@ id3tag_set_textinfo_utf8(lame_t gfp, char const *id, char const *text)
     if (text == 0) {
         return 0;
     }
-    if (frame_id == ID_TXXX || frame_id == ID_WXXX || frame_id == ID_COMMENT) {
-        return id3tag_set_userinfo_utf8(gfp, frame_id, text);
-    }
-    if (frame_id == ID_GENRE) {
+    switch (textinfoKind(frame_id)) {
+    case TEXTINFO_USERINFO:
+        return id3tag_set_userinfo_enc(gfp, frame_id, text, 3);
+    case TEXTINFO_GENRE:
         return id3tag_set_genre_utf8(gfp, text);
-    }
-    if (frame_id == ID_PCST) {
+    case TEXTINFO_TEXT:
         return id3v2_add_utf8_lng(gfp, frame_id, 0, text);
-    }
-    if (frame_id == ID_USER) {
+    case TEXTINFO_DESCRIPTION:
         return id3v2_add_utf8_lng(gfp, frame_id, text, 0);
+    default:
+        return -255;        /* not supported by now */
     }
-    if (frame_id == ID_WFED) {
-        return id3v2_add_utf8_lng(gfp, frame_id, text, 0); /* iTunes expects WFED to be a text frame */
-    }
-    if (isFrameIdMatching(frame_id, FRAME_ID('T', 0, 0, 0))
-      ||isFrameIdMatching(frame_id, FRAME_ID('W', 0, 0, 0))) {
-#if 0
-        if (isNumericString(frame_id)) {
-            return -2;  /* must be Latin-1 encoded */
-        }
-#endif
-        return id3v2_add_utf8_lng(gfp, frame_id, 0, text);
-    }
-    return -255;        /* not supported by now */
 }
 
 /*! Set an ID3v2 text frame, taking UTF-16 text. */
@@ -1408,31 +1417,18 @@ id3tag_set_textinfo_utf16(lame_t gfp, char const *id, unsigned short const *text
     if (!hasUcs2ByteOrderMarker(text[0])) {
         return -3;  /* BOM missing */
     }
-    if (frame_id == ID_TXXX || frame_id == ID_WXXX || frame_id == ID_COMMENT) {
+    switch (textinfoKind(frame_id)) {
+    case TEXTINFO_USERINFO:
         return id3tag_set_userinfo_ucs2(gfp, frame_id, text);
-    }
-    if (frame_id == ID_GENRE) {
+    case TEXTINFO_GENRE:
         return id3tag_set_genre_utf16(gfp, text);
-    }
-    if (frame_id == ID_PCST) {
+    case TEXTINFO_TEXT:
         return id3v2_add_ucs2_lng(gfp, frame_id, 0, text);
-    }
-    if (frame_id == ID_USER) {
+    case TEXTINFO_DESCRIPTION:
         return id3v2_add_ucs2_lng(gfp, frame_id, text, 0);
+    default:
+        return -255;        /* not supported by now */
     }
-    if (frame_id == ID_WFED) {
-        return id3v2_add_ucs2_lng(gfp, frame_id, text, 0); /* iTunes expects WFED to be a text frame */
-    }
-    if (isFrameIdMatching(frame_id, FRAME_ID('T', 0, 0, 0))
-      ||isFrameIdMatching(frame_id, FRAME_ID('W', 0, 0, 0))) {
-#if 0
-        if (isNumericString(frame_id)) {
-            return -2;  /* must be Latin-1 encoded */
-        }
-#endif
-        return id3v2_add_ucs2_lng(gfp, frame_id, 0, text);
-    }
-    return -255;        /* not supported by now */
 }
 
 extern int
@@ -1488,26 +1484,18 @@ id3tag_set_textinfo_latin1(lame_t gfp, char const *id, char const *text)
     if (text == 0) {
         return 0;
     }
-    if (frame_id == ID_TXXX || frame_id == ID_WXXX || frame_id == ID_COMMENT) {
-        return id3tag_set_userinfo_latin1(gfp, frame_id, text);
-    }
-    if (frame_id == ID_GENRE) {
+    switch (textinfoKind(frame_id)) {
+    case TEXTINFO_USERINFO:
+        return id3tag_set_userinfo_enc(gfp, frame_id, text, 0);
+    case TEXTINFO_GENRE:
         return id3tag_set_genre(gfp, text);
-    }
-    if (frame_id == ID_PCST) {
+    case TEXTINFO_TEXT:
         return id3v2_add_latin1_lng(gfp, frame_id, 0, text);
-    }
-    if (frame_id == ID_USER) {
+    case TEXTINFO_DESCRIPTION:
         return id3v2_add_latin1_lng(gfp, frame_id, text, 0);
+    default:
+        return -255;        /* not supported by now */
     }
-    if (frame_id == ID_WFED) {
-        return id3v2_add_latin1_lng(gfp, frame_id, text, 0); /* iTunes expects WFED to be a text frame */
-    }
-    if (isFrameIdMatching(frame_id, FRAME_ID('T', 0, 0, 0))
-      ||isFrameIdMatching(frame_id, FRAME_ID('W', 0, 0, 0))) {
-        return id3v2_add_latin1_lng(gfp, frame_id, 0, text);
-    }
-    return -255;        /* not supported by now */
 }
 
 
@@ -1912,6 +1900,21 @@ id3tag_set_genre(lame_t gfp, const char *genre)
 }
 
 
+/**
+ * \internal
+ * \brief Returns the size of a string in a frame.
+ * \param s           the string.
+ * \param terminated  non-zero to count its terminator: 1 byte, or 2 for
+ *                    UCS-2 text.
+ * \return the size in bytes.
+ */
+static size_t
+sizeOfString(FrameString const *s, int terminated)
+{
+    size_t const unit = (s->enc == 1) ? 2 : 1;
+    return (s->dim + (terminated ? 1 : 0)) * unit;
+}
+
 static  size_t
 sizeOfNode(FrameDataNode const *node)
 {
@@ -1919,21 +1922,10 @@ sizeOfNode(FrameDataNode const *node)
     if (node) {
         n = 10;         /* header size */
         n += 1;         /* text encoding flag */
-        switch (node->txt.enc) {
-        default:
-        case 0:
-            if (node->dsc.dim > 0) {
-                n += node->dsc.dim + 1;
-            }
-            n += node->txt.dim;
-            break;
-        case 1:
-            if (node->dsc.dim > 0) {
-                n += (node->dsc.dim+1) * 2;
-            }
-            n += node->txt.dim * 2;
-            break;
+        if (node->dsc.dim > 0) {
+            n += sizeOfString(&node->dsc, 1);
         }
+        n += sizeOfString(&node->txt, 0);
     }
     return n;
 }
@@ -1946,24 +1938,8 @@ sizeOfCommentNode(FrameDataNode const *node)
         n = 10;         /* header size */
         n += 1;         /* text encoding flag */
         n += 3;         /* language */
-        switch (node->dsc.enc) {
-        default:
-        case 0:
-            n += 1 + node->dsc.dim;
-            break;
-        case 1:
-            n += 2 + node->dsc.dim * 2;
-            break;
-        }
-        switch (node->txt.enc) {
-        default:
-        case 0:
-            n += node->txt.dim;
-            break;
-        case 1:
-            n += node->txt.dim * 2;
-            break;
-        }
+        n += sizeOfString(&node->dsc, 1);
+        n += sizeOfString(&node->txt, 0);
     }
     return n;
 }
@@ -1976,15 +1952,7 @@ sizeOfWxxxNode(FrameDataNode const *node)
         n = 10;         /* header size */
         if (node->dsc.dim > 0) {
             n += 1;         /* text encoding flag */
-            switch (node->dsc.enc) {
-            default:
-            case 0:
-                n += 1 + node->dsc.dim;
-                break;
-            case 1:
-                n += 2 + node->dsc.dim * 2;
-                break;
-            }
+            n += sizeOfString(&node->dsc, 1);
         }
         if (node->txt.dim > 0) {
             switch (node->txt.enc) {
@@ -2048,16 +2016,61 @@ writeLoBytes(unsigned char *frame, unsigned short const *str, size_t n)
     return frame;
 }
 
+/**
+ * \internal
+ * \brief Writes a frame header: the identifier, the size and two clear flag
+ *        bytes.
+ * \param frame      where the header goes.
+ * \param fid        the frame identifier.
+ * \param size       the size of the frame, header excluded.
+ * \param synchsafe  nonzero for an ID3v2.4 tag.
+ * \return the position after the header.
+ */
+static unsigned char *
+writeFrameHeader(unsigned char *frame, uint32_t fid, size_t size, int synchsafe)
+{
+    frame = set_4_byte_value(frame, fid);
+    frame = set_frame_size(frame, (uint32_t) size, synchsafe);
+    /* clear 2-byte header flags */
+    *frame++ = 0;
+    *frame++ = 0;
+    return frame;
+}
+
+/**
+ * \internal
+ * \brief Writes a string of a frame, in its own encoding.
+ * \param frame       where the string goes.
+ * \param s           the string.
+ * \param terminated  non-zero to write its terminator: a zero byte, or two
+ *                    for UCS-2 text.
+ * \return the position after the string.
+ */
+static unsigned char *
+writeString(unsigned char *frame, FrameString const *s, int terminated)
+{
+    if (s->enc != 1) {
+        frame = writeChars(frame, s->ptr.l, s->dim);
+        if (terminated) {
+            *frame++ = 0;
+        }
+    }
+    else {
+        frame = writeUcs2s(frame, s->ptr.u, s->dim);
+        if (terminated) {
+            *frame++ = 0;
+            *frame++ = 0;
+        }
+    }
+    return frame;
+}
+
 static unsigned char *
 set_frame_comment(unsigned char *frame, FrameDataNode const *node, int synchsafe)
 {
     size_t const n = sizeOfCommentNode(node);
     if (n > 10) {
-        frame = set_4_byte_value(frame, node->fid);
-        frame = set_frame_size(frame, (uint32_t) (n - 10), synchsafe);
-        /* clear 2-byte header flags */
-        *frame++ = 0;
-        *frame++ = 0;
+        frame = writeFrameHeader(frame, node->fid, n - 10, synchsafe);
         /* use the specified encoding descriptor byte */
         *frame++ = node->txt.enc;
         /* 3 bytes language */
@@ -2065,22 +2078,9 @@ set_frame_comment(unsigned char *frame, FrameDataNode const *node, int synchsafe
         *frame++ = node->lng[1];
         *frame++ = node->lng[2];
         /* descriptor with zero byte(s) separator */
-        if (node->dsc.enc != 1) {
-            frame = writeChars(frame, node->dsc.ptr.l, node->dsc.dim);
-            *frame++ = 0;
-        }
-        else {
-            frame = writeUcs2s(frame, node->dsc.ptr.u, node->dsc.dim);
-            *frame++ = 0;
-            *frame++ = 0;
-        }
+        frame = writeString(frame, &node->dsc, 1);
         /* comment full text */
-        if (node->txt.enc != 1) {
-            frame = writeChars(frame, node->txt.ptr.l, node->txt.dim);
-        }
-        else {
-            frame = writeUcs2s(frame, node->txt.ptr.u, node->txt.dim);
-        }
+        frame = writeString(frame, &node->txt, 0);
     }
     return frame;
 }
@@ -2090,30 +2090,13 @@ set_frame_custom2(unsigned char *frame, FrameDataNode const *node, int synchsafe
 {
     size_t const n = sizeOfNode(node);
     if (n > 10) {
-        frame = set_4_byte_value(frame, node->fid);
-        frame = set_frame_size(frame, (uint32_t) (n - 10), synchsafe);
-        /* clear 2-byte header flags */
-        *frame++ = 0;
-        *frame++ = 0;
+        frame = writeFrameHeader(frame, node->fid, n - 10, synchsafe);
         /* use the specified encoding descriptor byte */
         *frame++ = node->txt.enc;
         if (node->dsc.dim > 0) {
-            if (node->dsc.enc != 1) {
-                frame = writeChars(frame, node->dsc.ptr.l, node->dsc.dim);
-                *frame++ = 0;
-            }
-            else {
-                frame = writeUcs2s(frame, node->dsc.ptr.u, node->dsc.dim);
-                *frame++ = 0;
-                *frame++ = 0;
-            }
+            frame = writeString(frame, &node->dsc, 1);
         }
-        if (node->txt.enc != 1) {
-            frame = writeChars(frame, node->txt.ptr.l, node->txt.dim);
-        }
-        else {
-            frame = writeUcs2s(frame, node->txt.ptr.u, node->txt.dim);
-        }
+        frame = writeString(frame, &node->txt, 0);
     }
     return frame;
 }
@@ -2123,23 +2106,11 @@ set_frame_wxxx(unsigned char *frame, FrameDataNode const *node, int synchsafe)
 {
     size_t const n = sizeOfWxxxNode(node);
     if (n > 10) {
-        frame = set_4_byte_value(frame, node->fid);
-        frame = set_frame_size(frame, (uint32_t) (n - 10), synchsafe);
-        /* clear 2-byte header flags */
-        *frame++ = 0;
-        *frame++ = 0;
+        frame = writeFrameHeader(frame, node->fid, n - 10, synchsafe);
         if (node->dsc.dim > 0) {
             /* use the specified encoding descriptor byte */
             *frame++ = node->dsc.enc;
-            if (node->dsc.enc != 1) {
-                frame = writeChars(frame, node->dsc.ptr.l, node->dsc.dim);
-                *frame++ = 0;
-            }
-            else {
-                frame = writeUcs2s(frame, node->dsc.ptr.u, node->dsc.dim);
-                *frame++ = 0;
-                *frame++ = 0;
-            }
+            frame = writeString(frame, &node->dsc, 1);
         }
         if (node->txt.enc != 1) {
             frame = writeChars(frame, node->txt.ptr.l, node->txt.dim);
@@ -2164,11 +2135,7 @@ set_frame_apic(unsigned char *frame, const char *mimetype, const unsigned char *
      *     Picture data     <binary data>
      */
     if (mimetype && data && size) {
-        frame = set_4_byte_value(frame, FRAME_ID('A', 'P', 'I', 'C'));
-        frame = set_frame_size(frame, (uint32_t) (4 + strlen(mimetype) + size), synchsafe);
-        /* clear 2-byte header flags */
-        *frame++ = 0;
-        *frame++ = 0;
+        frame = writeFrameHeader(frame, FRAME_ID('A', 'P', 'I', 'C'), 4 + strlen(mimetype) + size, synchsafe);
         /* clear 1 encoding descriptor byte to indicate ISO-8859-1 format */
         *frame++ = 0;
         /* copy mime_type */
@@ -2250,10 +2217,7 @@ id3tag_set_fieldvalue_utf16(lame_t gfp, const unsigned short *fieldvalue)
         if (local_ucs2_strlen(fieldvalue) < (5+dx) || fieldvalue[4+dx] != separator) {
             return -1;
         }
-        fid[0] = (frame_id >> 24) & 0x0ff;
-        fid[1] = (frame_id >> 16) & 0x0ff;
-        fid[2] = (frame_id >> 8) & 0x0ff;
-        fid[3] = frame_id & 0x0ff;
+        put_be32((unsigned char *) fid, frame_id);
         if (frame_id != 0) {
             unsigned short* txt = 0;
             int     rc;
@@ -2454,12 +2418,7 @@ lame_get_id3v2_tag(lame_t gfp, unsigned char *buffer, size_t size)
             *p++ = 0;
             /* calculate and set tag size = total size - header size */
             adjusted_tag_size = tag_size - 10;
-            /* encode adjusted size into four bytes where most significant 
-             * bit is clear in each byte, for 28-bit total */
-            *p++ = (unsigned char) ((adjusted_tag_size >> 21) & 0x7fu);
-            *p++ = (unsigned char) ((adjusted_tag_size >> 14) & 0x7fu);
-            *p++ = (unsigned char) ((adjusted_tag_size >> 7) & 0x7fu);
-            *p++ = (unsigned char) (adjusted_tag_size & 0x7fu);
+            p = set_frame_size(p, (uint32_t) adjusted_tag_size, 1);
 
             /*
              * NOTE: The remainder of the tag (frames and padding, if any)
