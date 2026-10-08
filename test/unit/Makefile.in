@@ -1223,6 +1223,7 @@ SH_LOG_COMPILER = $(SHELL)
 # property of any build.
 @ENABLE_UNIT_TESTS_TRUE@test_bitstream_headers_SOURCES = test_bitstream_headers.c
 @ENABLE_UNIT_TESTS_TRUE@test_bitstream_headers_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/test/common \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
 
@@ -1251,6 +1252,7 @@ SH_LOG_COMPILER = $(SHELL)
 # audio five times over, and there is no shortcut that still compares streams.
 @ENABLE_UNIT_TESTS_TRUE@test_encode_api_SOURCES = test_encode_api.c
 @ENABLE_UNIT_TESTS_TRUE@test_encode_api_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/test/common \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
 

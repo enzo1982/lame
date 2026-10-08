@@ -52,6 +52,7 @@
 #include "test_mem.h"
 #include "test_report.h"
 #include "test_encode.h"
+#include "mp3frame.h"
 
 #include "test_unused.h"
 
@@ -714,50 +715,6 @@ test_input_beyond_bound_refused(LAME_UNUSED void **state)
 }
 
 /**
- * @brief Reads the encoder delay and padding from a LAME tag frame.
- * @param frame   the frame that lame_get_lametag_frame() filled.
- * @param n       the length of the frame.
- * @param delay   receives the delay field.
- * @param padding receives the padding field.
- *
- * The two 12-bit fields start 21 bytes after the Xing fields. The flag word
- * sets the length of the Xing fields. This function reads the frame in the
- * same way as the tag reader of the library. The function must find the
- * marker. Otherwise a test of the fields reads two zero bytes as a delay
- * of 0.
- */
-static void
-lametag_delay_padding(const unsigned char *frame, size_t n, int *delay, int *padding)
-{
-    size_t  at = 0, i;
-    unsigned long flags;
-
-    for (i = 0; i + 4 <= n; i++) {
-        if (memcmp(frame + i, "Xing", 4) == 0 || memcmp(frame + i, "Info", 4) == 0) {
-            at = i;
-            break;
-        }
-    }
-    assert_true(at > 0);
-    assert_true(at + 8 <= n);
-    flags = ((unsigned long) frame[at + 4] << 24) | ((unsigned long) frame[at + 5] << 16)
-        | ((unsigned long) frame[at + 6] << 8) | frame[at + 7];
-    at += 8;
-    if (flags & 1)
-        at += 4;        /* frames */
-    if (flags & 2)
-        at += 4;        /* bytes */
-    if (flags & 4)
-        at += 100;      /* toc */
-    if (flags & 8)
-        at += 4;        /* vbr scale */
-    at += 21;
-    assert_true(at + 3 <= n);
-    *delay = (frame[at] << 4) | (frame[at + 1] >> 4);
-    *padding = ((frame[at + 1] & 0x0f) << 8) | frame[at + 2];
-}
-
-/**
  * @brief Checks that the LAME tag of a later file in a nogap set reports no
  *        encoder delay.
  * @param state cmocka fixture state (unused).
@@ -791,7 +748,7 @@ test_lametag_delay_zero_after_nogap_flush(LAME_UNUSED void **state)
     assert_true(n > 0);
     got = lame_get_lametag_frame(gfp, frame, sizeof frame);
     assert_true(got > 0);
-    lametag_delay_padding(frame, got, &delay, &padding);
+    assert_int_equal(mp3_lame_tag_delay_padding(frame, (long) got, &delay, &padding), 0);
     assert_int_equal(delay, lame_get_encoder_delay(gfp));
     assert_true(delay > 0);
     assert_int_equal(padding, 0);
@@ -809,7 +766,7 @@ test_lametag_delay_zero_after_nogap_flush(LAME_UNUSED void **state)
     assert_true(n >= 0);
     got = lame_get_lametag_frame(gfp, frame, sizeof frame);
     assert_true(got > 0);
-    lametag_delay_padding(frame, got, &delay, &padding);
+    assert_int_equal(mp3_lame_tag_delay_padding(frame, (long) got, &delay, &padding), 0);
     assert_int_equal(delay, 0);
     assert_int_equal(padding, lame_get_encoder_padding(gfp));
     assert_true(padding > 0);

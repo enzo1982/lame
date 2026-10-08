@@ -40,6 +40,7 @@ INPUT                  = @LAME_SRCDIR@/include \
                          @LAME_SRCDIR@/ACM \
                          @LAME_SRCDIR@/test/unit \
                          @LAME_SRCDIR@/test/clients \
+                         @LAME_SRCDIR@/test/common \
                          @LAME_SRCDIR@/doc/doxygen/api.dox \
                          @LAME_SRCDIR@/doc/doxygen/internal.md \
                          @LAME_SRCDIR@/doc/doxygen/maintainer.md \

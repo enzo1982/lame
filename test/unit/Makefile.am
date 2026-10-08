@@ -253,6 +253,7 @@ test_encode_clipgain_LDADD = $(CMOCKA_LIBS) \
 # property of any build.
 test_bitstream_headers_SOURCES = test_bitstream_headers.c
 test_bitstream_headers_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/test/common \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_bitstream_headers_LDADD = $(CMOCKA_LIBS) \
@@ -277,6 +278,7 @@ test_free_format_LDADD = $(CMOCKA_LIBS) \
 # audio five times over, and there is no shortcut that still compares streams.
 test_encode_api_SOURCES = test_encode_api.c
 test_encode_api_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/test/common \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_encode_api_LDADD = $(CMOCKA_LIBS) \

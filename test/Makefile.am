@@ -12,7 +12,7 @@ SUBDIRS = unit
 # tarball with a Visual Studio.
 EXTRA_DIST = \
 	clients/ctest.h \
-	clients/mp3frame.h \
+	common/mp3frame.h \
 	clients/acm_test.cpp \
 	clients/blade_test.cpp \
 	clients/dshow_test.cpp \

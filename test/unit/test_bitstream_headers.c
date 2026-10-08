@@ -44,6 +44,7 @@
 
 #include "test_report.h"
 #include "test_encode.h"
+#include "mp3frame.h"
 
 #include "test_unused.h"
 
@@ -59,21 +60,6 @@
 /** Buffer size for the whole encode, with a large margin. The 128 kbit/s control produces the largest stream. */
 #define STREAM_SIZE       (256 * 1024)
 
-/** The layer III bitrates in kbit/s, in the order of the bitrate index in the header. */
-static int const bitrate_mpeg1[15] = {
-    0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320
-};
-static int const bitrate_mpeg2[15] = {
-    0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160
-};
-/** Sample rates by the header's version and rate fields. */
-static long const samplerates[4][3] = {
-    {11025, 12000, 8000},       /* MPEG-2.5 */
-    {0, 0, 0},                  /* reserved */
-    {22050, 24000, 16000},      /* MPEG-2 */
-    {44100, 48000, 32000}       /* MPEG-1 */
-};
-
 /**
  * @brief Returns the length in bytes of the frame whose header starts at
  *        @p h. Returns 0 if that is not a layer III header.
@@ -81,27 +67,9 @@ static long const samplerates[4][3] = {
 static int
 frame_length(unsigned char const *h)
 {
-    int const version = (h[1] >> 3) & 3;
-    int const layer = (h[1] >> 1) & 3;
-    int const bitrate_index = (h[2] >> 4) & 15;
-    int const rate_index = (h[2] >> 2) & 3;
-    int const padding = (h[2] >> 1) & 1;
-    int     kbps;
-    long    rate;
-
-    if (h[0] != 0xff || (h[1] & 0xe0) != 0xe0)
+    if (!mp3_is_frame_sync(h) || !mp3_is_layer3(h))
         return 0;
-    if (layer != 1 || version == 1) /* layer III, and not the reserved version */
-        return 0;
-    if (bitrate_index == 0 || bitrate_index == 15 || rate_index == 3)
-        return 0;
-    kbps = version == 3 ? bitrate_mpeg1[bitrate_index]
-        : bitrate_mpeg2[bitrate_index];
-    rate = samplerates[version][rate_index];
-    if (kbps == 0 || rate == 0)
-        return 0;
-    /* 1152 samples a frame in MPEG-1, 576 in the others */
-    return (int) ((version == 3 ? 144000L : 72000L) * kbps / rate) + padding;
+    return mp3_frame_length(h);
 }
 
 /**
