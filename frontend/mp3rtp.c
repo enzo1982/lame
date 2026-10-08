@@ -319,6 +319,13 @@ lame_main(lame_t gf, int argc, char **argv)
 
     mp3bytes = lame_encode_flush(gf, /* may return one or more mp3 frame */
                                  mp3buffer, sizeof(mp3buffer));
+    if (mp3bytes < 0) {
+        error_printf("Error: %s (error %d)\n", frontend_encode_error_text(mp3bytes), mp3bytes);
+        rtp_deinitialization();
+        fclose(outf);
+        close_infile();
+        return -1;
+    }
     rtp_output(mp3buffer, mp3bytes); /* write MP3 output to RTP port */
     fwrite(mp3buffer, 1, mp3bytes, outf); /* write the MP3 output to file */
 
