@@ -450,6 +450,8 @@ test_zero_output_rate(IBaseFilter *lame, IPin *lame_out)
  *
  * The property interface stores a variable bitrate range whose minimum is
  * above its maximum. The library rejects that range when the stream starts.
+ * Then it stores a LAME tag switch of 2, which the setter of the library
+ * rejects.
  * The graph is the one that the main test ran to completion. The test puts
  * the settings back afterwards.
  *
@@ -460,7 +462,7 @@ static void
 test_refused_setting_fails_run(IBaseFilter *lame, IMediaControl *mc)
 {
     IAudioEncoderProperties *props = NULL;
-    DWORD   variable = 0, vmin = 0, vmax = 0;
+    DWORD   variable = 0, vmin = 0, vmax = 0, xing = 0;
     HRESULT hr;
     char    detail[CTEST_DETAIL_CHARS];
 
@@ -481,6 +483,15 @@ test_refused_setting_fails_run(IBaseFilter *lame, IMediaControl *mc)
     props->set_VariableMax(vmax);
     props->set_VariableMin(vmin);
     props->set_Variable(variable);
+
+    /* A setter that rejects its value: the LAME tag switch takes 0 or 1. */
+    REQUIRE_HR(props->get_XingTag(&xing), "the LAME tag switch reads back");
+    REQUIRE_HR(props->set_XingTag(2), "a LAME tag switch of 2 is stored");
+    hr = mc->Run();
+    sprintf(detail, "hr 0x%08lX", (unsigned long) hr);
+    ctest_record(FAILED(hr), "the graph refuses to run with a LAME tag switch LAME rejects", detail);
+    mc->Stop();
+    props->set_XingTag(xing);
     props->Release();
 }
 

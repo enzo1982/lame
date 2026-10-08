@@ -109,12 +109,35 @@ HRESULT CEncoder::SetOutputType(const MPEG_ENCODER_CONFIG &mabsi)
     return S_OK;
 }
 
+/** The best VBR quality that lame_set_VBR_q() takes. */
+static const DWORD VBR_Q_BEST = 0;
+/** The lowest VBR quality that lame_set_VBR_q() takes. */
+static const DWORD VBR_Q_LOWEST = 9;
+
+/**
+ * Writes a setting that LAME rejected into the debug log.
+ *
+ * @param result  what the setter returned.
+ * @param setter  the name of the setter.
+ * @param value   the value the setter was given.
+ * @return true if the setter took the value.
+ */
+static bool
+setting_taken(int result, const char *setter, long value)
+{
+    if (result == 0)
+        return true;
+    DbgLog((LOG_ERROR, 1, TEXT("%hs(%ld) failed (%d)"), setter, value, result));
+    return false;
+}
+
 /**
  * Creates and configures the LAME encoder from the stored input type and
  * output settings, if it does not exist yet, and resets the output buffer.
  *
  * @return S_OK on success. E_UNEXPECTED if the input type or the output
- *         settings are not set. E_FAIL if LAME cannot be initialized.
+ *         settings are not set. E_FAIL if LAME rejects a setting or cannot be
+ *         initialized.
  */
 HRESULT CEncoder::Init()
 {
@@ -138,26 +161,43 @@ HRESULT CEncoder::Init()
         // see the file 'API' included with LAME.
         if ((pgf = lame_init()) != NULL)
         {
-            lame_set_num_channels(pgf, m_wfex.nChannels);
-            lame_set_in_samplerate(pgf, m_wfex.nSamplesPerSec);
-            lame_set_out_samplerate(pgf, m_mabsi.dwSampleRate);
-            if ((lame_get_out_samplerate(pgf) >= 32000) && (m_mabsi.dwBitrate < 32))
-                lame_set_brate(pgf, 32);
-            else
-                lame_set_brate(pgf, m_mabsi.dwBitrate);
-            lame_set_VBR(pgf, m_mabsi.vmVariable);
-            lame_set_VBR_min_bitrate_kbps(pgf, m_mabsi.dwVariableMin);
-            lame_set_VBR_max_bitrate_kbps(pgf, m_mabsi.dwVariableMax);
+            int const brate = (m_mabsi.dwSampleRate >= 32000 && m_mabsi.dwBitrate < 32)
+                            ? 32 : (int) m_mabsi.dwBitrate;
+            // A quality out of LAME's range has always been encoded as the
+            // nearest one
+            DWORD const vbr_q = m_mabsi.dwVBRq > VBR_Q_LOWEST ? VBR_Q_LOWEST : m_mabsi.dwVBRq;
+            MPEG_mode mode = MONO;
 
-            lame_set_copyright(pgf, m_mabsi.bCopyright);
-            lame_set_original(pgf, m_mabsi.bOriginal);
-            lame_set_error_protection(pgf, m_mabsi.bCRCProtect);
+            // A setting that LAME rejects fails the start: LAME would encode
+            // with another value than the settings say
+            bool taken =
+                setting_taken(lame_set_num_channels(pgf, m_wfex.nChannels),
+                              "lame_set_num_channels", m_wfex.nChannels)
+                && setting_taken(lame_set_in_samplerate(pgf, m_wfex.nSamplesPerSec),
+                                 "lame_set_in_samplerate", m_wfex.nSamplesPerSec)
+                && setting_taken(lame_set_out_samplerate(pgf, m_mabsi.dwSampleRate),
+                                 "lame_set_out_samplerate", m_mabsi.dwSampleRate)
+                && setting_taken(lame_set_brate(pgf, brate), "lame_set_brate", brate)
+                && setting_taken(lame_set_VBR(pgf, m_mabsi.vmVariable), "lame_set_VBR",
+                                 m_mabsi.vmVariable)
+                && setting_taken(lame_set_VBR_min_bitrate_kbps(pgf, m_mabsi.dwVariableMin),
+                                 "lame_set_VBR_min_bitrate_kbps", m_mabsi.dwVariableMin)
+                && setting_taken(lame_set_VBR_max_bitrate_kbps(pgf, m_mabsi.dwVariableMax),
+                                 "lame_set_VBR_max_bitrate_kbps", m_mabsi.dwVariableMax)
+                && setting_taken(lame_set_copyright(pgf, m_mabsi.bCopyright),
+                                 "lame_set_copyright", m_mabsi.bCopyright)
+                && setting_taken(lame_set_original(pgf, m_mabsi.bOriginal),
+                                 "lame_set_original", m_mabsi.bOriginal)
+                && setting_taken(lame_set_error_protection(pgf, m_mabsi.bCRCProtect),
+                                 "lame_set_error_protection", m_mabsi.bCRCProtect)
+                && setting_taken(lame_set_bWriteVbrTag(pgf, m_mabsi.dwXingTag),
+                                 "lame_set_bWriteVbrTag", m_mabsi.dwXingTag)
+                && setting_taken(lame_set_strict_ISO(pgf, m_mabsi.dwStrictISO),
+                                 "lame_set_strict_ISO", m_mabsi.dwStrictISO)
+                && setting_taken(lame_set_VBR_hard_min(pgf, m_mabsi.dwEnforceVBRmin),
+                                 "lame_set_VBR_hard_min", m_mabsi.dwEnforceVBRmin);
 
-            lame_set_bWriteVbrTag(pgf, m_mabsi.dwXingTag);
-            lame_set_strict_ISO(pgf, m_mabsi.dwStrictISO);
-            lame_set_VBR_hard_min(pgf, m_mabsi.dwEnforceVBRmin);
-
-            if (lame_get_num_channels(pgf) == 2 && !m_mabsi.bForceMono)
+            if (m_wfex.nChannels == 2 && !m_mabsi.bForceMono)
             {
                 //int act_br = pgf->VBR ? pgf->VBR_min_bitrate_kbps + pgf->VBR_max_bitrate_kbps / 2 : pgf->brate;
 
@@ -165,15 +205,15 @@ HRESULT CEncoder::Init()
                 //int rel = pgf->out_samplerate / (act_br + 1);
                 //pgf->mode = rel < 200 ? m_mabsi.ChMode : JOINT_STEREO;
 
-                lame_set_mode(pgf, m_mabsi.ChMode);
+                mode = m_mabsi.ChMode;
             }
-            else
-                lame_set_mode(pgf, MONO);
+            taken = taken && setting_taken(lame_set_mode(pgf, mode), "lame_set_mode", mode);
 
-            if (lame_get_mode(pgf) == JOINT_STEREO)
-                lame_set_force_ms(pgf, m_mabsi.dwForceMS);
+            if (mode == JOINT_STEREO)
+                taken = taken && setting_taken(lame_set_force_ms(pgf, m_mabsi.dwForceMS),
+                                               "lame_set_force_ms", m_mabsi.dwForceMS);
             else
-                lame_set_force_ms(pgf, 0);
+                taken = taken && setting_taken(lame_set_force_ms(pgf, 0), "lame_set_force_ms", 0);
 
 //            pgf->mode_fixed = m_mabsi.dwModeFixed;
 
@@ -189,10 +229,12 @@ HRESULT CEncoder::Init()
                 lame_set_highpassfreq(pgf, -1);
             }
 
-            lame_set_quality(pgf, m_mabsi.dwQuality);
-            lame_set_VBR_q(pgf, m_mabsi.dwVBRq);
+            taken = taken
+                && setting_taken(lame_set_quality(pgf, m_mabsi.dwQuality), "lame_set_quality",
+                                 m_mabsi.dwQuality)
+                && setting_taken(lame_set_VBR_q(pgf, vbr_q), "lame_set_VBR_q", vbr_q);
 
-            if (lame_init_params(pgf) < 0)
+            if (!taken || lame_init_params(pgf) < 0)
             {
                 lame_close(pgf);
                 pgf = NULL;
