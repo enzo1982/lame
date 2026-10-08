@@ -39,6 +39,8 @@
 #include <string.h>
 #include <cmocka.h>
 
+#include "test_bytes.h"
+
 /* the code under test (pulls in the static helpers) */
 #include "get_audio.c"
 
@@ -221,36 +223,6 @@ test_count_mono_input(void **state)
 }
 
 /* --- a whole file through the reader ------------------------------------ */
-
-/**
- * @brief Stores a field, least significant byte first.
- *
- * @param p  where to store the field.
- * @param v  the value of the field.
- * @param n  the width of the field in bytes.
- */
-static void
-put_le(unsigned char *p, uint32_t v, int n)
-{
-    int     i;
-    for (i = 0; i < n; ++i)
-        p[i] = (unsigned char) (v >> (8 * i));
-}
-
-/**
- * @brief Stores a field, most significant byte first.
- *
- * @param p  where to store the field.
- * @param v  the value of the field.
- * @param n  the width of the field in bytes.
- */
-static void
-put_be(unsigned char *p, uint32_t v, int n)
-{
-    int     i;
-    for (i = 0; i < n; ++i)
-        p[i] = (unsigned char) (v >> (8 * (n - 1 - i)));
-}
 
 /**
  * @brief Writes a 32 bit float WAVE file to a temporary file.

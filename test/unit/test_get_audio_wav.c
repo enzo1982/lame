@@ -45,41 +45,10 @@
 #include <cmocka.h>
 
 #include "test_fixture.h"
+#include "test_bytes.h"
 
 /* the code under test (pulls in the static parse_wave_header + helpers) */
 #include "get_audio.c"
-
-/* --- helpers ----------------------------------------------------------- */
-
-/**
- * @brief Writes @p bytes to a temporary FILE* and rewinds it.
- *
- * The stream stands for the input file just after the 4-byte "RIFF" magic.
- * @c parse_wave_header() starts to read at this position.
- * @param bytes the header bytes that follow "RIFF".
- * @param n     number of bytes.
- * @return an open temporary stream, rewound to the start.
- */
-static FILE *
-wav_stream(const unsigned char *bytes, size_t n)
-{
-    FILE *f = tmpfile();
-    assert_non_null(f);
-    if (n > 0)
-        assert_int_equal(fwrite(bytes, 1, n, f), n);
-    rewind(f);
-    return f;
-}
-
-/** @brief Writes @p v into @p p as 4 little-endian bytes (WAVE field order). */
-static void
-put_le32(unsigned char *p, uint32_t v)
-{
-    p[0] = (unsigned char) (v);
-    p[1] = (unsigned char) (v >> 8);
-    p[2] = (unsigned char) (v >> 16);
-    p[3] = (unsigned char) (v >> 24);
-}
 
 /* --- fixtures ---------------------------------------------------------- */
 
@@ -92,6 +61,7 @@ put_le32(unsigned char *p, uint32_t v)
 /**
  * @brief A minimal valid 16-bit stereo WAVE header, starting after "RIFF".
  *
+ * @c parse_wave_header() starts to read at this position.
  * The bytes after "RIFF" are: size + "WAVE" + "fmt " + cksize + 16 bytes of
  * fmt + "data" + size = 40 bytes. Identifiers are big-endian on disk, and
  * numeric fields are little-endian. The reader expects this order.
@@ -129,7 +99,7 @@ static void
 build_wav_with_rate(unsigned char *hdr, uint32_t rate)
 {
     memcpy(hdr, valid_wav, sizeof valid_wav);
-    put_le32(hdr + WAV_RATE_OFFSET, rate);
+    put_le(hdr + WAV_RATE_OFFSET, rate, 4);
 }
 
 /* --- tests ------------------------------------------------------------- */
@@ -147,7 +117,7 @@ static void
 test_valid_wav_accepted(void **state)
 {
     lame_t gfp = (lame_t) *state;
-    FILE  *sf = wav_stream(valid_wav, sizeof valid_wav);
+    FILE  *sf = bytes_stream(valid_wav, sizeof valid_wav);
 
     assert_int_equal(parse_wave_header(gfp, sf), 1);
     /* the rate field has not moved out from under the tests below */
@@ -180,7 +150,7 @@ test_high_sample_rates_accepted(void **state)
         int     r;
 
         build_wav_with_rate(hdr, rates[i]);
-        sf = wav_stream(hdr, sizeof hdr);
+        sf = bytes_stream(hdr, sizeof hdr);
         r = parse_wave_header(gfp, sf);
         if (r != 1) {
             fail_msg("a sample rate of %u Hz was refused (returned %d)",
@@ -209,7 +179,7 @@ test_boundary_rate_accepted(void **state)
     FILE  *sf;
 
     build_wav_with_rate(hdr, (uint32_t) INT_MAX);
-    sf = wav_stream(hdr, sizeof hdr);
+    sf = bytes_stream(hdr, sizeof hdr);
     assert_int_equal(parse_wave_header(gfp, sf), 1);
     assert_int_equal(lame_get_in_samplerate(gfp), INT_MAX);
     fclose(sf);
@@ -249,7 +219,7 @@ test_unrepresentable_sample_rate_rejected(void **state)
         int     r;
 
         build_wav_with_rate(hdr, cases[i].rate);
-        sf = wav_stream(hdr, sizeof hdr);
+        sf = bytes_stream(hdr, sizeof hdr);
         r = parse_wave_header(gfp, sf);
         if (r != -1) {
             fail_msg("a sample rate of %s (%u) was accepted (returned %d)",
@@ -277,7 +247,7 @@ test_zero_sample_rate_rejected(void **state)
     FILE  *sf;
 
     build_wav_with_rate(hdr, 0u);
-    sf = wav_stream(hdr, sizeof hdr);
+    sf = bytes_stream(hdr, sizeof hdr);
     assert_int_not_equal(parse_wave_header(gfp, sf), 1);
     fclose(sf);
 }
@@ -296,14 +266,6 @@ struct wav_width_case {
     char const *what;   /**< the name of the case in a failure message */
 };
 
-/** @brief Writes @p v into @p p as 2 little-endian bytes (WAVE field order). */
-static void
-put_le16(unsigned char *p, uint16_t v)
-{
-    p[0] = (unsigned char) (v);
-    p[1] = (unsigned char) (v >> 8);
-}
-
 /**
  * @brief Builds a copy of ::valid_wav with the format tag and sample width
  *        replaced.
@@ -315,8 +277,8 @@ static void
 build_wav_with_format(unsigned char *hdr, uint16_t tag, uint16_t bits)
 {
     memcpy(hdr, valid_wav, sizeof valid_wav);
-    put_le16(hdr + WAV_FORMAT_OFFSET, tag);
-    put_le16(hdr + WAV_BITS_OFFSET, bits);
+    put_le(hdr + WAV_FORMAT_OFFSET, tag, 2);
+    put_le(hdr + WAV_BITS_OFFSET, bits, 2);
 }
 
 /**
@@ -355,7 +317,7 @@ test_supported_sample_widths_accepted(void **state)
         int     r;
 
         build_wav_with_format(hdr, cases[i].tag, cases[i].bits);
-        sf = wav_stream(hdr, sizeof hdr);
+        sf = bytes_stream(hdr, sizeof hdr);
         r = parse_wave_header(gfp, sf);
         if (r != 1) {
             fail_msg("format 0x%04X at %u bits was refused (returned %d)",
@@ -383,7 +345,7 @@ expect_widths_rejected(lame_t gfp, const struct wav_width_case *cases, size_t n)
         int     r;
 
         build_wav_with_format(hdr, cases[i].tag, cases[i].bits);
-        sf = wav_stream(hdr, sizeof hdr);
+        sf = bytes_stream(hdr, sizeof hdr);
         r = parse_wave_header(gfp, sf);
         if (r != -1) {
             fail_msg("%s (format 0x%04X, %u bits) was accepted (returned %d)",

@@ -27,7 +27,7 @@
  *
  * The test does not depend on the byte order of the host. It writes all
  * multi-byte fields in big-endian order, the byte order of AIFF files. It does
- * this with @c put_be32 and the byte array below. @c get_audio.c reads them
+ * this with put_be() and the byte array below. @c get_audio.c reads them
  * back byte by byte, with arithmetic on values, not with reads of the memory
  * layout. So the fixtures and the code under test behave the same on
  * big-endian and little-endian hosts. The test does not need or use the POSIX
@@ -56,6 +56,7 @@
 #include <cmocka.h>
 
 #include "test_fixture.h"
+#include "test_bytes.h"
 
 /* the code under test (pulls in the static parse_aiff_header + helpers) */
 #include "get_audio.c"
@@ -86,38 +87,6 @@ __wrap_fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
     return __real_fread(ptr, size, nmemb, stream);
 }
 
-/* --- helpers ----------------------------------------------------------- */
-
-/**
- * @brief Creates a temporary stream that contains @p bytes.
- *
- * The stream is the input from the point right after the 4-byte "FORM" magic.
- * @c parse_aiff_header() starts to read at this point.
- * @param bytes the header bytes after "FORM".
- * @param n     number of bytes.
- * @return an open temporary stream, positioned at its start.
- */
-static FILE *
-aiff_stream(const unsigned char *bytes, size_t n)
-{
-    FILE *f = tmpfile();
-    assert_non_null(f);
-    if (n > 0)
-        assert_int_equal(fwrite(bytes, 1, n, f), n);
-    rewind(f);
-    return f;
-}
-
-/** @brief Writes @p v into @p p as 4 big-endian bytes (AIFF on-disk order). */
-static void
-put_be32(unsigned char *p, uint32_t v)
-{
-    p[0] = (unsigned char) (v >> 24);
-    p[1] = (unsigned char) (v >> 16);
-    p[2] = (unsigned char) (v >> 8);
-    p[3] = (unsigned char) (v);
-}
-
 /* --- fixtures ---------------------------------------------------------- */
 
 /** @brief Offset of the 80-bit extended sample rate within ::valid_aiff. */
@@ -126,6 +95,7 @@ put_be32(unsigned char *p, uint32_t v)
 /**
  * @brief A minimal well-formed AIFF, from the byte after the "FORM" magic.
  *
+ * @c parse_aiff_header() starts to read at this point.
  * The array has 50 bytes: the FORM size, "AIFF", a COMM chunk with 18 data
  * bytes and an SSND chunk with 8 data bytes. The FORM size is 46, because it
  * does not count its own 4 bytes.
@@ -177,8 +147,8 @@ test_undersized_form_size_rejected(void **state)
         /* A valid header with only the FORM size changed: without the check,
            the wrapped size lets the loop read COMM and SSND and accept it. */
         memcpy(hdr, valid_aiff, sizeof hdr);
-        put_be32(hdr, fs);              /* FORM chunk size = 0..3 */
-        sf = aiff_stream(hdr, sizeof hdr);
+        put_be(hdr, fs, 4);              /* FORM chunk size = 0..3 */
+        sf = bytes_stream(hdr, sizeof hdr);
 
         fread_calls = 0;
         spin_trap_armed = 1;
@@ -205,7 +175,7 @@ static void
 test_valid_aiff_accepted(void **state)
 {
     lame_t gfp = (lame_t) *state;
-    FILE *sf = aiff_stream(valid_aiff, sizeof valid_aiff);
+    FILE *sf = bytes_stream(valid_aiff, sizeof valid_aiff);
     int   r;
 
     fread_calls = 0;
@@ -269,7 +239,7 @@ test_unrepresentable_sample_rate_rejected(void **state)
 
         memcpy(hdr, valid_aiff, sizeof hdr);
         memcpy(hdr + AIFF_RATE_OFFSET, cases[i].rate, sizeof cases[i].rate);
-        sf = aiff_stream(hdr, sizeof hdr);
+        sf = bytes_stream(hdr, sizeof hdr);
 
         r = parse_aiff_header(gfp, sf);
         if (r != -1) {
