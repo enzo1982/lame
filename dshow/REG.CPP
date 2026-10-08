@@ -90,7 +90,6 @@ BOOL    CRegKey::Create(HKEY rootKey, LPCTSTR pName)
             return FALSE;
         }
     }
-    m_hRootKey = m_hKey;
 
     return TRUE;
 }

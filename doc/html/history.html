@@ -675,6 +675,8 @@
 			    <li>The DirectShow filter stops encoding when the next
 			        filter rejects a sample, and returns the error to the
 			        filter before it.</li>
+			    <li>The DirectShow filter no longer leaks a registry handle
+			        each time it saves its settings.</li>
 			    <li>The Visual Studio build has been brought up to
 			        date: the solutions and project files agree with
 			        each other and with the autotools build; the nmake

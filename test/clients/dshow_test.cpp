@@ -847,6 +847,55 @@ out:
     CHECK(restore_key(&saved), "the settings key is put back as it was");
 }
 
+/** @brief How many saves test_save_keeps_no_handle() makes. */
+#define HANDLE_ROUNDS 20
+
+/**
+ * @brief Checks that saving the settings keeps no registry key open.
+ *
+ * A filter saves its settings ::HANDLE_ROUNDS times, and each save opens the
+ * settings key. The handle count of the process is taken after the first
+ * save and after the last one. It must not grow by one handle per save. The
+ * user's settings key is kept before and put back after.
+ *
+ * @param cf  the class factory of the filter.
+ */
+static void
+test_save_keeps_no_handle(IClassFactory *cf)
+{
+    static saved_key saved;
+    IBaseFilter *f = NULL;
+    IAudioEncoderProperties *props = NULL;
+    DWORD before = 0, after = 0;
+    char detail[CTEST_DETAIL_CHARS];
+    int i;
+
+    if (!save_key(&saved)) {
+        CHECK(0, "the settings key can be kept before the handle test writes it");
+        return;
+    }
+    if (FAILED(cf->CreateInstance(NULL, IID_IBaseFilter, (void **) &f))
+        || FAILED(f->QueryInterface(IID_IAudioEncoderProperties_local, (void **) &props))) {
+        CHECK(0, "a filter offers its audio encoder properties for the handle test");
+        goto out;
+    }
+    REQUIRE_HR(props->SaveAudioEncoderPropertiesToRegistry(), "the filter saves its settings");
+    GetProcessHandleCount(GetCurrentProcess(), &before);
+    for (i = 0; i < HANDLE_ROUNDS; i++) {
+        props->SaveAudioEncoderPropertiesToRegistry();
+    }
+    GetProcessHandleCount(GetCurrentProcess(), &after);
+    sprintf(detail, "%lu handles after the first save, %lu after %d more", (unsigned long) before,
+            (unsigned long) after, HANDLE_ROUNDS);
+    ctest_record(before > 0 && after < before + HANDLE_ROUNDS,
+                 "saving the settings keeps no registry key open", detail);
+
+out:
+    if (props) props->Release();
+    if (f) f->Release();
+    CHECK(restore_key(&saved), "the settings key is put back after the handle test");
+}
+
 /**
  * @brief Checks every entry of the capability list for a 44.1 kHz input, in
  *        order.
@@ -1456,6 +1505,7 @@ main(int argc, char **argv)
 
     test_property_round_trip(lame);
     test_settings_survive_a_save(cf);
+    test_save_keeps_no_handle(cf);
     test_encoder_properties(lame);
 
     lame_out = find_pin(lame, PINDIR_OUTPUT);
