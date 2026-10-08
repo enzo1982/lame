@@ -654,6 +654,50 @@ test_unknown_vbr_method_refused(const blade_exports *be)
 }
 
 /**
+ * @brief Checks that the DLL rejects a stream with a setting that LAME
+ *        rejects, and returns no stream for it.
+ *
+ * - An output rate that MP3 does not have, 96000 Hz. 48000 Hz is the control.
+ * - An input rate of 0 Hz.
+ *
+ * A VBR quality above 9 is no such setting: the DLL encodes it as 9, as it
+ * always has, since the old Blade structure carries qualities up to 14.
+ *
+ * @param be the resolved entry points.
+ */
+static void
+test_rejected_setting_refused(const blade_exports *be)
+{
+    BE_CONFIG cfg;
+    HBE_STREAM hbe;
+    DWORD   samples = 0, room = 0;
+
+    make_config(&cfg, 0);
+    cfg.format.LHV1.dwReSampleRate = 96000;
+    hbe = (HBE_STREAM) &cfg;
+    CHECK_EQ_U(be->init(&cfg, &samples, &room, &hbe), BE_ERR_INVALID_FORMAT_PARAMETERS,
+               "an output rate of 96000 Hz, which MP3 does not have, is refused");
+    CHECK(hbe == NULL, "the refused call returns no stream");
+    cfg.format.LHV1.dwReSampleRate = 48000;
+    CHECK_EQ_U(be->init(&cfg, &samples, &room, &hbe), BE_ERR_SUCCESSFUL,
+               "an output rate of 48000 Hz is accepted");
+    be->close(hbe);
+
+    make_config(&cfg, 0);
+    cfg.format.LHV1.dwSampleRate = 0;
+    CHECK_EQ_U(be->init(&cfg, &samples, &room, &hbe), BE_ERR_INVALID_FORMAT_PARAMETERS,
+               "an input rate of 0 Hz is refused");
+
+    make_config(&cfg, 0);
+    cfg.format.LHV1.bEnableVBR = TRUE;
+    cfg.format.LHV1.nVbrMethod = VBR_METHOD_MTRH;
+    cfg.format.LHV1.nVBRQuality = 14;
+    CHECK_EQ_U(be->init(&cfg, &samples, &room, &hbe), BE_ERR_SUCCESSFUL,
+               "VBR quality 14 is accepted");
+    be->close(hbe);
+}
+
+/**
  * @brief Checks that the DLL closes a stream whose beInitStream() fails.
  *
  * The configuration asks for a VBR method that the DLL does not have. The
@@ -950,6 +994,7 @@ main(int argc, char **argv)
 
     test_upsampled_chunks_fit(&be);
     test_unknown_vbr_method_refused(&be);
+    test_rejected_setting_refused(&be);
     test_failed_init_closed(&be);
     test_rejected_input_reported(&be);
     test_abr_preset_above_range(&be, dir);

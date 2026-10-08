@@ -269,6 +269,45 @@ static void release_stream( lame_global_flags* gfp )
     }
 }
 
+/** \internal \brief The best VBR quality that lame_set_VBR_q() takes. */
+static const int VBR_Q_BEST = 0;
+/** \internal \brief The lowest VBR quality that lame_set_VBR_q() takes. */
+static const int VBR_Q_LOWEST = 9;
+
+/**
+ * \internal
+ * \brief Writes a setting that LAME rejected into the log.
+ * \param result  what the setter returned.
+ * \param setter  the name of the setter.
+ * \param value   the value the setter was given.
+ * \return 1 if the setter took the value, else 0.
+ */
+static int
+setting_taken(int result, const char *setter, long value)
+{
+    if (result == 0)
+        return 1;
+    DebugPrintf("%s(%ld) failed (%d)\n", setter, value, result);
+    return 0;
+}
+
+/**
+ * \internal
+ * \brief Sets the channel mode and the number of input channels that go
+ *        with it.
+ * \param gfp       the stream.
+ * \param mode      the channel mode.
+ * \param channels  the input channels, 1 or 2.
+ * \return 1 if LAME took both, else 0.
+ */
+static int
+set_channels(lame_global_flags *gfp, MPEG_mode mode, int channels)
+{
+    return setting_taken(lame_set_mode( gfp, mode ), "lame_set_mode", mode)
+        && setting_taken(lame_set_num_channels( gfp, channels ), "lame_set_num_channels",
+                         channels);
+}
+
 /**
  * \internal
  * \brief Returns the ABR bitrate for a bitrate in bit/s: rounded to the
@@ -400,29 +439,29 @@ read_config(PBE_CONFIG pbeConfig, BE_CONFIG *lameConfig)
  * \param gfp         the stream.
  * \param lameConfig  the configuration.
  * \return BE_ERR_SUCCESSFUL, or BE_ERR_INVALID_FORMAT_PARAMETERS for an
- *         unknown channel mode or VBR method.
+ *         unknown channel mode or VBR method, or a setting that LAME
+ *         rejects.
  */
 static BE_ERR
 set_mode_and_vbr(lame_global_flags *gfp, const BE_CONFIG *lameConfig)
 {
+    vbr_mode method = vbr_off; /* CBR, unless VBR is enabled */
+    int taken;
+
     switch ( lameConfig->format.LHV1.nMode )
     {
     case BE_MP3_MODE_STEREO:
-        lame_set_mode( gfp, STEREO );
-        lame_set_num_channels( gfp, 2 );
+        taken = set_channels( gfp, STEREO, 2 );
         break;
     case BE_MP3_MODE_JSTEREO:
-        lame_set_mode( gfp, JOINT_STEREO );
         //lame_set_force_ms( gfp, bForceMS ); // no check box to force this?
-        lame_set_num_channels( gfp, 2 );
+        taken = set_channels( gfp, JOINT_STEREO, 2 );
         break;
     case BE_MP3_MODE_MONO:
-        lame_set_mode( gfp, MONO );
-        lame_set_num_channels( gfp, 1 );
+        taken = set_channels( gfp, MONO, 1 );
         break;
     case BE_MP3_MODE_DUALCHANNEL:
-        lame_set_mode( gfp, DUAL_CHANNEL );
-        lame_set_num_channels( gfp, 2 );
+        taken = set_channels( gfp, DUAL_CHANNEL, 2 );
         break;
     default:
         {
@@ -433,35 +472,42 @@ set_mode_and_vbr(lame_global_flags *gfp, const BE_CONFIG *lameConfig)
 
     if ( lameConfig->format.LHV1.bEnableVBR )
     {
-        /* set VBR quality */
-        lame_set_VBR_q( gfp, lameConfig->format.LHV1.nVBRQuality );
+        /* set VBR quality. The old Blade structure carries up to 14, and a
+           quality out of LAME's range has always been encoded as the
+           nearest one */
+        int const quality = lameConfig->format.LHV1.nVBRQuality;
+        int const vbr_q = quality < VBR_Q_BEST ? VBR_Q_BEST
+                        : quality > VBR_Q_LOWEST ? VBR_Q_LOWEST : quality;
+
+        taken = taken
+            && setting_taken( lame_set_VBR_q( gfp, vbr_q ), "lame_set_VBR_q", vbr_q );
 
         /* select proper VBR method */
         switch ( lameConfig->format.LHV1.nVbrMethod)
         {
         case VBR_METHOD_NONE:
-            lame_set_VBR( gfp, vbr_off );
+            method = vbr_off;
             break;
 
         case VBR_METHOD_DEFAULT:
-            lame_set_VBR( gfp, vbr_default ); 
+            method = vbr_default;
             break;
 
         case VBR_METHOD_OLD:
-            lame_set_VBR( gfp, vbr_rh ); 
+            method = vbr_rh;
             break;
 
         case VBR_METHOD_MTRH:
         case VBR_METHOD_NEW:
-            /*                                
-            * the --vbr-mtrh commandline switch is obsolete. 
+            /*
+            * the --vbr-mtrh commandline switch is obsolete.
             * now --vbr-mtrh is known as --vbr-new
             */
-            lame_set_VBR( gfp, vbr_mtrh ); 
+            method = vbr_mtrh;
             break;
 
         case VBR_METHOD_ABR:
-            lame_set_VBR( gfp, vbr_abr ); 
+            method = vbr_abr;
             break;
 
         default:
@@ -469,28 +515,28 @@ set_mode_and_vbr(lame_global_flags *gfp, const BE_CONFIG *lameConfig)
             return BE_ERR_INVALID_FORMAT_PARAMETERS;
         }
     }
-    else
-    {
-        /* use CBR encoding method, so turn off VBR */
-        lame_set_VBR( gfp, vbr_off );
-    }
+    taken = taken && setting_taken( lame_set_VBR( gfp, method ), "lame_set_VBR", method );
 
     /* Set bitrate.  (CDex users always specify bitrate=Min bitrate when using VBR) */
-    lame_set_brate( gfp, lameConfig->format.LHV1.dwBitrate );
+    taken = taken
+        && setting_taken( lame_set_brate( gfp, lameConfig->format.LHV1.dwBitrate ),
+                          "lame_set_brate", (long) lameConfig->format.LHV1.dwBitrate );
 
     /* check if we have to use ABR, in order to backwards compatible, this
     * condition should still be checked indepedent of the nVbrMethod method
     */
     if (lameConfig->format.LHV1.dwVbrAbr_bps > 0 )
     {
-        /* set VBR method to ABR */
-        lame_set_VBR( gfp, vbr_abr );
+        int const mean_kbps = abr_kbps_from_bps( lameConfig->format.LHV1.dwVbrAbr_bps );
 
-        lame_set_VBR_mean_bitrate_kbps( gfp,
-            abr_kbps_from_bps( lameConfig->format.LHV1.dwVbrAbr_bps ) );
+        /* set VBR method to ABR */
+        taken = taken
+            && setting_taken( lame_set_VBR( gfp, vbr_abr ), "lame_set_VBR", vbr_abr )
+            && setting_taken( lame_set_VBR_mean_bitrate_kbps( gfp, mean_kbps ),
+                              "lame_set_VBR_mean_bitrate_kbps", mean_kbps );
     }
 
-    return BE_ERR_SUCCESSFUL;
+    return taken ? BE_ERR_SUCCESSFUL : BE_ERR_INVALID_FORMAT_PARAMETERS;
 }
 
 /**
@@ -499,55 +545,75 @@ set_mode_and_vbr(lame_global_flags *gfp, const BE_CONFIG *lameConfig)
  *        the VBR tag and the quality of a stream.
  * \param gfp         the stream.
  * \param lameConfig  the configuration.
+ * \return 1 if LAME took every setting, else 0.
  */
-static void
+static int
 set_flags(lame_global_flags *gfp, const BE_CONFIG *lameConfig)
 {
+    int const strict_iso = lameConfig->format.LHV1.bStrictIso ? 1 : 0;
+    int const original = lameConfig->format.LHV1.bOriginal ? 1 : 0;
+    int const crc = lameConfig->format.LHV1.bCRC ? 1 : 0;
+    int const private_bit = lameConfig->format.LHV1.bPrivate ? 1 : 0;
+    int const vbr_tag = lameConfig->format.LHV1.bWriteVBRHeader ? 1 : 0;
+    int const quality = lameConfig->format.LHV1.nQuality & 0xFF;
+
     // Use strict ISO encoding?
-    lame_set_strict_ISO( gfp, ( lameConfig->format.LHV1.bStrictIso ) ? 1 : 0 );
+    int taken = setting_taken( lame_set_strict_ISO( gfp, strict_iso ), "lame_set_strict_ISO",
+                               strict_iso );
 
     // Set copyright flag?
     if ( lameConfig->format.LHV1.bCopyright )
     {
-        lame_set_copyright( gfp, 1 );
+        taken = taken && setting_taken( lame_set_copyright( gfp, 1 ), "lame_set_copyright", 1 );
     }
 
-    // Do we have to tag  it as non original 
-    lame_set_original( gfp, lameConfig->format.LHV1.bOriginal ? 1 : 0 );
+    // Do we have to tag  it as non original
+    taken = taken && setting_taken( lame_set_original( gfp, original ), "lame_set_original",
+                                    original );
 
     // Add CRC?
-    lame_set_error_protection( gfp, lameConfig->format.LHV1.bCRC ? 1 : 0 );
+    taken = taken && setting_taken( lame_set_error_protection( gfp, crc ),
+                                    "lame_set_error_protection", crc );
 
     // Set private bit?
-    lame_set_extension( gfp, lameConfig->format.LHV1.bPrivate ? 1 : 0 );
+    taken = taken && setting_taken( lame_set_extension( gfp, private_bit ), "lame_set_extension",
+                                    private_bit );
 
 
     // Set VBR min bitrate, if specified
     if ( lameConfig->format.LHV1.dwBitrate > 0 )
     {
-        lame_set_VBR_min_bitrate_kbps( gfp, lameConfig->format.LHV1.dwBitrate );
+        taken = taken
+            && setting_taken( lame_set_VBR_min_bitrate_kbps( gfp, lameConfig->format.LHV1.dwBitrate ),
+                              "lame_set_VBR_min_bitrate_kbps", (long) lameConfig->format.LHV1.dwBitrate );
     }
 
     // Set Maxbitrate, if specified
     if ( lameConfig->format.LHV1.dwMaxBitrate > 0 )
     {
-        lame_set_VBR_max_bitrate_kbps( gfp, lameConfig->format.LHV1.dwMaxBitrate );
+        taken = taken
+            && setting_taken( lame_set_VBR_max_bitrate_kbps( gfp, lameConfig->format.LHV1.dwMaxBitrate ),
+                              "lame_set_VBR_max_bitrate_kbps",
+                              (long) lameConfig->format.LHV1.dwMaxBitrate );
     }
     // Set bit resovoir option
     if ( lameConfig->format.LHV1.bNoRes )
     {
-        lame_set_disable_reservoir( gfp,1 );
+        taken = taken && setting_taken( lame_set_disable_reservoir( gfp, 1 ),
+                                        "lame_set_disable_reservoir", 1 );
     }
 
     // check if the VBR tag is required
-    lame_set_bWriteVbrTag( gfp, lameConfig->format.LHV1.bWriteVBRHeader ? 1 : 0 );
+    taken = taken && setting_taken( lame_set_bWriteVbrTag( gfp, vbr_tag ), "lame_set_bWriteVbrTag",
+                                    vbr_tag );
 
     // Override Quality setting, use HIGHBYTE = NOT LOWBYTE to be backwards compatible
-    if (	( lameConfig->format.LHV1.nQuality & 0xFF ) ==
-        ((~( lameConfig->format.LHV1.nQuality >> 8 )) & 0xFF) )
+    if ( quality == ((~( lameConfig->format.LHV1.nQuality >> 8 )) & 0xFF) )
     {
-        lame_set_quality( gfp, lameConfig->format.LHV1.nQuality & 0xFF );
+        taken = taken && setting_taken( lame_set_quality( gfp, quality ), "lame_set_quality",
+                                        quality );
     }
+    return taken;
 }
 
 /**
@@ -574,6 +640,7 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
     //2001-12-18
     BE_CONFIG			lameConfig = { 0, };
     int					nInitReturn = 0;
+    int					taken = 1;
     lame_global_flags*	gfp = NULL;
 
     // Init the global flags structure
@@ -589,9 +656,15 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
     // --------------- Set arguments to LAME encoder -------------------------
 
     // Set input sample frequency
-    lame_set_in_samplerate( gfp, lameConfig.format.LHV1.dwSampleRate );
+    if ( !setting_taken( lame_set_in_samplerate( gfp, lameConfig.format.LHV1.dwSampleRate ),
+                         "lame_set_in_samplerate", (long) lameConfig.format.LHV1.dwSampleRate ) )
+    {
+        release_stream( gfp );
+        *phbeStream = NULL;
+        return BE_ERR_INVALID_FORMAT_PARAMETERS;
+    }
 
-    // disable INFO/VBR tag by default.  
+    // disable INFO/VBR tag by default.
     // if this tag is used, the calling program must call beWriteVBRTag()
     // after encoding.  But the original DLL documentation does not 
     // require the 
@@ -643,15 +716,15 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
     // Set frequency resampling rate, if specified
     if ( lameConfig.format.LHV1.dwReSampleRate > 0 )
     {
-        lame_set_out_samplerate( gfp, lameConfig.format.LHV1.dwReSampleRate );
+        taken = setting_taken( lame_set_out_samplerate( gfp, lameConfig.format.LHV1.dwReSampleRate ),
+                               "lame_set_out_samplerate", (long) lameConfig.format.LHV1.dwReSampleRate );
     }
 
 
     switch ( lameConfig.format.LHV1.nMode )
     {
     case BE_MP3_MODE_MONO:
-        lame_set_mode( gfp, MONO );
-        lame_set_num_channels( gfp, 1 );
+        taken = taken && set_channels( gfp, MONO, 1 );
         break;
 
     default:
@@ -659,7 +732,15 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
     }
 
 
-    set_flags(gfp, &lameConfig);
+    taken = taken && set_flags(gfp, &lameConfig);
+    // A setting that LAME rejects fails the stream: LAME would encode with
+    // another value than the caller asked for
+    if ( !taken )
+    {
+        release_stream( gfp );
+        *phbeStream = NULL;
+        return BE_ERR_INVALID_FORMAT_PARAMETERS;
+    }
 
     // The library's messages, into the log; lame_init_params() takes them over
     lame_set_msgf( gfp, DebugVPrintf );

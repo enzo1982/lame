@@ -645,6 +645,10 @@
 			        input.</li>
 			    <li><i>lame_enc.dll</i> rejects a stream that asks for a
 			        VBR method it does not support.</li>
+			    <li>When LAME rejects a setting, such as an output sample
+			        rate MP3 does not have, <i>beInitStream()</i> of
+			        <i>lame_enc.dll</i> fails instead of encoding with
+			        settings the program did not ask for.</li>
 			    <li><i>lame_enc.dll</i> no longer leaks an encoder when
 			        <i>beInitStream()</i> fails; it closes the stream and
 			        returns no stream handle.</li>
