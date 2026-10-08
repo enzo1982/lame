@@ -205,6 +205,8 @@ private:
     HRESULT FlushEncodedSamples();
 
     void ReadPresetSettings(MPEG_ENCODER_CONFIG *pmec);
+    HRESULT GetConfigField(DWORD MPEG_ENCODER_CONFIG::*field, DWORD *value, LPCTSTR name);
+    HRESULT SetConfigField(DWORD MPEG_ENCODER_CONFIG::*field, DWORD value, LPCTSTR name);
 
     void LoadOutputCapabilities(DWORD sample_rate);
 

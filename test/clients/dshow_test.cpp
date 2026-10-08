@@ -652,6 +652,84 @@ test_stream_caps(IPin *lame_out, const char *when)
     cfg->Release();
 }
 
+/** @brief A getter of the property interface that reads one DWORD setting. */
+typedef HRESULT (STDMETHODCALLTYPE IAudioEncoderProperties::*dword_getter)(DWORD *);
+/** @brief The setter that goes with it. */
+typedef HRESULT (STDMETHODCALLTYPE IAudioEncoderProperties::*dword_setter)(DWORD);
+
+/**
+ * @brief Checks that each of the settings that the filter stores as they are
+ *        reads back the value written to it, and only that one.
+ *
+ * Every setting gets a value that no other one gets. Then all of them are
+ * read back. An accessor that wrote or read the field of another setting
+ * returns that other value. The settings are put back afterwards.
+ *
+ * @param lame  the filter.
+ */
+static void
+test_property_round_trip(IBaseFilter *lame)
+{
+    static const struct {
+        dword_getter get;
+        dword_setter set;
+        const char *name;
+    } settings[] = {
+        { &IAudioEncoderProperties::get_Bitrate, &IAudioEncoderProperties::set_Bitrate, "Bitrate" },
+        { &IAudioEncoderProperties::get_VariableMin, &IAudioEncoderProperties::set_VariableMin, "VariableMin" },
+        { &IAudioEncoderProperties::get_VariableMax, &IAudioEncoderProperties::set_VariableMax, "VariableMax" },
+        { &IAudioEncoderProperties::get_Quality, &IAudioEncoderProperties::set_Quality, "Quality" },
+        { &IAudioEncoderProperties::get_VariableQ, &IAudioEncoderProperties::set_VariableQ, "VariableQ" },
+        { &IAudioEncoderProperties::get_SampleRate, &IAudioEncoderProperties::set_SampleRate, "SampleRate" },
+        { &IAudioEncoderProperties::get_ForceMS, &IAudioEncoderProperties::set_ForceMS, "ForceMS" },
+        { &IAudioEncoderProperties::get_CRCFlag, &IAudioEncoderProperties::set_CRCFlag, "CRCFlag" },
+        { &IAudioEncoderProperties::get_ForceMono, &IAudioEncoderProperties::set_ForceMono, "ForceMono" },
+        { &IAudioEncoderProperties::get_SetDuration, &IAudioEncoderProperties::set_SetDuration, "SetDuration" },
+        { &IAudioEncoderProperties::get_SampleOverlap, &IAudioEncoderProperties::set_SampleOverlap, "SampleOverlap" },
+        { &IAudioEncoderProperties::get_EnforceVBRmin, &IAudioEncoderProperties::set_EnforceVBRmin, "EnforceVBRmin" },
+        { &IAudioEncoderProperties::get_VoiceMode, &IAudioEncoderProperties::set_VoiceMode, "VoiceMode" },
+        { &IAudioEncoderProperties::get_KeepAllFreq, &IAudioEncoderProperties::set_KeepAllFreq, "KeepAllFreq" },
+        { &IAudioEncoderProperties::get_StrictISO, &IAudioEncoderProperties::set_StrictISO, "StrictISO" },
+        { &IAudioEncoderProperties::get_NoShortBlock, &IAudioEncoderProperties::set_NoShortBlock, "NoShortBlock" },
+        { &IAudioEncoderProperties::get_XingTag, &IAudioEncoderProperties::set_XingTag, "XingTag" },
+        { &IAudioEncoderProperties::get_OriginalFlag, &IAudioEncoderProperties::set_OriginalFlag, "OriginalFlag" },
+        { &IAudioEncoderProperties::get_CopyrightFlag, &IAudioEncoderProperties::set_CopyrightFlag, "CopyrightFlag" },
+        { &IAudioEncoderProperties::get_ModeFixed, &IAudioEncoderProperties::set_ModeFixed, "ModeFixed" }
+    };
+    enum { N = sizeof(settings) / sizeof(settings[0]), FIRST_VALUE = 1000 };
+    IAudioEncoderProperties *props = NULL;
+    DWORD   saved[N], got;
+    char    detail[CTEST_DETAIL_CHARS];
+    int     i, same = 0;
+
+    if (FAILED(lame->QueryInterface(IID_IAudioEncoderProperties_local, (void **) &props))) {
+        CHECK(0, "the filter offers its audio encoder properties for the round trip");
+        return;
+    }
+    for (i = 0; i < N; i++) {
+        saved[i] = 0;
+        (props->*settings[i].get)(&saved[i]);
+    }
+    for (i = 0; i < N; i++) {
+        (props->*settings[i].set)((DWORD) (FIRST_VALUE + i));
+    }
+    for (i = 0; i < N; i++) {
+        got = 0;
+        if ((props->*settings[i].get)(&got) == S_OK && got == (DWORD) (FIRST_VALUE + i)) {
+            ++same;
+        } else {
+            sprintf(detail, "%s reads back %lu, not %d", settings[i].name, (unsigned long) got,
+                    FIRST_VALUE + i);
+            CHECK(0, detail);
+        }
+    }
+    CHECK_EQ_U(same, N, "each of the 20 stored settings reads back its own value");
+    for (i = 0; i < N; i++) {
+        (props->*settings[i].set)(saved[i]);
+    }
+    props->Release();
+}
+
 /**
  * @brief Checks every entry of the capability list for a 44.1 kHz input, in
  *        order.
@@ -1235,6 +1313,7 @@ main(int argc, char **argv)
         goto out;
     }
 
+    test_property_round_trip(lame);
     test_encoder_properties(lame);
 
     lame_out = find_pin(lame, PINDIR_OUTPUT);

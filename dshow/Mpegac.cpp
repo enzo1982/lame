@@ -826,6 +826,39 @@ void CMpegAudEnc::LoadOutputCapabilities(DWORD sample_rate)
 
 
 /**
+ * The fields of the encoder configuration that the registry keeps as they
+ * are, with the name of their registry value and their default. The VBR
+ * switch, the channel mode and the layer are read and written on their own.
+ */
+static const struct {
+    LPCTSTR name;
+    DWORD MPEG_ENCODER_CONFIG::*field;
+    DWORD dflt;
+} registry_fields[] = {
+    { VALUE_BITRATE, &MPEG_ENCODER_CONFIG::dwBitrate, DEFAULT_BITRATE },
+    { VALUE_VARIABLEMIN, &MPEG_ENCODER_CONFIG::dwVariableMin, DEFAULT_VARIABLEMIN },
+    { VALUE_VARIABLEMAX, &MPEG_ENCODER_CONFIG::dwVariableMax, DEFAULT_VARIABLEMAX },
+    { VALUE_QUALITY, &MPEG_ENCODER_CONFIG::dwQuality, DEFAULT_ENCODING_QUALITY },
+    { VALUE_VBR_QUALITY, &MPEG_ENCODER_CONFIG::dwVBRq, DEFAULT_VBR_QUALITY },
+    { VALUE_CRC, &MPEG_ENCODER_CONFIG::bCRCProtect, DEFAULT_CRC },
+    { VALUE_FORCE_MONO, &MPEG_ENCODER_CONFIG::bForceMono, DEFAULT_FORCE_MONO },
+    { VALUE_SET_DURATION, &MPEG_ENCODER_CONFIG::bSetDuration, DEFAULT_SET_DURATION },
+    { VALUE_SAMPLE_OVERLAP, &MPEG_ENCODER_CONFIG::bSampleOverlap, DEFAULT_SAMPLE_OVERLAP },
+    { VALUE_COPYRIGHT, &MPEG_ENCODER_CONFIG::bCopyright, DEFAULT_COPYRIGHT },
+    { VALUE_ORIGINAL, &MPEG_ENCODER_CONFIG::bOriginal, DEFAULT_ORIGINAL },
+    { VALUE_SAMPLE_RATE, &MPEG_ENCODER_CONFIG::dwSampleRate, DEFAULT_SAMPLE_RATE },
+    { VALUE_PES, &MPEG_ENCODER_CONFIG::dwPES, DEFAULT_PES },
+    { VALUE_FORCE_MS, &MPEG_ENCODER_CONFIG::dwForceMS, DEFAULT_FORCE_MS },
+    { VALUE_ENFORCE_MIN, &MPEG_ENCODER_CONFIG::dwEnforceVBRmin, DEFAULT_ENFORCE_MIN },
+    { VALUE_VOICE, &MPEG_ENCODER_CONFIG::dwVoiceMode, DEFAULT_VOICE },
+    { VALUE_KEEP_ALL_FREQ, &MPEG_ENCODER_CONFIG::dwKeepAllFreq, DEFAULT_KEEP_ALL_FREQ },
+    { VALUE_STRICT_ISO, &MPEG_ENCODER_CONFIG::dwStrictISO, DEFAULT_STRICT_ISO },
+    { VALUE_DISABLE_SHORT_BLOCK, &MPEG_ENCODER_CONFIG::dwNoShortBlock, DEFAULT_DISABLE_SHORT_BLOCK },
+    { VALUE_XING_TAG, &MPEG_ENCODER_CONFIG::dwXingTag, DEFAULT_XING_TAG },
+    { VALUE_MODE_FIXED, &MPEG_ENCODER_CONFIG::dwModeFixed, DEFAULT_MODE_FIXED },
+};
+
+/**
  * Reads the saved encoder settings from the registry.
  */
 void CMpegAudEnc::ReadPresetSettings(MPEG_ENCODER_CONFIG * pmec)
@@ -834,32 +867,11 @@ void CMpegAudEnc::ReadPresetSettings(MPEG_ENCODER_CONFIG * pmec)
 
     Lame::CRegKey rk(HKEY_CURRENT_USER, KEY_LAME_ENCODER);
 
-    pmec->dwBitrate         = rk.getDWORD(VALUE_BITRATE,DEFAULT_BITRATE);
-    pmec->dwVariableMin     = rk.getDWORD(VALUE_VARIABLEMIN,DEFAULT_VARIABLEMIN);
-    pmec->dwVariableMax     = rk.getDWORD(VALUE_VARIABLEMAX,DEFAULT_VARIABLEMAX);
+    for (size_t i = 0; i < sizeof(registry_fields) / sizeof(registry_fields[0]); i++)
+        pmec->*registry_fields[i].field = rk.getDWORD((PTSTR) registry_fields[i].name, registry_fields[i].dflt);
     pmec->vmVariable        = rk.getDWORD(VALUE_VARIABLE, DEFAULT_VARIABLE) ? vbr_rh : vbr_off;
-    pmec->dwQuality         = rk.getDWORD(VALUE_QUALITY,DEFAULT_ENCODING_QUALITY);
-    pmec->dwVBRq            = rk.getDWORD(VALUE_VBR_QUALITY,DEFAULT_VBR_QUALITY);
     pmec->lLayer            = rk.getDWORD(VALUE_LAYER, DEFAULT_LAYER);
-    pmec->bCRCProtect       = rk.getDWORD(VALUE_CRC, DEFAULT_CRC);
-    pmec->bForceMono        = rk.getDWORD(VALUE_FORCE_MONO, DEFAULT_FORCE_MONO);
-    pmec->bSetDuration      = rk.getDWORD(VALUE_SET_DURATION, DEFAULT_SET_DURATION);
-    pmec->bSampleOverlap    = rk.getDWORD(VALUE_SAMPLE_OVERLAP, DEFAULT_SAMPLE_OVERLAP);
-    pmec->bCopyright        = rk.getDWORD(VALUE_COPYRIGHT, DEFAULT_COPYRIGHT);
-    pmec->bOriginal         = rk.getDWORD(VALUE_ORIGINAL, DEFAULT_ORIGINAL);
-    pmec->dwSampleRate      = rk.getDWORD(VALUE_SAMPLE_RATE, DEFAULT_SAMPLE_RATE);
-    pmec->dwPES             = rk.getDWORD(VALUE_PES, DEFAULT_PES);
-
     pmec->ChMode            = (MPEG_mode)rk.getDWORD(VALUE_STEREO_MODE, DEFAULT_STEREO_MODE);
-    pmec->dwForceMS         = rk.getDWORD(VALUE_FORCE_MS, DEFAULT_FORCE_MS);
-
-    pmec->dwEnforceVBRmin   = rk.getDWORD(VALUE_ENFORCE_MIN, DEFAULT_ENFORCE_MIN);
-    pmec->dwVoiceMode       = rk.getDWORD(VALUE_VOICE, DEFAULT_VOICE);
-    pmec->dwKeepAllFreq     = rk.getDWORD(VALUE_KEEP_ALL_FREQ, DEFAULT_KEEP_ALL_FREQ);
-    pmec->dwStrictISO       = rk.getDWORD(VALUE_STRICT_ISO, DEFAULT_STRICT_ISO);
-    pmec->dwNoShortBlock    = rk.getDWORD(VALUE_DISABLE_SHORT_BLOCK, DEFAULT_DISABLE_SHORT_BLOCK);
-    pmec->dwXingTag         = rk.getDWORD(VALUE_XING_TAG, DEFAULT_XING_TAG);
-    pmec->dwModeFixed       = rk.getDWORD(VALUE_MODE_FIXED, DEFAULT_MODE_FIXED);
 
     rk.Close();
 }
@@ -897,6 +909,43 @@ STDMETHODIMP CMpegAudEnc::NonDelegatingQueryInterface(REFIID riid, void ** ppv)
         return GetInterface((IAudioEncoderProperties*) this, ppv);
 
     return CTransformFilter::NonDelegatingQueryInterface(riid, ppv);
+}
+
+/**
+ * Reads one field of the encoder configuration.
+ *
+ * \param field  the field.
+ * \param value  receives its value.
+ * \param name   the name of the accessor, for the debug log.
+ * \return S_OK.
+ */
+HRESULT CMpegAudEnc::GetConfigField(DWORD MPEG_ENCODER_CONFIG::*field, DWORD *value, LPCTSTR name)
+{
+    MPEG_ENCODER_CONFIG mec;
+    m_Encoder.GetOutputType(&mec);
+    *value = mec.*field;
+    UNREFERENCED_PARAMETER(name);   // the log is compiled into debug builds only
+    DbgLog((LOG_TRACE, 1, TEXT("%s -> %d"), name, *value));
+    return S_OK;
+}
+
+/**
+ * Sets one field of the encoder configuration.
+ *
+ * \param field  the field.
+ * \param value  its new value.
+ * \param name   the name of the accessor, for the debug log.
+ * \return S_OK.
+ */
+HRESULT CMpegAudEnc::SetConfigField(DWORD MPEG_ENCODER_CONFIG::*field, DWORD value, LPCTSTR name)
+{
+    MPEG_ENCODER_CONFIG mec;
+    m_Encoder.GetOutputType(&mec);
+    mec.*field = value;
+    m_Encoder.SetOutputType(mec);
+    UNREFERENCED_PARAMETER(name);   // the log is compiled into debug builds only
+    DbgLog((LOG_TRACE, 1, TEXT("%s(%d)"), name, value));
+    return S_OK;
 }
 
 ////////////////////////////////////////////////////////////////
@@ -948,21 +997,12 @@ STDMETHODIMP CMpegAudEnc::set_MPEGLayer(DWORD dwLayer)
 
 STDMETHODIMP CMpegAudEnc::get_Bitrate(DWORD *dwBitrate)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwBitrate = (DWORD)mec.dwBitrate;
-    DbgLog((LOG_TRACE, 1, TEXT("get_Bitrate -> %d"), *dwBitrate));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwBitrate, dwBitrate, TEXT("get_Bitrate"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_Bitrate(DWORD dwBitrate)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwBitrate = dwBitrate;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_Bitrate(%d)"), dwBitrate));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwBitrate, dwBitrate, TEXT("set_Bitrate"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_Variable(DWORD *dwVariable)
@@ -987,77 +1027,41 @@ STDMETHODIMP CMpegAudEnc::set_Variable(DWORD dwVariable)
 
 STDMETHODIMP CMpegAudEnc::get_VariableMin(DWORD *dwMin)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwMin = (DWORD)mec.dwVariableMin;
-    DbgLog((LOG_TRACE, 1, TEXT("get_Variablemin -> %d"), *dwMin));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwVariableMin, dwMin, TEXT("get_Variablemin"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_VariableMin(DWORD dwMin)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwVariableMin = dwMin;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_Variablemin(%d)"), dwMin));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwVariableMin, dwMin, TEXT("set_Variablemin"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_VariableMax(DWORD *dwMax)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwMax = (DWORD)mec.dwVariableMax;
-    DbgLog((LOG_TRACE, 1, TEXT("get_Variablemax -> %d"), *dwMax));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwVariableMax, dwMax, TEXT("get_Variablemax"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_VariableMax(DWORD dwMax)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwVariableMax = dwMax;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_Variablemax(%d)"), dwMax));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwVariableMax, dwMax, TEXT("set_Variablemax"));
 }
 
-STDMETHODIMP CMpegAudEnc::get_Quality(DWORD *dwQuality)             
+STDMETHODIMP CMpegAudEnc::get_Quality(DWORD *dwQuality)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwQuality=(DWORD)mec.dwQuality;
-    DbgLog((LOG_TRACE, 1, TEXT("get_Quality -> %d"), *dwQuality));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwQuality, dwQuality, TEXT("get_Quality"));
 }
 
-STDMETHODIMP CMpegAudEnc::set_Quality(DWORD dwQuality)             
+STDMETHODIMP CMpegAudEnc::set_Quality(DWORD dwQuality)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwQuality = dwQuality;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_Quality(%d)"), dwQuality));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwQuality, dwQuality, TEXT("set_Quality"));
 }
-STDMETHODIMP CMpegAudEnc::get_VariableQ(DWORD *dwVBRq)             
+STDMETHODIMP CMpegAudEnc::get_VariableQ(DWORD *dwVBRq)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwVBRq=(DWORD)mec.dwVBRq;
-    DbgLog((LOG_TRACE, 1, TEXT("get_VariableQ -> %d"), *dwVBRq));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwVBRq, dwVBRq, TEXT("get_VariableQ"));
 }
 
-STDMETHODIMP CMpegAudEnc::set_VariableQ(DWORD dwVBRq)             
+STDMETHODIMP CMpegAudEnc::set_VariableQ(DWORD dwVBRq)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwVBRq = dwVBRq;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_VariableQ(%d)"), dwVBRq));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwVBRq, dwVBRq, TEXT("set_VariableQ"));
 }
 
 
@@ -1087,22 +1091,12 @@ STDMETHODIMP CMpegAudEnc::get_SourceChannels(DWORD *dwChannels)
 
 STDMETHODIMP CMpegAudEnc::get_SampleRate(DWORD *dwSampleRate)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwSampleRate = mec.dwSampleRate;
-    DbgLog((LOG_TRACE, 1, TEXT("get_SampleRate -> %d"), *dwSampleRate));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwSampleRate, dwSampleRate, TEXT("get_SampleRate"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_SampleRate(DWORD dwSampleRate)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwSampleRate = dwSampleRate;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_SampleRate(%d)"), dwSampleRate));
-
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwSampleRate, dwSampleRate, TEXT("set_SampleRate"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_ChannelMode(DWORD *dwChannelMode)
@@ -1126,271 +1120,145 @@ STDMETHODIMP CMpegAudEnc::set_ChannelMode(DWORD dwChannelMode)
 
 STDMETHODIMP CMpegAudEnc::get_ForceMS(DWORD *dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwFlag = mec.dwForceMS;
-    DbgLog((LOG_TRACE, 1, TEXT("get_ForceMS -> %d"), *dwFlag));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwForceMS, dwFlag, TEXT("get_ForceMS"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_ForceMS(DWORD dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwForceMS = dwFlag;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_ForceMS(%d)"), dwFlag));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwForceMS, dwFlag, TEXT("set_ForceMS"));
 }
 
 
 STDMETHODIMP CMpegAudEnc::get_CRCFlag(DWORD *dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwFlag = mec.bCRCProtect;
-    DbgLog((LOG_TRACE, 1, TEXT("get_CRCFlag -> %d"), *dwFlag));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::bCRCProtect, dwFlag, TEXT("get_CRCFlag"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_ForceMono(DWORD *dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwFlag = mec.bForceMono;
-    DbgLog((LOG_TRACE, 1, TEXT("get_ForceMono -> %d"), *dwFlag));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::bForceMono, dwFlag, TEXT("get_ForceMono"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_SetDuration(DWORD *dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwFlag = mec.bSetDuration;
-    DbgLog((LOG_TRACE, 1, TEXT("get_SetDuration -> %d"), *dwFlag));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::bSetDuration, dwFlag, TEXT("get_SetDuration"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_SampleOverlap(DWORD *dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwFlag = mec.bSampleOverlap;
-    DbgLog((LOG_TRACE, 1, TEXT("get_SampleOverlap -> %d"), *dwFlag));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::bSampleOverlap, dwFlag, TEXT("get_SampleOverlap"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_CRCFlag(DWORD dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.bCRCProtect = dwFlag;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_CRCFlag(%d)"), dwFlag));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::bCRCProtect, dwFlag, TEXT("set_CRCFlag"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_ForceMono(DWORD dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.bForceMono = dwFlag;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_ForceMono(%d)"), dwFlag));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::bForceMono, dwFlag, TEXT("set_ForceMono"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_SetDuration(DWORD dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.bSetDuration = dwFlag;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_SetDuration(%d)"), dwFlag));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::bSetDuration, dwFlag, TEXT("set_SetDuration"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_SampleOverlap(DWORD dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.bSampleOverlap = dwFlag;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_SampleOverlap(%d)"), dwFlag));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::bSampleOverlap, dwFlag, TEXT("set_SampleOverlap"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_EnforceVBRmin(DWORD *dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwFlag = mec.dwEnforceVBRmin;
-    DbgLog((LOG_TRACE, 1, TEXT("get_EnforceVBRmin -> %d"), *dwFlag));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwEnforceVBRmin, dwFlag, TEXT("get_EnforceVBRmin"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_EnforceVBRmin(DWORD dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwEnforceVBRmin = dwFlag;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_EnforceVBRmin(%d)"), dwFlag));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwEnforceVBRmin, dwFlag, TEXT("set_EnforceVBRmin"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_VoiceMode(DWORD *dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwFlag = mec.dwVoiceMode;
-    DbgLog((LOG_TRACE, 1, TEXT("get_VoiceMode -> %d"), *dwFlag));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwVoiceMode, dwFlag, TEXT("get_VoiceMode"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_VoiceMode(DWORD dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwVoiceMode = dwFlag;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_VoiceMode(%d)"), dwFlag));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwVoiceMode, dwFlag, TEXT("set_VoiceMode"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_KeepAllFreq(DWORD *dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwFlag = mec.dwKeepAllFreq;
-    DbgLog((LOG_TRACE, 1, TEXT("get_KeepAllFreq -> %d"), *dwFlag));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwKeepAllFreq, dwFlag, TEXT("get_KeepAllFreq"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_KeepAllFreq(DWORD dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwKeepAllFreq = dwFlag;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_KeepAllFreq(%d)"), dwFlag));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwKeepAllFreq, dwFlag, TEXT("set_KeepAllFreq"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_StrictISO(DWORD *dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwFlag = mec.dwStrictISO;
-    DbgLog((LOG_TRACE, 1, TEXT("get_StrictISO -> %d"), *dwFlag));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwStrictISO, dwFlag, TEXT("get_StrictISO"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_StrictISO(DWORD dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwStrictISO = dwFlag;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_StrictISO(%d)"), dwFlag));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwStrictISO, dwFlag, TEXT("set_StrictISO"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_NoShortBlock(DWORD *dwNoShortBlock)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwNoShortBlock = mec.dwNoShortBlock;
-    DbgLog((LOG_TRACE, 1, TEXT("get_NoShortBlock -> %d"), *dwNoShortBlock));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwNoShortBlock, dwNoShortBlock, TEXT("get_NoShortBlock"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_NoShortBlock(DWORD dwNoShortBlock)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwNoShortBlock = dwNoShortBlock;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_NoShortBlock(%d)"), dwNoShortBlock));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwNoShortBlock, dwNoShortBlock, TEXT("set_NoShortBlock"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_XingTag(DWORD *dwXingTag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwXingTag = mec.dwXingTag;
-    DbgLog((LOG_TRACE, 1, TEXT("get_XingTag -> %d"), *dwXingTag));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwXingTag, dwXingTag, TEXT("get_XingTag"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_XingTag(DWORD dwXingTag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwXingTag = dwXingTag;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_XingTag(%d)"), dwXingTag));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwXingTag, dwXingTag, TEXT("set_XingTag"));
 }
 
 
 
 STDMETHODIMP CMpegAudEnc::get_OriginalFlag(DWORD *dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwFlag = mec.bOriginal;
-    DbgLog((LOG_TRACE, 1, TEXT("get_OriginalFlag -> %d"), *dwFlag));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::bOriginal, dwFlag, TEXT("get_OriginalFlag"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_OriginalFlag(DWORD dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.bOriginal = dwFlag;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_OriginalFlag(%d)"), dwFlag));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::bOriginal, dwFlag, TEXT("set_OriginalFlag"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_CopyrightFlag(DWORD *dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwFlag = mec.bCopyright;
-    DbgLog((LOG_TRACE, 1, TEXT("get_CopyrightFlag -> %d"), *dwFlag));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::bCopyright, dwFlag, TEXT("get_CopyrightFlag"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_CopyrightFlag(DWORD dwFlag)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.bCopyright = dwFlag;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_CopyrightFlag(%d)"), dwFlag));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::bCopyright, dwFlag, TEXT("set_CopyrightFlag"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_ModeFixed(DWORD *dwModeFixed)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwModeFixed = mec.dwModeFixed;
-    DbgLog((LOG_TRACE, 1, TEXT("get_ModeFixed -> %d"), *dwModeFixed));
-    return S_OK;
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwModeFixed, dwModeFixed, TEXT("get_ModeFixed"));
 }
 
 STDMETHODIMP CMpegAudEnc::set_ModeFixed(DWORD dwModeFixed)
 {
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    mec.dwModeFixed = dwModeFixed;
-    m_Encoder.SetOutputType(mec);
-    DbgLog((LOG_TRACE, 1, TEXT("set_ModeFixed(%d)"), dwModeFixed));
-    return S_OK;
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwModeFixed, dwModeFixed, TEXT("set_ModeFixed"));
 }
 
 STDMETHODIMP CMpegAudEnc::get_ParameterBlockSize(BYTE *pcBlock, DWORD *pdwSize)
@@ -1491,31 +1359,10 @@ STDMETHODIMP CMpegAudEnc::SaveAudioEncoderPropertiesToRegistry()
 
     if(rk.Create(HKEY_CURRENT_USER, KEY_LAME_ENCODER))
     {
-        rk.setDWORD(VALUE_BITRATE, mec.dwBitrate);
+        for (size_t i = 0; i < sizeof(registry_fields) / sizeof(registry_fields[0]); i++)
+            rk.setDWORD((PTSTR) registry_fields[i].name, mec.*registry_fields[i].field);
         rk.setDWORD(VALUE_VARIABLE, mec.vmVariable);
-        rk.setDWORD(VALUE_VARIABLEMIN, mec.dwVariableMin);
-        rk.setDWORD(VALUE_VARIABLEMAX, mec.dwVariableMax);
-        rk.setDWORD(VALUE_QUALITY, mec.dwQuality);
-        rk.setDWORD(VALUE_VBR_QUALITY, mec.dwVBRq);
-
-        rk.setDWORD(VALUE_CRC, mec.bCRCProtect);
-        rk.setDWORD(VALUE_FORCE_MONO, mec.bForceMono);
-        rk.setDWORD(VALUE_SET_DURATION, mec.bSetDuration);
-        rk.setDWORD(VALUE_SAMPLE_OVERLAP, mec.bSampleOverlap);
-        rk.setDWORD(VALUE_PES, mec.dwPES);
-        rk.setDWORD(VALUE_COPYRIGHT, mec.bCopyright);
-        rk.setDWORD(VALUE_ORIGINAL, mec.bOriginal);
-        rk.setDWORD(VALUE_SAMPLE_RATE, mec.dwSampleRate);
-
         rk.setDWORD(VALUE_STEREO_MODE, mec.ChMode);
-        rk.setDWORD(VALUE_FORCE_MS, mec.dwForceMS);
-        rk.setDWORD(VALUE_XING_TAG, mec.dwXingTag);
-        rk.setDWORD(VALUE_DISABLE_SHORT_BLOCK, mec.dwNoShortBlock);
-        rk.setDWORD(VALUE_STRICT_ISO, mec.dwStrictISO);
-        rk.setDWORD(VALUE_KEEP_ALL_FREQ, mec.dwKeepAllFreq);
-        rk.setDWORD(VALUE_VOICE, mec.dwVoiceMode);
-        rk.setDWORD(VALUE_ENFORCE_MIN, mec.dwEnforceVBRmin);
-        rk.setDWORD(VALUE_MODE_FIXED, mec.dwModeFixed);
 
         rk.Close();
     }
