@@ -734,6 +734,52 @@ calc_mask_index_l(lame_internal_flags const *gfc, FLOAT const *max,
 
 
 /**
+ * \internal
+ * \brief Turns the FFT of the left and the right channel into the FFT of the
+ *        mid and the side channel, in place.
+ * \param l  the left channel; receives the mid channel.
+ * \param r  the right channel; receives the side channel.
+ * \param n  the number of FFT values.
+ */
+static inline void
+ms_from_lr(FLOAT * l, FLOAT * r, int n)
+{
+    FLOAT const sqrt2_half = SQRT2 * 0.5f;
+    int     j;
+
+    for (j = n - 1; j >= 0; --j) {
+        FLOAT const lj = l[j];
+        FLOAT const rj = r[j];
+        l[j] = (lj + rj) * sqrt2_half;
+        r[j] = (lj - rj) * sqrt2_half;
+    }
+}
+
+
+/**
+ * \internal
+ * \brief The energy of each line of a real FFT.
+ * \param w  the FFT in the layout of fht(): the real parts up to n / 2, the
+ *           imaginary parts above.
+ * \param e  receives n / 2 + 1 energies.
+ * \param n  the FFT size.
+ */
+static inline void
+power_spectrum(FLOAT const *w, FLOAT * e, int n)
+{
+    int     j;
+
+    e[0] = w[0];
+    e[0] *= e[0];
+    for (j = n / 2 - 1; j >= 0; --j) {
+        FLOAT const re = w[n / 2 - j];
+        FLOAT const im = w[n / 2 + j];
+        e[n / 2 - j] = (re * re + im * im) * 0.5f;
+    }
+}
+
+
+/**
  * \brief Windowed long-block FFT and its per-line energy.
  */
 static void
@@ -749,27 +795,10 @@ vbrpsy_compute_fft_l(lame_internal_flags * gfc, const sample_t * const buffer[2]
         fft_long(gfc, *wsamp_l, chn, buffer);
     }
     else if (chn == 2) {
-        FLOAT const sqrt2_half = SQRT2 * 0.5f;
         /* FFT data for mid and side channel is derived from L & R */
-        for (j = BLKSIZE - 1; j >= 0; --j) {
-            FLOAT const l = wsamp_l[0][j];
-            FLOAT const r = wsamp_l[1][j];
-            wsamp_l[0][j] = (l + r) * sqrt2_half;
-            wsamp_l[1][j] = (l - r) * sqrt2_half;
-        }
+        ms_from_lr(wsamp_l[0], wsamp_l[1], BLKSIZE);
     }
-
-    /*********************************************************************
-    *  compute energies
-    *********************************************************************/
-    fftenergy[0] = wsamp_l[0][0];
-    fftenergy[0] *= fftenergy[0];
-
-    for (j = BLKSIZE / 2 - 1; j >= 0; --j) {
-        FLOAT const re = (*wsamp_l)[BLKSIZE / 2 - j];
-        FLOAT const im = (*wsamp_l)[BLKSIZE / 2 + j];
-        fftenergy[BLKSIZE / 2 - j] = (re * re + im * im) * 0.5f;
-    }
+    power_spectrum(*wsamp_l, fftenergy, BLKSIZE);
     /* total energy */
     {
         FLOAT   totalenergy = 0.0f;
@@ -795,32 +824,14 @@ static void
 vbrpsy_compute_fft_s(lame_internal_flags const *gfc, const sample_t * const buffer[2], int chn,
                      int sblock, FLOAT(*fftenergy_s)[HBLKSIZE_s], FLOAT(*wsamp_s)[3][BLKSIZE_s])
 {
-    int     j;
-
     if (sblock == 0 && chn < 2) {
         fft_short(gfc, *wsamp_s, chn, buffer);
     }
     if (chn == 2) {
-        FLOAT const sqrt2_half = SQRT2 * 0.5f;
         /* FFT data for mid and side channel is derived from L & R */
-        for (j = BLKSIZE_s - 1; j >= 0; --j) {
-            FLOAT const l = wsamp_s[0][sblock][j];
-            FLOAT const r = wsamp_s[1][sblock][j];
-            wsamp_s[0][sblock][j] = (l + r) * sqrt2_half;
-            wsamp_s[1][sblock][j] = (l - r) * sqrt2_half;
-        }
+        ms_from_lr(wsamp_s[0][sblock], wsamp_s[1][sblock], BLKSIZE_s);
     }
-
-    /*********************************************************************
-    *  compute energies
-    *********************************************************************/
-    fftenergy_s[sblock][0] = (*wsamp_s)[sblock][0];
-    fftenergy_s[sblock][0] *= fftenergy_s[sblock][0];
-    for (j = BLKSIZE_s / 2 - 1; j >= 0; --j) {
-        FLOAT const re = (*wsamp_s)[sblock][BLKSIZE_s / 2 - j];
-        FLOAT const im = (*wsamp_s)[sblock][BLKSIZE_s / 2 + j];
-        fftenergy_s[sblock][BLKSIZE_s / 2 - j] = (re * re + im * im) * 0.5f;
-    }
+    power_spectrum((*wsamp_s)[sblock], fftenergy_s[sblock], BLKSIZE_s);
 }
 
 
@@ -1152,6 +1163,48 @@ vbrpsy_calc_mask_index_s(lame_internal_flags const *gfc, FLOAT const *max,
 
 
 /**
+ * \internal
+ * \brief Applies the two limits to the masking threshold of a partition.
+ *
+ * The threshold may not be above a limit from the peak line of the band. If
+ * it were, the quantizer would take the difference from other bands, and a
+ * strongly tonal band would be heavily distorted. And it may not be above the
+ * energy of the band itself. The masking_lower factor applies around these
+ * limits: a factor above 1 before the energy limit, a factor below 1 after it.
+ *
+ * \param thr            the threshold.
+ * \param max            the peak line energy of the partition.
+ * \param minval         the minimum masking value of the partition.
+ * \param avg_mask       the tonality factor of the spread energy.
+ * \param masking_lower  the masking_lower factor of the partition.
+ * \param eb             the energy of the partition.
+ * \return the bounded threshold.
+ */
+static inline FLOAT
+bound_threshold(FLOAT thr, FLOAT max, FLOAT minval, FLOAT avg_mask, FLOAT masking_lower,
+                FLOAT eb)
+{
+    FLOAT   x = max;
+
+    x *= minval;
+    x *= avg_mask;
+    if (thr > x) {
+        thr = x;
+    }
+    if (masking_lower > 1) {
+        thr *= masking_lower;
+    }
+    if (thr > eb) {
+        thr = eb;
+    }
+    if (masking_lower < 1) {
+        thr *= masking_lower;
+    }
+    return thr;
+}
+
+
+/**
  * \brief Masking thresholds for one short sub-block.
  *
  * Spreads the energy of each partition over its neighbors through the
@@ -1159,11 +1212,7 @@ vbrpsy_calc_mask_index_s(lame_internal_flags const *gfc, FLOAT const *max,
  * vbrpsy_mask_add(), and scales the result by the tonality of the bands that
  * contributed.
  *
- * Then two limits apply to the threshold. It may not be above a limit from the
- * peak line of the band. This keeps a strongly tonal band from getting a
- * threshold so high that the quantizer takes the difference from other bands.
- * And it may not be above the energy of the band itself. The masking_lower
- * factor of the caller is applied around these limits.
+ * Then bound_threshold() applies the two limits to the threshold.
  *
  * Pre-echo control does not happen here. For short blocks it happens after
  * the mapping to scalefactor bands, in L3psycho_anal_vbr(), where the
@@ -1241,27 +1290,7 @@ vbrpsy_compute_masking_s(lame_internal_flags * gfc, const FLOAT(*fftenergy_s)[HB
 #endif
         psv->nb_s2[chn][b] = psv->nb_s1[chn][b];
         psv->nb_s1[chn][b] = ecb;
-        {
-            /*  if THR exceeds EB, the quantization routines will take the difference
-             *  from other bands. in case of strong tonal samples (tonaltest.wav)
-             *  this leads to heavy distortions. that's why we limit THR here.
-             */
-            x = max[b];
-            x *= gds->minval[b];
-            x *= avg_mask;
-            if (thr[b] > x) {
-                thr[b] = x;
-            }
-        }
-        if (masking_lower > 1) {
-            thr[b] *= masking_lower;
-        }
-        if (thr[b] > eb[b]) {
-            thr[b] = eb[b];
-        }
-        if (masking_lower < 1) {
-            thr[b] *= masking_lower;
-        }
+        thr[b] = bound_threshold(thr[b], max[b], gds->minval[b], avg_mask, masking_lower, eb[b]);
 
         assert(thr[b] >= 0);
     }
@@ -1275,11 +1304,11 @@ vbrpsy_compute_masking_s(lame_internal_flags * gfc, const FLOAT(*fftenergy_s)[HB
 /**
  * \brief Masking thresholds for a long block, including pre-echo control.
  *
- * Spreading, non-linear addition and the two limits are as in
- * vbrpsy_compute_masking_s(). This path adds pre-echo control over time. The
- * threshold may not rise much above the thresholds of the two granules
- * before. So in a quiet passage before a sudden loud passage, the noise floor
- * cannot rise before the loud passage arrives to mask it.
+ * Spreading and non-linear addition are as in vbrpsy_compute_masking_s(), and
+ * bound_threshold() applies the two limits. This path adds pre-echo control
+ * over time. The threshold may not rise much above the thresholds of the two
+ * granules before. So in a quiet passage before a sudden loud passage, the
+ * noise floor cannot rise before the loud passage arrives to mask it.
  *
  * If the previous granule used short blocks, only the limit from that granule
  * is used. If no long-block analysis exists for that granule, the limit is
@@ -1387,27 +1416,7 @@ vbrpsy_compute_masking_l(lame_internal_flags * gfc, const FLOAT fftenergy[HBLKSI
         }
         psv->nb_l2[chn][b] = psv->nb_l1[chn][b];
         psv->nb_l1[chn][b] = ecb;
-        {
-            /*  if THR exceeds EB, the quantization routines will take the difference
-             *  from other bands. in case of strong tonal samples (tonaltest.wav)
-             *  this leads to heavy distortions. that's why we limit THR here.
-             */
-            x = max[b];
-            x *= gdl->minval[b];
-            x *= avg_mask;
-            if (thr[b] > x) {
-                thr[b] = x;
-            }
-        }
-        if (masking_lower > 1) {
-            thr[b] *= masking_lower;
-        }
-        if (thr[b] > eb_l[b]) {
-            thr[b] = eb_l[b];
-        }
-        if (masking_lower < 1) {
-            thr[b] *= masking_lower;
-        }
+        thr[b] = bound_threshold(thr[b], max[b], gdl->minval[b], avg_mask, masking_lower, eb_l[b]);
         assert(thr[b] >= 0);
     }
     for (; b < CBANDS; ++b) {
