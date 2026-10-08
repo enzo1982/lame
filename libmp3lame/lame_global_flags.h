@@ -1,6 +1,9 @@
 #ifndef LAME_GLOBAL_FLAGS_H
 #define LAME_GLOBAL_FLAGS_H
 
+#include "lame.h"
+#include "machine.h"
+
 #ifndef lame_internal_flags_defined
 #define lame_internal_flags_defined
 struct lame_internal_flags;

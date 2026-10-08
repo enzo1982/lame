@@ -37,6 +37,10 @@
 #if defined(__FreeBSD__) && !defined(__alpha__)
 # include <machine/floatingpoint.h>
 #endif
+#if defined( _WIN32 )
+# define WIN32_LEAN_AND_MEAN
+# include <windows.h>
+#endif
 
 /* For the debug build's floating point exception trapping below. */
 #if defined( HAVE_FENV_H ) && defined( HAVE_FEENABLEEXCEPT )
