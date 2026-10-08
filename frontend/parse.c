@@ -1299,7 +1299,7 @@ presets_set(lame_t gfp, int fast, int cbr, const char *preset_name, const char *
             lame_version_print(Console_IO.Error_fp);
             error_printf("Error: The bitrate specified is out of the valid range for this preset\n"
                          "\n"
-                         "When using this mode you must enter a value between \"32\" and \"320\"\n"
+                         "When using this mode you must enter a value between \"8\" and \"320\"\n"
                          "\n" "For further information try: \"%s --preset help\"\n", ProgramName);
             return -1;
         }
