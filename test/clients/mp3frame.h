@@ -97,6 +97,30 @@ mp3_padding_bytes(const unsigned char *h)
 /** @brief Length of the CRC after the header, when the frame has one. */
 #define MP3_CRC_BYTES               2
 
+/** @brief Byte of the header that holds the channel mode. */
+#define MP3_HEADER_MODE_BYTE        3
+/** @brief The channel mode is in the top two bits of that byte. */
+#define MP3_MODE_SHIFT              6
+/** @brief Mask for the two channel mode bits, after the shift. */
+#define MP3_MODE_MASK               3
+/** @brief Channel mode values in the header: stereo, joint stereo, dual channel, mono. */
+#define MP3_MODE_STEREO             0
+#define MP3_MODE_JOINT_STEREO       1
+#define MP3_MODE_DUAL_CHANNEL       2
+#define MP3_MODE_MONO               3
+
+/**
+ * @brief Returns the channel mode of the frame at @a h.
+ * @param h the frame header.
+ * @return one of ::MP3_MODE_STEREO, ::MP3_MODE_JOINT_STEREO,
+ *         ::MP3_MODE_DUAL_CHANNEL and ::MP3_MODE_MONO.
+ */
+static inline int
+mp3_channel_mode(const unsigned char *h)
+{
+    return (h[MP3_HEADER_MODE_BYTE] >> MP3_MODE_SHIFT) & MP3_MODE_MASK;
+}
+
 /**
  * @brief Returns the main_data_begin field of the Layer III frame at @a h.
  *

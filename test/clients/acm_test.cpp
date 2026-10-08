@@ -1147,11 +1147,12 @@ out:
  * @param frames   receives the number of frames in the output.
  * @param borrowed receives the number of frames whose main_data_begin is not
  *                 0, that is, frames that use bytes of earlier frames.
+ * @param joint    receives the number of frames in joint stereo mode.
  * @return 1 if the encode ran, 0 if a step failed. The failed step is
  *         recorded as a check.
  */
 static int
-encode_counting_reservoir(const char *driver, int *frames, int *borrowed)
+encode_counting_reservoir(const char *driver, int *frames, int *borrowed, int *joint)
 {
     const DWORD rate = 44100;
     const WORD channels = 2;
@@ -1172,6 +1173,7 @@ encode_counting_reservoir(const char *driver, int *frames, int *borrowed)
 
     *frames = 0;
     *borrowed = 0;
+    *joint = 0;
     mod = LoadLibraryA(driver);
     proc = (mod != NULL) ? GetProcAddress(mod, "DriverProc") : NULL;
     if (proc == NULL) {
@@ -1244,6 +1246,9 @@ encode_counting_reservoir(const char *driver, int *frames, int *borrowed)
         if (mp3_main_data_begin(h) != 0) {
             ++*borrowed;
         }
+        if (mp3_channel_mode(h) == MP3_MODE_JOINT_STEREO) {
+            ++*joint;
+        }
         off += (DWORD) framelen;
     }
     acmStreamUnprepareHeader(has, &hdr, 0);
@@ -1265,10 +1270,12 @@ out:
 }
 
 /**
- * @brief Checks that the bit reservoir setting reaches the encoder.
+ * @brief Checks that the defaults and the bit reservoir setting reach the
+ *        encoder.
  *
- * With the default setting, some frames use bytes of earlier frames. With
- * @c Bit_reservoir set to false, no frame does.
+ * Without a configuration file, every frame is joint stereo, and some frames
+ * use bytes of earlier frames. With @c Bit_reservoir set to false, no frame
+ * does.
  *
  * An installed codec reads its configuration file from its own folder. Here
  * the test adds the codec with @c ACM_DRIVERADDF_FUNCTION, and then the codec
@@ -1279,18 +1286,18 @@ out:
  * @param driver the path of the codec.
  */
 static void
-test_bit_reservoir_setting(const char *driver)
+test_settings_reach_the_encoder(const char *driver)
 {
     const char *const config = CONFIG_NAME;
     char *saved = NULL;
     long saved_len = -1;
     FILE *f;
-    int frames, borrowed;
+    int frames, borrowed, joint;
     /* The first and the last frame may be missing, as in test_under_the_acm(). */
     const int expected_frames =
         (int) (mp3_frames_per_second(44100) * RESERVOIR_TEST_SECONDS) - 2;
 
-    printf("the bit reservoir setting\n");
+    printf("the settings that reach the encoder\n");
 
     /* Keep a file that is already there. */
     f = fopen(config, "rb");
@@ -1312,10 +1319,11 @@ test_bit_reservoir_setting(const char *driver)
 
     /* The control: the default setting uses the reservoir. */
     ::DeleteFileA(config);
-    if (encode_counting_reservoir(driver, &frames, &borrowed)) {
+    if (encode_counting_reservoir(driver, &frames, &borrowed, &joint)) {
         printf("        default: %d frame(s), %d use earlier bytes\n", frames, borrowed);
         CHECK(frames >= expected_frames, "the default encode has all of its frames");
         CHECK(borrowed > 0, "with the default setting, some frames use the bit reservoir");
+        CHECK_EQ_U(joint, frames, "without a configuration file, every frame is joint stereo");
     }
 
     f = fopen(config, "wb");
@@ -1336,7 +1344,7 @@ test_bit_reservoir_setting(const char *driver)
                 "    </encodings>\n"
                 "</lame_acm>\n");
         fclose(f);
-        if (encode_counting_reservoir(driver, &frames, &borrowed)) {
+        if (encode_counting_reservoir(driver, &frames, &borrowed, &joint)) {
             printf("        switched off: %d frame(s), %d use earlier bytes\n", frames, borrowed);
             CHECK(frames >= expected_frames, "the encode without the reservoir has all of its frames");
             CHECK_EQ_U(borrowed, 0, "with the reservoir switched off, no frame uses it");
@@ -1398,9 +1406,9 @@ main(int argc, char **argv)
         strncpy(driver, argv[1], sizeof(driver) - 1);
         driver[sizeof(driver) - 1] = '\0';
         test_under_the_acm(driver);
-        test_bit_reservoir_setting(driver);
+        test_settings_reach_the_encoder(driver);
     } else if (driver_beside_us(driver, sizeof(driver))) {
-        test_bit_reservoir_setting(driver);
+        test_settings_reach_the_encoder(driver);
         test_under_the_acm(driver);
     } else {
         /* Not a skip. The codec is built by the same solution as this test, so

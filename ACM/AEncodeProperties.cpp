@@ -741,7 +741,7 @@ void AEncodeProperties::ParamsRestore()
 	AverageBitrate_Step = 8; // a bit lame
 	SmartRatioMax = 15.0;
 
-	nChannelIndex = 2; // joint-stereo
+	nChannelIndex = CHANNEL_INDEX_JOINT_STEREO;
 	nMinBitrateIndex = 6; // 128 kbps (works for both MPEGI and II)
 	nMaxBitrateIndex = 4; // 160 kbps (works for both MPEGI and II)
 	nPresetIndex = 0; // None
