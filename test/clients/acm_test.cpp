@@ -1580,36 +1580,11 @@ test_settings_reach_the_encoder(const char *driver)
     }
 }
 
-/**
- * @brief Looks for the codec in the directory of this executable. The build
- *        writes both files there.
- * @return 1 and fills in @a out, or 0 if the codec is not there.
- */
-static int
-driver_beside_us(char *out, size_t n)
-{
-    char self[MAX_PATH];
-    char *slash;
-
-    if (::GetModuleFileNameA(NULL, self, MAX_PATH) == 0) {
-        return 0;
-    }
-    slash = strrchr(self, '\\');
-    if (slash == NULL) {
-        return 0;
-    }
-    *(slash + 1) = '\0';
-    if (strlen(self) + strlen("lameACM.acm") >= n) {
-        return 0;
-    }
-    sprintf(out, "%slameACM.acm", self);
-    return ::GetFileAttributesA(out) != INVALID_FILE_ATTRIBUTES;
-}
-
 int
 main(int argc, char **argv)
 {
     char driver[MAX_PATH];
+    int require;
 
     ctest_start("acm_test: the ACM codec's rate selection, configuration and conversion");
     test_output_sample_rate();
@@ -1620,17 +1595,14 @@ main(int argc, char **argv)
     test_bitrate_list();
     test_save_without_a_file();
 
-    if (argc > 1) {
-        strncpy(driver, argv[1], sizeof(driver) - 1);
-        driver[sizeof(driver) - 1] = '\0';
+    if (ctest_component_path(argc, argv, "lameACM.acm", driver, sizeof(driver), &require)
+        == CTEST_FOUND) {
         test_under_the_acm(driver);
         test_settings_reach_the_encoder(driver);
-    } else if (driver_beside_us(driver, sizeof(driver))) {
-        test_settings_reach_the_encoder(driver);
-        test_under_the_acm(driver);
     } else {
-        /* Not a skip. The codec is built by the same solution as this test, so
-           its absence is a failure of the build and not a missing option. */
+        /* Not a skip, with or without --require. The codec is built by the
+           same solution as this test, so its absence is a failure of the
+           build and not a missing option. */
         CHECK(0, "the built codec is beside this executable or named on the command line");
     }
 

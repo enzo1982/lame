@@ -1172,9 +1172,8 @@ main(int argc, char **argv)
     char filter[MAX_PATH];
     char wav[MAX_PATH], mp3[MAX_PATH];
     WCHAR wavw[MAX_PATH], mp3w[MAX_PATH];
-    const char *given = NULL;
-    int require = 0;
-    int i;
+    int require;
+    ctest_component found;
 
     ctest_start("dshow_test: the LAME DirectShow filter in a real filter graph");
 
@@ -1182,31 +1181,14 @@ main(int argc, char **argv)
        the same reason: the filter is built only where the base class sources
        are laid out, so its absence is a configuration in one caller and a
        failure in another. The caller says which. */
-    for (i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--require") == 0) {
-            require = 1;
-        } else {
-            given = argv[i];
-        }
-    }
-
-    if (given != NULL) {
-        strncpy(filter, given, sizeof(filter) - 1);
-        filter[sizeof(filter) - 1] = '\0';
-    } else {
-        char *slash;
-
-        if (::GetModuleFileNameA(NULL, filter, MAX_PATH) == 0 ||
-            (slash = strrchr(filter, '\\')) == NULL) {
-            CHECK(0, "this executable's own directory could be determined");
-            return ctest_summary("dshow_test");
-        }
-        *(slash + 1) = '\0';
-        strcat(filter, "lame.ax");
+    found = ctest_component_path(argc, argv, "lame.ax", filter, sizeof(filter), &require);
+    if (found == CTEST_NO_PATH) {
+        CHECK(0, "the path of the filter could be formed");
+        return ctest_summary("dshow_test");
     }
     printf("        filter: %s\n", filter);
 
-    if (::GetFileAttributesA(filter) == INVALID_FILE_ATTRIBUTES) {
+    if (found == CTEST_ABSENT) {
         if (require) {
             CHECK(0, "the filter was built and is where it was looked for");
             return ctest_summary("dshow_test");

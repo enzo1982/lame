@@ -24,7 +24,9 @@
 #ifndef LAME_TEST_CLIENTS_CTEST_H
 #define LAME_TEST_CLIENTS_CTEST_H
 
+#include <windows.h>
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 /**
@@ -125,6 +127,67 @@ ctest_record(int ok, const char *what, const char *detail)
         sprintf(ctest_d_, "hr = 0x%08lX", (unsigned long) ctest_hr_);    \
         ctest_record(SUCCEEDED(ctest_hr_), (what), ctest_d_);            \
     } while (0)
+
+/** @brief The argument that makes a missing component a failure. */
+#define CTEST_REQUIRE_ARG "--require"
+
+/** @brief What ctest_component_path() found. */
+typedef enum {
+    CTEST_NO_PATH,              /**< no path to the component could be formed */
+    CTEST_ABSENT,               /**< the path names no file */
+    CTEST_FOUND                 /**< the file is there */
+} ctest_component;
+
+/**
+ * @brief Finds the component under test.
+ *
+ * An argument other than #CTEST_REQUIRE_ARG names the component. Without one,
+ * the component is @p name in the directory of this executable. The build
+ * writes it there. Whether a missing component is a skip or a failure
+ * is the caller's decision.
+ *
+ * @param argc     the test's argument count.
+ * @param argv     the test's arguments.
+ * @param name     the file name of the component.
+ * @param out      receives the path of the component.
+ * @param n        the size of @p out.
+ * @param require  set to 1 if #CTEST_REQUIRE_ARG was given, to 0 if not.
+ * @return what was found at the path.
+ */
+static ctest_component
+ctest_component_path(int argc, char **argv, const char *name,
+                     char *out, size_t n, int *require)
+{
+    const char *given = NULL;
+    int i, len;
+
+    *require = 0;
+    for (i = 1; i < argc; i++) {
+        if (strncmp(argv[i], CTEST_REQUIRE_ARG, sizeof(CTEST_REQUIRE_ARG)) == 0) {
+            *require = 1;
+        } else {
+            given = argv[i];
+        }
+    }
+
+    if (given != NULL) {
+        len = snprintf(out, n, "%s", given);
+    } else {
+        char self[MAX_PATH];
+        char *slash;
+        DWORD got = GetModuleFileNameA(NULL, self, MAX_PATH);
+
+        if (got == 0 || got >= MAX_PATH || (slash = strrchr(self, '\\')) == NULL) {
+            return CTEST_NO_PATH;
+        }
+        slash[1] = '\0';
+        len = snprintf(out, n, "%s%s", self, name);
+    }
+    if (len < 0 || (size_t) len >= n) {
+        return CTEST_NO_PATH;
+    }
+    return GetFileAttributesA(out) == INVALID_FILE_ATTRIBUTES ? CTEST_ABSENT : CTEST_FOUND;
+}
 
 /**
  * @brief Prints the summary and returns the program's exit status.

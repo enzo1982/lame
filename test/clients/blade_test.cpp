@@ -755,9 +755,9 @@ int
 main(int argc, char **argv)
 {
     char    dll[MAX_PATH], dir[MAX_PATH];
-    const char *given = NULL;
-    int     require = 0;
-    int     i, frames;
+    int     require;
+    int     frames;
+    ctest_component found;
     HMODULE mod;
     blade_exports be;
     BE_VERSION ver;
@@ -767,31 +767,14 @@ main(int argc, char **argv)
 
     ctest_start("blade_test: the Blade-compatible encoder DLL");
 
-    for (i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--require") == 0) {
-            require = 1;
-        } else {
-            given = argv[i];
-        }
-    }
-
-    if (given != NULL) {
-        strncpy(dll, given, sizeof(dll) - 1);
-        dll[sizeof(dll) - 1] = '\0';
-    } else {
-        char   *slash;
-
-        if (GetModuleFileNameA(NULL, dll, MAX_PATH) == 0 ||
-            (slash = strrchr(dll, '\\')) == NULL) {
-            CHECK(0, "this executable's own directory could be determined");
-            return ctest_summary("blade_test");
-        }
-        *(slash + 1) = '\0';
-        strcat(dll, "lame_enc.dll");
+    found = ctest_component_path(argc, argv, "lame_enc.dll", dll, sizeof(dll), &require);
+    if (found == CTEST_NO_PATH) {
+        CHECK(0, "the path of the DLL could be formed");
+        return ctest_summary("blade_test");
     }
     printf("        dll: %s\n", dll);
 
-    if (GetFileAttributesA(dll) == INVALID_FILE_ATTRIBUTES) {
+    if (found == CTEST_ABSENT) {
         if (require) {
             CHECK(0, "the DLL was built and is where it was looked for");
             return ctest_summary("blade_test");
