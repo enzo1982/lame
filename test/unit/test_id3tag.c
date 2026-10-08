@@ -427,6 +427,57 @@ test_v1_basic(void **state)
     assert_true(mem_contains(tagbuf, sz, "V1Artist"));
 }
 
+/**
+ * @brief Checks that a genre number beyond the range of int is unknown.
+ *
+ * 4294967300 is 2^32 + 4, which a 32-bit conversion turns into genre 4.
+ * @param state the encoder instance from the fixture.
+ */
+static void
+test_genre_number_beyond_int_is_unknown(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    assert_int_equal(id3tag_set_genre(gfp, "4294967300"), -1);
+    assert_int_equal(id3tag_set_genre(gfp, "99999999999999999999"), -1);
+}
+
+/**
+ * @brief Checks that a track number beyond the range of int does not fit
+ *        into ID3v1.
+ *
+ * 4294967297 is 2^32 + 1; its low 32 bits are track number 1.
+ * @param state the encoder instance from the fixture.
+ */
+static void
+test_track_number_beyond_int_is_not_v1(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    size_t sz;
+    id3tag_set_title(gfp, "Title");
+    assert_int_equal(id3tag_set_track(gfp, "4294967297"), -1);
+    sz = lame_get_id3v1_tag(gfp, tagbuf, sizeof tagbuf);
+    assert_int_equal(sz, 128);
+    assert_int_equal(tagbuf[126], 0);
+}
+
+/**
+ * @brief Checks that a year beyond the range of int is written as 9999.
+ *
+ * 4294967296 is 2^32. Its low 32 bits are 0, and a year of 0 is not set.
+ * @param state the encoder instance from the fixture.
+ */
+static void
+test_year_beyond_int_is_9999(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    size_t sz;
+    id3tag_set_title(gfp, "Title");
+    id3tag_set_year(gfp, "4294967296");
+    sz = lame_get_id3v1_tag(gfp, tagbuf, sizeof tagbuf);
+    assert_int_equal(sz, 128);
+    assert_memory_equal(tagbuf + 93, "9999", 4);
+}
+
 /* --- v1-only / v2-only gating ------------------------------------------ */
 
 /** @brief Checks that id3tag_v1_only() turns off the ID3v2 tag. */
@@ -1253,6 +1304,9 @@ main(void)
         LAME_FIXTURE_TEST(test_v2_utf16_absent_description),
         LAME_FIXTURE_TEST(test_v2_genre),
         LAME_FIXTURE_TEST(test_v1_basic),
+        LAME_FIXTURE_TEST(test_genre_number_beyond_int_is_unknown),
+        LAME_FIXTURE_TEST(test_track_number_beyond_int_is_not_v1),
+        LAME_FIXTURE_TEST(test_year_beyond_int_is_9999),
         LAME_FIXTURE_TEST(test_v1_only_suppresses_v2),
         LAME_FIXTURE_TEST(test_v2_only_suppresses_v1),
         LAME_FIXTURE_TEST(test_v2_size_over_synchsafe_limit_rejected),

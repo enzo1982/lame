@@ -721,7 +721,8 @@ static int
 lookupGenre(char const* genre)
 {
     char   *str;
-    int     num = strtol(genre, &str, 10);
+    long const number = strtol(genre, &str, 10);
+    int     num;
     /* is the input a string or a valid number? */
     if (*str) {
         num = searchGenre(genre);
@@ -733,9 +734,10 @@ lookupGenre(char const* genre)
         }
     }
     else {
-        if ((num < 0) || (num >= GENRE_NAME_COUNT)) {
+        if ((number < 0) || (number >= GENRE_NAME_COUNT)) {
             return -1; /* number unknown */
         }
+        num = (int) number;
     }
     return num;
 }
@@ -1675,14 +1677,16 @@ id3tag_set_year(lame_t gfp, const char *year)
 {
     lame_internal_flags *gfc = gfp != 0 ? gfp->internal_flags : 0;
     if (gfc && year && *year) {
-        int     num = atoi(year);
-        if (num < 0) {
-            num = 0;
+        long    number = strtol(year, NULL, 10);
+        int     num;
+        if (number < 0) {
+            number = 0;
         }
         /* limit a year to 4 digits so it fits in a version 1 tag */
-        if (num > 9999) {
-            num = 9999;
+        if (number > 9999) {
+            number = 9999;
         }
+        num = (int) number;
         if (num) {
             gfc->tag_spec.year = num;
             gfc->tag_spec.flags |= CHANGED_FLAG;
@@ -1754,10 +1758,10 @@ id3tag_set_track(lame_t gfp, const char *track)
     int     ret = 0;
 
     if (gfc && track && *track) {
-        int     num = atoi(track);
+        long const number = strtol(track, NULL, 10);
         /* check for valid ID3v1 track number range */
-        if (num < 1 || num > 255) {
-            num = 0;
+        int     num = (number >= 1 && number <= 255) ? (int) number : 0;
+        if (num == 0) {
             ret = -1;   /* track number out of ID3v1 range, ignored for ID3v1 */
             gfc->tag_spec.flags |= (CHANGED_FLAG | ADD_V2_FLAG);
         }

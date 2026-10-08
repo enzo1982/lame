@@ -345,6 +345,10 @@
 			        ID shorter than four characters.</li>
 			    <li>In ID3v2 tags, a comment language code shorter than
 			        three characters is padded with spaces.</li>
+			    <li>A genre, year or track number too large for an
+			        <i>int</i> no longer turns into a wrong small number on
+			        64-bit systems: the genre is unknown, the track number
+			        is not written to ID3v1, and the year is 9999.</li>
 			    <li>The ID3v2 tag carries the full audio play-length,
 			        instead of clamping it to about 49.7 days.</li>
 			    <li>With <i>--nogap --nogaptags</i>, the LAME tag of
