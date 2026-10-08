@@ -477,6 +477,12 @@
 			    <li>Code that the library, the frontends, the Windows
 			        components and the tests carried in several copies is
 			        written once and shared.</li>
+			    <li>Code that nothing used is removed, long functions
+			        such as the option parser are split into named steps,
+			        values that were bare numbers have names, headers
+			        include what they use, and text is formatted only
+			        within the buffer that holds it. The encoded output
+			        does not change.</li>
 			    <li><i>lame_print_config()</i> and
 			        <i>lame_print_internals()</i> no longer crash on an
 			        invalid instance; they do nothing, as the other calls
