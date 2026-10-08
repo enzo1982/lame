@@ -458,6 +458,61 @@ write_id3v1_tag(lame_t gf, FILE * outf)
 }
 
 
+/**
+ * @internal
+ * @brief Writes the ID3v2 tag at the start of the output file: the tag that
+ *        the library builds, or else the tag of the input file.
+ *
+ * @param gf    the encoder instance.
+ * @param outf  the output file.
+ * @param size  receives the size of the tag in bytes, 0 when there is none.
+ * @return 0, or 1 when the tag cannot be written.
+ */
+static int
+write_id3v2_tag(lame_t gf, FILE * outf, size_t * size)
+{
+    size_t  id3v2_size = lame_get_id3v2_tag(gf, 0, 0);
+
+    if (id3v2_size > 0) {
+        unsigned char *id3v2tag = malloc(id3v2_size);
+        if (id3v2tag != 0) {
+            size_t  n_bytes = lame_get_id3v2_tag(gf, id3v2tag, id3v2_size);
+            size_t  written = fwrite(id3v2tag, 1, n_bytes, outf);
+            free(id3v2tag);
+            if (written != n_bytes) {
+                return 1;
+            }
+        }
+    }
+    else {
+        unsigned char* id3v2tag = getOldTag(gf);
+        id3v2_size = sizeOfOldTag(gf);
+        if ( id3v2_size > 0 ) {
+            size_t written = fwrite(id3v2tag, 1, id3v2_size, outf);
+            if (written != id3v2_size) {
+                return 1;
+            }
+        }
+    }
+    *size = id3v2_size;
+    return 0;
+}
+
+/**
+ * @internal
+ * @brief Flushes the output file if the user asked for it with --flush.
+ *
+ * @param outf  the output file.
+ */
+static void
+flush_if_asked(FILE * outf)
+{
+    if (global_writer.flush_write == 1) {
+        fflush(outf);
+    }
+}
+
+
 /** @internal @brief The buffer size for a complete TXXX descriptor=value string. */
 #define RG_TXXX_MAX  64
 
@@ -652,35 +707,12 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
 
     encoder_progress_begin(gf, inPath, outPath);
 
-    id3v2_size = lame_get_id3v2_tag(gf, 0, 0);
-    if (id3v2_size > 0) {
-        unsigned char *id3v2tag = malloc(id3v2_size);
-        if (id3v2tag != 0) {
-            size_t  n_bytes = lame_get_id3v2_tag(gf, id3v2tag, id3v2_size);
-            size_t  written = fwrite(id3v2tag, 1, n_bytes, outf);
-            free(id3v2tag);
-            if (written != n_bytes) {
-                encoder_progress_end(gf);
-                error_printf("Error writing ID3v2 tag \n");
-                return 1;
-            }
-        }
+    if (write_id3v2_tag(gf, outf, &id3v2_size) != 0) {
+        encoder_progress_end(gf);
+        error_printf("Error writing ID3v2 tag \n");
+        return 1;
     }
-    else {
-        unsigned char* id3v2tag = getOldTag(gf);
-        id3v2_size = sizeOfOldTag(gf);
-        if ( id3v2_size > 0 ) {
-            size_t written = fwrite(id3v2tag, 1, id3v2_size, outf);
-            if (written != id3v2_size) {
-                encoder_progress_end(gf);
-                error_printf("Error writing ID3v2 tag \n");
-                return 1;
-            }
-        }
-    }
-    if (global_writer.flush_write == 1) {
-        fflush(outf);
-    }
+    flush_if_asked(outf);
 
     /* do not feed more than in_limit PCM samples in one encode call
        otherwise the mp3buffer is likely too small
@@ -729,9 +761,7 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
                 error_printf("Error reading input file\n");
             return -1;
         }
-        if (global_writer.flush_write == 1) {
-            fflush(outf);
-        }
+        flush_if_asked(outf);
     } while (iread > 0);
 
     if (nogap)
@@ -756,21 +786,15 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
         error_printf("Error writing mp3 output \n");
         return 1;
     }
-    if (global_writer.flush_write == 1) {
-        fflush(outf);
-    }
+    flush_if_asked(outf);
     imp3 = write_id3v1_tag(gf, outf);
-    if (global_writer.flush_write == 1) {
-        fflush(outf);
-    }
+    flush_if_asked(outf);
     if (imp3) {
         return 1;
     }
     write_xing_frame(gf, outf, id3v2_size);
     update_replaygain_frames(gf, outf, id3v2_size);
-    if (global_writer.flush_write == 1) {
-        fflush(outf);
-    }
+    flush_if_asked(outf);
     if (global_ui_config.silent <= 0) {
         print_trailing_info(gf);
     }
