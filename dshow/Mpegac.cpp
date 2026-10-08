@@ -41,7 +41,6 @@
 #endif
 
 // default parameters
-#define         DEFAULT_LAYER               3
 #define         DEFAULT_STEREO_MODE         JOINT_STEREO
 #define         DEFAULT_FORCE_MS            0
 #define         DEFAULT_MODE_FIXED          0
@@ -828,7 +827,7 @@ void CMpegAudEnc::LoadOutputCapabilities(DWORD sample_rate)
 /**
  * The fields of the encoder configuration that the registry keeps as they
  * are, with the name of their registry value and their default. The VBR
- * switch, the channel mode and the layer are read and written on their own.
+ * switch and the channel mode are read and written on their own.
  */
 static const struct {
     LPCTSTR name;
@@ -870,7 +869,6 @@ void CMpegAudEnc::ReadPresetSettings(MPEG_ENCODER_CONFIG * pmec)
     for (size_t i = 0; i < sizeof(registry_fields) / sizeof(registry_fields[0]); i++)
         pmec->*registry_fields[i].field = rk.getDWORD((PTSTR) registry_fields[i].name, registry_fields[i].dflt);
     pmec->vmVariable        = rk.getDWORD(VALUE_VARIABLE, DEFAULT_VARIABLE) ? vbr_rh : vbr_off;
-    pmec->lLayer            = rk.getDWORD(VALUE_LAYER, DEFAULT_LAYER);
     pmec->ChMode            = (MPEG_mode)rk.getDWORD(VALUE_STEREO_MODE, DEFAULT_STEREO_MODE);
 
     rk.Close();
@@ -968,30 +966,6 @@ STDMETHODIMP CMpegAudEnc::set_PESOutputEnabled(DWORD dwEnabled)
     m_Encoder.SetPES((BOOL)!!dwEnabled);
     DbgLog((LOG_TRACE, 1, TEXT("set_PESOutputEnabled(%d)"), !!dwEnabled));
 
-    return S_OK;
-}
-
-STDMETHODIMP CMpegAudEnc::get_MPEGLayer(DWORD *dwLayer)
-{
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    *dwLayer = (DWORD)mec.lLayer;
-
-    DbgLog((LOG_TRACE, 1, TEXT("get_MPEGLayer -> %d"), *dwLayer));
-    return S_OK;
-}
-
-STDMETHODIMP CMpegAudEnc::set_MPEGLayer(DWORD dwLayer)
-{
-    MPEG_ENCODER_CONFIG mec;
-    m_Encoder.GetOutputType(&mec);
-    if (dwLayer == 2)
-        mec.lLayer = 2;
-    else if (dwLayer == 1)
-        mec.lLayer = 1;
-    m_Encoder.SetOutputType(mec);
-
-    DbgLog((LOG_TRACE, 1, TEXT("set_MPEGLayer(%d)"), dwLayer));
     return S_OK;
 }
 
@@ -1307,7 +1281,6 @@ STDMETHODIMP CMpegAudEnc::DefaultAudioEncoderProperties()
     get_SourceSampleRate(&dwSourceSampleRate);
 
     set_PESOutputEnabled(DEFAULT_PES);
-    set_MPEGLayer(DEFAULT_LAYER);
 
     set_Bitrate(DEFAULT_BITRATE);
     set_Variable(FALSE);

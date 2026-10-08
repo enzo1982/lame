@@ -62,7 +62,6 @@ typedef struct {
     DWORD   dwVariableMax;                  ///< highest VBR bitrate in kbit/s
     DWORD   dwQuality;                      ///< encoding quality
     DWORD   dwVBRq;                         ///< VBR quality, 0 (highest) to 9 (lowest)                         
-    long    lLayer;                         ///< the layer setting of the interface, 1 or 2. The encoder does not use it.
 
     MPEG_mode ChMode;                       ///< channel mode
     DWORD   dwForceMS;

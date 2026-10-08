@@ -36,7 +36,6 @@
 #define VALUE_STEREO_MODE           "Stereo Mode"
 #define VALUE_FORCE_MS              "Force MS"
 
-#define VALUE_LAYER                 "Layer"
 #define VALUE_ORIGINAL              "Original"
 #define VALUE_COPYRIGHT             "Copyright"
 #define VALUE_CRC                   "CRC"
@@ -129,8 +128,6 @@ public:
     STDMETHODIMP get_PESOutputEnabled(DWORD *dwEnabled);    // PES header. Obsolete
     STDMETHODIMP set_PESOutputEnabled(DWORD dwEnabled);     // PES header. Obsolete
 
-    STDMETHODIMP get_MPEGLayer(DWORD *dwLayer);
-    STDMETHODIMP set_MPEGLayer(DWORD dwLayer);
 
     STDMETHODIMP get_Bitrate(DWORD *dwBitrate);
     STDMETHODIMP set_Bitrate(DWORD dwBitrate);   
