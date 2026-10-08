@@ -911,6 +911,54 @@ test_abr_bitrate_rounds(const blade_exports *be, const char *dir)
 }
 
 /**
+ * @brief Checks the CBR preset at bitrates outside the range of the bitrate
+ *        presets: the DLL encodes at the nearest one, 8 or 320 kbit/s.
+ *
+ * @param be    the resolved entry points.
+ * @param dir   directory for the scratch file, with a trailing separator.
+ */
+static void
+test_cbr_preset_out_of_range(const blade_exports *be, const char *dir)
+{
+    static const struct {
+        DWORD   asked;
+        unsigned long kbps;
+        const char *what;
+    } cases[] = {
+        { 0, 8, "the CBR preset at 0 kbit/s encodes at 8 kbit/s" },
+        { 400, 320, "the CBR preset at 400 kbit/s encodes at 320 kbit/s" },
+    };
+    size_t  i;
+
+    for (i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        BE_CONFIG cfg;
+        HBE_STREAM hbe = 0;
+        char    path[MAX_PATH];
+        unsigned char *buf;
+        long    size = 0;
+
+        sprintf(path, "%slame_blade_test_cbr.mp3", dir);
+        make_config(&cfg, 0);
+        cfg.format.LHV1.nPreset = LQP_CBR;
+        cfg.format.LHV1.dwBitrate = cases[i].asked;
+        if (!encode_config_file(be, &cfg, path, &hbe)) {
+            CHECK(0, "a stream with the CBR preset is encoded");
+            be->close(hbe);
+            continue;
+        }
+        be->close(hbe);
+        buf = read_whole_file(path, &size);
+        if (buf != NULL && size > MP3_HEADER_BYTES && mp3_is_frame_sync(buf)) {
+            CHECK_EQ_U(mp3_frame_kbps(buf), cases[i].kbps, cases[i].what);
+        } else {
+            CHECK(0, "the file of the CBR stream can be read");
+        }
+        free(buf);
+        remove(path);
+    }
+}
+
+/**
  * @brief Runs the Blade encoder DLL tests.
  * @param argc  argument count.
  * @param argv  an optional path to lame_enc.dll, and an optional --require.
@@ -1009,6 +1057,7 @@ main(int argc, char **argv)
     test_rejected_input_reported(&be);
     test_abr_preset_above_range(&be, dir);
     test_abr_bitrate_rounds(&be, dir);
+    test_cbr_preset_out_of_range(&be, dir);
     test_released_stream(&be, dir);
     /* LAME reports why it rejects the 50 Hz stream of
        test_rejected_setting_refused(). */

@@ -308,23 +308,53 @@ set_channels(lame_global_flags *gfp, MPEG_mode mode, int channels)
                          channels);
 }
 
+/** \internal \brief The lowest bitrate preset of lame_set_preset(), in kbit/s. */
+static const DWORD PRESET_KBPS_LOWEST = 8;
+/** \internal \brief The top of the range that starts at PRESET_KBPS_LOWEST. */
+static const DWORD PRESET_KBPS_HIGHEST = 320;
+
+/**
+ * \internal
+ * \brief Returns the bitrate preset nearest to a bitrate.
+ * \param kbps  the bitrate in kbit/s.
+ * \return @a kbps, kept within the range of the bitrate presets.
+ */
+static int
+preset_kbps(DWORD kbps)
+{
+    if (kbps > PRESET_KBPS_HIGHEST)
+        return (int) PRESET_KBPS_HIGHEST;
+    if (kbps < PRESET_KBPS_LOWEST)
+        return (int) PRESET_KBPS_LOWEST;
+    return (int) kbps;
+}
+
 /**
  * \internal
  * \brief Returns the ABR bitrate for a bitrate in bit/s: rounded to the
- *        nearest kbit/s, within the range LAME encodes, 8 to 320 kbit/s.
+ *        nearest kbit/s, then kept within the range of the bitrate presets.
  * \param bps  the bitrate in bit/s.
  * \return the bitrate in kbit/s.
  */
 static int
 abr_kbps_from_bps(DWORD bps)
 {
-    DWORD const kbps = bps / 1000 + (bps % 1000 >= 500 ? 1 : 0);
+    return preset_kbps(bps / 1000 + (bps % 1000 >= 500 ? 1 : 0));
+}
 
-    if (kbps > 320)
-        return 320;
-    if (kbps < 8)
-        return 8;
-    return (int) kbps;
+/**
+ * \internal
+ * \brief Applies a preset, and writes it into the log if LAME rejects it.
+ * \param gfp     the stream.
+ * \param preset  the preset.
+ * \return 1 if LAME applied the preset, else 0.
+ */
+static int
+preset_taken(lame_global_flags *gfp, int preset)
+{
+    int const applied = lame_set_preset( gfp, preset );
+
+    return setting_taken(applied < 0 ? applied : 0, "lame_set_preset", preset);
 }
 
 /**
@@ -679,15 +709,15 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
     {
         actual_bitrate = abr_kbps_from_bps(lameConfig.format.LHV1.dwVbrAbr_bps);
 
-        lame_set_preset( gfp, actual_bitrate );
-    }    
+        taken = preset_taken( gfp, actual_bitrate );
+    }
 
     // end Dibrom's ABR preset 2001-12-18 ****** START OF CBR
 
     if(lameConfig.format.LHV1.nPreset == LQP_CBR)		// --ALT-PRESET CBR
     {
-        actual_bitrate = lameConfig.format.LHV1.dwBitrate;
-        lame_set_preset(gfp, actual_bitrate);
+        actual_bitrate = preset_kbps(lameConfig.format.LHV1.dwBitrate);
+        taken = preset_taken( gfp, actual_bitrate );
         lame_set_VBR(gfp, vbr_off);
     }
 
@@ -716,8 +746,9 @@ __declspec(dllexport) BE_ERR	beInitStream(PBE_CONFIG pbeConfig, PDWORD dwSamples
     // Set frequency resampling rate, if specified
     if ( lameConfig.format.LHV1.dwReSampleRate > 0 )
     {
-        taken = setting_taken( lame_set_out_samplerate( gfp, lameConfig.format.LHV1.dwReSampleRate ),
-                               "lame_set_out_samplerate", (long) lameConfig.format.LHV1.dwReSampleRate );
+        taken = taken
+            && setting_taken( lame_set_out_samplerate( gfp, lameConfig.format.LHV1.dwReSampleRate ),
+                              "lame_set_out_samplerate", (long) lameConfig.format.LHV1.dwReSampleRate );
     }
 
 

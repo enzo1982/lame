@@ -669,6 +669,10 @@
 			    <li><i>lame_enc.dll</i> rounds an ABR bitrate to the
 			        nearest kbit/s, for the ABR preset as for the ABR
 			        setting.</li>
+			    <li>The CBR preset of <i>lame_enc.dll</i> encodes a bitrate
+			        below 8 kbit/s at 8 kbit/s and one above 320 kbit/s at
+			        320 kbit/s, as the ABR preset does, instead of at 128
+			        kbit/s.</li>
 			    <li>The Windows ACM codec and the DirectShow filter
 			        carry the LAME version as their file version, and
 			        the codec reports it as its driver version, so the
