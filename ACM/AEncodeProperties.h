@@ -65,12 +65,6 @@ public:
 	virtual ~AEncodeProperties() {}
 
 	/**
-		\enum BRMode
-		\brief The bitrate mode: CBR, VBR or ABR.
-	*/
-	enum BRMode { BR_CBR, BR_VBR, BR_ABR };
-
-	/**
 		\brief Handles the commands of the configuration dialog box.
 	*/
 	bool HandleDialogCommand(const HWND parentWnd, const WPARAM wParam, const LPARAM lParam);
@@ -118,29 +112,6 @@ public:
 	inline const bool GetForceChannelMode() const { return bForceChannel; }
 
 	/**
-		\brief Returns the bitrate mode of the settings: CBR, VBR or ABR.
-		\todo The encoder does not use this setting. The output format
-		selects the bitrate mode.
-	*/
-	inline const BRMode GetVBRUseMode() const { return mBRmode; }
-	/**
-		\brief Returns true if the settings ask for a Xing frame in VBR mode.
-		\todo The encoder does not use this setting. The codec never
-		writes a Xing frame, because it cannot go back to the start of the
-		output stream.
-		\note The Xing frame is a silent frame at the start of the file. It contains
-		VBR information about the file.
-	*/
-	inline const bool GetXingFrameMode() const { return bXingFrame; }
-
-	/**
-		\brief Returns true if the settings ask to resample the input before
-		encoding, to GetResampleFreq().
-		\todo The encoder does not use this setting.
-	*/
-	inline const bool GetResampleMode() const { return bResample; }
-	
-	/**
 		\brief Sets whether the encoder sets the copyright bit.
 	*/
 	inline void SetCopyrightMode(const bool bMode) { bCopyright = bMode; }
@@ -177,18 +148,6 @@ public:
 	*/
 	inline void SetForceChannelMode(const bool bMode) { bForceChannel = bMode; }
 	
-	/**
-		\brief Sets the setting that GetVBRUseMode() returns.
-	*/
-	inline void SetVBRUseMode(const BRMode mode) { mBRmode = mode; }
-
-	/**
-		\brief Sets the setting that GetXingFrameMode() returns.
-		\note The Xing frame is a silent frame at the start of the file. It contains
-		VBR information about the file.
-	*/
-	inline void SetXingFrameMode(const bool bMode) { bXingFrame = bMode; }
-
 	/**
 		\brief Returns the bitrate for CBR, or the minimum bitrate for VBR.
 	*/
@@ -249,10 +208,6 @@ public:
 	*/
 	inline const int GetBitrateLentgh() const { return sizeof(the_Bitrates) / sizeof(unsigned int); }
 	/**
-		\brief Returns the selected resampling frequency
-	*/
-	inline const unsigned int GetResampleFreq() const { return the_SamplingFreqs[nSamplingFreqIndex]; }
-	/**
 		\brief Returns the highest compression ratio for Smart Output (default
 		       15, for 1:15).
 	*/
@@ -271,8 +226,6 @@ public:
 	inline unsigned int GetAbrBitrateStep() const { return AverageBitrate_Step;}
 
 #if 0
-//	VBRMETHOD GetVBRValue(DWORD & MaxBitrate, int & Quality, DWORD & AbrBitrate, BOOL & VBRHeader, const DWORD MPEG_Version) const;
-
 //	const char * GetDllLocation() const { return DllLocation.c_str(); }
 //	void SetDllLocation( const char * the_string ) { DllLocation = the_string; }
 
@@ -328,12 +281,6 @@ public:
 	bool UpdateDlgFromValue(HWND hDialog);
 
 	/**
-		\brief Shows the options of the given bitrate mode in the configuration
-		       dialog box.
-	*/
-	static void DisplayVbrOptions(const HWND hDialog, const BRMode the_mode);
-
-	/**
 		\brief Saves the current settings in the current configuration.
 	*/
 	void ParamsSave(void);
@@ -376,10 +323,7 @@ private:
 	bool bOriginal;
 	bool bPrivate;
 	bool bNoBitRes;
-	BRMode mBRmode;
-	bool bXingFrame;
 	bool bForceChannel;
-	bool bResample;
 	bool bSmartOutput;
 	bool bAbrOutput;
 
@@ -398,9 +342,6 @@ private:
 	static const unsigned int the_MPEG2_Bitrates[14];
 	int nMinBitrateIndex; // CBR and VBR
 	int nMaxBitrateIndex; // only used in VBR mode
-
-	static const unsigned int the_SamplingFreqs[9];
-	int nSamplingFreqIndex;
 
 //	static const LAME_QUALTIY_PRESET the_Presets[17];
 	int nPresetIndex;

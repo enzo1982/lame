@@ -64,7 +64,6 @@ const unsigned int AEncodeProperties::the_MPEG2_Bitrates[14] = {160, 144, 128, 1
 const unsigned int AEncodeProperties::the_ChannelModes[3] = { STEREO, JOINT_STEREO, DUAL_CHANNEL };
 //const char         AEncodeProperties::the_Presets[][13] = {"None", "CD", "Studio", "Hi-Fi", "Phone", "Voice", "Radio", "Tape", "FM", "AM", "SW"};
 //const LAME_QUALTIY_PRESET AEncodeProperties::the_Presets[] = {LQP_NOPRESET, LQP_R3MIX_QUALITY, LQP_NORMAL_QUALITY, LQP_LOW_QUALITY, LQP_HIGH_QUALITY, LQP_VERYHIGH_QUALITY, LQP_VOICE_QUALITY, LQP_PHONE, LQP_SW, LQP_AM, LQP_FM, LQP_VOICE, LQP_RADIO, LQP_TAPE, LQP_HIFI, LQP_CD, LQP_STUDIO};
-//const unsigned int AEncodeProperties::the_SamplingFreqs[9] = { 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000 };
 
 ToolTipItem AEncodeProperties::Tooltips[14]={
 	{ IDC_CHECK_ENC_ABR, "Allow encoding with an average bitrate\r\ninstead of a constant one.\r\n\r\nIt can improve the quality for the same bitrate." },
@@ -508,16 +507,6 @@ bool AEncodeProperties::InitConfigDlg(HWND HwndDlg)
 	wsprintf(tmp, "v%s",ACM::GetVersionString());
 	SetWindowText( GetDlgItem( HwndDlg, IDC_STATIC_CONFIG_VERSION), tmp);
 
-	// Add all possible re-sampling freq
-/*	SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_SAMPLEFREQ), CB_RESETCONTENT , NULL, NULL);
-	char tmp[10];
-	for (i=0;i<sizeof(the_SamplingFreqs)/sizeof(unsigned int);i++)
-	{
-		wsprintf(tmp, "%d", the_SamplingFreqs[i]);
-		SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_SAMPLEFREQ), CB_ADDSTRING, NULL, (LPARAM) tmp );
-	}
-*/	
-
 	// Add required bitrates
 /*	SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_BITRATE), CB_RESETCONTENT , NULL, NULL);
 	for (i=0;i<GetBitrateLentgh();i++)
@@ -620,8 +609,6 @@ bool AEncodeProperties::UpdateDlgFromValue(HWND HwndDlg)
 	::CheckDlgButton( HwndDlg, IDC_CHECK_ENC_SMART,    GetSmartOutputMode()?BST_CHECKED:BST_UNCHECKED );
 	::CheckDlgButton( HwndDlg, IDC_CHECK_ENC_ABR,      GetAbrOutputMode()  ?BST_CHECKED:BST_UNCHECKED );
 	::CheckDlgButton( HwndDlg, IDC_CHECK_RESERVOIR,    !GetNoBiResMode() ?BST_CHECKED:BST_UNCHECKED );
-//	::CheckDlgButton( HwndDlg, IDC_CHECK_XINGVBR,      GetXingFrameMode()?BST_CHECKED:BST_UNCHECKED );
-//	::CheckDlgButton( HwndDlg, IDC_CHECK_RESAMPLE,     GetResampleMode() ?BST_CHECKED:BST_UNCHECKED );
 //	::CheckDlgButton( HwndDlg, IDC_CHECK_CHANNELFORCE, bForceChannel     ?BST_CHECKED:BST_UNCHECKED );
 	
 	// Add required channel modes
@@ -644,8 +631,7 @@ bool AEncodeProperties::UpdateDlgFromValue(HWND HwndDlg)
 
 	EnableAbrOptions(HwndDlg, GetAbrOutputMode());
 //	UpdateAbrSteps(AverageBitrate_Min, AverageBitrate_Max, AverageBitrate_Step);
-	// Add all possible re-sampling freq
-/*	SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_SAMPLEFREQ), CB_SETCURSEL, nSamplingFreqIndex, NULL);
+/*
 	
 
 	// Add required bitrates
@@ -678,19 +664,6 @@ bool AEncodeProperties::UpdateDlgFromValue(HWND HwndDlg)
 	wsprintf(tmp,"%d",AverageBitrate);
 	SetWindowText(GetDlgItem( HwndDlg, IDC_EDIT_AVERAGE), tmp);
 	
-	// Display VBR settings if needed
-	AEncodeProperties::DisplayVbrOptions(HwndDlg, mBRmode);
-
-	// Display Resample settings if needed
-	if (GetResampleMode())
-	{
-		::EnableWindow(::GetDlgItem(HwndDlg,IDC_COMBO_SAMPLEFREQ), TRUE);
-	}
-	else
-	{
-		::EnableWindow(::GetDlgItem(HwndDlg,IDC_COMBO_SAMPLEFREQ), FALSE);
-	}
-
 
 	// Add presets
 	for (i=0;i<GetPresetLentgh();i++)
@@ -720,7 +693,6 @@ bool AEncodeProperties::UpdateValueFromDlg(HWND HwndDlg)
 //	nMaxBitrateIndex   = SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_MAXBITRATE), CB_GETCURSEL, NULL, NULL);
 //	nPresetIndex       = SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_PRESET),     CB_GETCURSEL, NULL, NULL);
 //	VbrQuality         = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_QUALITY), TBM_GETPOS , NULL, NULL);
-//	nSamplingFreqIndex = SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_SAMPLEFREQ), CB_GETCURSEL, NULL, NULL);
 
 	bCRC          = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_CHECKSUM)     == BST_CHECKED);
 	bCopyright    = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_COPYRIGHT)    == BST_CHECKED);
@@ -729,8 +701,6 @@ bool AEncodeProperties::UpdateValueFromDlg(HWND HwndDlg)
 	bSmartOutput  = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_ENC_SMART)    == BST_CHECKED);
 	bAbrOutput    = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_ENC_ABR)      == BST_CHECKED);
 	bNoBitRes     =!(::IsDlgButtonChecked( HwndDlg, IDC_CHECK_RESERVOIR)    == BST_CHECKED);
-//	bXingFrame    = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_XINGVBR)      == BST_CHECKED);
-//	bResample     = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_RESAMPLE)     == BST_CHECKED);
 //	bForceChannel = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_CHANNELFORCE) == BST_CHECKED);
 
 	AverageBitrate_Min  = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MIN), TBM_GETPOS , NULL, NULL);
@@ -745,13 +715,6 @@ my_debug.OutPut("nChannelIndex %d, bCRC %d, bCopyright %d, bOriginal %d, bPrivat
 	::GetWindowText( ::GetDlgItem( HwndDlg, IDC_EDIT_OUTPUTDIR), tmpPath, MAX_PATH);
 	OutputDir = tmpPath;
 
-	if (::IsDlgButtonChecked(HwndDlg, IDC_RADIO_BITRATE_CBR) == BST_CHECKED)
-		mBRmode = BR_CBR;
-	else if (::IsDlgButtonChecked(HwndDlg, IDC_RADIO_BITRATE_VBR) == BST_CHECKED)
-		mBRmode = BR_VBR;
-	else
-		mBRmode = BR_ABR;
-	
 	::GetWindowText( ::GetDlgItem( HwndDlg, IDC_EDIT_AVERAGE), tmpPath, MAX_PATH);
 	AverageBitrate = atoi(tmpPath);
 	if (AverageBitrate < 8)
@@ -761,47 +724,6 @@ my_debug.OutPut("nChannelIndex %d, bCRC %d, bCopyright %d, bOriginal %d, bPrivat
 */
 	return true;
 }
-/*
-VBRMETHOD AEncodeProperties::GetVBRValue(DWORD & MaxBitrate, int & Quality, DWORD & AbrBitrate, BOOL & VBRHeader, const DWORD MPEG_Version) const
-{
-	assert((MPEG_Version == MPEG1) || (MPEG_Version == MPEG2));
-	assert(nMaxBitrateIndex < sizeof(the_Bitrates));
-
-	if (mBRmode == BR_VBR)
-	{
-		MaxBitrate = the_Bitrates[nMaxBitrateIndex];
-
-		if (MPEG_Version == MPEG1)
-			MaxBitrate = MaxBitrate>the_MPEG1_Bitrates[sizeof(the_MPEG1_Bitrates)/sizeof(unsigned int)-1]?MaxBitrate:the_MPEG1_Bitrates[sizeof(the_MPEG1_Bitrates)/sizeof(unsigned int)-1];
-		else
-			MaxBitrate = MaxBitrate<the_MPEG2_Bitrates[0]?MaxBitrate:the_MPEG2_Bitrates[0];
-
-		VBRHeader = bXingFrame;
-		Quality = VbrQuality;
-		AbrBitrate = 0;
-
-		return VBR_METHOD_DEFAULT; // for the moment
-	} 
-	else if (mBRmode == BR_ABR)
-	{
-		MaxBitrate = the_Bitrates[nMaxBitrateIndex];
-
-		if (MPEG_Version == MPEG1)
-			MaxBitrate = MaxBitrate>the_MPEG1_Bitrates[sizeof(the_MPEG1_Bitrates)/sizeof(unsigned int)-1]?MaxBitrate:the_MPEG1_Bitrates[sizeof(the_MPEG1_Bitrates)/sizeof(unsigned int)-1];
-		else
-			MaxBitrate = MaxBitrate<the_MPEG2_Bitrates[0]?MaxBitrate:the_MPEG2_Bitrates[0];
-
-		VBRHeader = bXingFrame;
-		Quality = 0;
-		AbrBitrate = AverageBitrate*1000;
-		return VBR_METHOD_ABR;
-	}
-	else
-	{
-		return VBR_METHOD_NONE;
-	}
-}
-*/
 void AEncodeProperties::ParamsRestore()
 {
 	// use these default parameters in case one is not found
@@ -810,8 +732,6 @@ void AEncodeProperties::ParamsRestore()
 	bOriginal     = true;
 	bPrivate      = true;
 	bNoBitRes     = false; // enable bit reservoir
-	bXingFrame    = true;
-	bResample     = false;
 	bForceChannel = false;
 	bSmartOutput  = true;
 	bAbrOutput    = true;
@@ -822,13 +742,11 @@ void AEncodeProperties::ParamsRestore()
 	SmartRatioMax = 15.0;
 
 	nChannelIndex = 2; // joint-stereo
-	mBRmode       = BR_CBR;
 	nMinBitrateIndex = 6; // 128 kbps (works for both MPEGI and II)
 	nMaxBitrateIndex = 4; // 160 kbps (works for both MPEGI and II)
 	nPresetIndex = 0; // None
 	VbrQuality = 1; // Quite High
 //	AverageBitrate = 128; // a bit lame
-	nSamplingFreqIndex = 1; // 44100
 
 //	OutputDir = "c:\\";
 
@@ -900,58 +818,6 @@ void AEncodeProperties::ParamsSave()
 	SaveValuesToStringKey("Current");
 }
 
-/*
-void AEncodeProperties::DisplayVbrOptions(const HWND hDialog, const BRMode the_mode)
-{
-	bool bVBR = false;
-	bool bABR = false;
-
-	switch ( the_mode )
-	{
-		case BR_CBR:
-			::CheckRadioButton(hDialog, IDC_RADIO_BITRATE_CBR, IDC_RADIO_BITRATE_ABR, IDC_RADIO_BITRATE_CBR);
-			break;
-		case BR_VBR:
-			::CheckRadioButton(hDialog, IDC_RADIO_BITRATE_CBR, IDC_RADIO_BITRATE_ABR, IDC_RADIO_BITRATE_VBR);
-			bVBR = true;
-			break;
-		case BR_ABR:
-			::CheckRadioButton(hDialog, IDC_RADIO_BITRATE_CBR, IDC_RADIO_BITRATE_ABR, IDC_RADIO_BITRATE_ABR);
-			bABR = true;
-			break;
-
-	}
-
-	if(bVBR|bABR)
-	{
-		::SetWindowText(::GetDlgItem(hDialog,IDC_STATIC_MINBITRATE), "Min Bitrate");
-	}
-	else
-	{
-		::SetWindowText(::GetDlgItem(hDialog,IDC_STATIC_MINBITRATE), "Bitrate");
-	}
-
-	::EnableWindow(::GetDlgItem( hDialog, IDC_CHECK_XINGVBR), bVBR|bABR);
-
-	::EnableWindow(::GetDlgItem( hDialog, IDC_COMBO_MAXBITRATE), bVBR|bABR);
-
-	::EnableWindow(::GetDlgItem( hDialog, IDC_STATIC_MAXBITRATE), bVBR|bABR);
-
-	::EnableWindow(::GetDlgItem( hDialog, IDC_SLIDER_QUALITY), bVBR);
-
-	::EnableWindow(::GetDlgItem( hDialog, IDC_CONFIG_QUALITY), bVBR);
-
-	::EnableWindow(::GetDlgItem( hDialog, IDC_STATIC_VBRQUALITY), bVBR);
-
-	::EnableWindow(::GetDlgItem( hDialog, IDC_STATIC_VBRQUALITY_LOW), bVBR);
-
-	::EnableWindow(::GetDlgItem( hDialog, IDC_STATIC_VBRQUALITY_HIGH), bVBR);
-
-	::EnableWindow(::GetDlgItem( hDialog, IDC_STATIC_ABR), bABR);
-
-	::EnableWindow(::GetDlgItem( hDialog, IDC_EDIT_AVERAGE), bABR);
-}
-*/
 AEncodeProperties::AEncodeProperties(HMODULE hModule)
  :my_debug(ADbg(DEBUG_LEVEL_CREATION)),
  my_hModule(hModule)
@@ -1206,60 +1072,6 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 		}
 */
 /*
-		// resampling parameters
-		tmpElt = iterateElmt->FirstChildElement("resampling");
-		if (tmpElt != NULL)
-		{
-			tmpname = tmpElt->Attribute("use");
-			if (tmpname != NULL)
-				bResample = (tmpname->compare("true") == 0);
-
-			unsigned int uitmp = atoi(tmpElt->Attribute("freq")->c_str());
-			for (int i=0;i<sizeof(the_SamplingFreqs)/sizeof(unsigned int);i++)
-			{
-				if (the_SamplingFreqs[i] == uitmp)
-				{
-					nSamplingFreqIndex = i;
-					break;
-				}
-			}
-		}
-
-		// VBR parameters
-		tmpElt = iterateElmt->FirstChildElement("VBR");
-		if (tmpElt != NULL)
-		{
-			tmpname = tmpElt->Attribute("use");
-			if (tmpname != NULL)
-			{
-				if (tmpname->compare("ABR") == 0)
-					mBRmode = BR_ABR;
-				else if (tmpname->compare("true") == 0)
-					mBRmode = BR_VBR;
-				else
-					mBRmode = BR_CBR;
-			}
-
-			tmpname = tmpElt->Attribute("header");
-			if (tmpname != NULL)
-				bXingFrame = (tmpname->compare("true") == 0);
-
-			tmpname = tmpElt->Attribute("quality");
-			if (tmpname != NULL)
-			{
-				VbrQuality = atoi(tmpname->c_str());
-			}
-
-			tmpname = tmpElt->Attribute("average");
-			if (tmpname != NULL)
-			{
-				AverageBitrate = atoi(tmpname->c_str());
-			}
-			else
-			{
-			}
-		}
-
 		// output parameters
 		tmpElt = iterateElmt->FirstChildElement("output");
 		if (tmpElt != NULL)
@@ -1320,17 +1132,13 @@ bool AEncodeProperties::operator !=(const AEncodeProperties & the_instance) cons
 	::OutputDebugString(bOriginal != the_instance.bOriginal  ?"3":"-");
 	::OutputDebugString(bPrivate != the_instance.bPrivate    ?"4":"-");
 	::OutputDebugString(bNoBitRes != the_instance.bNoBitRes  ?"5":"-");
-	::OutputDebugString(mBRmode != the_instance.mBRmode      ?"6":"-");
-	::OutputDebugString(bXingFrame != the_instance.bXingFrame?"7":"-");
 	::OutputDebugString(bForceChannel != the_instance.bForceChannel?"8":"-");
-	::OutputDebugString(bResample != the_instance.bResample  ?"9":"-");
 	::OutputDebugString(nChannelIndex != the_instance.nChannelIndex?"10":"-");
 	::OutputDebugString(nMinBitrateIndex != the_instance.nMinBitrateIndex?"11":"-");
 	::OutputDebugString(nMaxBitrateIndex != the_instance.nMaxBitrateIndex?"12":"-");
 	::OutputDebugString(nPresetIndex != the_instance.nPresetIndex?"13":"-");
 	::OutputDebugString(VbrQuality != the_instance.VbrQuality?"14":"-");
 	::OutputDebugString(AverageBitrate != the_instance.AverageBitrate?"15":"-");
-	::OutputDebugString(nSamplingFreqIndex != the_instance.nSamplingFreqIndex?"16":"-");
 	::OutputDebugString(OutputDir.compare(the_instance.OutputDir) != 0?"17":"-");
 
 	std::string tmp = "";
@@ -1353,17 +1161,13 @@ bool AEncodeProperties::operator !=(const AEncodeProperties & the_instance) cons
 		 || (AverageBitrate_Max != the_instance.AverageBitrate_Max)
 		 || (AverageBitrate_Step != the_instance.AverageBitrate_Step)
 		 || (bNoBitRes != the_instance.bNoBitRes)
-		 || (mBRmode != the_instance.mBRmode)
-		 || (bXingFrame != the_instance.bXingFrame)
 		 || (bForceChannel != the_instance.bForceChannel)
-		 || (bResample != the_instance.bResample)
 		 || (nChannelIndex != the_instance.nChannelIndex)
 		 || (nMinBitrateIndex != the_instance.nMinBitrateIndex)
 		 || (nMaxBitrateIndex != the_instance.nMaxBitrateIndex)
 		 || (nPresetIndex != the_instance.nPresetIndex)
 		 || (VbrQuality != the_instance.VbrQuality)
 //		 || (AverageBitrate != the_instance.AverageBitrate)
-		 || (nSamplingFreqIndex != the_instance.nSamplingFreqIndex)
 //		 || (OutputDir.compare(the_instance.OutputDir) != 0)
 		);
 }
@@ -1556,50 +1360,6 @@ void AEncodeProperties::SaveValuesToElement(TiXmlElement * the_element) const
 	else
 	{
 		tmpElt->SetAttribute("path", OutputDir);
-	}
-*/
-/*
-	// Resampling parameter
-	tmpElt = the_element->FirstChildElement("resampling");
-	if (tmpElt == NULL)
-	{
-		tmpElt = new TiXmlElement("resampling");
-		SetAttributeBool( tmpElt, "use", bResample);
-		tmpElt->SetAttribute("freq", the_SamplingFreqs[nSamplingFreqIndex]);
-		the_element->InsertEndChild(*tmpElt);
-	}
-	else
-	{
-		SetAttributeBool( tmpElt, "use", bResample);
-		tmpElt->SetAttribute("freq", the_SamplingFreqs[nSamplingFreqIndex]);
-	}
-
-	// VBR parameter
-	tmpElt = the_element->FirstChildElement("VBR");
-	if (tmpElt == NULL)
-	{
-		tmpElt = new TiXmlElement("VBR");
-		
-		if (mBRmode == BR_ABR)
-			tmpElt->SetAttribute("use", "ABR");
-		else
-			SetAttributeBool( tmpElt, "use", (mBRmode != BR_CBR));
-
-		SetAttributeBool( tmpElt, "header", bXingFrame);
-		tmpElt->SetAttribute("quality", VbrQuality);
-		tmpElt->SetAttribute("average", AverageBitrate);
-		the_element->InsertEndChild(*tmpElt);
-	}
-	else
-	{
-		if (mBRmode == BR_ABR)
-			tmpElt->SetAttribute("use", "ABR");
-		else
-			SetAttributeBool( tmpElt, "use", (mBRmode != BR_CBR));
-
-		SetAttributeBool( tmpElt, "header", bXingFrame);
-		tmpElt->SetAttribute("quality", VbrQuality);
-		tmpElt->SetAttribute("average", AverageBitrate);
 	}
 */
 }
@@ -1804,32 +1564,6 @@ my_debug.OutPut("finished saving");
 		case IDC_CHECK_ENC_ABR:
 			EnableAbrOptions(parentWnd, ::IsDlgButtonChecked( parentWnd, IDC_CHECK_ENC_ABR) == BST_CHECKED);
 			break;
-/*	case IDC_RADIO_BITRATE_CBR:
-		AEncodeProperties::DisplayVbrOptions(parentWnd, AEncodeProperties::BR_CBR);
-		break;
-
-	case IDC_RADIO_BITRATE_VBR:
-		AEncodeProperties::DisplayVbrOptions(parentWnd, AEncodeProperties::BR_VBR);
-		break;
-
-	case IDC_RADIO_BITRATE_ABR:
-		AEncodeProperties::DisplayVbrOptions(parentWnd, AEncodeProperties::BR_ABR);
-		break;
-
-	case IDC_CHECK_RESAMPLE:
-	{
-		bool tmp_bResampleUsed = (::IsDlgButtonChecked( parentWnd, IDC_CHECK_RESAMPLE) == BST_CHECKED);
-		if (tmp_bResampleUsed)
-		{
-			::EnableWindow(::GetDlgItem(parentWnd,IDC_COMBO_SAMPLEFREQ), TRUE);
-		}
-		else
-		{
-			::EnableWindow(::GetDlgItem(parentWnd,IDC_COMBO_SAMPLEFREQ), FALSE);
-		}
-	}
-	break;
-*/
 /*	case IDC_COMBO_SETTINGS:
 //				if (CBN_SELCHANGE == GET_WM_COMMAND_CMD(wParam, lParam))
 		if (CBN_SELENDOK == GET_WM_COMMAND_CMD(wParam, lParam))

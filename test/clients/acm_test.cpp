@@ -1322,10 +1322,15 @@ test_bit_reservoir_setting(const char *driver)
     if (f == NULL) {
         CHECK(0, "the configuration file can be written");
     } else {
+        /* The resampling and VBR keys are settings the codec does not have.
+           A file from an older release can carry them, and the codec must
+           still load the rest of it. */
         fprintf(f,
                 "<lame_acm>\n"
                 "    <encodings default=\"Current\">\n"
                 "        <config name=\"Current\">\n"
+                "            <resampling use=\"true\" freq=\"22050\" />\n"
+                "            <VBR use=\"true\" header=\"false\" quality=\"2\" />\n"
                 "            <Bit_reservoir use=\"false\" />\n"
                 "        </config>\n"
                 "    </encodings>\n"
