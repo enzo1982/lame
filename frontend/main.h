@@ -72,6 +72,7 @@ typedef struct DecoderConfig
     int   mp3_delay;                /* to adjust the number of samples truncated during decode */
     int   mp3_delay_set;            /* user specified the value of the mp3 encoder delay to assume for decoding */
     int   disable_wav_header;
+    int   swapbytes;                /* -x with --decode: swap the bytes of raw output */
     mp3data_struct mp3input_data;
 } DecoderConfig;
 
@@ -110,7 +111,7 @@ typedef struct FrontendConfig
 { /* reader    */ { sf_unknown, 0, 0, 0, 0 }                            \
 , /* writer    */ { 0, 0, 0, 0 }                                        \
 , /* ui_config */ { 0, 1, 0, 0 }                                        \
-, /* decoder   */ { 0, 0, 0, { 0 } }                                    \
+, /* decoder   */ { 0, 0, 0, 0, { 0 } }                                 \
 , /* raw_pcm   */ { 16, -1, ByteOrderLittleEndian }                     \
 }
 

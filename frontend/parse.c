@@ -3091,6 +3091,12 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
         return -1;
     }
 
+    /* With --decode, -x swaps the bytes of the output, not of the input */
+    if (lame_get_decode_only(gfp)) {
+        frontend_config.decoder.swapbytes = frontend_config.reader.swapbytes;
+        frontend_config.reader.swapbytes = 0;
+    }
+
     if (inPath[0] == '-') {
         if (frontend_config.ui_config.silent == 0) { /* user didn't overrule default behaviour */
             frontend_config.ui_config.silent = 1;

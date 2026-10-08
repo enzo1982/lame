@@ -1572,7 +1572,7 @@ Setting         Average bitrate (kbps)
 
 -x Swap input bytes
 
-    swap bytes in the input file (and output file when using --decode).
+    swap bytes in the input file (or output file when using --decode).
     For sorting out little endian/big endian type problems. If your
     encodings sound like static, try this first.
 

@@ -2486,7 +2486,7 @@ put_audio16(FILE * outf, short Buffer[2][FRAME_BUFFER_SAMPLES], int iread, int n
 {
     unsigned short data[2 * FRAME_BUFFER_SAMPLES];
     enum ByteOrder const out_order =
-        (frontend_config.decoder.disable_wav_header && frontend_config.reader.swapbytes)
+        (frontend_config.decoder.disable_wav_header && frontend_config.decoder.swapbytes)
         ? ByteOrderBigEndian : ByteOrderLittleEndian;
     int const count = nch == 1 ? iread : 2 * iread;
     int     i;

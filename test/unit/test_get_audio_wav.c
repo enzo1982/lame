@@ -507,11 +507,11 @@ expect_samples(int nch, int raw, int swap, const unsigned char *expected, size_t
     memcpy(buffer[0], left, sizeof(left));
     memcpy(buffer[1], right, sizeof(right));
     frontend_config.decoder.disable_wav_header = raw;
-    frontend_config.reader.swapbytes = swap;
+    frontend_config.decoder.swapbytes = swap;
     frontend_config.writer.flush_write = 0;
     assert_int_equal(put_audio16(f, buffer, WRITER_SAMPLES, nch), 0);
     frontend_config.decoder.disable_wav_header = 0;
-    frontend_config.reader.swapbytes = 0;
+    frontend_config.decoder.swapbytes = 0;
     rewind(f);
     assert_int_equal(fread(out, 1, sizeof(out), f), n);
     fclose(f);

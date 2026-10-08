@@ -54,7 +54,8 @@ TESTS += test_pkgconfig.sh
 # The frontend's exit status on a failed read, its rejection of
 # --swap-channel for a mono input, the range --preset names in its error
 # message, the output files of --nogap and its handling of a failed file,
-# and the bitrate histogram of a CBR encode. These drive the built lame binary rather
+# the bitrate histogram of a CBR encode, and the byte order of --decode -x.
+# These drive the built lame binary rather
 # than the library, so they need the source root for the test input as well as
 # the build root for the binary; both are exported below. They run only where
 # the frontend is built.
@@ -66,6 +67,7 @@ TESTS += test_preset_range.sh
 TESTS += test_nogap_files.sh
 TESTS += test_brhist_cbr.sh
 TESTS += test_nogap_failures.sh
+TESTS += test_decode_swap.sh
 endif
 # The exit status of mp3rtp. It skips where mp3rtp is not built.
 if HAVE_SOCKETS
@@ -602,4 +604,4 @@ EXTRA_DIST += test_pkgconfig.sh
 # And the frontend tests, for the same two reasons.
 EXTRA_DIST += test_exit_status.sh test_swap_channel.sh test_pipe_length.sh test_mp3rtp_status.sh \
 	test_preset_range.sh test_nogap_files.sh test_brhist_cbr.sh \
-	test_nogap_failures.sh
+	test_nogap_failures.sh test_decode_swap.sh
