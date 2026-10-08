@@ -122,6 +122,73 @@ static uint32_t uint32_high_low(unsigned char const *bytes)
     return (hh << 24) | (hl << 16) | (lh << 8) | ll;
 }
 
+/**
+ * @internal
+ * @brief Returns the 32-bit value of 4 bytes, the least significant first.
+ * @param bytes  the 4 bytes.
+ * @return the value.
+ */
+static uint32_t uint32_low_high(unsigned char const *bytes)
+{
+    uint32_t const ll = bytes[0];
+    uint32_t const lh = bytes[1];
+    uint32_t const hl = bytes[2];
+    uint32_t const hh = bytes[3];
+    return (hh << 24) | (hl << 16) | (lh << 8) | ll;
+}
+
+/**
+ * @internal
+ * @brief Returns the 16-bit value of 2 bytes, the most significant first.
+ * @param bytes  the 2 bytes.
+ * @return the value.
+ */
+static uint16_t uint16_high_low(unsigned char const *bytes)
+{
+    uint16_t const h = bytes[0];
+    uint16_t const l = bytes[1];
+    return (uint16_t) ((h << 8) | l);
+}
+
+/**
+ * @internal
+ * @brief Returns the 16-bit value of 2 bytes, the least significant first.
+ * @param bytes  the 2 bytes.
+ * @return the value.
+ */
+static uint16_t uint16_low_high(unsigned char const *bytes)
+{
+    uint16_t const l = bytes[0];
+    uint16_t const h = bytes[1];
+    return (uint16_t) ((h << 8) | l);
+}
+
+/**
+ * @internal
+ * @brief Returns non-zero for an integer sample width that the readers unpack.
+ * @param bits  the width in bits.
+ * @return non-zero for 8, 16, 24 and 32, 0 otherwise.
+ */
+static int
+pcm_int_width_supported(int bits)
+{
+    return bits == 8 || bits == 16 || bits == 24 || bits == 32;
+}
+
+/**
+ * @internal
+ * @brief Returns the bytes in one sample frame: one sample of each channel.
+ * @param channels  the number of channels.
+ * @param bits      the sample width in bits. A width that is not a whole
+ *                  number of bytes takes up the next whole byte.
+ * @return the frame size in bytes.
+ */
+static uint32_t
+pcm_bytes_per_frame(unsigned int channels, unsigned int bits)
+{
+    return channels * ((bits + 7u) / 8u);
+}
+
 /* The header readers below return 0 on success and -1 once the input runs
    short, leaving their result untouched. Callers chain them so that the
    first short read stops the rest and rejects the file. */
@@ -167,12 +234,8 @@ read_16_bits_low_high(FILE * fp, uint16_t * out)
     unsigned char bytes[2] = { 0, 0 };
     if (fread(bytes, 1, 2, fp) != 2)
         return -1;
-    {
-        uint16_t const l = bytes[0];
-        uint16_t const h = bytes[1];
-        *out = (uint16_t) ((h << 8) | l);
-        return 0;
-    }
+    *out = uint16_low_high(bytes);
+    return 0;
 }
 
 
@@ -182,14 +245,8 @@ read_32_bits_low_high(FILE * fp, uint32_t * out)
     unsigned char bytes[4] = { 0, 0, 0, 0 };
     if (fread(bytes, 1, 4, fp) != 4)
         return -1;
-    {
-        uint32_t const ll = bytes[0];
-        uint32_t const lh = bytes[1];
-        uint32_t const hl = bytes[2];
-        uint32_t const hh = bytes[3];
-        *out = (hh << 24) | (hl << 16) | (lh << 8) | ll;
-        return 0;
-    }
+    *out = uint32_low_high(bytes);
+    return 0;
 }
 
 static int
@@ -198,12 +255,8 @@ read_16_bits_high_low(FILE * fp, uint16_t * out)
     unsigned char bytes[2] = { 0, 0 };
     if (fread(bytes, 1, 2, fp) != 2)
         return -1;
-    {
-        uint16_t const h = bytes[0];
-        uint16_t const l = bytes[1];
-        *out = (uint16_t) ((h << 8) | l);
-        return 0;
-    }
+    *out = uint16_high_low(bytes);
+    return 0;
 }
 
 static int
@@ -430,9 +483,12 @@ min_size_t(size_t a, size_t b)
     return b;
 }
 
-enum ByteOrder machine_byte_order(void);
-
-enum ByteOrder
+/**
+ * @internal
+ * @brief Returns the byte order of this machine.
+ * @return ::ByteOrderBigEndian or ::ByteOrderLittleEndian.
+ */
+static enum ByteOrder
 machine_byte_order(void)
 {
     long    one = 1;
@@ -1644,8 +1700,6 @@ static int
 read_samples_float(FILE * musicin, float sample_buffer[2304], int samples_to_read)
 {
     compiletime_assert(sizeof(float) == 4);
-    uint16_t const probe = 1;
-    unsigned char first_byte;
     int     file_is_big_endian = (global_raw_pcm.in_endian != ByteOrderLittleEndian) ? 1 : 0;
     int     samples_read, i;
 
@@ -1665,8 +1719,7 @@ read_samples_float(FILE * musicin, float sample_buffer[2304], int samples_to_rea
         }
         return -1;
     }
-    memcpy(&first_byte, &probe, 1);
-    if (file_is_big_endian != (first_byte == 0)) {
+    if (file_is_big_endian != (machine_byte_order() == ByteOrderBigEndian)) {
         unsigned char *b = (unsigned char *) sample_buffer;
         for (i = 0; i < samples_read; ++i, b += 4) {
             unsigned char t = b[0];
@@ -1776,7 +1829,7 @@ parse_wave_header(lame_global_flags * gfp, FILE * sf)
                than used: writers get them wrong often enough that a
                mismatch must not cost the user the file. */
             if (global_ui_config.silent < 0 && ui16_nChannels > 0 && ui16_wBitsPerSample > 0) {
-                uint32_t const align = ui16_nChannels * ((ui16_wBitsPerSample + 7u) / 8u);
+                uint32_t const align = pcm_bytes_per_frame(ui16_nChannels, ui16_wBitsPerSample);
                 if (ui16_nBlockAlign != align)
                     error_printf("Note: block alignment is %u, expected %u\n",
                                  (unsigned int) ui16_nBlockAlign, (unsigned int) align);
@@ -1873,8 +1926,7 @@ parse_wave_header(lame_global_flags * gfp, FILE * sf)
             if (ui16_wFormatTag == WAVE_FORMAT_IEEE_FLOAT)
                 width_ok = (ui16_wBitsPerSample == 32);
             else
-                width_ok = (ui16_wBitsPerSample == 8 || ui16_wBitsPerSample == 16
-                            || ui16_wBitsPerSample == 24 || ui16_wBitsPerSample == 32);
+                width_ok = pcm_int_width_supported(ui16_wBitsPerSample);
             if (!width_ok) {
                 if (global_ui_config.silent < 10)
                     error_printf("Unsupported bits per sample: %d\n", ui16_wBitsPerSample);
@@ -1887,7 +1939,7 @@ parse_wave_header(lame_global_flags * gfp, FILE * sf)
         if (ui32_DataChunkSize == MAX_U_32_NUM)
             (void) lame_set_num_samples(gfp, MAX_U_32_NUM);
         else
-            (void) lame_set_num_samples(gfp, ui32_DataChunkSize / (ui16_nChannels * ((ui16_wBitsPerSample + 7u) / 8u)));
+            (void) lame_set_num_samples(gfp, ui32_DataChunkSize / pcm_bytes_per_frame(ui16_nChannels, ui16_wBitsPerSample));
         return 1;
     }
     return -1;
@@ -1911,13 +1963,7 @@ aiff_check2(IFF_AIFF * const pcm_aiff_data)
         }
         return 1;
     }
-    switch (pcm_aiff_data->sampleSize) {
-    case 32:
-    case 24:
-    case 16:
-    case 8:
-        break;
-    default:
+    if (!pcm_int_width_supported(pcm_aiff_data->sampleSize)) {
         if (global_ui_config.silent < 10) {
             error_printf("ERROR: input sound data is not 8, 16, 24 or 32 bits\n");
         }
