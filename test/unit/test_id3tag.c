@@ -51,6 +51,8 @@
 
 #include <cmocka.h>
 
+#include "test_fixture.h"
+
 #include "lame.h"
 
 /*
@@ -1287,75 +1289,55 @@ test_v2_4_long_frames_sized_synchsafe(void **state)
 
 /* --- fixture ----------------------------------------------------------- */
 
-/** @brief Per-test setup: stores a new encoder instance in @p state. */
-static int
-setup_lame(void **state)
-{
-    lame_t gfp = lame_init();
-    if (gfp == NULL)
-        return -1;
-    *state = gfp;
-    return 0;
-}
-
-/** @brief Per-test teardown: closes the encoder instance in @p state. */
-static int
-teardown_lame(void **state)
-{
-    lame_close((lame_t) *state);
-    return 0;
-}
-
-#define ID3_TEST(f) cmocka_unit_test_setup_teardown(f, setup_lame, teardown_lame)
 
 /** @brief Registers and runs the id3tag API test group. */
 int
 main(void)
 {
     const struct CMUnitTest tests[] = {
-        ID3_TEST(test_v2_title_latin1),
-        ID3_TEST(test_v2_textinfo_utf8),
-        ID3_TEST(test_v2_textinfo_utf16),
-        ID3_TEST(test_v2_comment_utf8),
-        ID3_TEST(test_v2_comment_utf16),
-        ID3_TEST(test_v2_fieldvalue_latin1),
-        ID3_TEST(test_v2_fieldvalue_utf16),
-        ID3_TEST(test_v2_fieldvalue_utf8),
-        ID3_TEST(test_v2_fieldvalue_utf8_malformed),
-        ID3_TEST(test_v2_prefix_descriptions_stay_apart),
-        ID3_TEST(test_v2_same_description_replaces_frame),
-        ID3_TEST(test_v2_empty_description_keeps_its_comment),
-        ID3_TEST(test_v2_prefix_descriptions_utf16),
-        ID3_TEST(test_v2_utf16_absent_description),
-        ID3_TEST(test_v2_genre),
-        ID3_TEST(test_v1_basic),
-        ID3_TEST(test_v1_only_suppresses_v2),
-        ID3_TEST(test_v2_only_suppresses_v1),
-        ID3_TEST(test_v2_size_over_synchsafe_limit_rejected),
-        ID3_TEST(test_v2_albumart_over_synchsafe_limit_rejected),
-        ID3_TEST(test_v2_size_within_limit_written),
-        ID3_TEST(test_v2_playlength_beyond_32bit),
-        ID3_TEST(test_genre_list_enumerates_every_genre),
-        ID3_TEST(test_genre_list_null_handler),
-        ID3_TEST(test_init_discards_previous_fields),
-        ID3_TEST(test_add_v2_4_utf8_selects_version_4),
-        ID3_TEST(test_v2_4_utf8_only_suppresses_v1),
-        ID3_TEST(test_space_v1_pads_with_spaces),
-        ID3_TEST(test_space_v1_cancels_v2_only),
-        ID3_TEST(test_pad_v2_equals_set_pad_128),
-        ID3_TEST(test_set_comment_writes_comm),
-        ID3_TEST(test_set_comment_latin1),
-        ID3_TEST(test_textinfo_ucs2_matches_utf16),
-        ID3_TEST(test_comment_ucs2_matches_utf16),
-        ID3_TEST(test_fieldvalue_ucs2_matches_utf16),
-        ID3_TEST(test_textinfo_latin1),
-        ID3_TEST(test_set_track),
-        ID3_TEST(test_set_track_with_total),
-        ID3_TEST(test_v2_comment_one_character_language),
-        ID3_TEST(test_v2_comment_two_character_language),
-        ID3_TEST(test_v2_short_frame_id_refused),
-        ID3_TEST(test_v2_empty_url_frame_adds_nothing),
-        ID3_TEST(test_v2_4_long_frames_sized_synchsafe),
+        LAME_FIXTURE_TEST(test_v2_title_latin1),
+        LAME_FIXTURE_TEST(test_v2_textinfo_utf8),
+        LAME_FIXTURE_TEST(test_v2_textinfo_utf16),
+        LAME_FIXTURE_TEST(test_v2_comment_utf8),
+        LAME_FIXTURE_TEST(test_v2_comment_utf16),
+        LAME_FIXTURE_TEST(test_v2_fieldvalue_latin1),
+        LAME_FIXTURE_TEST(test_v2_fieldvalue_utf16),
+        LAME_FIXTURE_TEST(test_v2_fieldvalue_utf8),
+        LAME_FIXTURE_TEST(test_v2_fieldvalue_utf8_malformed),
+        LAME_FIXTURE_TEST(test_v2_prefix_descriptions_stay_apart),
+        LAME_FIXTURE_TEST(test_v2_same_description_replaces_frame),
+        LAME_FIXTURE_TEST(test_v2_empty_description_keeps_its_comment),
+        LAME_FIXTURE_TEST(test_v2_prefix_descriptions_utf16),
+        LAME_FIXTURE_TEST(test_v2_utf16_absent_description),
+        LAME_FIXTURE_TEST(test_v2_genre),
+        LAME_FIXTURE_TEST(test_v1_basic),
+        LAME_FIXTURE_TEST(test_v1_only_suppresses_v2),
+        LAME_FIXTURE_TEST(test_v2_only_suppresses_v1),
+        LAME_FIXTURE_TEST(test_v2_size_over_synchsafe_limit_rejected),
+        LAME_FIXTURE_TEST(test_v2_albumart_over_synchsafe_limit_rejected),
+        LAME_FIXTURE_TEST(test_v2_size_within_limit_written),
+        LAME_FIXTURE_TEST(test_v2_playlength_beyond_32bit),
+        LAME_FIXTURE_TEST(test_genre_list_enumerates_every_genre),
+        LAME_FIXTURE_TEST(test_genre_list_null_handler),
+        LAME_FIXTURE_TEST(test_init_discards_previous_fields),
+        LAME_FIXTURE_TEST(test_add_v2_4_utf8_selects_version_4),
+        LAME_FIXTURE_TEST(test_v2_4_utf8_only_suppresses_v1),
+        LAME_FIXTURE_TEST(test_space_v1_pads_with_spaces),
+        LAME_FIXTURE_TEST(test_space_v1_cancels_v2_only),
+        LAME_FIXTURE_TEST(test_pad_v2_equals_set_pad_128),
+        LAME_FIXTURE_TEST(test_set_comment_writes_comm),
+        LAME_FIXTURE_TEST(test_set_comment_latin1),
+        LAME_FIXTURE_TEST(test_textinfo_ucs2_matches_utf16),
+        LAME_FIXTURE_TEST(test_comment_ucs2_matches_utf16),
+        LAME_FIXTURE_TEST(test_fieldvalue_ucs2_matches_utf16),
+        LAME_FIXTURE_TEST(test_textinfo_latin1),
+        LAME_FIXTURE_TEST(test_set_track),
+        LAME_FIXTURE_TEST(test_set_track_with_total),
+        LAME_FIXTURE_TEST(test_v2_comment_one_character_language),
+        LAME_FIXTURE_TEST(test_v2_comment_two_character_language),
+        LAME_FIXTURE_TEST(test_v2_short_frame_id_refused),
+        LAME_FIXTURE_TEST(test_v2_empty_url_frame_adds_nothing),
+        LAME_FIXTURE_TEST(test_v2_4_long_frames_sized_synchsafe),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

@@ -29,6 +29,8 @@
 
 #include <cmocka.h>
 
+#include "test_fixture.h"
+
 #include "test_unused.h"
 
 #include "parse.c"
@@ -55,21 +57,11 @@
 static int
 gfp_setup(void **state)
 {
-    lame_t gfp = lame_init();
-
-    if (gfp == NULL)
+    if (lame_fixture_setup(state) != 0)
         return -1;
     Console_IO.Console_fp = stdout;
     Console_IO.Error_fp = stderr;
     Console_IO.Report_fp = stdout;
-    *state = gfp;
-    return 0;
-}
-
-static int
-gfp_teardown(void **state)
-{
-    (void) lame_close((lame_t) *state);
     return 0;
 }
 
@@ -201,15 +193,15 @@ main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup_teardown(test_help_requests_report_success,
-                                        gfp_setup, gfp_teardown),
+                                        gfp_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_unknown_preset_is_rejected,
-                                        gfp_setup, gfp_teardown),
+                                        gfp_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_unknown_option_is_rejected,
-                                        gfp_setup, gfp_teardown),
+                                        gfp_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_empty_argument_list_is_rejected,
-                                        gfp_setup, gfp_teardown),
+                                        gfp_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_ordinary_invocation_proceeds,
-                                        gfp_setup, gfp_teardown),
+                                        gfp_setup, lame_fixture_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

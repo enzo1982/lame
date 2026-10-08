@@ -44,6 +44,8 @@
 #include <string.h>
 #include <cmocka.h>
 
+#include "test_fixture.h"
+
 /* the code under test (pulls in the static parse_wave_header + helpers) */
 #include "get_audio.c"
 
@@ -451,21 +453,11 @@ test_unsupported_float_widths_rejected(void **state)
 static int
 setup_lame(void **state)
 {
-    lame_t gfp = lame_init();
-    if (gfp == NULL)
+    if (lame_fixture_setup(state) != 0)
         return -1;
     /* The parser consults the forced input rate before the file's own, so a
        stale value here would mask every rate under test. */
     global_reader.input_samplerate = 0;
-    *state = gfp;
-    return 0;
-}
-
-/** @brief Per-test teardown: closes the encoder instance in @p state. */
-static int
-teardown_lame(void **state)
-{
-    lame_close((lame_t) *state);
     return 0;
 }
 
@@ -475,21 +467,21 @@ main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup_teardown(test_valid_wav_accepted,
-                                        setup_lame, teardown_lame),
+                                        setup_lame, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_high_sample_rates_accepted,
-                                        setup_lame, teardown_lame),
+                                        setup_lame, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_boundary_rate_accepted,
-                                        setup_lame, teardown_lame),
+                                        setup_lame, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_unrepresentable_sample_rate_rejected,
-                                        setup_lame, teardown_lame),
+                                        setup_lame, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_zero_sample_rate_rejected,
-                                        setup_lame, teardown_lame),
+                                        setup_lame, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_supported_sample_widths_accepted,
-                                        setup_lame, teardown_lame),
+                                        setup_lame, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_unsupported_integer_widths_rejected,
-                                        setup_lame, teardown_lame),
+                                        setup_lame, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_unsupported_float_widths_rejected,
-                                        setup_lame, teardown_lame),
+                                        setup_lame, lame_fixture_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

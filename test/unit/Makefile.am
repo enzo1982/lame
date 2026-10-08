@@ -513,9 +513,9 @@ EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
 	test_calc_sfb_noise_vector.c test_choose_table_neon.c \
 	test_rtp_socket.c
 
-# Header-only unused-parameter marker shared by the tests; not a _SOURCES file,
-# so it has to be named for the tarball explicitly.
-EXTRA_DIST += test_unused.h
+# Headers shared by the tests; they are not _SOURCES files, so they have to be
+# named for the tarball explicitly.
+EXTRA_DIST += test_unused.h test_fixture.h
 
 # Likewise the pkg-config test: it is a TESTS entry rather than a _SOURCES
 # file, and it is inside the --enable-unit-tests conditional, so neither route

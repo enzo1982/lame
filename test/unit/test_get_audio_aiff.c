@@ -55,6 +55,8 @@
 #include <string.h>
 #include <cmocka.h>
 
+#include "test_fixture.h"
+
 /* the code under test (pulls in the static parse_aiff_header + helpers) */
 #include "get_audio.c"
 
@@ -280,36 +282,17 @@ test_unrepresentable_sample_rate_rejected(void **state)
 
 /* --- fixture ----------------------------------------------------------- */
 
-/** @brief Per-test setup: creates an encoder instance and stores it in @p state. */
-static int
-setup_lame(void **state)
-{
-    lame_t gfp = lame_init();
-    if (gfp == NULL)
-        return -1;
-    *state = gfp;
-    return 0;
-}
-
-/** @brief Per-test teardown: closes the encoder instance in @p state. */
-static int
-teardown_lame(void **state)
-{
-    lame_close((lame_t) *state);
-    return 0;
-}
-
 /** @brief Registers and runs the AIFF header-rejection test group. */
 int
 main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test_setup_teardown(test_undersized_form_size_rejected,
-                                        setup_lame, teardown_lame),
+                                        lame_fixture_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_valid_aiff_accepted,
-                                        setup_lame, teardown_lame),
+                                        lame_fixture_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_unrepresentable_sample_rate_rejected,
-                                        setup_lame, teardown_lame),
+                                        lame_fixture_setup, lame_fixture_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

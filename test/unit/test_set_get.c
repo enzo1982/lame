@@ -38,6 +38,8 @@
 
 #include <cmocka.h>
 
+#include "test_fixture.h"
+
 #include "lame.h"
 
 /*
@@ -102,23 +104,6 @@ extern Padding_type lame_get_padding_type(const lame_global_flags *);
 
 /** @brief Creates a new encoder instance for each test and stores it in
  *         @p *state. */
-static int
-gfp_setup(void **state)
-{
-    lame_t gfp = lame_init();
-    if (gfp == NULL)
-        return -1;
-    *state = gfp;
-    return 0;
-}
-
-static int
-gfp_teardown(void **state)
-{
-    lame_close((lame_t) *state);
-    return 0;
-}
-
 /* A value like 0.5 is exactly representable, so a stored-then-read float
    round-trips bit-for-bit and can be compared with ==. Computed results use an
    epsilon instead. (assert_float_equal is CMocka 2.0-only; the tree still
@@ -1294,26 +1279,26 @@ int
 main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test_setup_teardown(test_boolean_validated, gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_int_roundtrip, gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_float_roundtrip, gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_ranges, gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_clamping, gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_side_effects, gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_deprecated_stubs, gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_decode_on_the_fly, gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_replaygain_decode, gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_num_samples, gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_misc_setters, gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_readonly_getters, gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_unset_markers, gfp_setup, gfp_teardown),
+        cmocka_unit_test_setup_teardown(test_boolean_validated, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_int_roundtrip, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_float_roundtrip, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_ranges, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_clamping, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_side_effects, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_deprecated_stubs, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_decode_on_the_fly, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_replaygain_decode, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_num_samples, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_misc_setters, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_readonly_getters, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_unset_markers, lame_fixture_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_athaa_type_explicit_choice_survives,
-                                        gfp_setup, gfp_teardown),
+                                        lame_fixture_setup, lame_fixture_teardown),
 #if ASM_OPTIM_ARCH
         cmocka_unit_test_setup_teardown(test_asm_optimizations_roundtrip,
-                                        gfp_setup, gfp_teardown),
+                                        lame_fixture_setup, lame_fixture_teardown),
 #endif
-        cmocka_unit_test_setup_teardown(test_maximum_number_of_samples, gfp_setup, gfp_teardown),
+        cmocka_unit_test_setup_teardown(test_maximum_number_of_samples, lame_fixture_setup, lame_fixture_teardown),
         cmocka_unit_test(test_maximum_number_of_samples_holds),
         cmocka_unit_test(test_upsampling_ratio_limit),
         cmocka_unit_test(test_vbr_floor_above_ceiling),
@@ -1323,7 +1308,7 @@ main(void)
         cmocka_unit_test(test_tiny_compression_ratio),
         cmocka_unit_test(test_vbr_with_cbr_bitrate_beyond_tables),
 #if INTERNAL_OPTS
-        cmocka_unit_test_setup_teardown(test_internal_opts, gfp_setup, gfp_teardown),
+        cmocka_unit_test_setup_teardown(test_internal_opts, lame_fixture_setup, lame_fixture_teardown),
 #endif
     };
     return cmocka_run_group_tests(tests, NULL, NULL);

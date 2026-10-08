@@ -1464,8 +1464,8 @@ SH_LOG_COMPILER = $(SHELL)
 # Kept in the tarball whether or not this build configured the vector code,
 # so a dist made on one architecture still carries the tests for another.
 
-# Header-only unused-parameter marker shared by the tests; not a _SOURCES file,
-# so it has to be named for the tarball explicitly.
+# Headers shared by the tests; they are not _SOURCES files, so they have to be
+# named for the tarball explicitly.
 
 # Likewise the pkg-config test: it is a TESTS entry rather than a _SOURCES
 # file, and it is inside the --enable-unit-tests conditional, so neither route
@@ -1474,8 +1474,8 @@ SH_LOG_COMPILER = $(SHELL)
 # And the exit-status test, for the same two reasons.
 EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
 	test_calc_sfb_noise_vector.c test_choose_table_neon.c \
-	test_rtp_socket.c test_unused.h test_pkgconfig.sh \
-	test_exit_status.sh
+	test_rtp_socket.c test_unused.h test_fixture.h \
+	test_pkgconfig.sh test_exit_status.sh
 all: all-am
 
 .SUFFIXES:

@@ -27,6 +27,8 @@
 
 #include <cmocka.h>
 
+#include "test_fixture.h"
+
 #include "lame.h"
 #include "test_unused.h"
 
@@ -37,25 +39,6 @@
  * comparisons below exact rather than merely safe.
  */
 #define VECTOR_NAME_MAX 32
-
-/** @brief Creates a fresh encoder instance for each test. */
-static int
-gfp_setup(void **state)
-{
-    lame_t  gfp = lame_init();
-
-    if (gfp == NULL)
-        return -1;
-    *state = gfp;
-    return 0;
-}
-
-static int
-gfp_teardown(void **state)
-{
-    lame_close((lame_t) *state);
-    return 0;
-}
 
 /** @brief Creates an encoder instance and runs lame_init_params() on it. */
 static int
@@ -290,13 +273,13 @@ main(void)
         cmocka_unit_test(test_name_bounds),
         cmocka_unit_test(test_names_are_distinct),
         cmocka_unit_test_setup_teardown(test_enumerated_names_round_trip,
-                                        gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_reserved_names, gfp_setup, gfp_teardown),
-        cmocka_unit_test_setup_teardown(test_rejections, gfp_setup, gfp_teardown),
+                                        lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_reserved_names, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_rejections, lame_fixture_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_outcome_unavailable_before_init,
-                                        gfp_setup, gfp_teardown),
+                                        lame_fixture_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_outcome_after_init,
-                                        inited_setup, gfp_teardown),
+                                        inited_setup, lame_fixture_teardown),
         cmocka_unit_test(test_selection_is_honoured),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);

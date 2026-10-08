@@ -30,6 +30,8 @@
 
 #include <cmocka.h>
 
+#include "test_fixture.h"
+
 #include "parse.c"
 
 static unsigned char tagbuf[8192];
@@ -104,26 +106,7 @@ test_utf16_still_works(void **state)
     assert_true(mem_contains(tagbuf, sz, "TIT2"));
 }
 
-/** @brief Per-test setup: creates a new encoder instance and stores it in @p state. */
-static int
-setup_lame(void **state)
-{
-    lame_t gfp = lame_init();
-    if (gfp == NULL)
-        return -1;
-    *state = gfp;
-    return 0;
-}
-
-/** @brief Per-test teardown: closes the encoder instance in @p state. */
-static int
-teardown_lame(void **state)
-{
-    lame_close((lame_t) *state);
-    return 0;
-}
-
-#define ID3_TEST(f) cmocka_unit_test_setup_teardown(f, setup_lame, teardown_lame)
+#define ID3_TEST(f) cmocka_unit_test_setup_teardown(f, lame_fixture_setup, lame_fixture_teardown)
 
 /** @brief Registers and runs the frontend ID3-dispatch test group. */
 int
