@@ -224,6 +224,7 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
     short int Buffer[2][1152];
     int     i, iread;
     double  wavsize;
+    unsigned int data_size;
     int     tmp_num_channels = lame_get_num_channels(gfp);
     int     skip_start = samples_to_skip_at_start();
     int     skip_end = samples_to_skip_at_end();
@@ -270,10 +271,9 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
     }
 
     if (0 == global_decoder.disable_wav_header)
-        if (WriteWaveHeader(outf, 0x7FFFFFFF, lame_get_in_samplerate(gfp), tmp_num_channels, 16)
-            < 0)
+        if (WriteWaveHeader(outf, WAV_DATA_SIZE_UNKNOWN, lame_get_in_samplerate(gfp),
+                            tmp_num_channels, 16) < 0)
             goto write_failure;
-    /* unknown size, so write maximum 32 bit signed value */
 
     wavsize = 0;
     do {
@@ -295,23 +295,11 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
 
     i = (16 / 8) * tmp_num_channels;
     assert(i > 0);
-    if (wavsize <= 0) {
-        if (global_ui_config.silent < 10)
-            error_printf("WAVE file contains 0 PCM samples\n");
-        wavsize = 0;
-    }
-    else if (wavsize > 0xFFFFFFD0 / i) {
-        if (global_ui_config.silent < 10)
-            error_printf("Very huge WAVE file, can't set filesize accordingly\n");
-        wavsize = 0xFFFFFFD0;
-    }
-    else {
-        wavsize *= i;
-    }
+    data_size = wav_data_size(wavsize, i);
     /* if outf is seekable, rewind and adjust length */
     if (!global_decoder.disable_wav_header && strcmp("-", outPath)
         && !fseek(outf, 0l, SEEK_SET))
-        if (WriteWaveHeader(outf, (int) wavsize, lame_get_in_samplerate(gfp), tmp_num_channels, 16)
+        if (WriteWaveHeader(outf, data_size, lame_get_in_samplerate(gfp), tmp_num_channels, 16)
             < 0)
             goto write_failure;
 

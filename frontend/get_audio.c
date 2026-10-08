@@ -1287,14 +1287,42 @@ int set_input_samplerate(lame_t gfp, int input_samplerate)
     return 1;
 }
 
+/**
+ * @internal
+ * @brief Returns the data size for the header of a decoded WAV file.
+ *
+ * Prints a message when there are no samples, and when the data is larger
+ * than a WAV header can hold.
+ *
+ * @param frames           the number of samples per channel.
+ * @param bytes_per_frame  the size of one sample of all channels, in bytes.
+ * @return the size of the data in bytes. 0 when there are no samples, and
+ *         @c WAV_DATA_SIZE_MAX when the data is larger.
+ */
+unsigned int
+wav_data_size(double frames, int bytes_per_frame)
+{
+    if (frames <= 0) {
+        if (global_ui_config.silent < 10)
+            error_printf("WAVE file contains 0 PCM samples\n");
+        return 0;
+    }
+    if (frames > WAV_DATA_SIZE_MAX / bytes_per_frame) {
+        if (global_ui_config.silent < 10)
+            error_printf("Very huge WAVE file, can't set filesize accordingly\n");
+        return WAV_DATA_SIZE_MAX;
+    }
+    return (unsigned int) (frames * bytes_per_frame);
+}
+
 int
-WriteWaveHeader(FILE * const fp, int pcmbytes, int freq, int channels, int bits)
+WriteWaveHeader(FILE * const fp, unsigned int pcmbytes, int freq, int channels, int bits)
 {
     int     bytes = (bits + 7) / 8;
 
     /* quick and dirty, but documented */
     fwrite("RIFF", 1, 4, fp); /* label */
-    write_32_bits_low_high(fp, (unsigned int) pcmbytes + 44u - 8u); /* length in bytes without header */
+    write_32_bits_low_high(fp, pcmbytes + 44u - 8u); /* length in bytes without header */
     fwrite("WAVEfmt ", 2, 4, fp); /* 2 labels */
     write_32_bits_low_high(fp, 2 + 2 + 4 + 4 + 2 + 2); /* length of PCM format declaration area */
     write_16_bits_low_high(fp, 1); /* is PCM? */

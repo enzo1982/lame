@@ -55,8 +55,14 @@ int     get_audio16(lame_t gfp, short buffer[2][1152]);
 int     get_audio_float(lame_t gfp, float buffer[2][1152]);
 hip_t   get_hip(void);
 
+/** The data size a WAV header gets while the length of the data is not known. */
+#define WAV_DATA_SIZE_UNKNOWN 0x7FFFFFFFu
+/** The largest data size a WAV header gets. Larger data keeps this size. */
+#define WAV_DATA_SIZE_MAX 0xFFFFFFD0u
+
 FILE   *init_outfile(char const *outPath, int decode);
-int     WriteWaveHeader(FILE * const fp, int pcmbytes, int freq, int channels, int bits);
+unsigned int wav_data_size(double frames, int bytes_per_frame);
+int     WriteWaveHeader(FILE * const fp, unsigned int pcmbytes, int freq, int channels, int bits);
 int     put_audio16(FILE* outf, short Buffer[2][1152], int iread, int nch);
 
 /*

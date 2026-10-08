@@ -17,6 +17,9 @@
  * 192 kHz, 384 kHz and 768 kHz are accepted. They also check that the limit is
  * exactly @c INT_MAX, and not some lower value.
  *
+ * Two tests check the other direction: the data size that the decoder writes
+ * into the header of a WAV file (@c wav_data_size(), @c WriteWaveHeader()).
+ *
  * @c parse_wave_header() is static. So the test compiles the reader directly
  * into the test, in the same way as @c test_get_audio_aiff.c.
  *
@@ -409,6 +412,69 @@ test_unsupported_float_widths_rejected(void **state)
                            sizeof cases / sizeof cases[0]);
 }
 
+/** @brief The size of the header that @c WriteWaveHeader() writes. */
+#define WAV_HEADER_BYTES 44
+/** @brief Offset of the RIFF size in that header. */
+#define WAV_RIFF_SIZE_OFFSET 4
+/** @brief Offset of the data size in that header. */
+#define WAV_DATA_SIZE_OFFSET 40
+/** @brief The RIFF size counts the header without "RIFF" and the RIFF size. */
+#define WAV_RIFF_SIZE_EXTRA (WAV_HEADER_BYTES - 8)
+
+/**
+ * @brief Writes the WAV header for 16 bit stereo samples to a temporary
+ *        stream and reads it back.
+ * @param hdr       receives the header, ::WAV_HEADER_BYTES long.
+ * @param frames    the number of samples per channel.
+ */
+static void
+write_stereo_header(unsigned char *hdr, double frames)
+{
+    FILE   *f = tmpfile();
+
+    assert_non_null(f);
+    assert_int_equal(WriteWaveHeader(f, wav_data_size(frames, 4), 44100, 2, 16), 0);
+    rewind(f);
+    assert_int_equal(fread(hdr, 1, WAV_HEADER_BYTES, f), WAV_HEADER_BYTES);
+    fclose(f);
+}
+
+/**
+ * @brief Checks a header for 3 GiB of data.
+ *
+ * The data size is above @c INT_MAX. The header must hold it exactly, in the
+ * data size and in the RIFF size. The test writes only the header.
+ *
+ * @param state unused.
+ */
+static void
+test_header_above_2gib(LAME_UNUSED void **state)
+{
+    uint32_t const bytes = 0xC0000000u;
+    unsigned char hdr[WAV_HEADER_BYTES];
+
+    write_stereo_header(hdr, bytes / 4.0);
+    assert_int_equal(uint32_low_high(hdr + WAV_DATA_SIZE_OFFSET), bytes);
+    assert_int_equal(uint32_low_high(hdr + WAV_RIFF_SIZE_OFFSET), bytes + WAV_RIFF_SIZE_EXTRA);
+}
+
+/**
+ * @brief Checks that more data than a header can hold gives
+ *        ::WAV_DATA_SIZE_MAX as the data size.
+ *
+ * @param state unused.
+ */
+static void
+test_header_size_capped(LAME_UNUSED void **state)
+{
+    unsigned char hdr[WAV_HEADER_BYTES];
+
+    write_stereo_header(hdr, WAV_DATA_SIZE_MAX / 4.0 + 1.0);
+    assert_int_equal(uint32_low_high(hdr + WAV_DATA_SIZE_OFFSET), WAV_DATA_SIZE_MAX);
+    assert_int_equal(uint32_low_high(hdr + WAV_RIFF_SIZE_OFFSET),
+                     WAV_DATA_SIZE_MAX + WAV_RIFF_SIZE_EXTRA);
+}
+
 /* --- fixture ----------------------------------------------------------- */
 
 /** @brief Per-test setup: stores a new encoder instance in @p state. */
@@ -444,6 +510,8 @@ main(void)
                                         setup_lame, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_unsupported_float_widths_rejected,
                                         setup_lame, lame_fixture_teardown),
+        cmocka_unit_test(test_header_above_2gib),
+        cmocka_unit_test(test_header_size_capped),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
