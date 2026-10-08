@@ -24,7 +24,7 @@
 #endif
 
 #include <windows.h>
-#include <Windef.h>
+#define _BLADEDLL
 #include "BladeMP3EncDLL.h"
 #include "lametag_scan.h"
 #include <limits.h>
