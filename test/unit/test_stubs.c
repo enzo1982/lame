@@ -24,6 +24,7 @@
 #include "lame.h"
 #include "main.h"
 #include "console.h"
+#include "test_unused.h"
 
 /* frontend global configuration blocks (defined in parse.c/main.c normally) */
 ReaderConfig  global_reader    = { sf_unknown, 0, 0, 0, 0 };
@@ -36,6 +37,7 @@ RawPCMConfig  global_raw_pcm   = { 16, 1, ByteOrderLittleEndian };
 int   console_printf(const char *format, ...) { (void) format; return 0; }
 int   error_printf  (const char *format, ...) { (void) format; return 0; }
 int   report_printf (const char *format, ...) { (void) format; return 0; }
+void  frontend_errorf(LAME_UNUSED const char *format, LAME_UNUSED va_list ap) { return; }
 void  console_flush(void) {}
 void  error_flush(void) {}
 void  report_flush(void) {}
