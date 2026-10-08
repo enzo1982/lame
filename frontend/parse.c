@@ -89,7 +89,7 @@ static iconv_t os2_iconv_open (const char *tocode, const char *fromcode)
     if (!strncmp(to, "UTF-16", 6))
     {
         strcpy(to, "UCS-2");
-        memmove(to + 5, to + 6, strlen(to + 6));
+        memmove(to + 5, to + 6, strlen(to + 6) + 1);
     }
 
     p = strstr(to, "//");
@@ -99,7 +99,7 @@ static iconv_t os2_iconv_open (const char *tocode, const char *fromcode)
     if (!strncmp(from, "UTF-16", 6))
     {
         strcpy(from, "UCS-2");
-        memmove(from + 5, from + 6, strlen(from + 6));
+        memmove(from + 5, from + 6, strlen(from + 6) + 1);
     }
 
     p = strstr(from, "//");
