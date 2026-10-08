@@ -234,6 +234,10 @@
 			        lowest usable bitrate is 8&nbsp;kbps for most
 			        settings, and up to 14 for MPEG-1 with two channels
 			        and CRC.</span></li>
+			    <li><span class="quality">With a free-format bitrate above
+			        65535&nbsp;kbps, LAME no longer filters out everything
+			        above 2&nbsp;kHz; it uses the lowpass of the highest
+			        bitrate.</span></li>
 			    <li><span class="quality">A floating-point WAV or AIFF
 			        file is encoded as loud as it really is. A build using
 			        libsndfile turned the volume of such a file up until

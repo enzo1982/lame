@@ -159,6 +159,47 @@ test_the_tightest_tabulated_stream_is_accepted(LAME_UNUSED void **state)
     assert_int_equal(report_calls, 0);
 }
 
+/**
+ * @brief Returns the lowpass frequency that \c lame_init_params() chooses for
+ *        a free format stream at 44.1 kHz in stereo.
+ * @param kbps the bitrate to ask for.
+ * @return the lowpass frequency in Hz, after a successful initialization.
+ */
+static int
+default_lowpass(int kbps)
+{
+    lame_t  gfp = lame_init();
+    int     lowpass;
+
+    assert_non_null(gfp);
+    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
+    assert_int_equal(lame_set_in_samplerate(gfp, 44100), 0);
+    assert_int_equal(lame_set_out_samplerate(gfp, 44100), 0);
+    assert_int_equal(lame_set_brate(gfp, kbps), 0);
+    assert_int_equal(lame_set_free_format(gfp, 1), 0);
+    assert_int_equal(lame_init_params(gfp), 0);
+    lowpass = lame_get_lowpassfreq(gfp);
+    (void) lame_close(gfp);
+    return lowpass;
+}
+
+/**
+ * @brief Checks that a free format bitrate above 65535 kbit/s gets the
+ *        lowpass of the highest bitrate.
+ *
+ * 65544 kbit/s is 8 more than 65536. A bitrate stored in 16 bits becomes
+ * 8 kbit/s, and the lowpass for 8 kbit/s is 2 kHz.
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_a_huge_bitrate_gets_the_top_lowpass(LAME_UNUSED void **state)
+{
+    int const top = default_lowpass(320);
+
+    assert_true(top > 15000);
+    assert_int_equal(default_lowpass(65544), top);
+}
+
 int
 main(void)
 {
@@ -168,6 +209,7 @@ main(void)
         cmocka_unit_test(test_a_workable_free_format_bitrate_is_accepted),
         cmocka_unit_test(test_the_floor_follows_the_sample_rate),
         cmocka_unit_test(test_the_tightest_tabulated_stream_is_accepted),
+        cmocka_unit_test(test_a_huge_bitrate_gets_the_top_lowpass),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

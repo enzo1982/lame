@@ -203,7 +203,7 @@ lame_init_params_ppflt(lame_internal_flags * gfc)
 
 
 static void
-optimum_bandwidth(double *const lowerlimit, double *const upperlimit, const unsigned bitrate)
+optimum_bandwidth(double *const lowerlimit, double *const upperlimit, const int bitrate)
 {
 /*
  *  Input:

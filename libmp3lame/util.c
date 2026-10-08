@@ -376,7 +376,7 @@ FindNearestBitrate(int bRate, /* legal rates from 8 to 320 */
  * Gabriel Bouvigne 2002-11-03
  */
 int
-nearestBitrateFullIndex(uint16_t bitrate)
+nearestBitrateFullIndex(int bitrate)
 {
     int     lower_range = 0, lower_range_kbps = 0, upper_range = 0, upper_range_kbps = 0;
 
