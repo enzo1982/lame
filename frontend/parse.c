@@ -2267,7 +2267,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                                 ("Must specify highpass width with --highpass-width freq, freq >= 0.001 kHz\n");
                             return -1;
                         }
-                        lame_set_highpasswidth(gfp, (int) double_value);
+                        lame_set_highpasswidth(gfp, (int) (double_value * (double_value < 16. ? 1.e3 : 1.e0) + 0.5));
                     }
 
                 T_ELIF("comp")

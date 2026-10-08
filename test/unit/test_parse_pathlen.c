@@ -4,11 +4,12 @@
  * @brief Unit test for @c set_path_arg() and the option value readers in
  *        @c frontend/parse.c.
  *
- * The tests check three things:
+ * The tests check four things:
  * - A positional input or output file name of @c PATH_MAX bytes or longer is
  *   rejected.
  * - A shorter name is copied and ends with a NUL.
  * - An option value that no option can use makes @c parse_args() fail.
+ * - The four filter options take a small value as kHz and a large one as Hz.
  *
  * @c set_path_arg() is static, so the test includes the whole translation unit
  * with @c \#include. @c parse_test_stubs.c supplies the console and file
@@ -147,6 +148,52 @@ test_unusable_numbers_refused(LAME_UNUSED void **state)
     }
 }
 
+/**
+ * @brief Checks that the four filter options take a small value as kHz and a
+ *        large one as Hz.
+ *
+ * Each option is given once below its kHz limit and once above it, and the
+ * frequency is read back from the encoder settings.
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_filter_options_take_khz(LAME_UNUSED void **state)
+{
+    static const struct {
+        const char *opt, *val;
+        int     (*get)(const lame_global_flags *);
+        int     hz;
+    } cases[] = {
+        { "--lowpass", "0.5", lame_get_lowpassfreq, 500 },
+        { "--lowpass", "60", lame_get_lowpassfreq, 60 },
+        { "--lowpass-width", "0.5", lame_get_lowpasswidth, 500 },
+        { "--lowpass-width", "500", lame_get_lowpasswidth, 500 },
+        { "--highpass", "0.5", lame_get_highpassfreq, 500 },
+        { "--highpass", "500", lame_get_highpassfreq, 500 },
+        { "--highpass-width", "0.5", lame_get_highpasswidth, 500 },
+        { "--highpass-width", "500", lame_get_highpasswidth, 500 },
+    };
+    static char in_path[PATH_MAX + 1], out_path[PATH_MAX + 1], out_dir[PATH_MAX + 1];
+    size_t  c;
+    for (c = 0; c < sizeof cases / sizeof cases[0]; ++c) {
+        char    prog[] = "lame", in[] = "in.wav", out[] = "out.mp3";
+        char    opt[32], val[32];
+        char   *argv[6];
+        lame_t  gf = lame_init();
+        int     r;
+        assert_non_null(gf);
+        snprintf(opt, sizeof opt, "%s", cases[c].opt);
+        snprintf(val, sizeof val, "%s", cases[c].val);
+        argv[0] = prog; argv[1] = opt; argv[2] = val; argv[3] = in; argv[4] = out; argv[5] = NULL;
+        r = parse_args(gf, 5, argv, in_path, out_path, out_dir, NULL, NULL);
+        assert_int_equal(r, 0);
+        if (cases[c].get(gf) != cases[c].hz)
+            fail_msg("%s %s: %d Hz, wanted %d", cases[c].opt, cases[c].val, cases[c].get(gf),
+                     cases[c].hz);
+        lame_close(gf);
+    }
+}
+
 /** @brief Registers and runs the set_path_arg() and option value test group. */
 int
 main(void)
@@ -156,6 +203,7 @@ main(void)
         cmocka_unit_test(test_fitting_path_terminated),
         cmocka_unit_test(test_boundary_length),
         cmocka_unit_test(test_unusable_numbers_refused),
+        cmocka_unit_test(test_filter_options_take_khz),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
