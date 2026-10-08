@@ -547,99 +547,88 @@ inline DWORD ACM::OnFormatDetails(LPACMFORMATDETAILS a_FormatDetails, const LPAR
 	       in its other members.
 	\param a_Query the query flags. The bits in
 	       ACM_FORMATTAGDETAILSF_QUERYMASK select the kind of query.
+	\return MMSYSERR_NOERROR, or ACMERR_NOTPOSSIBLE for a query that the
+	        codec does not support.
 */
 inline DWORD ACM::OnFormatTagDetails(LPACMFORMATTAGDETAILS a_FormatTagDetails, const LPARAM a_Query)
 {
-	DWORD Result;
-	DWORD the_format = WAVE_FORMAT_UNKNOWN; // the format to give details
+	DWORD the_format; // the format to give details
 
-	if (a_FormatTagDetails->cbStruct >= sizeof(*a_FormatTagDetails)) {
+	if (a_FormatTagDetails->cbStruct < sizeof(*a_FormatTagDetails))
+	{
+		my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "a_FormatTagDetails->cbStruct < sizeof(*a_FormatDetails)");
+		return ACMERR_NOTPOSSIBLE;
+	}
 
-		my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "ACMDM_FORMATTAG_DETAILS, a_Query = 0x%08X",a_Query);
-		switch(a_Query & ACM_FORMATTAGDETAILSF_QUERYMASK) {
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "ACMDM_FORMATTAG_DETAILS, a_Query = 0x%08X",a_Query);
+	switch(a_Query & ACM_FORMATTAGDETAILSF_QUERYMASK) {
 
-			case ACM_FORMATTAGDETAILSF_INDEX:
-			// Fill-in the informations corresponding to the a_FormatDetails->dwFormatTagIndex
-				my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "get ACM_FORMATTAGDETAILSF_INDEX for index %03d",a_FormatTagDetails->dwFormatTagIndex);
+		case ACM_FORMATTAGDETAILSF_INDEX:
+		// the format tag at the index the host asks for
+			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "get ACM_FORMATTAGDETAILSF_INDEX for index %03d",a_FormatTagDetails->dwFormatTagIndex);
 
-				if (a_FormatTagDetails->dwFormatTagIndex < FORMAT_TAG_MAX_NB) {
-					switch (a_FormatTagDetails->dwFormatTagIndex)
-					{
-					case 0:
-						the_format = PERSONAL_FORMAT;
-						break;
-					default :
-						the_format = WAVE_FORMAT_PCM;
-						break;
-					}
-				}
-				else
-				{
-					my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "ACM_FORMATTAGDETAILSF_INDEX for unsupported index %03d",a_FormatTagDetails->dwFormatTagIndex);
-					Result = ACMERR_NOTPOSSIBLE;
-				}
+			if (a_FormatTagDetails->dwFormatTagIndex >= FORMAT_TAG_MAX_NB)
+			{
+				my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "ACM_FORMATTAGDETAILSF_INDEX for unsupported index %03d",a_FormatTagDetails->dwFormatTagIndex);
+				return ACMERR_NOTPOSSIBLE;
+			}
+			switch (a_FormatTagDetails->dwFormatTagIndex)
+			{
+			case 0:
+				the_format = PERSONAL_FORMAT;
 				break;
+			default :
+				the_format = WAVE_FORMAT_PCM;
+				break;
+			}
+			break;
 
-			case ACM_FORMATTAGDETAILSF_FORMATTAG:
-			// Fill-in the informations corresponding to the a_FormatDetails->dwFormatTagIndex and hdrvr given
-				switch (a_FormatTagDetails->dwFormatTag)
-				{
-				case WAVE_FORMAT_PCM:
-					the_format = WAVE_FORMAT_PCM;
-					break;
-				case PERSONAL_FORMAT:
-					the_format = PERSONAL_FORMAT;
-					break;
-				default:
-                    return (ACMERR_NOTPOSSIBLE);
-				}
-				my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "get ACM_FORMATTAGDETAILSF_FORMATTAG for index 0x%02X, cStandardFormats = %d",a_FormatTagDetails->dwFormatTagIndex,a_FormatTagDetails->cStandardFormats);
-				break;
-			case ACM_FORMATTAGDETAILSF_LARGESTSIZE:
-				my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "ACM_FORMATTAGDETAILSF_LARGESTSIZE not used");
-				Result = 0L;
-				break;
-			default:
-				my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "OnFormatTagDetails Unknown Format tag query");
-				Result = MMSYSERR_NOTSUPPORTED;
-				break;
-		}
-
-		my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "OnFormatTagDetails the_format = 0x%08X",the_format);
-		switch(the_format)
-		{
+		case ACM_FORMATTAGDETAILSF_FORMATTAG:
+		// the format tag the host names
+			switch (a_FormatTagDetails->dwFormatTag)
+			{
 			case WAVE_FORMAT_PCM:
-				a_FormatTagDetails->dwFormatTag      = WAVE_FORMAT_PCM;
-				a_FormatTagDetails->dwFormatTagIndex = 0;
-				a_FormatTagDetails->cbFormatSize     = sizeof(PCMWAVEFORMAT);
-				/// \note 0 may mean we don't know how to decode
-				a_FormatTagDetails->fdwSupport       = ACMDRIVERDETAILS_SUPPORTF_CODEC;
-				a_FormatTagDetails->cStandardFormats = FORMAT_MAX_NB_PCM;
-				// should be filled by Windows				a_FormatTagDetails->szFormatTag[0] = '\0';
-				Result = MMSYSERR_NOERROR;
+				the_format = WAVE_FORMAT_PCM;
 				break;
 			case PERSONAL_FORMAT:
-				a_FormatTagDetails->dwFormatTag      = PERSONAL_FORMAT;
-				a_FormatTagDetails->dwFormatTagIndex = 1;
-				a_FormatTagDetails->cbFormatSize     = SIZE_FORMAT_STRUCT;
-				a_FormatTagDetails->fdwSupport       = ACMDRIVERDETAILS_SUPPORTF_CODEC;
-				a_FormatTagDetails->cStandardFormats = GetNumberEncodingFormats();
-				lstrcpyW( a_FormatTagDetails->szFormatTag, L"Lame MP3" );
-				Result = MMSYSERR_NOERROR;
+				the_format = PERSONAL_FORMAT;
 				break;
 			default:
-				my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "OnFormatTagDetails Unknown format 0x%08X",the_format);
-				return (ACMERR_NOTPOSSIBLE);
-		}
-		my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "OnFormatTagDetails %d possibilities for format 0x%08X",a_FormatTagDetails->cStandardFormats,the_format);
+				return ACMERR_NOTPOSSIBLE;
+			}
+			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "get ACM_FORMATTAGDETAILSF_FORMATTAG for index 0x%02X, cStandardFormats = %d",a_FormatTagDetails->dwFormatTagIndex,a_FormatTagDetails->cStandardFormats);
+			break;
+		case ACM_FORMATTAGDETAILSF_LARGESTSIZE:
+			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "ACM_FORMATTAGDETAILSF_LARGESTSIZE not used");
+			return ACMERR_NOTPOSSIBLE;
+		default:
+			my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "OnFormatTagDetails Unknown Format tag query");
+			return ACMERR_NOTPOSSIBLE;
+	}
+
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "OnFormatTagDetails the_format = 0x%08X",the_format);
+	if (the_format == WAVE_FORMAT_PCM)
+	{
+		a_FormatTagDetails->dwFormatTag      = WAVE_FORMAT_PCM;
+		a_FormatTagDetails->dwFormatTagIndex = 0;
+		a_FormatTagDetails->cbFormatSize     = sizeof(PCMWAVEFORMAT);
+		/// \note 0 may mean we don't know how to decode
+		a_FormatTagDetails->fdwSupport       = ACMDRIVERDETAILS_SUPPORTF_CODEC;
+		a_FormatTagDetails->cStandardFormats = FORMAT_MAX_NB_PCM;
+		// should be filled by Windows				a_FormatTagDetails->szFormatTag[0] = '\0';
 	}
 	else
 	{
-		my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "a_FormatTagDetails->cbStruct < sizeof(*a_FormatDetails)");
-		Result = ACMERR_NOTPOSSIBLE;
+		a_FormatTagDetails->dwFormatTag      = PERSONAL_FORMAT;
+		a_FormatTagDetails->dwFormatTagIndex = 1;
+		a_FormatTagDetails->cbFormatSize     = SIZE_FORMAT_STRUCT;
+		a_FormatTagDetails->fdwSupport       = ACMDRIVERDETAILS_SUPPORTF_CODEC;
+		a_FormatTagDetails->cStandardFormats = GetNumberEncodingFormats();
+		lstrcpyW( a_FormatTagDetails->szFormatTag, L"Lame MP3" );
 	}
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "OnFormatTagDetails %d possibilities for format 0x%08X",a_FormatTagDetails->cStandardFormats,the_format);
 
-	return Result;
+	return MMSYSERR_NOERROR;
 }
 
 /*!
