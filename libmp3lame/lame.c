@@ -1874,11 +1874,37 @@ enum PCMSampleType
 ,   pcm_double_type
 };
 
+/** \internal \brief How the samples of one encode entry point are laid out. */
+typedef struct pcm_layout {
+    enum PCMSampleType type;    /**< the C type of one sample */
+    int     stride;             /**< 1 for two arrays, 2 for one interleaved array */
+    FLOAT   to_16bit;           /**< the factor that scales a sample to 16-bit full scale */
+} pcm_layout_t;
+
+/** \internal \brief The factor for an \c int sample at full scale. */
+#define INT_TO_16BIT ((FLOAT) (1.0 / (1L << (8 * sizeof(int) - 16))))
+/** \internal \brief The factor for a \c long sample at full scale. */
+#define LONG_TO_16BIT ((FLOAT) (1.0 / (1L << (8 * sizeof(long) - 16))))
+
+static const pcm_layout_t layout_short = { pcm_short_type, 1, 1.0 };
+static const pcm_layout_t layout_short_interleaved = { pcm_short_type, 2, 1.0 };
+static const pcm_layout_t layout_int = { pcm_int_type, 1, INT_TO_16BIT };
+static const pcm_layout_t layout_int_interleaved = { pcm_int_type, 2, INT_TO_16BIT };
+static const pcm_layout_t layout_long = { pcm_long_type, 1, 1.0 };
+static const pcm_layout_t layout_long_full = { pcm_long_type, 1, LONG_TO_16BIT };
+static const pcm_layout_t layout_float = { pcm_float_type, 1, 1.0 };
+static const pcm_layout_t layout_ieee_float = { pcm_float_type, 1, 32767.0 };
+static const pcm_layout_t layout_ieee_float_interleaved = { pcm_float_type, 2, 32767.0 };
+static const pcm_layout_t layout_ieee_double = { pcm_double_type, 1, 32767.0 };
+static const pcm_layout_t layout_ieee_double_interleaved = { pcm_double_type, 2, 32767.0 };
+
 static int
 lame_copy_inbuffer(lame_internal_flags* gfc,
                    void const* l, void const* r, int nsamples,
-                   enum PCMSampleType pcm_type, int jump, FLOAT s)
+                   pcm_layout_t const *layout)
 {
+    int const stride = layout->stride;
+    FLOAT const s = layout->to_16bit;
     SessionConfig_t const *const cfg = &gfc->cfg;
     EncStateVar_t *const esv = &gfc->sv_enc;
     sample_t* ib0 = esv->in_buffer_0;
@@ -1933,8 +1959,8 @@ lame_copy_inbuffer(lame_internal_flags* gfc,
             ib0[i] = u; \
             ib1[i] = v; \
         } \
-        bl += jump; \
-        br += jump; \
+        bl += stride; \
+        br += stride; \
     } \
 }
 #define COPY_INTEGER(T, FULL_RANGE) \
@@ -1943,7 +1969,7 @@ lame_copy_inbuffer(lame_internal_flags* gfc,
     else \
         COPY_AND_TRANSFORM(T, VALIDATE_NONE, BOUND_NONE)
 
-    switch ( pcm_type ) {
+    switch ( layout->type ) {
     case pcm_short_type:
         COPY_INTEGER(short int, 32768.0);
         break;
@@ -1967,62 +1993,55 @@ lame_copy_inbuffer(lame_internal_flags* gfc,
 static int
 lame_encode_buffer_template(lame_global_flags * gfp,
                             void const* buffer_l, void const* buffer_r, const int nsamples,
-                            unsigned char *mp3buf, const int mp3buf_size, enum PCMSampleType pcm_type, int aa, FLOAT norm)
+                            unsigned char *mp3buf, const int mp3buf_size,
+                            pcm_layout_t const *layout)
 {
-    if (is_lame_global_flags_valid(gfp)) {
-        lame_internal_flags *const gfc = gfp->internal_flags;
-        if (is_lame_internal_flags_valid(gfc)) {
-            SessionConfig_t const *const cfg = &gfc->cfg;
+    lame_internal_flags *gfc;
+    int     rc;
 
-            if (nsamples == 0)
-                return 0;
-            if (nsamples < 0)
-                return LAME_BADINPUTDATA;
+    if (!is_lame_global_flags_valid(gfp))
+        return -3;
+    gfc = gfp->internal_flags;
+    if (!is_lame_internal_flags_valid(gfc))
+        return -3;
+    if (nsamples == 0)
+        return 0;
+    if (nsamples < 0)
+        return LAME_BADINPUTDATA;
+    if (update_inbuffer_size(gfc, nsamples) != 0)
+        return -2;
 
-            if (update_inbuffer_size(gfc, nsamples) != 0) {
-                return -2;
-            }
-            /* make a copy of input buffer, changing type to sample_t */
-            {
-                int     rc;
-
-                if (cfg->channels_in > 1) {
-                    if (buffer_l == 0 || buffer_r == 0) {
-                        return 0;
-                    }
-                    rc = lame_copy_inbuffer(gfc, buffer_l, buffer_r, nsamples, pcm_type, aa, norm);
-                } else {
-                    if (buffer_l == 0) {
-                        return 0;
-                    }
-                    /* An interleaved entry point reads the two channels from a
-                     * single buffer with a stride of two. On a mono session
-                     * there is only one channel in that buffer and no length to
-                     * bound the second read, so this walks one channel's worth
-                     * of samples past its end. Reject the combination rather
-                     * than read outside the caller's buffer; a mono session
-                     * takes its samples through the non-interleaved entry
-                     * points, which is what the interleaving front ends already
-                     * do.
-                     */
-                    if (aa != 1) {
-                        return LAME_BADINPUTDATA;
-                    }
-                    rc = lame_copy_inbuffer(gfc, buffer_l, buffer_l, nsamples, pcm_type, aa, norm);
-                }
-                /* A non-finite sample would spread through the psycho acoustic
-                 * model and turn the whole frame into noise; one beyond the
-                 * loudest input is more than any frame can carry.
-                 */
-                if (rc != 0) {
-                    return LAME_BADINPUTDATA;
-                }
-            }
-
-            return lame_encode_buffer_sample_t(gfc, nsamples, mp3buf, mp3buf_size);
-        }
+    /* make a copy of input buffer, changing type to sample_t */
+    if (gfc->cfg.channels_in > 1) {
+        if (buffer_l == 0 || buffer_r == 0)
+            return 0;
+        rc = lame_copy_inbuffer(gfc, buffer_l, buffer_r, nsamples, layout);
     }
-    return -3;
+    else {
+        if (buffer_l == 0)
+            return 0;
+        /* An interleaved entry point reads the two channels from a
+         * single buffer with a stride of two. On a mono session
+         * there is only one channel in that buffer and no length to
+         * bound the second read, so this walks one channel's worth
+         * of samples past its end. Reject the combination rather
+         * than read outside the caller's buffer; a mono session
+         * takes its samples through the non-interleaved entry
+         * points, which is what the interleaving front ends already
+         * do.
+         */
+        if (layout->stride != 1)
+            return LAME_BADINPUTDATA;
+        rc = lame_copy_inbuffer(gfc, buffer_l, buffer_l, nsamples, layout);
+    }
+    /* A non-finite sample would spread through the psycho acoustic
+     * model and turn the whole frame into noise; one beyond the
+     * loudest input is more than any frame can carry.
+     */
+    if (rc != 0)
+        return LAME_BADINPUTDATA;
+
+    return lame_encode_buffer_sample_t(gfc, nsamples, mp3buf, mp3buf_size);
 }
 
 int
@@ -2030,7 +2049,7 @@ lame_encode_buffer(lame_global_flags * gfp,
                    const short int pcm_l[], const short int pcm_r[], const int nsamples,
                    unsigned char *mp3buf, const int mp3buf_size)
 {
-    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, pcm_short_type, 1, 1.0);
+    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, &layout_short);
 }
 
 
@@ -2040,7 +2059,7 @@ lame_encode_buffer_float(lame_global_flags * gfp,
                          unsigned char *mp3buf, const int mp3buf_size)
 {
     /* input is assumed to be normalized to +/- 32768 for full scale */
-    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, pcm_float_type, 1, 1.0);
+    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, &layout_float);
 }
 
 
@@ -2050,7 +2069,7 @@ lame_encode_buffer_ieee_float(lame_t gfp,
                          unsigned char *mp3buf, const int mp3buf_size)
 {
     /* input is assumed to be normalized to +/- 1.0 for full scale */
-    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, pcm_float_type, 1, 32767.0);
+    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, &layout_ieee_float);
 }
 
 
@@ -2060,7 +2079,7 @@ lame_encode_buffer_interleaved_ieee_float(lame_t gfp,
                          unsigned char *mp3buf, const int mp3buf_size)
 {
     /* input is assumed to be normalized to +/- 1.0 for full scale */
-    return lame_encode_buffer_template(gfp, pcm, pcm+1, nsamples, mp3buf, mp3buf_size, pcm_float_type, 2, 32767.0);
+    return lame_encode_buffer_template(gfp, pcm, pcm+1, nsamples, mp3buf, mp3buf_size, &layout_ieee_float_interleaved);
 }
 
 
@@ -2070,7 +2089,7 @@ lame_encode_buffer_ieee_double(lame_t gfp,
                          unsigned char *mp3buf, const int mp3buf_size)
 {
     /* input is assumed to be normalized to +/- 1.0 for full scale */
-    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, pcm_double_type, 1, 32767.0);
+    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, &layout_ieee_double);
 }
 
 
@@ -2080,7 +2099,7 @@ lame_encode_buffer_interleaved_ieee_double(lame_t gfp,
                          unsigned char *mp3buf, const int mp3buf_size)
 {
     /* input is assumed to be normalized to +/- 1.0 for full scale */
-    return lame_encode_buffer_template(gfp, pcm, pcm+1, nsamples, mp3buf, mp3buf_size, pcm_double_type, 2, 32767.0);
+    return lame_encode_buffer_template(gfp, pcm, pcm+1, nsamples, mp3buf, mp3buf_size, &layout_ieee_double_interleaved);
 }
 
 
@@ -2106,9 +2125,7 @@ lame_encode_buffer_int(lame_global_flags * gfp,
                        const int pcm_l[], const int pcm_r[], const int nsamples,
                        unsigned char *mp3buf, const int mp3buf_size)
 {
-    /* input is assumed to be normalized to +/- MAX_INT for full scale */
-    FLOAT const norm = (1.0 / (1L << (8 * sizeof(int) - 16)));
-    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, pcm_int_type, 1, norm);
+    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, &layout_int);
 }
 
 
@@ -2136,9 +2153,7 @@ lame_encode_buffer_long2(lame_global_flags * gfp,
                          const long pcm_l[],  const long pcm_r[], const int nsamples,
                          unsigned char *mp3buf, const int mp3buf_size)
 {
-    /* input is assumed to be normalized to +/- MAX_LONG for full scale */
-    FLOAT const norm = (1.0 / (1L << (8 * sizeof(long) - 16)));
-    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, pcm_long_type, 1, norm);
+    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, &layout_long_full);
 }
 
 
@@ -2167,7 +2182,7 @@ lame_encode_buffer_long(lame_global_flags * gfp,
                         unsigned char *mp3buf, const int mp3buf_size)
 {
     /* input is assumed to be normalized to +/- 32768 for full scale */
-    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, pcm_long_type, 1, 1.0);
+    return lame_encode_buffer_template(gfp, pcm_l, pcm_r, nsamples, mp3buf, mp3buf_size, &layout_long);
 }
 
 
@@ -2199,7 +2214,7 @@ lame_encode_buffer_interleaved(lame_global_flags * gfp,
                                unsigned char *mp3buf, int mp3buf_size)
 {
     /* input is assumed to be normalized to +/- MAX_SHORT for full scale */
-    return lame_encode_buffer_template(gfp, pcm, pcm+1, nsamples, mp3buf, mp3buf_size, pcm_short_type, 2, 1.0);
+    return lame_encode_buffer_template(gfp, pcm, pcm+1, nsamples, mp3buf, mp3buf_size, &layout_short_interleaved);
 }
 
 
@@ -2227,9 +2242,7 @@ lame_encode_buffer_interleaved_int(lame_t gfp,
                                    const int pcm[], const int nsamples,
                                    unsigned char *mp3buf, const int mp3buf_size)
 {
-    /* input is assumed to be normalized to +/- MAX(int) for full scale */
-    FLOAT const norm = (1.0 / (1L << (8 * sizeof(int)-16)));
-    return lame_encode_buffer_template(gfp, pcm, pcm + 1, nsamples, mp3buf, mp3buf_size, pcm_int_type, 2, norm);
+    return lame_encode_buffer_template(gfp, pcm, pcm + 1, nsamples, mp3buf, mp3buf_size, &layout_int_interleaved);
 }
 
 
