@@ -149,8 +149,6 @@ find_pin(IBaseFilter *f, PIN_DIRECTION want)
 #define TONE_HZ                 440.0
 /** @brief The amplitude of the tone. It is well below full scale, so nothing clips. */
 #define TONE_AMPLITUDE          16000.0
-/** @brief One full turn of the circle, for the argument of the sine. */
-#define TWO_PI                  6.283185307179586
 
 /**
  * @brief The first bitrate that the property test sets. The test reads it
@@ -201,8 +199,7 @@ write_wav(const char *path, DWORD rate, WORD channels, DWORD frames)
     *(DWORD *) (h + WAV_OFF_DATA_SIZE) = data_bytes;
     fwrite(h, 1, sizeof(h), f);
     for (i = 0; i < frames; i++) {
-        double t = (double) i / (double) rate;
-        short v = (short) (TONE_AMPLITUDE * sin(TWO_PI * TONE_HZ * t));
+        short v = ctest_tone(i, rate, TONE_HZ, TONE_AMPLITUDE);
         WORD c;
 
         for (c = 0; c < channels; c++) {

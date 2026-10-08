@@ -467,8 +467,6 @@ test_save_without_a_file(void)
 #define TONE_HZ         440.0
 /** @brief The amplitude of the tone. It is well below full scale, so nothing clips. */
 #define TONE_AMPLITUDE  16000.0
-/** @brief One full turn of the circle, for the argument of the sine. */
-#define TWO_PI          6.283185307179586
 
 /** @brief Fills in the MPEG Layer-3 format that an application passes to the ACM. */
 static void
@@ -870,7 +868,7 @@ test_small_destination_buffer(HACMDRIVER had)
         goto out;
     }
     for (i = 0; i < frames; i++) {
-        src[i] = (short) (TONE_AMPLITUDE * sin(TWO_PI * TONE_HZ * (double) i / (double) rate));
+        src[i] = ctest_tone(i, rate, TONE_HZ, TONE_AMPLITUDE);
     }
     memset(dst, 0xA5, SMALL + GUARD);
 
@@ -1021,8 +1019,7 @@ test_under_the_acm(const char *driver)
     /* A sine rather than silence: an encoder that drops everything still
        produces output for silence, so silence would prove nothing. */
     for (i = 0; i < frames; i++) {
-        double t = (double) i / (double) rate;
-        short v = (short) (TONE_AMPLITUDE * sin(TWO_PI * TONE_HZ * t));
+        short v = ctest_tone(i, rate, TONE_HZ, TONE_AMPLITUDE);
         src[2 * i] = v;
         src[2 * i + 1] = v;
     }
@@ -1198,7 +1195,7 @@ encode_stereo_tone(const char *driver, DWORD out_rate, WORD out_channels, DWORD 
         goto out;
     }
     for (i = 0; i < samples; i++) {
-        short v = (short) (TONE_AMPLITUDE * sin(TWO_PI * TONE_HZ * (double) i / (double) rate));
+        short v = ctest_tone(i, rate, TONE_HZ, TONE_AMPLITUDE);
         src[2 * i] = v;
         src[2 * i + 1] = v;
     }

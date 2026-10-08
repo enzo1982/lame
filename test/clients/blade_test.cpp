@@ -143,9 +143,7 @@ make_config(BE_CONFIG *cfg, int write_vbr_header)
 static SHORT
 tone_sample(DWORD n)
 {
-    return (SHORT) (TONE_PEAK
-                    * sin(2.0 * 3.14159265358979 * TONE_HZ
-                          * (double) n / (double) RATE));
+    return ctest_tone(n, RATE, TONE_HZ, TONE_PEAK);
 }
 
 /**

@@ -128,6 +128,23 @@ ctest_record(int ok, const char *what, const char *detail)
         ctest_record(SUCCEEDED(ctest_hr_), (what), ctest_d_);            \
     } while (0)
 
+/** @brief One full turn of the circle, for the argument of the sine. */
+#define CTEST_TWO_PI 6.283185307179586
+
+/**
+ * @brief Returns one sample of a sine tone.
+ * @param n          the index of the sample from the start of the stream.
+ * @param rate       the sample rate, in Hz.
+ * @param hz         the frequency of the tone, in Hz.
+ * @param amplitude  the peak value. It must fit a 16-bit sample.
+ * @return the sample, truncated toward zero.
+ */
+static short
+ctest_tone(unsigned long n, unsigned long rate, double hz, double amplitude)
+{
+    return (short) (amplitude * sin(CTEST_TWO_PI * hz * (double) n / (double) rate));
+}
+
 /** @brief The argument that makes a missing component a failure. */
 #define CTEST_REQUIRE_ARG "--require"
 
