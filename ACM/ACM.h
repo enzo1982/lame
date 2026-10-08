@@ -90,6 +90,9 @@ protected:
 	DWORD GetNumberEncodingFormats() const;
 	bool IsSmartOutput(const int frequency, const int bitrate, const int channels) const;
 	void BuildBitrateTable();
+	void AddFormats(const unsigned int * freqs, unsigned int nfreqs, const unsigned int * bitrates,
+	                unsigned int nbitrates, unsigned int channels, vbr_mode mode);
+	std::vector<unsigned int> AbrBitrates(unsigned int lowest) const;
 
 	HMODULE my_hModule;
 	HICON   my_hIcon;

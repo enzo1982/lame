@@ -1335,98 +1335,91 @@ bool ACM::IsSmartOutput(const int frequency, const int bitrate, const int channe
 	else return true;
 }
 
+/**
+	\brief Adds to bitrate_table one format for each sample rate and bitrate
+	that Smart Output allows.
+
+	\param freqs      the sample rates, in Hz.
+	\param nfreqs     the number of sample rates.
+	\param bitrates   the bitrates, in kbit/s.
+	\param nbitrates  the number of bitrates.
+	\param channels   the number of channels of the formats.
+	\param mode       the bitrate mode that the formats report.
+*/
+void ACM::AddFormats(const unsigned int * freqs, unsigned int nfreqs, const unsigned int * bitrates,
+                     unsigned int nbitrates, unsigned int channels, vbr_mode mode)
+{
+	unsigned int freq, bitrate;
+
+	for (freq = 0; freq < nfreqs; freq++)
+	{
+		for (bitrate = 0; bitrate < nbitrates; bitrate++)
+		{
+			if (!my_EncodingProperties.GetSmartOutputMode() || IsSmartOutput(freqs[freq], bitrates[bitrate], channels))
+			{
+				bitrate_item bitrate_table_tmp;
+
+				bitrate_table_tmp.frequency = freqs[freq];
+				bitrate_table_tmp.bitrate = bitrates[bitrate];
+				bitrate_table_tmp.channels = channels;
+				bitrate_table_tmp.mode = mode;
+				bitrate_table.push_back(bitrate_table_tmp);
+			}
+		}
+	}
+}
+
+/**
+	\brief Returns the ABR bitrates of the configured range, highest first.
+
+	\param lowest  the lowest bitrate of the MPEG version, in kbit/s. Bitrates
+	               below it are left out.
+	\return the bitrates, in kbit/s.
+*/
+std::vector<unsigned int> ACM::AbrBitrates(unsigned int lowest) const
+{
+	std::vector<unsigned int> list;
+	unsigned int bitrate;
+
+	for (bitrate = my_EncodingProperties.GetAbrBitrateMax();
+	     bitrate >= my_EncodingProperties.GetAbrBitrateMin();
+	     bitrate -= my_EncodingProperties.GetAbrBitrateStep())
+	{
+		if (bitrate >= lowest)
+			list.push_back(bitrate);
+	}
+	return list;
+}
+
 void ACM::BuildBitrateTable()
 {
 	my_debug.OutPut("entering BuildBitrateTable");
 
 	// fill the table
-	unsigned int channel,bitrate,freq;
-	
+	unsigned int channel;
+
 	bitrate_table.clear();
 
-	// CBR bitrates
-	for (channel = 0;channel < SIZE_CHANNEL_MODE;channel++)
+	// CBR bitrates. The MPEG-2 and MPEG-2.5 formats are entered with vbr_abr,
+	// which the host reads in fdwFlags.
+	for (channel = 1; channel <= SIZE_CHANNEL_MODE; channel++)
 	{
-		// MPEG I
-		for (freq = 0;freq < SIZE_FREQ_MPEG1;freq++)
-		{
-			for (bitrate = 0;bitrate < SIZE_BITRATE_MPEG1;bitrate++)
-			{
-
-				if (!my_EncodingProperties.GetSmartOutputMode() || IsSmartOutput(mpeg1_freq[freq], mpeg1_bitrate[bitrate], channel+1))
-				{
-					bitrate_item bitrate_table_tmp;
-					
-					bitrate_table_tmp.frequency = mpeg1_freq[freq];
-					bitrate_table_tmp.bitrate = mpeg1_bitrate[bitrate];
-					bitrate_table_tmp.channels = channel+1;
-					bitrate_table_tmp.mode = vbr_off;
-					bitrate_table.push_back(bitrate_table_tmp);
-				}
-			}
-		}
-		// MPEG II / II.5
-		for (freq = 0;freq < SIZE_FREQ_MPEG2;freq++)
-		{
-			for (bitrate = 0;bitrate < SIZE_BITRATE_MPEG2;bitrate++)
-			{
-				if (!my_EncodingProperties.GetSmartOutputMode() || IsSmartOutput(mpeg2_freq[freq], mpeg2_bitrate[bitrate], channel+1))
-				{
-					bitrate_item bitrate_table_tmp;
-
-                                        bitrate_table_tmp.frequency = mpeg2_freq[freq];
-					bitrate_table_tmp.bitrate = mpeg2_bitrate[bitrate];
-					bitrate_table_tmp.channels = channel+1;
-					bitrate_table_tmp.mode = vbr_abr;
-					bitrate_table.push_back(bitrate_table_tmp);
-				}
-			}
-		}
+		AddFormats(mpeg1_freq, SIZE_FREQ_MPEG1, mpeg1_bitrate, SIZE_BITRATE_MPEG1, channel, vbr_off);
+		AddFormats(mpeg2_freq, SIZE_FREQ_MPEG2, mpeg2_bitrate, SIZE_BITRATE_MPEG2, channel, vbr_abr);
 	}
 
 	if (my_EncodingProperties.GetAbrOutputMode())
 	// ABR bitrates
 	{
-		for (channel = 0;channel < SIZE_CHANNEL_MODE;channel++)
+		std::vector<unsigned int> const abr1 = AbrBitrates(mpeg1_bitrate[SIZE_BITRATE_MPEG1-1]);
+		std::vector<unsigned int> const abr2 = AbrBitrates(mpeg2_bitrate[SIZE_BITRATE_MPEG2-1]);
+
+		for (channel = 1; channel <= SIZE_CHANNEL_MODE; channel++)
 		{
-			// MPEG I
-			for (freq = 0;freq < SIZE_FREQ_MPEG1;freq++)
-			{
-				for (bitrate = my_EncodingProperties.GetAbrBitrateMax();
-					   bitrate >= my_EncodingProperties.GetAbrBitrateMin(); 
-				     bitrate -= my_EncodingProperties.GetAbrBitrateStep())
-				{
-					if (bitrate >= mpeg1_bitrate[SIZE_BITRATE_MPEG1-1] && (!my_EncodingProperties.GetSmartOutputMode() || IsSmartOutput(mpeg1_freq[freq], bitrate, channel+1)))
-					{
-						bitrate_item bitrate_table_tmp;
-						
-						bitrate_table_tmp.frequency = mpeg1_freq[freq];
-						bitrate_table_tmp.bitrate = bitrate;
-						bitrate_table_tmp.channels = channel+1;
-						bitrate_table_tmp.mode = vbr_abr;
-						bitrate_table.push_back(bitrate_table_tmp);
-					}
-				}
-			}
-			// MPEG II / II.5
-			for (freq = 0;freq < SIZE_FREQ_MPEG2;freq++)
-			{
-				for (bitrate = my_EncodingProperties.GetAbrBitrateMax();
-					   bitrate >= my_EncodingProperties.GetAbrBitrateMin(); 
-				     bitrate -= my_EncodingProperties.GetAbrBitrateStep())
-				{
-					if (bitrate >= mpeg2_bitrate[SIZE_BITRATE_MPEG2-1] && (!my_EncodingProperties.GetSmartOutputMode() || IsSmartOutput(mpeg2_freq[freq], bitrate, channel+1)))
-					{
-						bitrate_item bitrate_table_tmp;
-						
-						bitrate_table_tmp.frequency = mpeg2_freq[freq];
-						bitrate_table_tmp.bitrate = bitrate;
-						bitrate_table_tmp.channels = channel+1;
-						bitrate_table_tmp.mode = vbr_abr;
-						bitrate_table.push_back(bitrate_table_tmp);
-					}
-				}
-			}
+			if (!abr1.empty())
+				AddFormats(mpeg1_freq, SIZE_FREQ_MPEG1, &abr1[0], (unsigned int) abr1.size(), channel, vbr_abr);
+			if (!abr2.empty())
+				AddFormats(mpeg2_freq, SIZE_FREQ_MPEG2, &abr2[0], (unsigned int) abr2.size(), channel, vbr_abr);
 		}
 	}
 
