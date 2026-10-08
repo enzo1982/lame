@@ -102,6 +102,9 @@ Other usefull configure options:
                               they can be built as position-independent
                               executables.  Use this to link them statically
                               into self-contained binaries instead.
+                              The lame program uses internal data of the
+                              decoder in libmp3lame.  A dynamically linked
+                              lame needs the libmp3lame of the same build.
 
   --prefix = PATH             default is /usr/local
                               (LAME currently installs:

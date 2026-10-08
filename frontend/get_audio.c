@@ -60,6 +60,13 @@ char   *strchr(), *strrchr();
 #endif
 
 #ifdef HAVE_MPG123
+/**
+ * @internal
+ * The reader uses the decoder struct of libmp3lame (mpstr_tag from
+ * mpglib/mpglib.h) as the hip_t of lame.h. That struct is not part of the
+ * interface of libmp3lame. The lame program therefore needs the libmp3lame
+ * of the same build.
+ */
 #define hip_global_struct mpstr_tag
 #endif
 #ifdef HAVE_MPG123
