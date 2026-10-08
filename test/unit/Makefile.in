@@ -121,6 +121,7 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_decode_scale$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_quantize_pe$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_gain_analysis$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_decoder_init_fail$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_1) $(am__EXEEXT_2) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_3)
 
@@ -228,6 +229,12 @@ am__test_decoder_api_SOURCES_DIST = test_decoder_api.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_decoder_api_OBJECTS = test_decoder_api-test_decoder_api.$(OBJEXT)
 test_decoder_api_OBJECTS = $(am_test_decoder_api_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@test_decoder_api_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+am__test_decoder_init_fail_SOURCES_DIST = test_decoder_init_fail.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_decoder_init_fail_OBJECTS = test_decoder_init_fail-test_decoder_init_fail.$(OBJEXT)
+test_decoder_init_fail_OBJECTS = $(am_test_decoder_init_fail_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_decoder_init_fail_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 am__test_encode_api_SOURCES_DIST = test_encode_api.c
@@ -483,6 +490,7 @@ am__depfiles_remade = $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametim
 	./$(DEPDIR)/test_classify_suffix-test_classify_suffix.Po \
 	./$(DEPDIR)/test_decode_scale-test_decode_scale.Po \
 	./$(DEPDIR)/test_decoder_api-test_decoder_api.Po \
+	./$(DEPDIR)/test_decoder_init_fail-test_decoder_init_fail.Po \
 	./$(DEPDIR)/test_encode_api-test_encode_api.Po \
 	./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po \
 	./$(DEPDIR)/test_encode_error_text-parse_test_stubs.Po \
@@ -543,8 +551,8 @@ SOURCES = $(test_bitstream_headers_SOURCES) \
 	$(test_choose_table_neon_SOURCES) \
 	$(test_choose_table_vector_SOURCES) \
 	$(test_classify_suffix_SOURCES) $(test_decode_scale_SOURCES) \
-	$(test_decoder_api_SOURCES) $(test_encode_api_SOURCES) \
-	$(test_encode_clipgain_SOURCES) \
+	$(test_decoder_api_SOURCES) $(test_decoder_init_fail_SOURCES) \
+	$(test_encode_api_SOURCES) $(test_encode_clipgain_SOURCES) \
 	$(test_encode_error_text_SOURCES) \
 	$(test_encode_mono_interleaved_SOURCES) \
 	$(test_encode_nonfinite_SOURCES) $(test_file_times_SOURCES) \
@@ -567,6 +575,7 @@ DIST_SOURCES = $(am__test_bitstream_headers_SOURCES_DIST) \
 	$(am__test_classify_suffix_SOURCES_DIST) \
 	$(am__test_decode_scale_SOURCES_DIST) \
 	$(am__test_decoder_api_SOURCES_DIST) \
+	$(am__test_decoder_init_fail_SOURCES_DIST) \
 	$(am__test_encode_api_SOURCES_DIST) \
 	$(am__test_encode_clipgain_SOURCES_DIST) \
 	$(am__test_encode_error_text_SOURCES_DIST) \
@@ -1189,6 +1198,19 @@ SH_LOG_COMPILER = $(SHELL)
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
 
+# The decoder start test compiles lame.c in, with a hip_decode_init() that
+# fails on request, and takes the rest of the library from libmp3lame.
+@ENABLE_UNIT_TESTS_TRUE@test_decoder_init_fail_SOURCES = test_decoder_init_fail.c
+@ENABLE_UNIT_TESTS_TRUE@test_decoder_init_fail_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_decoder_init_fail_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
+
 # The frontend ID3 dispatch (id3_tag/set_id3v2tag_*) is static in parse.c, so
 # this test compiles parse.c in directly; same include/link setup as the other
 # parse.c tests.
@@ -1628,6 +1650,10 @@ test_decoder_api$(EXEEXT): $(test_decoder_api_OBJECTS) $(test_decoder_api_DEPEND
 	@rm -f test_decoder_api$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_decoder_api_OBJECTS) $(test_decoder_api_LDADD) $(LIBS)
 
+test_decoder_init_fail$(EXEEXT): $(test_decoder_init_fail_OBJECTS) $(test_decoder_init_fail_DEPENDENCIES) $(EXTRA_test_decoder_init_fail_DEPENDENCIES) 
+	@rm -f test_decoder_init_fail$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_decoder_init_fail_OBJECTS) $(test_decoder_init_fail_LDADD) $(LIBS)
+
 test_encode_api$(EXEEXT): $(test_encode_api_OBJECTS) $(test_encode_api_DEPENDENCIES) $(EXTRA_test_encode_api_DEPENDENCIES) 
 	@rm -f test_encode_api$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_encode_api_OBJECTS) $(test_encode_api_LDADD) $(LIBS)
@@ -1769,6 +1795,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_classify_suffix-test_classify_suffix.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_decode_scale-test_decode_scale.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_decoder_api-test_decoder_api.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_decoder_init_fail-test_decoder_init_fail.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_api-test_encode_api.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_encode_error_text-parse_test_stubs.Po@am__quote@ # am--include-marker
@@ -1947,6 +1974,20 @@ test_decoder_api-test_decoder_api.obj: test_decoder_api.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_decoder_api.c' object='test_decoder_api-test_decoder_api.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_decoder_api_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_decoder_api-test_decoder_api.obj `if test -f 'test_decoder_api.c'; then $(CYGPATH_W) 'test_decoder_api.c'; else $(CYGPATH_W) '$(srcdir)/test_decoder_api.c'; fi`
+
+test_decoder_init_fail-test_decoder_init_fail.o: test_decoder_init_fail.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_decoder_init_fail_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_decoder_init_fail-test_decoder_init_fail.o -MD -MP -MF $(DEPDIR)/test_decoder_init_fail-test_decoder_init_fail.Tpo -c -o test_decoder_init_fail-test_decoder_init_fail.o `test -f 'test_decoder_init_fail.c' || echo '$(srcdir)/'`test_decoder_init_fail.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_decoder_init_fail-test_decoder_init_fail.Tpo $(DEPDIR)/test_decoder_init_fail-test_decoder_init_fail.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_decoder_init_fail.c' object='test_decoder_init_fail-test_decoder_init_fail.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_decoder_init_fail_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_decoder_init_fail-test_decoder_init_fail.o `test -f 'test_decoder_init_fail.c' || echo '$(srcdir)/'`test_decoder_init_fail.c
+
+test_decoder_init_fail-test_decoder_init_fail.obj: test_decoder_init_fail.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_decoder_init_fail_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_decoder_init_fail-test_decoder_init_fail.obj -MD -MP -MF $(DEPDIR)/test_decoder_init_fail-test_decoder_init_fail.Tpo -c -o test_decoder_init_fail-test_decoder_init_fail.obj `if test -f 'test_decoder_init_fail.c'; then $(CYGPATH_W) 'test_decoder_init_fail.c'; else $(CYGPATH_W) '$(srcdir)/test_decoder_init_fail.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_decoder_init_fail-test_decoder_init_fail.Tpo $(DEPDIR)/test_decoder_init_fail-test_decoder_init_fail.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_decoder_init_fail.c' object='test_decoder_init_fail-test_decoder_init_fail.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_decoder_init_fail_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_decoder_init_fail-test_decoder_init_fail.obj `if test -f 'test_decoder_init_fail.c'; then $(CYGPATH_W) 'test_decoder_init_fail.c'; else $(CYGPATH_W) '$(srcdir)/test_decoder_init_fail.c'; fi`
 
 test_encode_api-test_encode_api.o: test_encode_api.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_encode_api_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_encode_api-test_encode_api.o -MD -MP -MF $(DEPDIR)/test_encode_api-test_encode_api.Tpo -c -o test_encode_api-test_encode_api.o `test -f 'test_encode_api.c' || echo '$(srcdir)/'`test_encode_api.c
@@ -2914,6 +2955,13 @@ test_gain_analysis.log: test_gain_analysis$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_decoder_init_fail.log: test_decoder_init_fail$(EXEEXT)
+	@p='test_decoder_init_fail$(EXEEXT)'; \
+	b='test_decoder_init_fail'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 test_choose_table_vector.log: test_choose_table_vector$(EXEEXT)
 	@p='test_choose_table_vector$(EXEEXT)'; \
 	b='test_choose_table_vector'; \
@@ -3055,6 +3103,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_classify_suffix-test_classify_suffix.Po
 	-rm -f ./$(DEPDIR)/test_decode_scale-test_decode_scale.Po
 	-rm -f ./$(DEPDIR)/test_decoder_api-test_decoder_api.Po
+	-rm -f ./$(DEPDIR)/test_decoder_init_fail-test_decoder_init_fail.Po
 	-rm -f ./$(DEPDIR)/test_encode_api-test_encode_api.Po
 	-rm -f ./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po
 	-rm -f ./$(DEPDIR)/test_encode_error_text-parse_test_stubs.Po
@@ -3146,6 +3195,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_classify_suffix-test_classify_suffix.Po
 	-rm -f ./$(DEPDIR)/test_decode_scale-test_decode_scale.Po
 	-rm -f ./$(DEPDIR)/test_decoder_api-test_decoder_api.Po
+	-rm -f ./$(DEPDIR)/test_decoder_init_fail-test_decoder_init_fail.Po
 	-rm -f ./$(DEPDIR)/test_encode_api-test_encode_api.Po
 	-rm -f ./$(DEPDIR)/test_encode_clipgain-test_encode_clipgain.Po
 	-rm -f ./$(DEPDIR)/test_encode_error_text-parse_test_stubs.Po

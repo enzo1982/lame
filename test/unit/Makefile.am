@@ -28,7 +28,8 @@ check_PROGRAMS = test_sanity test_get_audio_aiff test_get_audio_wav \
 	test_vector_ladder test_decoder_api test_encode_clipgain \
 	test_huffman_tables test_help_exit test_bitstream_headers \
 	test_free_format test_encode_api test_resample_decision \
-	test_file_times test_decode_scale test_quantize_pe test_gain_analysis
+	test_file_times test_decode_scale test_quantize_pe test_gain_analysis \
+	test_decoder_init_fail
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -213,6 +214,17 @@ test_id3tag_alloc_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_id3tag_alloc_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The decoder start test compiles lame.c in, with a hip_decode_init() that
+# fails on request, and takes the rest of the library from libmp3lame.
+test_decoder_init_fail_SOURCES = test_decoder_init_fail.c
+test_decoder_init_fail_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_decoder_init_fail_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 

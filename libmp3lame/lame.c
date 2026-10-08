@@ -1342,6 +1342,10 @@ lame_init_params(lame_global_flags * gfp)
             hip_decode_exit(gfc->hip);
         }
         gfc->hip = hip_decode_init();
+        if (gfc->hip == 0) {
+            ERRORF(gfc, "Error: could not start the decoder that measures the encoded output\n");
+            return -1;
+        }
         /* report functions */
         hip_set_errorf(gfc->hip, gfp->report.errorf);
         hip_set_debugf(gfc->hip, gfp->report.debugf);
