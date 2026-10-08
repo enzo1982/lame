@@ -787,10 +787,10 @@ test_config_dialog_result(const char *driver)
 
 /**
  * @brief The fdwFlags values of the codec's own MP3 formats. The codec writes
- *        2 into an ABR format and 4 into a CBR format, and reads the value back
- *        when a stream opens.
+ *        a bit outside the padding modes into an ABR format and 4 into a CBR
+ *        format, and reads the bit back when a stream opens.
  */
-#define ACM_FLAGS_ABR 2
+#define ACM_FLAGS_ABR 0x80000000UL
 #define ACM_FLAGS_CBR 4
 
 /** @brief Fills in the MPEG Layer-3 format that an application passes to the ACM. */
@@ -2183,6 +2183,60 @@ test_sizes_hold_every_conversion(HACMDRIVER had)
 }
 
 /**
+ * @brief Checks that a format built with any padding mode of fdwFlags encodes
+ *        CBR, and the codec's own ABR entry ABR.
+ *
+ * Windows defines fdwFlags as the padding mode. An application that builds
+ * its own MPEG Layer-3 format sets one of the three values, and gets the
+ * bitrate it set: every frame of one second of noise at 128 kbit/s. Noise,
+ * so that ABR would vary the frames. The codec's ABR bit is the control.
+ *
+ * @param had the opened driver
+ */
+static void
+test_padding_modes_are_cbr(HACMDRIVER had)
+{
+    static const struct {
+        DWORD flags;
+        const char *what;
+    } modes[] = {
+        { MPEGLAYER3_FLAG_PADDING_ISO, "a format with MPEGLAYER3_FLAG_PADDING_ISO encodes 128 kbit/s CBR" },
+        { MPEGLAYER3_FLAG_PADDING_ON, "a format with MPEGLAYER3_FLAG_PADDING_ON encodes 128 kbit/s CBR" },
+        { MPEGLAYER3_FLAG_PADDING_OFF, "a format with MPEGLAYER3_FLAG_PADDING_OFF encodes 128 kbit/s CBR" },
+    };
+    std::vector<short> src(LIFETIME_FRAMES * LIFETIME_CHANNELS);
+    std::vector<BYTE> out;
+    MPEGLAYER3WAVEFORMAT mp3;
+    mp3_scan scan;
+    char detail[CTEST_DETAIL_CHARS];
+    DWORD state = 1, i;
+    size_t m;
+
+    printf("the padding modes of fdwFlags\n");
+    for (i = 0; i < LIFETIME_FRAMES * LIFETIME_CHANNELS; i++) {
+        src[i] = noise_sample(&state);
+    }
+    for (m = 0; m < sizeof(modes) / sizeof(modes[0]); m++) {
+        fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 128000);
+        mp3.fdwFlags = modes[m].flags;
+        memset(&scan, 0, sizeof(scan));
+        if (encode_whole_as(had, &mp3, &src[0], LIFETIME_FRAMES, &out)) {
+            mp3_scan_frames(out.data(), (long) out.size(), LIFETIME_RATE, &scan);
+        }
+        sprintf(detail, "%d frame(s), %d bitrate(s), %d kbit/s", scan.frames, scan.distinct, scan.sole_kbps);
+        ctest_record(scan.frames > 0 && scan.distinct == 1 && scan.sole_kbps == 128, modes[m].what, detail);
+    }
+    fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 128000);
+    mp3.fdwFlags = ACM_FLAGS_ABR;
+    memset(&scan, 0, sizeof(scan));
+    if (encode_whole_as(had, &mp3, &src[0], LIFETIME_FRAMES, &out)) {
+        mp3_scan_frames(out.data(), (long) out.size(), LIFETIME_RATE, &scan);
+    }
+    sprintf(detail, "%d frame(s), %d bitrate(s)", scan.frames, scan.distinct);
+    ctest_record(scan.frames > 0 && scan.distinct > 1, "the codec's ABR entry encodes ABR", detail);
+}
+
+/**
  * @brief Checks that a partial sample frame at the end of the source is
  *        reported as not used.
  *
@@ -2489,6 +2543,7 @@ test_under_the_acm(const char *driver)
     test_small_destination_kept(had);
     test_last_frame_unused(had);
     test_sizes_hold_every_conversion(had);
+    test_padding_modes_are_cbr(had);
     test_partial_sample_frame(had);
 
 out:

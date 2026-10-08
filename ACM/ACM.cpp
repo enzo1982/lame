@@ -64,8 +64,10 @@ char ACM::VersionString[VERSION_STRING_CHARS];
 
 #define PERSONAL_FORMAT WAVE_FORMAT_MPEGLAYER3
 
-/// The fdwFlags value of the ABR formats that this codec lists.
-static const DWORD FORMAT_FLAGS_ABR = MPEGLAYER3_FLAG_PADDING_OFF;
+/// The fdwFlags bit of the ABR formats that this codec lists. Windows defines
+/// fdwFlags as the padding mode (MPEGLAYER3_FLAG_PADDING_ISO, _ON and _OFF);
+/// this bit is none of them.
+static const DWORD FORMAT_FLAGS_ABR = 0x80000000;
 /// The fdwFlags value of the CBR formats that this codec lists.
 static const DWORD FORMAT_FLAGS_CBR = 4;
 #define SIZE_FORMAT_STRUCT sizeof(MPEGLAYER3WAVEFORMAT)
@@ -1048,16 +1050,16 @@ inline DWORD ACM::OnStreamConvert(LPACMDRVSTREAMINSTANCE a_StreamInstance, LPACM
 
 
 /*!
-	Tells whether the flags of an MPEG Layer-3 format describe an ABR stream.
+	Tells whether the flags of an MPEG Layer-3 format describe an ABR stream:
+	only a format with the ABR bit of this codec's list does. Every padding
+	mode that Windows defines describes a CBR stream.
 
-	\param the_Flags the fdwFlags member of a MPEGLAYER3WAVEFORMAT that this
-	       codec filled in
+	\param the_Flags the fdwFlags member of a MPEGLAYER3WAVEFORMAT
 	\return true for an ABR stream, false for a CBR stream
 */
 bool ACM::IsABRFormatFlags(const DWORD the_Flags)
 {
-	// this is the only way I found to know if we do CBR or ABR
-	return the_Flags == FORMAT_FLAGS_ABR;
+	return (the_Flags & FORMAT_FLAGS_ABR) != 0;
 }
 
 /*!

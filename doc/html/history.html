@@ -650,6 +650,10 @@
 			    <li>Programs that encode through DirectShow's ACM Wrapper
 			        get the whole input encoded by the ACM codec, for every
 			        format the codec offers there.</li>
+			    <li>A program that builds its own MP3 format gets CBR at the
+			        bitrate it sets, whatever padding mode it names. An ABR
+			        format saved from the codec's list of an earlier version
+			        opens as CBR; choose it again from the list.</li>
 			    <li>Programs that list the ACM codec's format tags get the
 			        right index for each tag, and asking for the tag with
 			        the largest format no longer fails.</li>
