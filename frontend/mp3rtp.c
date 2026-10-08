@@ -307,11 +307,7 @@ lame_main(lame_t gf, int argc, char **argv)
                                               mp3buffer, sizeof(mp3buffer));
         }
         if (mp3bytes < 0) {
-            if (mp3bytes == LAME_BADINPUTDATA)
-                error_printf("Error: the input holds a sample that is not a number, is infinite,\n"
-                             "       or is more than 4096 times full scale.\n");
-            else
-                error_printf("mp3rtp: encoding failed with error %d\n", mp3bytes);
+            error_printf("Error: %s (error %d)\n", frontend_encode_error_text(mp3bytes), mp3bytes);
             rtp_deinitialization();
             fclose(outf);
             close_infile();

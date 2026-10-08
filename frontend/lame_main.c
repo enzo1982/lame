@@ -725,13 +725,7 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
 
                 /* was our output buffer big enough? */
                 if (imp3 < 0) {
-                    if (imp3 == -1)
-                        error_printf("mp3 buffer is not big enough... \n");
-                    else if (imp3 == LAME_BADINPUTDATA)
-                        error_printf("Error: the input holds a sample that is not a number, is infinite,\n"
-                                     "       or is more than 4096 times full scale.\n");
-                    else
-                        error_printf("mp3 internal error:  error code=%i\n", imp3);
+                    error_printf("Error: %s (error %d)\n", frontend_encode_error_text(imp3), imp3);
                     return 1;
                 }
                 brhist_add_encoded_bytes(imp3);
@@ -758,12 +752,8 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
         imp3 = lame_encode_flush(gf, mp3buffer, sizeof(mp3buffer)); /* may return one more mp3 frame */
 
     if (imp3 < 0) {
-        if (imp3 == -1)
-            error_printf("mp3 buffer is not big enough... \n");
-        else
-            error_printf("mp3 internal error:  error code=%i\n", imp3);
+        error_printf("Error: %s (error %d)\n", frontend_encode_error_text(imp3), imp3);
         return 1;
-
     }
 
     /*  Before the closing display, not after the write below it: the flush is

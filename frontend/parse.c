@@ -1141,6 +1141,40 @@ frontend_init_params(lame_global_flags * gfp)
     return ret;
 }
 
+/**
+ * @internal
+ * @brief Returns the message for a negative result of an encode or flush call.
+ *
+ * The codes are the ones that lame_encode_buffer() and lame_encode_flush()
+ * document.
+ *
+ * @param code  the result of the call.
+ * @return the message, without a line break.
+ */
+const char *
+frontend_encode_error_text(int code)
+{
+    switch (code) {
+    case -1:
+        return "the output buffer is too small";
+    case -2:
+        return "the encoder is out of memory";
+    case -3:
+        return "the encoder is not set up";
+    case -4:
+        return "the psychoacoustic model failed";
+    case -6:
+        return "the ReplayGain analysis of the resampled input failed";
+    case LAME_BADINPUTDATA:
+        return "the input holds a sample that is not a number, is infinite, "
+            "or is more than 4096 times full scale";
+    case LAME_INTERNALERROR:
+        return "the encoder could not fit a frame into its bits";
+    default:
+        return "the encoder failed";
+    }
+}
+
 
 /*  note: for presets it would be better to externalize them in a file.
     suggestion:  lame --preset <file-name> ...

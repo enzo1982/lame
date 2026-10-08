@@ -46,6 +46,7 @@
 #include "lame_global_flags.h"  /* lame_global_flags::internal_flags */
 #include "util.h"               /* lame_internal_flags, hip_set_pinfo */
 #include "console.h"            /* error_printf, error_flush */
+#include "parse.h"              /* frontend_encode_error_text */
 #include "mp3x_core.h"
 
 
@@ -270,8 +271,7 @@ mp3x_core_makeframe(lame_global_flags *gfp)
                                               core_state.buffer[1], iread,
                                               mp3buffer, sizeof(mp3buffer));
             if (mp3count < 0) {
-                error_printf("mp3x: lame_encode_buffer failed with error %d\n",
-                             mp3count);
+                error_printf("Error: %s (error %d)\n", frontend_encode_error_text(mp3count), mp3count);
                 error_flush();
                 return mp3count;
             }
@@ -290,8 +290,7 @@ mp3x_core_makeframe(lame_global_flags *gfp)
              */
             mp3count = lame_encode_flush(gfp, mp3buffer, sizeof(mp3buffer));
             if (mp3count < 0) {
-                error_printf("mp3x: lame_encode_flush failed with error %d\n",
-                             mp3count);
+                error_printf("Error: %s (error %d)\n", frontend_encode_error_text(mp3count), mp3count);
                 error_flush();
                 return mp3count;
             }
