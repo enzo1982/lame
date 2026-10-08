@@ -32,21 +32,20 @@
 # include <stdint.h>
 #endif
 
-struct rtpbits {
-    unsigned int sequence:16; /* sequence number: random */
-    unsigned int pt:7;        /* payload type: 14 for MPEG audio */
-    unsigned int m:1;         /* marker: 0 */
-    unsigned int cc:4;        /* number of CSRC identifiers: 0 */
-    unsigned int x:1;         /* number of extension headers: 0 */
-    unsigned int p:1;         /* is there padding appended: 0 */
-    unsigned int v:2;         /* version: 2 */
-};
+/** The size of the RTP header (12 bytes) and the MPEG audio header (4 bytes) that
+    starts each packet. */
+#define RTP_HEADER_SIZE 16
+/** The RTP version, in the top two bits of the first byte of the header. The
+    other bits of that byte are 0: no padding, no extension, no CSRC identifiers. */
+#define RTP_VERSION 2
+/** The second byte of the RTP header: no marker, payload type 14 (MPEG audio). */
+#define RTP_PAYLOAD_TYPE_MPEG_AUDIO 14
 
-struct rtpheader {           /* in network byte order */
-    struct rtpbits b;
-    int     timestamp;       /* start: random */
-    int     ssrc;            /* random */
-    int     iAudioHeader;    /* =0?! */
+/** @internal @brief The fields of the RTP header that are not constant. */
+struct rtp_state {
+    unsigned int sequence;    /**< sequence number, 16 bits: random start */
+    unsigned long timestamp;  /**< 32 bits: random start */
+    unsigned long ssrc;       /**< 32 bits: random */
 };
 
 
@@ -108,7 +107,7 @@ typedef int SOCKET;
 
 #define MAX_PORT_LENGTH 6       /* "65535" and its terminator */
 
-struct rtpheader RTPheader;
+static struct rtp_state RTPheader;
 SOCKET  rtpsocket;
 
 
@@ -315,24 +314,52 @@ rtp_close_extra(void)
 #endif
 
 
+/**
+ * @internal
+ * @brief Stores a 32 bit value, most significant byte first.
+ *
+ * @param p  where to store the value.
+ * @param v  the value. Only its low 32 bits are stored.
+ */
+static void
+put_uint32_be(unsigned char *p, unsigned long v)
+{
+    p[0] = (unsigned char) ((v >> 24) & 0xFF);
+    p[1] = (unsigned char) ((v >> 16) & 0xFF);
+    p[2] = (unsigned char) ((v >> 8) & 0xFF);
+    p[3] = (unsigned char) (v & 0xFF);
+}
+
+/**
+ * @internal
+ * @brief Writes the RTP header and the MPEG audio header of the next packet.
+ *
+ * @param hdr  receives RTP_HEADER_SIZE bytes, in network byte order.
+ */
+static void
+write_rtp_header(unsigned char *hdr)
+{
+    hdr[0] = RTP_VERSION << 6;
+    hdr[1] = RTP_PAYLOAD_TYPE_MPEG_AUDIO;
+    hdr[2] = (unsigned char) ((RTPheader.sequence >> 8) & 0xFF);
+    hdr[3] = (unsigned char) (RTPheader.sequence & 0xFF);
+    put_uint32_be(hdr + 4, RTPheader.timestamp);
+    put_uint32_be(hdr + 8, RTPheader.ssrc);
+    put_uint32_be(hdr + 12, 0); /* MPEG audio header: not fragmented */
+}
+
 static int
 rtp_send(unsigned char const *data, int len)
 {
     SOCKET  s = rtpsocket;
-    struct rtpheader *foo = &RTPheader;
-    char   *buffer = malloc(len + sizeof(struct rtpheader));
-    int    *cast = (int *) foo;
-    int    *outcast = (int *) buffer;
+    char   *buffer = malloc(len + RTP_HEADER_SIZE);
     int     count, size;
 
     if (buffer == NULL)
         return -1;
-    outcast[0] = htonl(cast[0]);
-    outcast[1] = htonl(cast[1]);
-    outcast[2] = htonl(cast[2]);
-    outcast[3] = htonl(cast[3]);
-    memmove(buffer + sizeof(struct rtpheader), data, len);
-    size = len + sizeof(*foo);
+    write_rtp_header((unsigned char *) buffer);
+    memmove(buffer + RTP_HEADER_SIZE, data, len);
+    size = len + RTP_HEADER_SIZE;
     count = send(s, buffer, size, 0);
     free(buffer);
 
@@ -343,24 +370,16 @@ void
 rtp_output(unsigned char const *mp3buffer, int mp3size)
 {
     rtp_send(mp3buffer, mp3size);
-    RTPheader.timestamp += 5;
-    RTPheader.b.sequence++;
+    RTPheader.timestamp = (RTPheader.timestamp + 5) & 0xFFFFFFFFul;
+    RTPheader.sequence = (RTPheader.sequence + 1) & 0xFFFF;
 }
 
 void
 rtp_initialization(void)
 {
-    struct rtpheader *foo = &RTPheader;
-    foo->b.v = 2;
-    foo->b.p = 0;
-    foo->b.x = 0;
-    foo->b.cc = 0;
-    foo->b.m = 0;
-    foo->b.pt = 14;     /* MPEG Audio */
-    foo->b.sequence = rand() & 65535;
-    foo->timestamp = rand();
-    foo->ssrc = rand();
-    foo->iAudioHeader = 0;
+    RTPheader.sequence = rand() & 0xFFFF;
+    RTPheader.timestamp = (unsigned long) rand();
+    RTPheader.ssrc = (unsigned long) rand();
     rtp_initialization_extra();
 }
 
