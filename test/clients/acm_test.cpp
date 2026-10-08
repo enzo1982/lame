@@ -2584,7 +2584,8 @@ test_settings_on_start(const char *driver)
  *   stream, in CBR and in ABR. Every frame is 11025 Hz, and the frames last as
  *   long as the input. A 44100 Hz stream is the control for the length. The
  *   ABR stream uses the MPEG-2.5 range, so some frames are below 32 kbit/s.
- * - Without Smart Output, the 11025 Hz stream does not open.
+ * - Without Smart Output, the 11025 Hz stream does not open, nor does a stream
+ *   that LAME rejects: one at 50 Hz, or at 96000 Hz, which MP3 does not have.
  *
  * An installed codec reads its configuration file from its own folder. Here
  * the test adds the codec with @c ACM_DRIVERADDF_FUNCTION, and then the codec
@@ -2715,14 +2716,20 @@ test_settings_reach_the_encoder(const char *driver)
     } else {
         mr = encode_stereo_tone(driver, low_rate, 2, low_bps, ACM_FLAGS_CBR, &c);
         CHECK(mr != MMSYSERR_NOERROR, "without Smart Output, a 44100 Hz to 11025 Hz stream does not open");
-        /* The codec accepts the formats of a 50 Hz stream. lame_init_params()
-           rejects it: the lowest MP3 rate is more than 128 times as high.
-           48000 Hz is the control. */
+        /* The codec accepts the formats of a 50 Hz stream, and LAME rejects
+           it: MP3 has no such rate. 48000 Hz is the control. */
         CHECK_EQ_U(stream_open_result(driver, 50, 0), ACMERR_NOTPOSSIBLE,
                    "a 50 Hz stream, which LAME rejects, does not open");
         CHECK_EQ_U(stream_open_result(driver, 50, ACM_STREAMOPENF_QUERY), ACMERR_NOTPOSSIBLE,
                    "a query for a 50 Hz stream fails");
         CHECK_MM(stream_open_result(driver, 48000, 0), "a 48000 Hz stream opens");
+        /* MP3 has no 96000 Hz rate, so lame_set_out_samplerate() rejects
+           it. LAME would otherwise pick 48000 Hz for a stream whose format
+           says 96000 Hz. */
+        CHECK_EQ_U(stream_open_result(driver, 96000, 0), ACMERR_NOTPOSSIBLE,
+                   "a 96000 Hz stream, whose rate MP3 does not have, does not open");
+        CHECK_EQ_U(stream_open_result(driver, 96000, ACM_STREAMOPENF_QUERY), ACMERR_NOTPOSSIBLE,
+                   "a query for a 96000 Hz stream fails");
     }
 
     test_settings_on_start(driver);

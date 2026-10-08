@@ -145,6 +145,24 @@ acm_report(const char *format, va_list ap)
 	acm_report_target->OutPut(DEBUG_LEVEL_FUNC_DEBUG, "%s", line);
 }
 
+/**
+ * \brief Writes a setting that LAME rejected into the debug log of a stream.
+ *
+ * \param log     the debug log of the stream.
+ * \param result  what the setter returned.
+ * \param setter  the name of the setter.
+ * \param value   the value the setter was given.
+ * \return true if the setter took the value.
+ */
+static bool
+setting_taken(const ADbg & log, int result, const char *setter, int value)
+{
+	if (result == 0)
+		return true;
+	log.OutPut(DEBUG_LEVEL_FUNC_CODE, "%s(%d) failed (%d)", setter, value, result);
+	return false;
+}
+
 bool ACMStream::init(const int nSamplesPerSec, const int nOutputSamplesPerSec, const int nChannels, const int nOutputChannels, const int nAvgBytesPerSec, const vbr_mode mode)
 {
 	bool bResult = false;
@@ -224,12 +242,13 @@ void ACMStream::read_settings(const AEncodeProperties & the_Properties)
 	\brief Starts a new encoder with the settings that open() or restart()
 	read. The encoder that runs, if any, is closed first.
 
-	\return false if lame_init() or lame_init_params() fails. The stream
-	        then has no encoder.
+	\return false if lame_init() fails, if LAME rejects a setting, or if
+	        lame_init_params() fails. The stream then has no encoder.
 */
 bool ACMStream::start()
 {
 	int init_result;
+	bool taken;
 
 	if (gfp != NULL)
 		lame_close( gfp );
@@ -242,57 +261,58 @@ bool ACMStream::start()
 	if (gfp == NULL)
 		return false;
 
-	// Set input sample frequency
-	lame_set_in_samplerate( gfp, my_SamplesPerSec );
+	// A setting that LAME rejects fails the start: LAME would encode with
+	// another value than the formats of the stream say
+	taken = setting_taken(my_debug, lame_set_in_samplerate( gfp, my_SamplesPerSec ),
+	                      "lame_set_in_samplerate", my_SamplesPerSec)
+		&& setting_taken(my_debug, lame_set_out_samplerate( gfp, my_OutSamplesPerSec ),
+		                 "lame_set_out_samplerate", my_OutSamplesPerSec)
+		&& setting_taken(my_debug, lame_set_num_channels( gfp, my_Channels ),
+		                 "lame_set_num_channels", my_Channels)
+		&& setting_taken(my_debug, lame_set_mode( gfp, my_Mode ), "lame_set_mode", my_Mode)
+		&& setting_taken(my_debug, lame_set_VBR( gfp, my_VBRMode ), "lame_set_VBR", my_VBRMode);
 
-	// Set output sample frequency
-	lame_set_out_samplerate( gfp, my_OutSamplesPerSec );
-
-	lame_set_num_channels( gfp, my_Channels );
-	lame_set_mode( gfp, my_Mode );
-
-//	lame_set_VBR( gfp, vbr_off ); /// \note VBR not supported for the moment
-	lame_set_VBR( gfp, my_VBRMode ); /// \note VBR not supported for the moment
-	
-	if (my_VBRMode == vbr_abr)
+	if (taken && my_VBRMode == vbr_abr)
 	{
-		lame_set_VBR_q( gfp, 1 );
+		int const mean_kbps = (my_AvgBytesPerSec * 8 + 500) / 1000;
+		// The bitrate range of MPEG-II below 24000 Hz, else of MPEG-I
+		int const min_kbps = 24000 > my_OutSamplesPerSec ? 8 : 32;
+		int const max_kbps = 24000 > my_OutSamplesPerSec ? 160 : 320;
 
-		lame_set_VBR_mean_bitrate_kbps( gfp, (my_AvgBytesPerSec * 8 + 500) / 1000 );
-
-		if (24000 > lame_get_out_samplerate( gfp ))
-		{
-			// For MPEG-II
-			lame_set_VBR_min_bitrate_kbps( gfp, 8);
-
-			lame_set_VBR_max_bitrate_kbps( gfp, 160);
-		}
-		else
-		{
-			// For MPEG-I
-			lame_set_VBR_min_bitrate_kbps( gfp, 32);
-
-			lame_set_VBR_max_bitrate_kbps( gfp, 320);
-		}
+		taken = setting_taken(my_debug, lame_set_VBR_q( gfp, 1 ), "lame_set_VBR_q", 1)
+			&& setting_taken(my_debug, lame_set_VBR_mean_bitrate_kbps( gfp, mean_kbps ),
+			                 "lame_set_VBR_mean_bitrate_kbps", mean_kbps)
+			&& setting_taken(my_debug, lame_set_VBR_min_bitrate_kbps( gfp, min_kbps ),
+			                 "lame_set_VBR_min_bitrate_kbps", min_kbps)
+			&& setting_taken(my_debug, lame_set_VBR_max_bitrate_kbps( gfp, max_kbps ),
+			                 "lame_set_VBR_max_bitrate_kbps", max_kbps);
 	}
 
-	// Set bitrate
-	lame_set_brate( gfp, my_AvgBytesPerSec * 8 / 1000 );
-
 	/// \todo Get the mode from the default configuration
-	// Set copyright flag?
-	lame_set_copyright( gfp, my_Copyright?1:0 );
-	// Do we have to tag  it as non original 
-	lame_set_original( gfp, my_Original?1:0 );
-	// Add CRC?
-	lame_set_error_protection( gfp, my_CRC?1:0 );
-	// Set private bit?
-	lame_set_extension( gfp, my_Private?1:0 );
-	// Use the bit reservoir?
-	lame_set_disable_reservoir( gfp, my_NoBitRes?1:0 );
-	// INFO tag support not possible in ACM - it requires rewinding 
-        // output stream to the beginning after encoding is finished.   
-	lame_set_bWriteVbrTag( gfp, 0 );
+	// The bitrate, the header bits and the bit reservoir. No INFO tag: it
+	// needs the start of the output again after the encoding, and an ACM
+	// stream cannot go back.
+	taken = taken
+		&& setting_taken(my_debug, lame_set_brate( gfp, my_AvgBytesPerSec * 8 / 1000 ),
+		                 "lame_set_brate", my_AvgBytesPerSec * 8 / 1000)
+		&& setting_taken(my_debug, lame_set_copyright( gfp, my_Copyright?1:0 ),
+		                 "lame_set_copyright", my_Copyright?1:0)
+		&& setting_taken(my_debug, lame_set_original( gfp, my_Original?1:0 ),
+		                 "lame_set_original", my_Original?1:0)
+		&& setting_taken(my_debug, lame_set_error_protection( gfp, my_CRC?1:0 ),
+		                 "lame_set_error_protection", my_CRC?1:0)
+		&& setting_taken(my_debug, lame_set_extension( gfp, my_Private?1:0 ),
+		                 "lame_set_extension", my_Private?1:0)
+		&& setting_taken(my_debug, lame_set_disable_reservoir( gfp, my_NoBitRes?1:0 ),
+		                 "lame_set_disable_reservoir", my_NoBitRes?1:0)
+		&& setting_taken(my_debug, lame_set_bWriteVbrTag( gfp, 0 ), "lame_set_bWriteVbrTag", 0);
+
+	if (!taken)
+	{
+		lame_close( gfp );
+		gfp = NULL;
+		return false;
+	}
 
 	// The library's messages and the settings, into the debug log of this
 	// stream; lame_init_params() takes the message function over
