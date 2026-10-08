@@ -635,7 +635,7 @@ lame_get_file_size(FILE * fp)
 
 
 FILE   *
-init_outfile(char const *outPath, int decode)
+init_outfile(char const *outPath, LAME_UNUSED int decode)
 {
     FILE   *outf;
 
@@ -665,8 +665,6 @@ init_outfile(char const *outPath, int decode)
                 free(out_path);
             }
         }
-#else
-        (void) decode;
 #endif
     }
     return outf;
@@ -2533,16 +2531,14 @@ get_hip(void)
 }
 
 size_t
-sizeOfOldTag(lame_t gf)
+sizeOfOldTag(LAME_UNUSED lame_t gf)
 {
-    (void) gf;
     return global.in_id3v2_size;
 }
 
 unsigned char*
-getOldTag(lame_t gf)
+getOldTag(LAME_UNUSED lame_t gf)
 {
-    (void) gf;
     return global.in_id3v2_tag;
 }
 

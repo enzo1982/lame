@@ -82,6 +82,7 @@
 #include "parse.h"
 #include "get_audio.h"
 #include "console.h"
+#include "machine.h"
 #include "mp3x_core.h"
 #include "mp3x_plot.h"
 #include "mp3x_session.h"
@@ -548,11 +549,10 @@ on_open_dialog_finished(GObject *source, GAsyncResult *res, gpointer user_data)
 }
 
 static void
-act_open(GSimpleAction *action, GVariant *parameter, gpointer user_data)
+act_open(LAME_UNUSED GSimpleAction *action, LAME_UNUSED GVariant *parameter, gpointer user_data)
 {
     Mp3xDriver *d = user_data;
     FileDialogRequest *req;
-    (void) action; (void) parameter;
 
     if (d->shutting_down)
         return;
@@ -735,13 +735,12 @@ mp3x_recent_refresh(Mp3xDriver *d)
 }
 
 static void
-act_open_recent(GSimpleAction *action, GVariant *parameter, gpointer user_data)
+act_open_recent(LAME_UNUSED GSimpleAction *action, GVariant *parameter, gpointer user_data)
 {
     Mp3xDriver *d = user_data;
     const char *uri = g_variant_get_string(parameter, NULL);
     GFile      *gfile;
     GError     *err = NULL;
-    (void) action;
 
     if (d->shutting_down)
         return;
@@ -760,10 +759,9 @@ act_open_recent(GSimpleAction *action, GVariant *parameter, gpointer user_data)
  * ========================================================================== */
 
 static void
-act_close(GSimpleAction *action, GVariant *parameter, gpointer user_data)
+act_close(LAME_UNUSED GSimpleAction *action, LAME_UNUSED GVariant *parameter, gpointer user_data)
 {
     Mp3xDriver *d = user_data;
-    (void) action; (void) parameter;
     mp3x_driver_close_file(d);
 }
 
@@ -970,11 +968,10 @@ request_start_save(Mp3xDriver *d, int export_kind)
  * \param d  the driver.
  */
 static void
-act_export(GSimpleAction *a, GVariant *p, gpointer d)
+act_export(LAME_UNUSED GSimpleAction *a, GVariant *p, gpointer d)
 {
     gint32 const graph = g_variant_get_int32(p);
 
-    (void)a;
     if (graph < MP3X_GRAPH_COMPOSITE || graph > MP3X_GRAPH_SFB1)
         return;
     request_start_save(d, graph);
@@ -1223,8 +1220,8 @@ maybe_shot(Mp3xDriver *d)
     }
 }
 #else
-static void maybe_autoquit(Mp3xDriver *d) { (void) d; }
-static void maybe_shot(Mp3xDriver *d) { (void) d; }
+static void maybe_autoquit(LAME_UNUSED Mp3xDriver *d) { return; }
+static void maybe_shot(LAME_UNUSED Mp3xDriver *d) { return; }
 #endif
 
 
@@ -1433,18 +1430,18 @@ do_pause(Mp3xDriver *d)
 }
 
 static void
-on_playpause(GtkButton *btn, gpointer data)
+on_playpause(LAME_UNUSED GtkButton *btn, gpointer data)
 {
-    Mp3xDriver *d = data; (void) btn;
+    Mp3xDriver *d = data;
     Mp3xSession *s = d->session;
     if (s == NULL) return;
     if (s->running) do_pause(d); else do_play(d);
 }
 
 static void
-on_step(GtkButton *btn, gpointer data)
+on_step(LAME_UNUSED GtkButton *btn, gpointer data)
 {
-    Mp3xDriver *d = data; (void) btn;
+    Mp3xDriver *d = data;
     Mp3xSession *s = d->session;
     if (s == NULL || s->running) return;
     if (mp3x_core_disp_backpos() > 0) {
@@ -1458,9 +1455,9 @@ on_step(GtkButton *btn, gpointer data)
 }
 
 static void
-on_back(GtkButton *btn, gpointer data)
+on_back(LAME_UNUSED GtkButton *btn, gpointer data)
 {
-    Mp3xDriver *d = data; (void) btn;
+    Mp3xDriver *d = data;
     Mp3xSession *s = d->session;
     if (s == NULL) return;
     if (s->running) {
@@ -1482,17 +1479,15 @@ on_back(GtkButton *btn, gpointer data)
  * -------------------------------------------------------------------------- */
 
 static void
-activate_radio(GSimpleAction *action, GVariant *parameter, gpointer data)
+activate_radio(GSimpleAction *action, GVariant *parameter, LAME_UNUSED gpointer data)
 {
-    (void) data;
     g_action_change_state(G_ACTION(action), parameter);
 }
 
 static void
-activate_toggle(GSimpleAction *action, GVariant *parameter, gpointer data)
+activate_toggle(GSimpleAction *action, LAME_UNUSED GVariant *parameter, LAME_UNUSED gpointer data)
 {
     GVariant *state = g_action_get_state(G_ACTION(action));
-    (void) parameter; (void) data;
     g_action_change_state(G_ACTION(action),
                           g_variant_new_boolean(!g_variant_get_boolean(state)));
     g_variant_unref(state);
@@ -1602,14 +1597,117 @@ change_fullscreen_state(GSimpleAction *action, GVariant *state, gpointer data)
  * Menu transport wrappers - reuse the button handlers (which ignore button).
  * -------------------------------------------------------------------------- */
 
-static void act_playpause (GSimpleAction *a, GVariant *p, gpointer d){(void)a;(void)p;on_playpause(NULL,d);}
-static void act_step      (GSimpleAction *a, GVariant *p, gpointer d){(void)a;(void)p;on_step(NULL,d);}
-static void act_back      (GSimpleAction *a, GVariant *p, gpointer d){(void)a;(void)p;on_back(NULL,d);}
-static void act_adv10     (GSimpleAction *a, GVariant *p, gpointer d){(void)a;(void)p;do_advance(d,10);}
-static void act_adv100    (GSimpleAction *a, GVariant *p, gpointer d){(void)a;(void)p;do_advance(d,100);}
-static void act_last      (GSimpleAction *a, GVariant *p, gpointer d){(void)a;(void)p;do_advance(d,-1);}
-static void act_play      (GSimpleAction *a, GVariant *p, gpointer d){(void)a;(void)p;do_play(d);}
-static void act_pause     (GSimpleAction *a, GVariant *p, gpointer d){(void)a;(void)p;do_pause(d);}
+/**
+ * \internal
+ * \brief Menu action that starts or pauses the analysis, as the button does.
+ *
+ * \param a  the action, unused.
+ * \param p  the action parameter, unused.
+ * \param d  the driver.
+ */
+static void
+act_playpause(LAME_UNUSED GSimpleAction *a, LAME_UNUSED GVariant *p, gpointer d)
+{
+    on_playpause(NULL, d);
+}
+
+/**
+ * \internal
+ * \brief Menu action that shows the next frame, as the button does.
+ *
+ * \param a  the action, unused.
+ * \param p  the action parameter, unused.
+ * \param d  the driver.
+ */
+static void
+act_step(LAME_UNUSED GSimpleAction *a, LAME_UNUSED GVariant *p, gpointer d)
+{
+    on_step(NULL, d);
+}
+
+/**
+ * \internal
+ * \brief Menu action that shows the previous frame, as the button does.
+ *
+ * \param a  the action, unused.
+ * \param p  the action parameter, unused.
+ * \param d  the driver.
+ */
+static void
+act_back(LAME_UNUSED GSimpleAction *a, LAME_UNUSED GVariant *p, gpointer d)
+{
+    on_back(NULL, d);
+}
+
+/**
+ * \internal
+ * \brief Menu action that analyzes the next 10 frames.
+ *
+ * \param a  the action, unused.
+ * \param p  the action parameter, unused.
+ * \param d  the driver.
+ */
+static void
+act_adv10(LAME_UNUSED GSimpleAction *a, LAME_UNUSED GVariant *p, gpointer d)
+{
+    do_advance(d, 10);
+}
+
+/**
+ * \internal
+ * \brief Menu action that analyzes the next 100 frames.
+ *
+ * \param a  the action, unused.
+ * \param p  the action parameter, unused.
+ * \param d  the driver.
+ */
+static void
+act_adv100(LAME_UNUSED GSimpleAction *a, LAME_UNUSED GVariant *p, gpointer d)
+{
+    do_advance(d, 100);
+}
+
+/**
+ * \internal
+ * \brief Menu action that analyzes the frames up to the end of the file.
+ *
+ * \param a  the action, unused.
+ * \param p  the action parameter, unused.
+ * \param d  the driver.
+ */
+static void
+act_last(LAME_UNUSED GSimpleAction *a, LAME_UNUSED GVariant *p, gpointer d)
+{
+    do_advance(d, -1);
+}
+
+/**
+ * \internal
+ * \brief Menu action that starts the analysis.
+ *
+ * \param a  the action, unused.
+ * \param p  the action parameter, unused.
+ * \param d  the driver.
+ */
+static void
+act_play(LAME_UNUSED GSimpleAction *a, LAME_UNUSED GVariant *p, gpointer d)
+{
+    do_play(d);
+}
+
+/**
+ * \internal
+ * \brief Menu action that pauses the analysis.
+ *
+ * \param a  the action, unused.
+ * \param p  the action parameter, unused.
+ * \param d  the driver.
+ */
+static void
+act_pause(LAME_UNUSED GSimpleAction *a, LAME_UNUSED GVariant *p, gpointer d)
+{
+    do_pause(d);
+}
 
 
 /* --------------------------------------------------------------------------
@@ -1617,13 +1715,12 @@ static void act_pause     (GSimpleAction *a, GVariant *p, gpointer d){(void)a;(v
  * -------------------------------------------------------------------------- */
 
 static void
-act_stats(GSimpleAction *action, GVariant *parameter, gpointer user_data)
+act_stats(LAME_UNUSED GSimpleAction *action, LAME_UNUSED GVariant *parameter, gpointer user_data)
 {
     Mp3xDriver *d = user_data;
     const Mp3xStats *s = mp3x_core_stats();
     GtkWidget       *win, *label;
     char            *text;
-    (void) action; (void) parameter;
 
     text = g_strdup_printf(
         "frames processed so far: %d\n"
@@ -1719,11 +1816,10 @@ static const char mp3x_documentation[] =
     "analyzing .mp3 files.)";
 
 static void
-act_docs(GSimpleAction *action, GVariant *parameter, gpointer user_data)
+act_docs(LAME_UNUSED GSimpleAction *action, LAME_UNUSED GVariant *parameter, gpointer user_data)
 {
     Mp3xDriver *d = user_data;
     GtkWidget *win, *scroller, *label;
-    (void) action; (void) parameter;
 
     win = gtk_window_new();
     gtk_window_set_title(GTK_WINDOW(win), "Documentation");
@@ -1750,12 +1846,11 @@ act_docs(GSimpleAction *action, GVariant *parameter, gpointer user_data)
 }
 
 static void
-act_about(GSimpleAction *action, GVariant *parameter, gpointer user_data)
+act_about(LAME_UNUSED GSimpleAction *action, LAME_UNUSED GVariant *parameter, gpointer user_data)
 {
     Mp3xDriver *d = user_data;
     GtkAlertDialog *dlg = gtk_alert_dialog_new("mp3x");
     char        *detail, *decoder;
-    (void) action; (void) parameter;
 
 #ifdef HAVE_MPG123
     decoder = g_strdup_printf("decoder:  libmpg123 %s\n"
@@ -1780,10 +1875,9 @@ act_about(GSimpleAction *action, GVariant *parameter, gpointer user_data)
 }
 
 static void
-act_quit(GSimpleAction *action, GVariant *parameter, gpointer user_data)
+act_quit(LAME_UNUSED GSimpleAction *action, LAME_UNUSED GVariant *parameter, gpointer user_data)
 {
     Mp3xDriver *d = user_data;
-    (void) action; (void) parameter;
     mp3x_driver_request_shutdown(d);
 }
 
@@ -2275,11 +2369,10 @@ mp3x_driver_refresh_for_empty(Mp3xDriver *d)
  * ========================================================================== */
 
 static gboolean
-on_key(GtkEventControllerKey *kc, guint keyval, guint keycode,
-       GdkModifierType state, gpointer data)
+on_key(LAME_UNUSED GtkEventControllerKey *kc, guint keyval, LAME_UNUSED guint keycode,
+       LAME_UNUSED GdkModifierType state, gpointer data)
 {
     Mp3xDriver *d = data;
-    (void) kc; (void) keycode; (void) state;
 
     if (d->session == NULL)
         return FALSE;
@@ -2306,19 +2399,17 @@ on_key(GtkEventControllerKey *kc, guint keyval, guint keycode,
  * ========================================================================== */
 
 static gboolean
-on_close_request(GtkWindow *win, gpointer user_data)
+on_close_request(LAME_UNUSED GtkWindow *win, gpointer user_data)
 {
     Mp3xDriver *d = user_data;
-    (void) win;
     mp3x_driver_request_shutdown(d);
     return TRUE;   /* stop the default close; shutdown destroys the window */
 }
 
 static void
-on_window_destroy(GtkWindow *win, gpointer user_data)
+on_window_destroy(LAME_UNUSED GtkWindow *win, gpointer user_data)
 {
     Mp3xDriver *d = user_data;
-    (void) win;
     if (d->win == GTK_WINDOW(win))
         d->win = NULL;
 }
@@ -2628,13 +2719,11 @@ on_activate(GtkApplication *app, gpointer user_data)
  * ========================================================================== */
 
 int
-lame_main(lame_t main_c_gf_borrowed, int argc, char **argv)
+lame_main(LAME_UNUSED lame_t main_c_gf_borrowed, int argc, char **argv)
 {
     Mp3xDriver   *d;
     GtkApplication *app;
     int           status;
-
-    (void) main_c_gf_borrowed;   /* main.c owns and closes this; mp3x never uses it */
 
     d = mp3x_driver_new();
 

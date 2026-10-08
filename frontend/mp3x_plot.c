@@ -38,6 +38,7 @@
 
 #include "mp3x_core.h"          /* plotting_data + the shared pinfo/pplot */
 #include "mp3x_plot.h"
+#include "machine.h"
 
 #define PCM_POINTS     1600     /* plotting_data.pcmdata is [2][1600] */
 #define PCM_FULLSCALE  32768.0  /* 16-bit full scale */
@@ -317,13 +318,11 @@ png_finish(cairo_surface_t *surface, cairo_t *cr, const char *path,
  * ========================================================================== */
 
 static void
-pcm_render(GtkWidget *widget, cairo_t *cr, int width, int height, int gr)
+pcm_render(GtkWidget *widget, cairo_t *cr, int width, int height, LAME_UNUSED int gr)
 {
     Mp3xCanvas c;
     char    title[96];
     const char *chlabel;
-
-    (void) gr;  /* one PCM graph for both granules */
 
     mp3x_canvas_begin(&c, widget, cr, width, height,
                       -PCM_FULLSCALE, PCM_FULLSCALE);
@@ -355,7 +354,7 @@ pcm_render(GtkWidget *widget, cairo_t *cr, int width, int height, int gr)
  * ========================================================================== */
 
 static void
-resynth_render(GtkWidget *widget, cairo_t *cr, int width, int height, int gr)
+resynth_render(GtkWidget *widget, cairo_t *cr, int width, int height, LAME_UNUSED int gr)
 {
     Mp3xCanvas c;
     plotting_data *disp = pdisp;    /* the navigable display frame */
@@ -363,8 +362,6 @@ resynth_render(GtkWidget *widget, cairo_t *cr, int width, int height, int gr)
     double  orig[RESYN_POINTS];
     double  resyn[RESYN_POINTS];
     int     i, j;
-
-    (void) gr;  /* one re-synthesis graph for both granules */
 
     mp3x_canvas_begin(&c, widget, cr, width, height,
                       -PCM_FULLSCALE, PCM_FULLSCALE);

@@ -554,6 +554,7 @@ test_decode_scale_LDADD = $(CMOCKA_LIBS) \
 test_file_times_SOURCES = test_file_times.c $(top_srcdir)/frontend/lametime.c
 test_file_times_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/frontend \
+	-I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_file_times_LDADD = $(CMOCKA_LIBS)

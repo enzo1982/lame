@@ -46,6 +46,7 @@
 #include "timestatus.h"
 #include "brhist.h"
 #include "console.h"
+#include "machine.h"
 
 #ifdef WITH_DMALLOC
 #include <dmalloc.h>
@@ -471,8 +472,7 @@ decoder_progress(DecoderProgress dp, const mp3data_struct * mp3data, int iread)
 }
 
 void
-decoder_progress_finish(DecoderProgress dp)
+decoder_progress_finish(LAME_UNUSED DecoderProgress dp)
 {
-    (void) dp;
     console_printf("\n");
 }

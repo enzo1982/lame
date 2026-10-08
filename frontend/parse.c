@@ -1334,9 +1334,8 @@ presets_set(lame_t gfp, int fast, int cbr, const char *preset_name, const char *
 }
 
 static void
-genre_list_handler(int num, const char *name, void *cookie)
+genre_list_handler(int num, const char *name, LAME_UNUSED void *cookie)
 {
-    (void) cookie;
     console_printf("%3d %s\n", num, name);
 }
 

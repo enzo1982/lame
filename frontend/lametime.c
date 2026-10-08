@@ -47,6 +47,7 @@
 #endif
 
 #include "lametime.h"
+#include "machine.h"
 
 #if !defined(CLOCKS_PER_SEC)
 # warning Your system does not define CLOCKS_PER_SEC, guessing one...
@@ -129,7 +130,7 @@ GetRealTime(void)
 #endif
 
 int
-lame_set_stream_binary_mode(FILE * const fp)
+lame_set_stream_binary_mode(LAME_UNUSED FILE * const fp)
 {
 #if   defined __EMX__
     _fsetmode(fp, "b");
@@ -139,8 +140,6 @@ lame_set_stream_binary_mode(FILE * const fp)
     setmode(fileno(fp), O_BINARY);
 #elif defined _WIN32
     _setmode(_fileno(fp), _O_BINARY);
-#else
-    (void) fp;          /* doing nothing here, silencing the compiler only. */
 #endif
     return 0;
 }
@@ -171,7 +170,7 @@ lame_set_stream_binary_mode(FILE * const fp)
  * @return 0 on success, -1 otherwise.
  */
 int
-lame_read_file_times(char const *path, lame_file_times * times)
+lame_read_file_times(LAME_UNUSED char const *path, lame_file_times * times)
 {
     if (times == 0) {
         return -1;
@@ -192,8 +191,8 @@ lame_read_file_times(char const *path, lame_file_times * times)
         return 0;
     }
 #else
-    (void) path;        /* the system has no way to set them later, so there */
-    return -1;          /* is nothing to be gained by reading them now.      */
+    /* this build cannot set them later, so reading them now gains nothing. */
+    return -1;
 #endif
 }
 
@@ -210,7 +209,7 @@ lame_read_file_times(char const *path, lame_file_times * times)
  *         file times.
  */
 int
-lame_write_file_times(char const *path, lame_file_times const *times)
+lame_write_file_times(LAME_UNUSED char const *path, LAME_UNUSED lame_file_times const *times)
 {
 #ifdef LAME_HAVE_FILE_TIMES
     struct utimbuf when;
@@ -222,8 +221,8 @@ lame_write_file_times(char const *path, lame_file_times const *times)
     when.modtime = times->modtime;
     return utime(path, &when) == 0 ? 0 : -1;
 #else
-    (void) path;        /* the system has no way to set them; say so rather */
-    (void) times;       /* than report a success nothing performed.         */
+    /* the system has no way to set them; say so rather than report a
+       success nothing performed. */
     return -1;
 #endif
 }

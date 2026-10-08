@@ -33,6 +33,7 @@ char   *strchr(), *strrchr();
 #include "lame.h"
 #include "console.h"
 #include "main.h"
+#include "machine.h"
 
 #ifdef WITH_DMALLOC
 #include <dmalloc.h>
@@ -226,10 +227,9 @@ frontend_errorf(const char *format, va_list ap)
 }
 
 void
-frontend_print_null(const char *format, va_list ap)
+frontend_print_null(LAME_UNUSED const char *format, LAME_UNUSED va_list ap)
 {
-    (void) format;
-    (void) ap;
+    return;
 }
 
 int
