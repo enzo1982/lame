@@ -15,9 +15,10 @@
  *   - the value where the code lengths switch to escape coding,
  *   - the range where the narrowing to sixteen bits saturates.
  *
- * Each routine is checked against an independent scalar reference in this
- * file. The reference is not LAME's own scalar loop. Two versions of the same
- * loop can share a mistake and still agree.
+ * Each routine is checked against an independent scalar reference. The
+ * reference is not LAME's own scalar loop. Two versions of the same loop can
+ * share a mistake and still agree. The escape cases and their reference are
+ * in test_esc_cases.h, because the NEON test runs them as well.
  *
  * The tables are synthetic for the same reason. The routines take their
  * tables as arguments. So nothing here depends on the contents of LAME's
@@ -43,6 +44,7 @@
 #include "util.h"
 #include "quantize_pvt.h"
 #include "vector/lame_intrin.h"
+#include "test_esc_cases.h"
 
 /** Longest region that the encoder passes to the routines. */
 #define MAX_LEN 576
@@ -120,22 +122,6 @@ ref_max(const int *ix, int n)
     return m;
 }
 
-static unsigned int
-ref_esc(const int *ix, int n, unsigned int *nclamped)
-{
-    unsigned int sum = 0, nc = 0;
-    int     i;
-    for (i = 0; i < n; i += 2) {
-        unsigned int x = (unsigned int) ix[i];
-        unsigned int y = (unsigned int) ix[i + 1];
-        if (x >= 15u) { x = 15u; ++nc; }
-        if (y >= 15u) { y = 15u; ++nc; }
-        sum += largetbl_t[(x << 4u) + y];
-    }
-    *nclamped = nc;
-    return sum;
-}
-
 static void
 ref_from3(const int *ix, int n, int xlen, unsigned int sums[3])
 {
@@ -153,17 +139,6 @@ ref_from3(const int *ix, int n, int xlen, unsigned int sums[3])
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
 /* ------------------------------------------------------------------ */
-
-/** @brief Fills @p ix with a repeatable pseudo-random pattern in [0, hi]. */
-static void
-fill(int *ix, int n, int hi, unsigned int seed)
-{
-    int     i;
-    for (i = 0; i < n; ++i) {
-        seed = seed * 1103515245u + 12345u;
-        ix[i] = (int) ((seed >> 16) % (unsigned int) (hi + 1));
-    }
-}
 
 /* ------------------------------------------------------------------ */
 /* ix_max                                                              */
@@ -184,7 +159,7 @@ test_ix_max_lengths(LAME_UNUSED void **state)
     int     n;
 
     for (n = 2; n <= 80; n += 2) {
-        fill(ix, n, 8000, (unsigned int) n + 1u);
+        fill_pattern(ix, n, 8000, (unsigned int) n + 1u);
         assert_int_equal(ix_max_sse2(ix, ix + n), ref_max(ix, n));
         if (have_avx2())
             assert_int_equal(avx2_max(ix, ix + n), ref_max(ix, n));
@@ -254,66 +229,44 @@ test_ix_max_saturation(LAME_UNUSED void **state)
 /* count_bit_esc_sse2                                                  */
 /* ------------------------------------------------------------------ */
 
-/** @brief Checks that the sum and the clamp count agree with a scalar reference at every length. */
+/**
+ * @brief Runs esc_check_lengths() on the SSE2 routine.
+ * @param state cmocka fixture state (unused).
+ */
 static void
 test_esc_lengths(LAME_UNUSED void **state)
 {
-    int     ix[MAX_LEN];
-    int     n;
-
-    for (n = 2; n <= 80; n += 2) {
-        unsigned int nc_v = 12345, nc_r = 0;
-        unsigned int sv, sr;
-        fill(ix, n, 200, (unsigned int) n + 7u);
-        sv = count_bit_esc_sse2(ix, ix + n, largetbl_t, &nc_v);
-        sr = ref_esc(ix, n, &nc_r);
-        assert_int_equal(sv, sr);
-        assert_int_equal(nc_v, nc_r);
-    }
+    esc_check_lengths(count_bit_esc_sse2, largetbl_t);
 }
 
 /**
- * @brief Checks that 15 is clamped and 14 is not. Escape coding starts at
- *        this boundary.
- *
- * Each region has the same value in every position. So a count that is off
- * by one per block, per lane or per remainder cannot hide in a mixed sample.
+ * @brief Runs esc_check_clamp_boundary() on the SSE2 routine.
+ * @param state cmocka fixture state (unused).
  */
 static void
 test_esc_clamp_boundary(LAME_UNUSED void **state)
 {
-    int     ix[64];
-    int     v;
-
-    for (v = 13; v <= 17; ++v) {
-        unsigned int nc_v = 0, nc_r = 0;
-        unsigned int sv, sr;
-        int     i;
-        for (i = 0; i < 64; ++i)
-            ix[i] = v;
-        sv = count_bit_esc_sse2(ix, ix + 64, largetbl_t, &nc_v);
-        sr = ref_esc(ix, 64, &nc_r);
-        assert_int_equal(sv, sr);
-        assert_int_equal(nc_v, nc_r);
-        assert_int_equal(nc_v, v >= 15 ? 64u : 0u);
-    }
+    esc_check_clamp_boundary(count_bit_esc_sse2, largetbl_t);
 }
 
-/** @brief Checks that values far above the clamp still count once each, not more. */
+/**
+ * @brief Runs esc_check_large_values() on the SSE2 routine.
+ * @param state cmocka fixture state (unused).
+ */
 static void
 test_esc_large_values(LAME_UNUSED void **state)
 {
-    int     ix[64];
-    unsigned int nc_v = 0, nc_r = 0;
-    unsigned int sv, sr;
-    int     i;
+    esc_check_large_values(count_bit_esc_sse2, largetbl_t);
+}
 
-    for (i = 0; i < 64; ++i)
-        ix[i] = (i % 3 == 0) ? 40000 : 3;
-    sv = count_bit_esc_sse2(ix, ix + 64, largetbl_t, &nc_v);
-    sr = ref_esc(ix, 64, &nc_r);
-    assert_int_equal(sv, sr);
-    assert_int_equal(nc_v, nc_r);
+/**
+ * @brief Runs esc_check_reference_can_disagree() on the SSE2 routine.
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_esc_reference_can_disagree(LAME_UNUSED void **state)
+{
+    esc_check_reference_can_disagree(count_bit_esc_sse2, largetbl_t);
 }
 
 /* ------------------------------------------------------------------ */
@@ -339,7 +292,7 @@ test_from3_widths(LAME_UNUSED void **state)
         int     n;
         for (n = 2; n <= 80; n += 2) {
             unsigned int sv[3], sr[3];
-            fill(ix, n, cases[c].maxv, (unsigned int) (n + cases[c].xlen));
+            fill_pattern(ix, n, cases[c].maxv, (unsigned int) (n + cases[c].xlen));
             count_bit_noESC_from3_sse2(ix, ix + n, cases[c].xlen,
                                        hlen_a, hlen_b, hlen_c, sv);
             ref_from3(ix, n, cases[c].xlen, sr);
@@ -409,6 +362,7 @@ main(void)
         cmocka_unit_test(test_esc_lengths),
         cmocka_unit_test(test_esc_clamp_boundary),
         cmocka_unit_test(test_esc_large_values),
+        cmocka_unit_test(test_esc_reference_can_disagree),
         cmocka_unit_test(test_from3_widths),
         cmocka_unit_test(test_from3_index_extremes),
         cmocka_unit_test(test_reference_can_disagree),

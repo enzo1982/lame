@@ -1398,8 +1398,8 @@ SH_LOG_COMPILER = $(SHELL)
 @ENABLE_UNIT_TESTS_TRUE@@WITH_XMM_TRUE@	$(am__append_10)
 
 # The ARM tier carries one routine, so it gets one test program rather than an
-# arm of the x86 file - that one names the SSE2 and AVX2 routines throughout, so
-# there is no shared body to add to.
+# arm of the x86 file, which tests four. The escape cases that both programs run
+# are in test_esc_cases.h.
 #
 # OUTSIDE the WITH_XMM block above, which is the whole point: the first version
 # of this sat inside it, so on an ARM host - where WITH_XMM is false - the
@@ -1475,7 +1475,7 @@ SH_LOG_COMPILER = $(SHELL)
 EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
 	test_calc_sfb_noise_vector.c test_choose_table_neon.c \
 	test_rtp_socket.c test_unused.h test_fixture.h test_mem.h \
-	test_pkgconfig.sh test_exit_status.sh
+	test_esc_cases.h test_pkgconfig.sh test_exit_status.sh
 all: all-am
 
 .SUFFIXES:

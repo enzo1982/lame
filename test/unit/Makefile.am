@@ -444,8 +444,8 @@ endif
 endif
 
 # The ARM tier carries one routine, so it gets one test program rather than an
-# arm of the x86 file - that one names the SSE2 and AVX2 routines throughout, so
-# there is no shared body to add to.
+# arm of the x86 file, which tests four. The escape cases that both programs run
+# are in test_esc_cases.h.
 #
 # OUTSIDE the WITH_XMM block above, which is the whole point: the first version
 # of this sat inside it, so on an ARM host - where WITH_XMM is false - the
@@ -515,7 +515,7 @@ EXTRA_DIST = test_choose_table_vector.c test_quantize_lines_vector.c \
 
 # Headers shared by the tests; they are not _SOURCES files, so they have to be
 # named for the tarball explicitly.
-EXTRA_DIST += test_unused.h test_fixture.h test_mem.h
+EXTRA_DIST += test_unused.h test_fixture.h test_mem.h test_esc_cases.h
 
 # Likewise the pkg-config test: it is a TESTS entry rather than a _SOURCES
 # file, and it is inside the --enable-unit-tests conditional, so neither route
