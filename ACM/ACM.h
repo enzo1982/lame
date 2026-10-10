@@ -1,6 +1,6 @@
 /**
  *
- * Lame ACM wrapper, encode/decode MP3 based RIFF/AVI files in MS Windows
+ * Lame ACM wrapper, encode MP3 based RIFF/AVI files in MS Windows
  *
  *  Copyright (c) 2002 Steve Lhomme <steve.lhomme at free.fr>
  *
@@ -69,7 +69,6 @@ public:
 	static const unsigned int VERSION_STRING_CHARS = 120;
 
 protected:
-//	inline DWORD Configure( HWND hParentWindow, LPDRVCONFIGINFO pConfig );
 	inline DWORD About( HWND hParentWindow );
 
 	inline DWORD OnDriverDetails(const HDRVR hdrvr, LPACMDRIVERDETAILS a_DriverDetail);

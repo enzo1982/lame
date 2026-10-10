@@ -1,6 +1,6 @@
 /**
  *
- * Lame ACM wrapper, encode/decode MP3 based RIFF/AVI files in MS Windows
+ * Lame ACM wrapper, encode MP3 based RIFF/AVI files in MS Windows
  *
  *  Copyright (c) 2002 Steve Lhomme <steve.lhomme at free.fr>
  *
@@ -37,9 +37,7 @@
 #include <vector>
 
 #include "ADbg/ADbg.h"
-//#include "BladeMP3EncDLL.h"
 #include "tinyxml/tinyxml.h"
-//#include "AParameters/AParameters.h"
 
 typedef const struct {
 	UINT id;
@@ -195,14 +193,6 @@ public:
 	inline unsigned int GetAbrBitrateStep() const { return AverageBitrate_Step;}
 	static std::vector<unsigned int> AbrLadder(unsigned int min, unsigned int max, unsigned int step);
 
-#if 0
-//	const char * GetDllLocation() const { return DllLocation.c_str(); }
-//	void SetDllLocation( const char * the_string ) { DllLocation = the_string; }
-
-//	const char * GetOutputDirectory() const { return OutputDir.c_str(); }
-//	void SetOutputDirectory( const char * the_string ) { OutputDir = the_string; }
-#endif
-
 	/**
 		\brief Returns the channel mode to use.
 	*/
@@ -278,7 +268,7 @@ public:
 	*/
 	void UpdateDlgFromSlides(HWND parent_window) const;
 
-	static ToolTipItem Tooltips[15];
+	static ToolTipItem Tooltips[14];
 private:
 
 	bool bCopyright;
@@ -308,17 +298,9 @@ private:
 	static void FillBitrateTables();
 	int nMinBitrateIndex; // CBR and VBR
 
-//	char DllLocation[512];
-//	std::string DllLocation;
-//	char OutputDir[MAX_PATH];
-//	std::string OutputDir;
-
-//	AParameters my_base_parameters;
 	TiXmlDocument my_stored_data;
 	std::string my_store_location;
 	std::string my_current_config;
-
-//	HINSTANCE hDllInstance;
 
 	void SaveValuesToElement(TiXmlElement * the_element) const;
 	static inline void SetAttributeBool(TiXmlElement * the_elt,const std::string & the_string, const bool the_value);

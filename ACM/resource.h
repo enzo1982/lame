@@ -5,7 +5,6 @@
 #define IDI_ICON                        101
 #define IDD_CONFIG                      102
 #define IDD_ABOUT                       103
-#define IDC_STATIC_DECODING             1000
 #define IDC_CHECK_COPYRIGHT             1001
 #define IDC_CHECK_CHECKSUM              1002
 #define IDC_CHECK_ORIGINAL              1003

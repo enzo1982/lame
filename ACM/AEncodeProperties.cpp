@@ -1,6 +1,6 @@
 /**
  *
- * Lame ACM wrapper, encode/decode MP3 based RIFF/AVI files in MS Windows
+ * Lame ACM wrapper, encode MP3 based RIFF/AVI files in MS Windows
  *
  *  Copyright (c) 2002 Steve Lhomme <steve.lhomme at free.fr>
  *
@@ -44,7 +44,6 @@
 #include "adebug.h"
 #include "AEncodeProperties.h"
 #include "ACM.h"
-//#include "AParameters/AParameters.h"
 
 #ifndef TTS_BALLOON
 #define TTS_BALLOON            0x40
@@ -61,10 +60,8 @@ unsigned int AEncodeProperties::the_Bitrates[18];
 unsigned int AEncodeProperties::the_MPEG1_Bitrates[14];
 unsigned int AEncodeProperties::the_MPEG2_Bitrates[14];
 const unsigned int AEncodeProperties::the_ChannelModes[4] = { STEREO, JOINT_STEREO, DUAL_CHANNEL, MONO };
-//const char         AEncodeProperties::the_Presets[][13] = {"None", "CD", "Studio", "Hi-Fi", "Phone", "Voice", "Radio", "Tape", "FM", "AM", "SW"};
-//const LAME_QUALTIY_PRESET AEncodeProperties::the_Presets[] = {LQP_NOPRESET, LQP_R3MIX_QUALITY, LQP_NORMAL_QUALITY, LQP_LOW_QUALITY, LQP_HIGH_QUALITY, LQP_VERYHIGH_QUALITY, LQP_VOICE_QUALITY, LQP_PHONE, LQP_SW, LQP_AM, LQP_FM, LQP_VOICE, LQP_RADIO, LQP_TAPE, LQP_HIFI, LQP_CD, LQP_STUDIO};
 
-ToolTipItem AEncodeProperties::Tooltips[15]={
+ToolTipItem AEncodeProperties::Tooltips[14]={
 	{ IDC_CHECK_ENC_ABR, "Allow encoding with an average bitrate\r\ninstead of a constant one.\r\n\r\nIt can improve the quality for the same bitrate." },
 	{ IDC_CHECK_COPYRIGHT, "Mark the encoded data as copyrighted." },
 	{ IDC_CHECK_CHECKSUM, "Put a checksum in the encoded data.\r\n\r\nThis can make the file less sensitive to data loss." },
@@ -73,7 +70,6 @@ ToolTipItem AEncodeProperties::Tooltips[15]={
 	{ IDC_CHECK_RESERVOIR, "Use the bit reservoir.\r\n\r\nA frame can then use bits that earlier frames left over.\r\nWithout it, every frame contains all of its own data." },
 	{ IDC_COMBO_ENC_STEREO, "Select the type of stereo mode used for encoding:\r\n\r\n- Stereo : the usual one\r\n- Joint-Stereo : mix both channel to achieve better compression\r\n- Dual Channel : treat both channel as separate\r\n- Mono : one channel" },
 	{ IDC_CHECK_CHANNELFORCE, "Use the selected mode even when the input has another number of channels.\r\n\r\nOnly Mono can be forced: stereo input is then encoded as mono." },
-	{ IDC_STATIC_DECODING, "Decoding not supported for the moment by the codec." },
 	{ IDC_CHECK_ENC_SMART, "Disable bitrate when there is too much compression.\r\n(default 1:15 ratio)" },
 	{ IDC_STATIC_CONFIG_VERSION, "Version of this codec.\r\n\r\nvX.X.X is the version of the codec interface.\r\nX.XX is the version of the encoding engine." },
 	{ IDC_SLIDER_AVERAGE_MIN, "Select the minimum Average Bitrate allowed." },
@@ -81,7 +77,40 @@ ToolTipItem AEncodeProperties::Tooltips[15]={
 	{ IDC_SLIDER_AVERAGE_STEP, "Select the step of Average Bitrate between the min and max.\r\n\r\nA step of 5 between 152 and 165 means you have :\r\n165, 160 and 155" },
 	{ IDC_SLIDER_AVERAGE_SAMPLE, "Check the resulting values of the (min,max,step) combination.\r\n\r\nUse the keyboard to navigate (right -> left)." },
 };
-//int AEncodeProperties::tst = 0;
+
+/** \name The names in the settings file
+    The file holds one \c lame_acm element with one \c encodings element.
+    That holds the \c config elements, each with its \c name, and its
+    \c default attribute names the one in use. A \c config element holds
+    one element per setting.
+    @{ */
+static const char ELEMENT_ROOT[]          = "lame_acm";
+static const char ELEMENT_ENCODINGS[]     = "encodings";
+static const char ELEMENT_CONFIG[]        = "config";
+static const char ELEMENT_SMART[]         = "Smart";
+static const char ELEMENT_ABR[]           = "ABR";
+static const char ELEMENT_COPYRIGHT[]     = "Copyright";
+static const char ELEMENT_CRC[]           = "CRC";
+static const char ELEMENT_ORIGINAL[]      = "Original";
+static const char ELEMENT_PRIVATE[]       = "Private";
+static const char ELEMENT_BIT_RESERVOIR[] = "Bit_reservoir";
+static const char ELEMENT_CHANNEL[]       = "Channel";
+static const char ATTRIBUTE_DEFAULT[]     = "default";
+static const char ATTRIBUTE_NAME[]        = "name";
+static const char ATTRIBUTE_USE[]         = "use";
+static const char ATTRIBUTE_RATIO[]       = "ratio";
+static const char ATTRIBUTE_MIN[]         = "min";
+static const char ATTRIBUTE_MAX[]         = "max";
+static const char ATTRIBUTE_STEP[]        = "step";
+static const char ATTRIBUTE_MODE[]        = "mode";
+static const char ATTRIBUTE_FORCE[]       = "force";
+static const char VALUE_TRUE[]            = "true";
+/** The one configuration that the codec reads and writes. */
+static const char CONFIG_CURRENT[]        = "Current";
+/** @} */
+
+/** The window property of the configuration dialog that holds its settings. */
+static const char DIALOG_PROPERTY[] = "AEncodeProperties-Config";
 
 /* The configuration file carries exactly one value that is not a whole number,
  * the smart-output ratio, and both directions below go through the C locale
@@ -153,7 +182,7 @@ static BOOL CALLBACK ConfigProc(
 {
 	BOOL bResult = FALSE;
 	AEncodeProperties * the_prop;
-	the_prop = (AEncodeProperties *) GetProp(hwndDlg, "AEncodeProperties-Config");
+	the_prop = (AEncodeProperties *) GetProp(hwndDlg, DIALOG_PROPERTY);
 
 	switch (uMsg) {
 		case WM_COMMAND:
@@ -170,7 +199,7 @@ static BOOL CALLBACK ConfigProc(
 
 			assert(the_prop != NULL);
 
-			SetProp(hwndDlg, "AEncodeProperties-Config", the_prop);
+			SetProp(hwndDlg, DIALOG_PROPERTY, the_prop);
 
 			the_prop->InitConfigDlg(hwndDlg);
 
@@ -307,44 +336,14 @@ unsigned int AEncodeProperties::OutputChannels(const unsigned int input_channels
 
 bool AEncodeProperties::Config(const HINSTANCE Hinstance, const HWND HwndParent)
 {
-	//WM_INITDIALOG ?
-
-	// remember the instance to retreive strings
-//	hDllInstance = Hinstance;
 
 	my_debug.OutPut("here");
 	INT_PTR const ret = ::DialogBoxParam(Hinstance, MAKEINTRESOURCE(IDD_CONFIG), HwndParent, ::ConfigProc, (LPARAM) this);
-/*	if (ret == -1)
-	{
-		LPVOID lpMsgBuf;
-		FormatMessage( 
-			FORMAT_MESSAGE_ALLOCATE_BUFFER | 
-			FORMAT_MESSAGE_FROM_SYSTEM | 
-			FORMAT_MESSAGE_IGNORE_INSERTS,
-			NULL,
-			GetLastError(),
-			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), // Default language
-			(LPTSTR) &lpMsgBuf,
-			0,
-			NULL 
-		);
-		// Process any inserts in lpMsgBuf.
-		// ...
-		// Display the string.
-		AOut::MyMessageBox( (LPCTSTR)lpMsgBuf, MB_OK | MB_ICONINFORMATION );
-		// Free the buffer.
-		LocalFree( lpMsgBuf );	
-		return false;
-	}
-*/	
 	return ret > 0;
 }
 
 bool AEncodeProperties::InitConfigDlg(HWND HwndDlg)
 {
-	// get all the required strings
-//	TCHAR Version[5];
-//	LoadString(hDllInstance, IDS_STRING_VERSION, Version, 5);
 
 	int i;
 
@@ -356,31 +355,6 @@ bool AEncodeProperties::InitConfigDlg(HWND HwndDlg)
 	char tmp[sizeof "v" + ACM::VERSION_STRING_CHARS];
 	snprintf(tmp, sizeof tmp, "v%s", ACM::GetVersionString());
 	SetWindowText( GetDlgItem( HwndDlg, IDC_STATIC_CONFIG_VERSION), tmp);
-
-	// Add required bitrates
-/*	SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_BITRATE), CB_RESETCONTENT , NULL, NULL);
-	for (i=0;i<GetBitrateLentgh();i++)
-	{
-		GetBitrateString(tmp, 5, i);
-		SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_BITRATE), CB_ADDSTRING, NULL, (LPARAM) tmp );
-	}
-
-	// Add bitrates to the VBR combo box too
-	SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_MAXBITRATE), CB_RESETCONTENT , NULL, NULL);
-	for (i=0;i<GetBitrateLentgh();i++)
-	{
-		GetBitrateString(tmp, 5, i);
-		SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_MAXBITRATE), CB_ADDSTRING, NULL, (LPARAM) tmp );
-	}
-
-	// Add VBR Quality Slider
-	SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_QUALITY), TBM_SETRANGE, TRUE, MAKELONG(0,9));
-
-	// Add presets
-	SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_PRESET), CB_RESETCONTENT , NULL, NULL);
-	for (i=0;i<GetPresetLentgh();i++)
-		SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_PRESET), CB_ADDSTRING, NULL, (LPARAM) GetPresetModeString(i));
-*/
 
 	// Add ABR Sliders
 	SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MIN), TBM_SETRANGE, TRUE, MAKELONG(8,320));
@@ -445,9 +419,6 @@ my_debug.OutPut("call UpdateDlgFromValue");
 
 bool AEncodeProperties::UpdateDlgFromValue(HWND HwndDlg)
 {
-	// get all the required strings
-//	TCHAR Version[5];
-//	LoadString(hDllInstance, IDS_STRING_VERSION, Version, 5);
 
 	int i;
 
@@ -480,55 +451,12 @@ bool AEncodeProperties::UpdateDlgFromValue(HWND HwndDlg)
 	UpdateDlgFromSlides(HwndDlg);
 
 	EnableAbrOptions(HwndDlg, GetAbrOutputMode());
-//	UpdateAbrSteps(AverageBitrate_Min, AverageBitrate_Max, AverageBitrate_Step);
-/*
-	
 
-	// Add required bitrates
-	for (i=0;i<GetBitrateLentgh();i++)
-	{
-		if (i == nMinBitrateIndex)
-		{
-			SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_BITRATE), CB_SETCURSEL, i, NULL);
-			break;
-		}
-	}
 
-	// Add bitrates to the VBR combo box too
-	for (i=0;i<GetBitrateLentgh();i++)
-	{
-		if (i == nMaxBitrateIndex)
-		{
-			SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_MAXBITRATE), CB_SETCURSEL, i, NULL);
-			break;
-		}
-	}
 
-//	SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_QUALITY), TBM_SETRANGE, TRUE, MAKELONG(0,9));
 
-	char tmp[3];
-	wsprintf(tmp,"%d",VbrQuality);
-	SetWindowText(GetDlgItem( HwndDlg, IDC_CONFIG_QUALITY), tmp);
-	SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_QUALITY), TBM_SETPOS, TRUE, VbrQuality);
-	
-	wsprintf(tmp,"%d",AverageBitrate);
-	SetWindowText(GetDlgItem( HwndDlg, IDC_EDIT_AVERAGE), tmp);
-	
 
-	// Add presets
-	for (i=0;i<GetPresetLentgh();i++)
-	{
-		if (i == nPresetIndex)
-		{
-			SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_PRESET), CB_SETCURSEL, i, NULL);
-			break;
-		}
-	}
 
-	// Add User configs
-//	SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_SETTINGS), CB_RESETCONTENT , NULL, NULL);
-	::SetWindowText(::GetDlgItem( HwndDlg, IDC_EDIT_OUTPUTDIR), OutputDir.c_str());
-*/
 	/**
 		\todo Select the right saved config
 	*/
@@ -539,10 +467,6 @@ bool AEncodeProperties::UpdateDlgFromValue(HWND HwndDlg)
 bool AEncodeProperties::UpdateValueFromDlg(HWND HwndDlg)
 {
 	nChannelIndex      = SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ENC_STEREO),   CB_GETCURSEL, NULL, NULL);
-//	nMinBitrateIndex   = SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_BITRATE),    CB_GETCURSEL, NULL, NULL);
-//	nMaxBitrateIndex   = SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_MAXBITRATE), CB_GETCURSEL, NULL, NULL);
-//	nPresetIndex       = SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_PRESET),     CB_GETCURSEL, NULL, NULL);
-//	VbrQuality         = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_QUALITY), TBM_GETPOS , NULL, NULL);
 
 	bCRC          = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_CHECKSUM)     == BST_CHECKED);
 	bCopyright    = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_COPYRIGHT)    == BST_CHECKED);
@@ -561,17 +485,6 @@ bool AEncodeProperties::UpdateValueFromDlg(HWND HwndDlg)
 
 my_debug.OutPut("nChannelIndex %d, bCRC %d, bCopyright %d, bOriginal %d, bPrivate %d",nChannelIndex, bCRC, bCopyright, bOriginal, bPrivate);
 
-/*	char tmpPath[MAX_PATH];
-	::GetWindowText( ::GetDlgItem( HwndDlg, IDC_EDIT_OUTPUTDIR), tmpPath, MAX_PATH);
-	OutputDir = tmpPath;
-
-	::GetWindowText( ::GetDlgItem( HwndDlg, IDC_EDIT_AVERAGE), tmpPath, MAX_PATH);
-	AverageBitrate = atoi(tmpPath);
-	if (AverageBitrate < 8)
-		AverageBitrate = 8;
-	if (AverageBitrate > 320)
-		AverageBitrate = 320;
-*/
 	return true;
 }
 void AEncodeProperties::ParamsRestore()
@@ -593,11 +506,6 @@ void AEncodeProperties::ParamsRestore()
 
 	nChannelIndex = CHANNEL_INDEX_JOINT_STEREO;
 	nMinBitrateIndex = 6; // 128 kbps (works for both MPEGI and II)
-//	AverageBitrate = 128; // a bit lame
-
-//	OutputDir = "c:\\";
-
-//	DllLocation = "plugins\\lame_enc.dll";
 
 	// get the values from the saved file if possible
 	TiXmlElement* CurrentNode = LoadEncodings();
@@ -605,22 +513,11 @@ void AEncodeProperties::ParamsRestore()
 	{
 		std::string CurrentConfig = "";
 
-		if (CurrentNode->Attribute("default") != NULL)
+		if (CurrentNode->Attribute(ATTRIBUTE_DEFAULT) != NULL)
 		{
-			CurrentConfig = *CurrentNode->Attribute("default");
+			CurrentConfig = *CurrentNode->Attribute(ATTRIBUTE_DEFAULT);
 		}
 
-/*		// output parameters
-		TiXmlElement* iterateElmt = node->FirstChildElement("DLL");
-		if (iterateElmt != NULL)
-		{
-			const std::string * tmpname = iterateElmt->Attribute("location");
-			if (tmpname != NULL)
-			{
-				DllLocation = *tmpname;
-			}
-		}
-*/
 		GetValuesFromKey(CurrentConfig, *CurrentNode);
 	}
 	else
@@ -643,7 +540,7 @@ void AEncodeProperties::ParamsRestore()
  */
 void AEncodeProperties::ParamsSave()
 {
-	SaveValuesToStringKey("Current");
+	SaveValuesToStringKey(CONFIG_CURRENT);
 }
 
 AEncodeProperties::AEncodeProperties(HMODULE hModule)
@@ -653,12 +550,10 @@ AEncodeProperties::AEncodeProperties(HMODULE hModule)
 	FillBitrateTables();
 
 	std::string path = "";
-//	HMODULE htmp = LoadLibrary("out_lame.dll");
 	if (hModule != NULL)
 	{
 		char output[MAX_PATH];
 		::GetModuleFileName(hModule, output, MAX_PATH);
-//		::FreeLibrary(htmp);
 
 		path = output;
 	}
@@ -666,13 +561,10 @@ AEncodeProperties::AEncodeProperties(HMODULE hModule)
 	my_store_location += "lame_acm.xml";
 
 	my_debug.OutPut("store path = %s",my_store_location.c_str());
-//#ifdef OLD
-//	::OutputDebugString(my_store_location.c_str());
 
 	// make sure the XML file is present
 	HANDLE hFile = ::CreateFile(my_store_location.c_str(), 0, FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_ARCHIVE, NULL );
 	::CloseHandle(hFile);
-//#endif // OLD
 	my_debug.OutPut("AEncodeProperties creation completed (0x%08X)",this);
 }
 
@@ -692,12 +584,12 @@ TiXmlElement * AEncodeProperties::LoadEncodings()
 	if (!my_stored_data.LoadFile(my_store_location))
 		return NULL;
 
-	TiXmlNode * node = my_stored_data.FirstChild("lame_acm");
+	TiXmlNode * node = my_stored_data.FirstChild(ELEMENT_ROOT);
 
 	if (node == NULL)
 		return NULL;
 
-	return node->FirstChildElement("encodings");
+	return node->FirstChildElement(ELEMENT_ENCODINGS);
 }
 
 /**
@@ -711,14 +603,14 @@ TiXmlElement * AEncodeProperties::LoadEncodings()
 */
 TiXmlElement * AEncodeProperties::FindConfig(const TiXmlNode & parent, const std::string & name)
 {
-	TiXmlElement * elt = parent.FirstChildElement("config");
+	TiXmlElement * elt = parent.FirstChildElement(ELEMENT_CONFIG);
 
 	while (elt != NULL)
 	{
-		const std::string * tmpname = elt->Attribute("name");
+		const std::string * tmpname = elt->Attribute(ATTRIBUTE_NAME);
 		if (tmpname != NULL && tmpname->compare(name) == 0)
 			break;
-		elt = elt->NextSiblingElement("config");
+		elt = elt->NextSiblingElement(ELEMENT_CONFIG);
 	}
 	return elt;
 }
@@ -742,23 +634,23 @@ void AEncodeProperties::SaveValuesToStringKey(const std::string & config_name)
 	// get the current data in the file to keep them
 	my_stored_data.LoadFile(my_store_location);
 
-	TiXmlNode* node = my_stored_data.FirstChild("lame_acm");
+	TiXmlNode* node = my_stored_data.FirstChild(ELEMENT_ROOT);
 
 	if (node == NULL)
 	{
-		node = my_stored_data.InsertEndChild(TiXmlElement("lame_acm"));
+		node = my_stored_data.InsertEndChild(TiXmlElement(ELEMENT_ROOT));
 
 		if (node == NULL)
 			return;
 	}
 
-	TiXmlElement* ConfigNode = node->FirstChildElement("encodings");
+	TiXmlElement* ConfigNode = node->FirstChildElement(ELEMENT_ENCODINGS);
 
 	if (ConfigNode == NULL)
 	{
-		TiXmlElement encodings("encodings");
+		TiXmlElement encodings(ELEMENT_ENCODINGS);
 
-		encodings.SetAttribute("default", config_name);
+		encodings.SetAttribute(ATTRIBUTE_DEFAULT, config_name);
 
 		TiXmlNode* inserted = node->InsertEndChild(encodings);
 
@@ -774,9 +666,9 @@ void AEncodeProperties::SaveValuesToStringKey(const std::string & config_name)
 	if (tmpNode == NULL)
 	{
 		// Create the node
-		TiXmlElement created("config");
+		TiXmlElement created(ELEMENT_CONFIG);
 
-		created.SetAttribute("name",config_name);
+		created.SetAttribute(ATTRIBUTE_NAME,config_name);
 
 		TiXmlNode* inserted = ConfigNode->InsertEndChild(created);
 
@@ -807,39 +699,39 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 		const std::string * tmpname;
 
 		// Smart output parameter
-		tmpElt = iterateElmt->FirstChildElement("Smart");
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_SMART);
 		if (tmpElt != NULL)
 		{
-			tmpname = tmpElt->Attribute("use");
+			tmpname = tmpElt->Attribute(ATTRIBUTE_USE);
 			if (tmpname != NULL)
-				bSmartOutput = (tmpname->compare("true") == 0);
+				bSmartOutput = (tmpname->compare(VALUE_TRUE) == 0);
 			
-			tmpname = tmpElt->Attribute("ratio");
+			tmpname = tmpElt->Attribute(ATTRIBUTE_RATIO);
 			if (tmpname != NULL)
 				SmartRatioMax = DoubleFromAttribute(*tmpname);
 		}
 
 		// Smart output parameter
-		tmpElt = iterateElmt->FirstChildElement("ABR");
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_ABR);
 		if (tmpElt != NULL)
 		{
 			unsigned int abr_min = AverageBitrate_Min;
 			unsigned int abr_max = AverageBitrate_Max;
 			unsigned int abr_step = AverageBitrate_Step;
 
-			tmpname = tmpElt->Attribute("use");
+			tmpname = tmpElt->Attribute(ATTRIBUTE_USE);
 			if (tmpname != NULL)
-				bAbrOutput = (tmpname->compare("true") == 0);
+				bAbrOutput = (tmpname->compare(VALUE_TRUE) == 0);
 
-			tmpname = tmpElt->Attribute("min");
+			tmpname = tmpElt->Attribute(ATTRIBUTE_MIN);
 			if (tmpname != NULL)
 				abr_min = UnsignedFromAttribute(*tmpname);
 
-			tmpname = tmpElt->Attribute("max");
+			tmpname = tmpElt->Attribute(ATTRIBUTE_MAX);
 			if (tmpname != NULL)
 				abr_max = UnsignedFromAttribute(*tmpname);
 
-			tmpname = tmpElt->Attribute("step");
+			tmpname = tmpElt->Attribute(ATTRIBUTE_STEP);
 			if (tmpname != NULL)
 				abr_step = UnsignedFromAttribute(*tmpname);
 
@@ -854,93 +746,53 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 		}
 
 		// Copyright parameter
-		tmpElt = iterateElmt->FirstChildElement("Copyright");
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_COPYRIGHT);
 		if (tmpElt != NULL)
 		{
-			tmpname = tmpElt->Attribute("use");
+			tmpname = tmpElt->Attribute(ATTRIBUTE_USE);
 			if (tmpname != NULL)
-				bCopyright = (tmpname->compare("true") == 0);
+				bCopyright = (tmpname->compare(VALUE_TRUE) == 0);
 		}
 
 		// Copyright parameter
-		tmpElt = iterateElmt->FirstChildElement("CRC");
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_CRC);
 		if (tmpElt != NULL)
 		{
-			tmpname = tmpElt->Attribute("use");
+			tmpname = tmpElt->Attribute(ATTRIBUTE_USE);
 			if (tmpname != NULL)
-				bCRC = (tmpname->compare("true") == 0);
+				bCRC = (tmpname->compare(VALUE_TRUE) == 0);
 		}
 
 		// Copyright parameter
-		tmpElt = iterateElmt->FirstChildElement("Original");
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_ORIGINAL);
 		if (tmpElt != NULL)
 		{
-			tmpname = tmpElt->Attribute("use");
+			tmpname = tmpElt->Attribute(ATTRIBUTE_USE);
 			if (tmpname != NULL)
-				bOriginal = (tmpname->compare("true") == 0);
+				bOriginal = (tmpname->compare(VALUE_TRUE) == 0);
 		}
 
 		// Copyright parameter
-		tmpElt = iterateElmt->FirstChildElement("Private");
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_PRIVATE);
 		if (tmpElt != NULL)
 		{
-			tmpname = tmpElt->Attribute("use");
+			tmpname = tmpElt->Attribute(ATTRIBUTE_USE);
 			if (tmpname != NULL)
-				bPrivate = (tmpname->compare("true") == 0);
+				bPrivate = (tmpname->compare(VALUE_TRUE) == 0);
 		}
 		// Bit reservoir parameter
-		tmpElt = iterateElmt->FirstChildElement("Bit_reservoir");
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_BIT_RESERVOIR);
 		if (tmpElt != NULL)
 		{
-			tmpname = tmpElt->Attribute("use");
+			tmpname = tmpElt->Attribute(ATTRIBUTE_USE);
 			if (tmpname != NULL)
-				bNoBitRes = !(tmpname->compare("true") == 0);
+				bNoBitRes = !(tmpname->compare(VALUE_TRUE) == 0);
 		}
-/*
-		// bitrates
-		tmpElt = iterateElmt->FirstChildElement("bitrate");
-		tmpname = tmpElt->Attribute("min");
-		if (tmpname != NULL)
-		{
-			unsigned int uitmp = atoi(tmpname->c_str());
-			for (int i=0;i<sizeof(the_Bitrates)/sizeof(unsigned int);i++)
-			{
-				if (the_Bitrates[i] == uitmp)
-				{
-					nMinBitrateIndex = i;
-					break;
-				}
-			}
-		}
-
-		tmpname = tmpElt->Attribute("max");
-		if (tmpname != NULL)
-		{
-			unsigned int uitmp = atoi(tmpname->c_str());
-			for (int i=0;i<sizeof(the_Bitrates)/sizeof(unsigned int);i++)
-			{
-				if (the_Bitrates[i] == uitmp)
-				{
-					nMaxBitrateIndex = i;
-					break;
-				}
-			}
-		}
-*/
-/*
-		// output parameters
-		tmpElt = iterateElmt->FirstChildElement("output");
-		if (tmpElt != NULL)
-		{
-			OutputDir = *tmpElt->Attribute("path");
-		}
-*/
-//#ifdef OLD
 		// Channel mode parameter
-		tmpElt = iterateElmt->FirstChildElement("Channel");
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_CHANNEL);
 		if (tmpElt != NULL)
 		{
-			const std::string * tmpStr = tmpElt->Attribute("mode");
+			const std::string * tmpStr = tmpElt->Attribute(ATTRIBUTE_MODE);
 			if (tmpStr != NULL)
 			{
 				for (int i=0;i<GetChannelLentgh();i++)
@@ -952,29 +804,10 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 					}
 				}
 			}
-			tmpname = tmpElt->Attribute("force");
+			tmpname = tmpElt->Attribute(ATTRIBUTE_FORCE);
 			if (tmpname != NULL)
-				bForceChannel = (tmpname->compare("true") == 0);
+				bForceChannel = (tmpname->compare(VALUE_TRUE) == 0);
 		}
-//#endif // OLD
-
-		// Preset parameter
-/*
-		tmpElt = iterateElmt->FirstChildElement("Preset");
-		if (tmpElt != NULL)
-		{
-			const std::string * tmpStr = tmpElt->Attribute("type");
-			for (int i=0;i<GetPresetLentgh();i++)
-			{
-				if (tmpStr->compare(GetPresetModeString(i)) == 0)
-				{
-					nPresetIndex = i;
-					break;
-				}
-			}
-
-		}
-*/
 	}
 }
 
@@ -985,7 +818,7 @@ void AEncodeProperties::SelectSavedParams(const std::string & the_string)
 
 	if (CurrentNode != NULL)
 	{
-		CurrentNode->SetAttribute("default",the_string);
+		CurrentNode->SetAttribute(ATTRIBUTE_DEFAULT,the_string);
 		GetValuesFromKey(the_string, *CurrentNode);
 		my_stored_data.SaveFile(my_store_location);
 	}
@@ -996,7 +829,7 @@ inline void AEncodeProperties::SetAttributeBool(TiXmlElement * the_elt,const std
 	if (the_value == false)
 		the_elt->SetAttribute(the_string, "false");
 	else
-		the_elt->SetAttribute(the_string, "true");
+		the_elt->SetAttribute(the_string, VALUE_TRUE);
 }
 
 /**
@@ -1027,97 +860,55 @@ void AEncodeProperties::SaveValuesToElement(TiXmlElement * the_element) const
 	TiXmlElement * tmpElt;
 
 	// Bit Reservoir parameter
-	tmpElt = ChildElement(*the_element, "Bit_reservoir");
+	tmpElt = ChildElement(*the_element, ELEMENT_BIT_RESERVOIR);
 	if (tmpElt != NULL)
-		SetAttributeBool(tmpElt, "use", !bNoBitRes);
+		SetAttributeBool(tmpElt, ATTRIBUTE_USE, !bNoBitRes);
 
 	// Copyright parameter
-	tmpElt = ChildElement(*the_element, "Copyright");
+	tmpElt = ChildElement(*the_element, ELEMENT_COPYRIGHT);
 	if (tmpElt != NULL)
-		SetAttributeBool( tmpElt, "use", bCopyright);
+		SetAttributeBool( tmpElt, ATTRIBUTE_USE, bCopyright);
 
 	// Smart Output parameter
-	tmpElt = ChildElement(*the_element, "Smart");
+	tmpElt = ChildElement(*the_element, ELEMENT_SMART);
 	if (tmpElt != NULL)
 	{
-		SetAttributeBool( tmpElt, "use", bSmartOutput);
-		SetAttributeDouble( tmpElt, "ratio", SmartRatioMax);
+		SetAttributeBool( tmpElt, ATTRIBUTE_USE, bSmartOutput);
+		SetAttributeDouble( tmpElt, ATTRIBUTE_RATIO, SmartRatioMax);
 	}
 
 	// Smart Output parameter
-	tmpElt = ChildElement(*the_element, "ABR");
+	tmpElt = ChildElement(*the_element, ELEMENT_ABR);
 	if (tmpElt != NULL)
 	{
-		SetAttributeBool( tmpElt, "use", bAbrOutput);
-		tmpElt->SetAttribute("min", AverageBitrate_Min);
-		tmpElt->SetAttribute("max", AverageBitrate_Max);
-		tmpElt->SetAttribute("step", AverageBitrate_Step);
+		SetAttributeBool( tmpElt, ATTRIBUTE_USE, bAbrOutput);
+		tmpElt->SetAttribute(ATTRIBUTE_MIN, AverageBitrate_Min);
+		tmpElt->SetAttribute(ATTRIBUTE_MAX, AverageBitrate_Max);
+		tmpElt->SetAttribute(ATTRIBUTE_STEP, AverageBitrate_Step);
 	}
 
 	// CRC parameter
-	tmpElt = ChildElement(*the_element, "CRC");
+	tmpElt = ChildElement(*the_element, ELEMENT_CRC);
 	if (tmpElt != NULL)
-		SetAttributeBool( tmpElt, "use", bCRC);
+		SetAttributeBool( tmpElt, ATTRIBUTE_USE, bCRC);
 
 	// Original parameter
-	tmpElt = ChildElement(*the_element, "Original");
+	tmpElt = ChildElement(*the_element, ELEMENT_ORIGINAL);
 	if (tmpElt != NULL)
-		SetAttributeBool( tmpElt, "use", bOriginal);
+		SetAttributeBool( tmpElt, ATTRIBUTE_USE, bOriginal);
 
 	// Private parameter
-	tmpElt = ChildElement(*the_element, "Private");
+	tmpElt = ChildElement(*the_element, ELEMENT_PRIVATE);
 	if (tmpElt != NULL)
-		SetAttributeBool( tmpElt, "use", bPrivate);
+		SetAttributeBool( tmpElt, ATTRIBUTE_USE, bPrivate);
 
 	// Channel Mode parameter
-	tmpElt = ChildElement(*the_element, "Channel");
+	tmpElt = ChildElement(*the_element, ELEMENT_CHANNEL);
 	if (tmpElt != NULL)
 	{
-		tmpElt->SetAttribute("mode", GetChannelModeString(nChannelIndex));
-		SetAttributeBool( tmpElt, "force", bForceChannel);
+		tmpElt->SetAttribute(ATTRIBUTE_MODE, GetChannelModeString(nChannelIndex));
+		SetAttributeBool( tmpElt, ATTRIBUTE_FORCE, bForceChannel);
 	}
-/*
-	// Preset parameter
-	tmpElt = the_element->FirstChildElement("Preset");
-	if (tmpElt == NULL)
-	{
-		tmpElt = new TiXmlElement("Preset");
-		tmpElt->SetAttribute("type", GetPresetModeString(nPresetIndex));
-		the_element->InsertEndChild(*tmpElt);
-	}
-	else
-	{
-		tmpElt->SetAttribute("type", GetPresetModeString(nPresetIndex));
-	}
-
-	// Bitrate parameter
-	tmpElt = the_element->FirstChildElement("bitrate");
-	if (tmpElt == NULL)
-	{
-		tmpElt = new TiXmlElement("bitrate");
-		tmpElt->SetAttribute("min", the_Bitrates[nMinBitrateIndex]);
-		tmpElt->SetAttribute("max", the_Bitrates[nMaxBitrateIndex]);
-		the_element->InsertEndChild(*tmpElt);
-	}
-	else
-	{
-		tmpElt->SetAttribute("min", the_Bitrates[nMinBitrateIndex]);
-		tmpElt->SetAttribute("max", the_Bitrates[nMaxBitrateIndex]);
-	}
-
-	// Output Directory parameter
-	tmpElt = the_element->FirstChildElement("output");
-	if (tmpElt == NULL)
-	{
-		tmpElt = new TiXmlElement("output");
-		tmpElt->SetAttribute("path", OutputDir);
-		the_element->InsertEndChild(*tmpElt);
-	}
-	else
-	{
-		tmpElt->SetAttribute("path", OutputDir);
-	}
-*/
 }
 
 bool AEncodeProperties::HandleDialogCommand(const HWND parentWnd, const WPARAM wParam, const LPARAM lParam)
@@ -1131,9 +922,8 @@ bool AEncodeProperties::HandleDialogCommand(const HWND parentWnd, const WPARAM w
 	{
 		// save parameters
 		char string[MAX_PATH];
-//		::GetWindowText(::GetDlgItem( parentWnd, IDC_COMBO_SETTINGS), string, MAX_PATH);
 
-		wsprintf(string,"Current"); // only the Current config is supported at the moment
+		snprintf(string, sizeof string, "%s", CONFIG_CURRENT); // only the Current config is supported at the moment
 		
 		my_debug.OutPut("my_hModule = 0x%08X",my_hModule);
 my_debug.OutPut("before : nChannelIndex %d, bCRC %d, bCopyright %d, bOriginal %d, bPrivate %d",nChannelIndex, bCRC, bCopyright, bOriginal, bPrivate);
@@ -1146,181 +936,22 @@ my_debug.OutPut("call ParamsSave");
 
 		ParamsSave(); // only the Current config is supported now
 
-//my_debug.OutPut("call SelectSavedParams");
-
-//		SelectSavedParams(string);
-//		UpdateDlgFromValue(parentWnd);
-
 my_debug.OutPut("finished saving");
 
-		RemoveProp(parentWnd, "AEncodeProperties-Config");
+		RemoveProp(parentWnd, DIALOG_PROPERTY);
 
 		EndDialog(parentWnd, true);
 	}
 	break;
 
 	case IDCANCEL:
-		RemoveProp(parentWnd, "AEncodeProperties-Config");
+		RemoveProp(parentWnd, DIALOG_PROPERTY);
         EndDialog(parentWnd, false);
 		break;
 
-/*	case IDC_FIND_DLL:
-	{
-		OPENFILENAME file;
-		char DllLocation[512];
-		wsprintf(DllLocation,"%s",GetDllLocation());
-
-		memset(&file, 0, sizeof(file));
-		file.lStructSize = sizeof(file); 
-		file.hwndOwner  = parentWnd;
-		file.Flags = OFN_FILEMUSTEXIST | OFN_NODEREFERENCELINKS | OFN_ENABLEHOOK | OFN_EXPLORER ;
-//				file.lpstrFile = AOut::the_AOut->DllLocation;
-		file.lpstrFile = DllLocation;
-		file.lpstrFilter = "Lame DLL (lame_enc.dll)\0LAME_ENC.DLL\0DLL (*.dll)\0*.DLL\0All (*.*)\0*.*\0";
-		file.nFilterIndex = 1;
-		file.nMaxFile  = sizeof(DllLocation);
-		file.lpfnHook  = DLLFindCallback; // use to validate the DLL chosen
-
-		GetOpenFileName(&file);
-
-		SetDllLocation(DllLocation);
-		// use this filename if necessary
-	}
-	break;
-*/
-/*	case IDC_BUTTON_OUTPUT:
-	{
-#ifndef SIMPLE_FOLDER
-		BROWSEINFO info;
-		memset(&info,0,sizeof(info));
-
-		char FolderName[MAX_PATH];
-
-		info.hwndOwner = parentWnd;
-		info.pszDisplayName  = FolderName;
-		info.lpfn = BrowseFolderCallbackroc;
-		info.lParam = (LPARAM) this;
-
-		// get the localised window title
-		TCHAR output[250];
-		::LoadString(AOut::GetInstance(),IDS_STRING_DIR_SELECT,output,250);
-		info.lpszTitle = output;
-
-#ifdef BIF_EDITBOX
-		info.ulFlags |= BIF_EDITBOX;
-#else // BIF_EDITBOX
-		info.ulFlags |= 0x0010;
-#endif // BIF_EDITBOX
-
-#ifdef BIF_VALIDATE
-		info.ulFlags |= BIF_VALIDATE;
-#else // BIF_VALIDATE
-		info.ulFlags |= 0x0020;
-#endif // BIF_VALIDATE
-
-#ifdef BIF_NEWDIALOGSTYLE
-		info.ulFlags |= BIF_NEWDIALOGSTYLE;
-#else // BIF_NEWDIALOGSTYLE
-		info.ulFlags |= 0x0040;
-#endif // BIF_NEWDIALOGSTYLE
-
-		ITEMIDLIST *item = SHBrowseForFolder(&info);
-
-    	if (item != NULL)
-		{
-			char tmpOutputDir[MAX_PATH];
-			wsprintf(tmpOutputDir,"%s",GetOutputDirectory());
-
-			SHGetPathFromIDList( item,tmpOutputDir );
-			SetOutputDirectory( tmpOutputDir );
-			::SetWindowText(GetDlgItem( parentWnd, IDC_EDIT_OUTPUTDIR), tmpOutputDir);
-//					wsprintf(OutputDir,FolderName);
-		}
-#else // SIMPLE_FOLDER
-		OPENFILENAME file;
-
-		memset(&file, 0, sizeof(file));
-		file.lStructSize = sizeof(file); 
-		file.hwndOwner  = parentWnd;
-		file.Flags = OFN_FILEMUSTEXIST | OFN_NODEREFERENCELINKS | OFN_ENABLEHOOK | OFN_EXPLORER ;
-//				file.lpstrFile = GetDllLocation();
-//				file.lpstrFile = GetOutputDirectory();
-		file.lpstrInitialDir = GetOutputDirectory();
-		file.lpstrFilter = "A Directory\0.*\0";
-//				file.nFilterIndex = 1;
-		file.nMaxFile  = MAX_PATH;
-//				file.lpfnHook  = DLLFindCallback; // use to validate the DLL chosen
-//				file.Flags = OFN_ENABLESIZING | OFN_NOREADONLYRETURN | OFN_HIDEREADONLY;
-		file.Flags = OFN_NOREADONLYRETURN | OFN_HIDEREADONLY | OFN_EXPLORER;
-
-		TCHAR output[250];
-		::LoadString(AOut::GetInstance(),IDS_STRING_DIR_SELECT,output,250);
-		file.lpstrTitle = output;
-
-		GetSaveFileName(&file);
-#endif // SIMPLE_FOLDER
-	}
-	break;
-*/
 		case IDC_CHECK_ENC_ABR:
 			EnableAbrOptions(parentWnd, ::IsDlgButtonChecked( parentWnd, IDC_CHECK_ENC_ABR) == BST_CHECKED);
 			break;
-/*	case IDC_COMBO_SETTINGS:
-//				if (CBN_SELCHANGE == GET_WM_COMMAND_CMD(wParam, lParam))
-		if (CBN_SELENDOK == GET_WM_COMMAND_CMD(wParam, lParam))
-		{
-			char string[MAX_PATH];
-			int nIdx = SendMessage(HWND(lParam), CB_GETCURSEL, NULL, NULL);
-			SendMessage(HWND(lParam), CB_GETLBTEXT , nIdx, (LPARAM) string);
-
-			// get the info corresponding to the new selected item
-			SelectSavedParams(string);
-			UpdateDlgFromValue(parentWnd);
-		}
-		break;
-*/
-/*	case IDC_BUTTON_CONFIG_SAVE:
-	{
-		// save the data in the current config
-		char string[MAX_PATH];
-		::GetWindowText(::GetDlgItem( parentWnd, IDC_COMBO_SETTINGS), string, MAX_PATH);
-
-		UpdateValueFromDlg(parentWnd);
-		SaveValuesToStringKey(string);
-		SelectSavedParams(string);
-		UpdateConfigs(parentWnd);
-		UpdateDlgFromValue(parentWnd);
-	}
-	break;
-
-	case IDC_BUTTON_CONFIG_RENAME:
-	{
-		char string[MAX_PATH];
-		::GetWindowText(::GetDlgItem( parentWnd, IDC_COMBO_SETTINGS), string, MAX_PATH);
-
-		if (RenameCurrentTo(string))
-		{
-			// Update the names displayed
-			UpdateConfigs(parentWnd);
-		}
-
-	}
-	break;
-
-	case IDC_BUTTON_CONFIG_DELETE:
-	{
-		char string[MAX_PATH];
-		::GetWindowText(::GetDlgItem( parentWnd, IDC_COMBO_SETTINGS), string, MAX_PATH);
-		
-		if (DeleteConfig(string))
-		{
-			// Update the names displayed
-			UpdateConfigs(parentWnd);
-			UpdateDlgFromValue(parentWnd);
-		}
-	}
-	break;
-*/
 	}
 	
     return FALSE;
@@ -1328,8 +959,6 @@ my_debug.OutPut("finished saving");
 
 void AEncodeProperties::UpdateConfigs(const HWND HwndDlg)
 {
-	// Add User configs
-//	SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_SETTINGS), CB_RESETCONTENT , NULL, NULL);
 
 	// display all the names of the saved configs
 	// get the values from the saved file if possible
@@ -1339,9 +968,9 @@ void AEncodeProperties::UpdateConfigs(const HWND HwndDlg)
 	{
 		std::string CurrentConfig = "";
 
-		if (CurrentNode->Attribute("default") != NULL)
+		if (CurrentNode->Attribute(ATTRIBUTE_DEFAULT) != NULL)
 		{
-			CurrentConfig = *CurrentNode->Attribute("default");
+			CurrentConfig = *CurrentNode->Attribute(ATTRIBUTE_DEFAULT);
 		}
 
 		TiXmlElement* iterateElmt;
@@ -1349,20 +978,18 @@ void AEncodeProperties::UpdateConfigs(const HWND HwndDlg)
 my_debug.OutPut("are we here ?");
 
 		// find the config that correspond to CurrentConfig
-		iterateElmt = CurrentNode->FirstChildElement("config");
+		iterateElmt = CurrentNode->FirstChildElement(ELEMENT_CONFIG);
 		int Idx = 0;
 		while (iterateElmt != NULL)
 		{
-			const std::string * tmpname = iterateElmt->Attribute("name");
+			const std::string * tmpname = iterateElmt->Attribute(ATTRIBUTE_NAME);
 			/**
 				\todo support language names
 			*/
 			if (tmpname != NULL)
 			{
-//				SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_SETTINGS), CB_ADDSTRING, NULL, (LPARAM) tmpname->c_str());
 				if (tmpname->compare(CurrentConfig) == 0)
 				{
-//					SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_SETTINGS), CB_SETCURSEL, Idx, NULL);
 					SelectSavedParams(*tmpname);
 					UpdateDlgFromValue(HwndDlg);
 				}
@@ -1371,18 +998,12 @@ my_debug.OutPut("Idx = %d",Idx);
 
 			Idx++;
 			// only Current config supported now
-//			iterateElmt = iterateElmt->NextSiblingElement("config");
 			iterateElmt = NULL;
 my_debug.OutPut("iterateElmt = 0x%08X",iterateElmt);
 
 		}
 	}
 }
-/*
-void AEncodeProperties::UpdateAbrSteps(unsigned int min, unsigned int max, unsigned int step) const
-{
-}
-*/
 /**
 	\brief Returns the bitrates of an ABR range, highest first.
 

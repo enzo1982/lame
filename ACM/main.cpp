@@ -1,6 +1,6 @@
 /**
  *
- * Lame ACM wrapper, encode/decode MP3 based RIFF/AVI files in MS Windows
+ * Lame ACM wrapper, encode MP3 based RIFF/AVI files in MS Windows
  *
  *  Copyright (c) 2002 Steve Lhomme <steve.lhomme at free.fr>
  *
@@ -123,7 +123,6 @@ LONG WINAPI DriverProc(DWORD dwDriverId, HDRVR hdrvr, UINT msg, LONG lParam1, LO
 			// nothing to do
 			if (debug != NULL)
 			{
-//				debug->OutPut(DEBUG_LEVEL_MSG, "DRV_LOAD, version %s %s %s", ACM_VERSION, __DATE__, __TIME__);
 				debug->OutPut(DEBUG_LEVEL_MSG, "DRV_LOAD, %s %s",  __DATE__, __TIME__);
 			}
 			return 1L;

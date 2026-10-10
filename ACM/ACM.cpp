@@ -1,6 +1,6 @@
 /**
  *
- * Lame ACM wrapper, encode/decode MP3 based RIFF/AVI files in MS Windows
+ * Lame ACM wrapper, encode MP3 based RIFF/AVI files in MS Windows
  *
  *  Copyright (c) 2002 Steve Lhomme <steve.lhomme at free.fr>
  *
@@ -71,9 +71,7 @@ static const DWORD FORMAT_FLAGS_ABR = 0x80000000;
 /// The fdwFlags value of the CBR formats that this codec lists.
 static const DWORD FORMAT_FLAGS_CBR = 4;
 #define SIZE_FORMAT_STRUCT sizeof(MPEGLAYER3WAVEFORMAT)
-//#define SIZE_FORMAT_STRUCT 0
 
-//static const char channel_mode[][13] = {"mono","stereo","joint stereo","dual channel"};
 static const char channel_mode[][13] = {"mono","stereo"};
 // The rates the standard defines: lame_get_bitrate() and
 // lame_get_samplerate() answer for the frame header's two index fields.
@@ -297,8 +295,6 @@ ACM::ACM( HMODULE hModule )
 
 ACM::~ACM()
 {
-// not used, it's done automatically when closing the driver	if (my_hIcon != NULL)
-//		CloseHandle(my_hIcon);
 
 	bitrate_table.clear();
 
@@ -312,8 +308,6 @@ ACM::~ACM()
 LONG ACM::DriverProcedure(const HDRVR hdrvr, const UINT msg, LONG lParam1, LONG lParam2)
 {
     DWORD dwRes = 0L;
-
-//my_debug.OutPut(DEBUG_LEVEL_MSG, "message 0x%08X for ThisACM 0x%08X", msg, this);
 
 switch (msg) {
     case DRV_INSTALL:
@@ -340,7 +334,6 @@ switch (msg) {
 		my_debug.OutPut(DEBUG_LEVEL_MSG, "DRV_CONFIGURE");
 		// Sent to display the configuration
 		// dialog box for the driver.
-//		dwRes = Configure( (HWND) lParam1, (LPDRVCONFIGINFO) lParam2 );
 		if (my_EncodingProperties.Config(my_hModule, (HWND) lParam1))
 		{
 			dwRes = DRVCNF_OK; // Can also return
@@ -632,10 +625,9 @@ inline DWORD ACM::OnFormatTagDetails(LPACMFORMATTAGDETAILS a_FormatTagDetails, c
 		a_FormatTagDetails->dwFormatTag      = WAVE_FORMAT_PCM;
 		a_FormatTagDetails->dwFormatTagIndex = FORMAT_TAG_INDEX_PCM;
 		a_FormatTagDetails->cbFormatSize     = sizeof(PCMWAVEFORMAT);
-		/// \note 0 may mean we don't know how to decode
 		a_FormatTagDetails->fdwSupport       = ACMDRIVERDETAILS_SUPPORTF_CODEC;
 		a_FormatTagDetails->cStandardFormats = FORMAT_MAX_NB_PCM;
-		// should be filled by Windows				a_FormatTagDetails->szFormatTag[0] = '\0';
+		// szFormatTag is filled by Windows
 	}
 	else
 	{
@@ -667,7 +659,6 @@ inline DWORD ACM::OnDriverDetails(const HDRVR hdrvr, LPACMDRIVERDETAILS a_Driver
 	a_DriverDetail->fccComp     = ACMDRIVERDETAILS_FCCCOMP_UNDEFINED;
 
 	/// \note this is an explicit hack of the FhG values
-	/// \note later it could be a new value when the decoding is done
 	a_DriverDetail->wMid        = MM_FRAUNHOFER_IIS;
 	a_DriverDetail->wPid        = MM_FHGIIS_MPEGLAYER3;
 
@@ -675,7 +666,6 @@ inline DWORD ACM::OnDriverDetails(const HDRVR hdrvr, LPACMDRIVERDETAILS a_Driver
 	a_DriverDetail->vdwDriver   = LAME_ACM_DRIVER_VERSION;
 	a_DriverDetail->fdwSupport  = ACMDRIVERDETAILS_SUPPORTF_CODEC;
 	a_DriverDetail->cFormatTags = FORMAT_TAG_MAX_NB; // 2 : MP3 and PCM
-//	a_DriverDetail->cFormatTags = 1; // 2 : MP3 and PCM
 	a_DriverDetail->cFilterTags = FILTER_TAG_MAX_NB;
 
 	lstrcpyW( a_DriverDetail->szShortName, L"LAME MP3" );
@@ -885,11 +875,9 @@ inline DWORD ACM::OnStreamOpen(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 
 				my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "Open stream for PERSONAL output (%05d samples %d channels %d bits/sample %d kbps)",a_StreamInstance->pwfxDst->nSamplesPerSec,a_StreamInstance->pwfxDst->nChannels,a_StreamInstance->pwfxDst->wBitsPerSample,8 * a_StreamInstance->pwfxDst->nAvgBytesPerSec);
 
-				/// \todo add the possibility to have channel resampling (mono to stereo / stereo to mono)
 				/// \todo support resampling ?
 				/// \todo only do the test on OutputFrequency in "Smart Output" mode
 				if (a_StreamInstance->pwfxDst->nSamplesPerSec != OutputFrequency ||
-//					a_StreamInstance->pwfxSrc->nSamplesPerSec != a_StreamInstance->pwfxDst->nSamplesPerSec ||
 					a_StreamInstance->pwfxDst->nChannels != my_EncodingProperties.OutputChannels(a_StreamInstance->pwfxSrc->nChannels) ||
 					a_StreamInstance->pwfxSrc->wBitsPerSample != 16)
 				{
@@ -1181,8 +1169,6 @@ DWORD ACM::GetNumberEncodingFormats() const
 bool ACM::IsSmartOutput(const int frequency, const int bitrate, const int channels) const
 {
 	double compression_ratio = double(frequency * 2 * channels) / double(bitrate * 100);
-
-//my_debug.OutPut(DEBUG_LEVEL_FUNC_DEBUG, "compression_ratio %f, freq %d, bitrate %d, channels %d", compression_ratio, frequency, bitrate, channels);
 
 	if(my_EncodingProperties.GetSmartOutputMode())
 		return (compression_ratio <= my_EncodingProperties.GetSmartRatio());
