@@ -621,8 +621,8 @@ decline_replaygain_frames(char const *why)
  * The gain and peak values are known only after the audio is encoded, but the
  * ID3v2 tag is written before the audio. So this function adds placeholder
  * frames, and update_replaygain_frames() writes the values later. Call it after
- * the output file is open and before lame_init_params(). After
- * lame_init_params(), the tag contents cannot change.
+ * lame_init_params() and before the ID3v2 tag is written. This program writes
+ * the tag itself, so the tag fields can still change then.
  *
  * @param gf    the encoder instance whose tag is being built.
  * @param outf  the output file. It must be seekable, for the later rewrite.
@@ -921,8 +921,6 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
      */
     lame_set_write_id3tag_automatic(gf, 0);
 
-    reserve_replaygain_frames(gf, outf);
-
     /* Now that all the options are set, lame needs to analyze them and
      * set some more internal options and check for problems
      */
@@ -933,6 +931,8 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
         close_infile();
         return ret;
     }
+
+    reserve_replaygain_frames(gf, outf);
 
     if (frontend_config.ui_config.silent > 0) {
         frontend_config.ui_config.brhist = 0; /* turn off VBR histogram */
