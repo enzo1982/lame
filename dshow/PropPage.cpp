@@ -90,7 +90,7 @@ SSampleRate srRates[9] = {
 /**
  * Creates the property page. The class factory of the filter calls it.
  */
-CUnknown *CMpegAudEncPropertyPage::CreateInstance( LPUNKNOWN punk, HRESULT *phr )
+CUnknown * WINAPI CMpegAudEncPropertyPage::CreateInstance( LPUNKNOWN punk, HRESULT *phr )
 {
     CMpegAudEncPropertyPage *pNewObject
         = new CMpegAudEncPropertyPage( punk, phr );

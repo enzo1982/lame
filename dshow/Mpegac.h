@@ -96,7 +96,7 @@ class CMpegAudEnc : public CTransformFilter,
 public:
     DECLARE_IUNKNOWN
 
-    static CUnknown *CreateInstance(LPUNKNOWN lpunk, HRESULT *phr);
+    static CUnknown * WINAPI CreateInstance(LPUNKNOWN lpunk, HRESULT *phr);
 
     LPAMOVIESETUP_FILTER GetSetupData();
 

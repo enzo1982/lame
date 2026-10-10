@@ -110,9 +110,12 @@ AMOVIESETUP_MEDIATYPE sudMpgOutputType[] =
     { &MEDIATYPE_Stream, &MEDIASUBTYPE_MPEG1Audio }
 };
 
+static WCHAR g_wszInputPin[] = L"PCM Input";
+static WCHAR g_wszOutputPin[] = L"MPEG Output";
+
 AMOVIESETUP_PIN sudMpgPins[] =
 {
-    { L"PCM Input",
+    { g_wszInputPin,
       FALSE,                               // bRendered
       FALSE,                               // bOutput
       FALSE,                               // bZero
@@ -122,7 +125,7 @@ AMOVIESETUP_PIN sudMpgPins[] =
       NUMELMS(sudMpgInputType),            // Number of media types
       sudMpgInputType
     },
-    { L"MPEG Output",
+    { g_wszOutputPin,
       FALSE,                               // bRendered
       TRUE,                                // bOutput
       FALSE,                               // bZero
@@ -226,7 +229,7 @@ DllMain(HINSTANCE hModule, DWORD dwReason, LPVOID lpReserved)
 }
 
 
-CUnknown *CMpegAudEnc::CreateInstance(LPUNKNOWN lpunk, HRESULT *phr) 
+CUnknown * WINAPI CMpegAudEnc::CreateInstance(LPUNKNOWN lpunk, HRESULT *phr) 
 {
     CMpegAudEnc *punk = new CMpegAudEnc(lpunk, phr);
     if (punk == NULL) 

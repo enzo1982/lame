@@ -81,8 +81,8 @@ BOOL    CRegKey::Create(HKEY rootKey, LPCTSTR pName)
     m_hRootKey = rootKey;
     if(pName) 
     {
-        if(RegCreateKeyEx(m_hRootKey, pName, NULL,
-                TEXT(""), REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL,
+        if(RegCreateKeyEx(m_hRootKey, pName, 0,
+                NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL,
                 &m_hKey, NULL) != ERROR_SUCCESS) 
         {
 

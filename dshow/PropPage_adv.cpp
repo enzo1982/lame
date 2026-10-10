@@ -44,7 +44,7 @@ const char *chChMode[4] = {
 /**
  * Creates the property page. The class factory of the filter calls it.
  */
-CUnknown *CMpegAudEncPropertyPageAdv::CreateInstance( LPUNKNOWN punk, HRESULT *phr )
+CUnknown * WINAPI CMpegAudEncPropertyPageAdv::CreateInstance( LPUNKNOWN punk, HRESULT *phr )
 {
     CMpegAudEncPropertyPageAdv *pNewObject
         = new CMpegAudEncPropertyPageAdv( punk, phr );

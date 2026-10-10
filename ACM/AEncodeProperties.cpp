@@ -348,9 +348,9 @@ bool AEncodeProperties::InitConfigDlg(HWND HwndDlg)
 	int i;
 
 	// Add required channel modes
-	SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ENC_STEREO), CB_RESETCONTENT , NULL, NULL);
+	SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ENC_STEREO), CB_RESETCONTENT , 0, 0);
 	for (i=0;i<GetChannelLentgh();i++)
-		SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ENC_STEREO), CB_ADDSTRING, NULL, (LPARAM) GetChannelModeString(i));
+		SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ENC_STEREO), CB_ADDSTRING, 0, (LPARAM) GetChannelModeString(i));
 
 	char tmp[sizeof "v" + ACM::VERSION_STRING_CHARS];
 	snprintf(tmp, sizeof tmp, "v%s", ACM::GetVersionString());
@@ -437,7 +437,7 @@ bool AEncodeProperties::UpdateDlgFromValue(HWND HwndDlg)
 	{
 		if (i == nChannelIndex)
 		{
-			SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ENC_STEREO), CB_SETCURSEL, i, NULL);
+			SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ENC_STEREO), CB_SETCURSEL, i, 0);
 			break;
 		}
 	}
@@ -466,7 +466,7 @@ bool AEncodeProperties::UpdateDlgFromValue(HWND HwndDlg)
 
 bool AEncodeProperties::UpdateValueFromDlg(HWND HwndDlg)
 {
-	nChannelIndex      = SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ENC_STEREO),   CB_GETCURSEL, NULL, NULL);
+	nChannelIndex      = SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ENC_STEREO),   CB_GETCURSEL, 0, 0);
 
 	bCRC          = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_CHECKSUM)     == BST_CHECKED);
 	bCopyright    = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_COPYRIGHT)    == BST_CHECKED);
@@ -477,9 +477,9 @@ bool AEncodeProperties::UpdateValueFromDlg(HWND HwndDlg)
 	bNoBitRes     =!(::IsDlgButtonChecked( HwndDlg, IDC_CHECK_RESERVOIR)    == BST_CHECKED);
 	bForceChannel = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_CHANNELFORCE) == BST_CHECKED);
 
-	AverageBitrate_Min  = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MIN), TBM_GETPOS , NULL, NULL);
-	AverageBitrate_Max  = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MAX), TBM_GETPOS , NULL, NULL);
-	AverageBitrate_Step = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_STEP), TBM_GETPOS , NULL, NULL);
+	AverageBitrate_Min  = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MIN), TBM_GETPOS , 0, 0);
+	AverageBitrate_Max  = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MAX), TBM_GETPOS , 0, 0);
+	AverageBitrate_Step = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_STEP), TBM_GETPOS , 0, 0);
 
 	EnableAbrOptions(HwndDlg, bAbrOutput);
 
@@ -1032,8 +1032,8 @@ void AEncodeProperties::UpdateDlgFromSlides(HWND hwndDlg) const
 	UINT value_min, value_max, value_step, value;
 	char tmp[4];
 
-	value_min = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_MIN), TBM_GETPOS, NULL, NULL);
-	value_max = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_MAX), TBM_GETPOS, NULL, NULL);
+	value_min = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_MIN), TBM_GETPOS, 0, 0);
+	value_max = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_MAX), TBM_GETPOS, 0, 0);
 
 	if (value_min>value_max)
 	{
@@ -1052,7 +1052,7 @@ void AEncodeProperties::UpdateDlgFromSlides(HWND hwndDlg) const
 	
 	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETRANGEMAX, TRUE, value_max);
 	
-	value_step = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_STEP), TBM_GETPOS, NULL, NULL);
+	value_step = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_STEP), TBM_GETPOS, 0, 0);
 	snprintf(tmp, sizeof tmp, "%3u", value_step);
 	::SetWindowText(GetDlgItem( hwndDlg, IDC_STATIC_AVERAGE_STEP_VALUE), tmp);
 
@@ -1065,7 +1065,7 @@ void AEncodeProperties::UpdateDlgFromSlides(HWND hwndDlg) const
 	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETLINESIZE, 0, value_step);
 	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETPAGESIZE, 0, value_step);
 	
-	value = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_GETPOS, NULL, NULL);
+	value = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_GETPOS, 0, 0);
 	snprintf(tmp, sizeof tmp, "%3u", value);
 	::SetWindowText(GetDlgItem( hwndDlg, IDC_STATIC_AVERAGE_SAMPLE_VALUE), tmp);
 }

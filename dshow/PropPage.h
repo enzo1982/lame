@@ -24,7 +24,7 @@ class CMpegAudEncPropertyPage : public CBasePropertyPage
 {
 
 public:
-    static CUnknown *CreateInstance( LPUNKNOWN punk, HRESULT *phr );
+    static CUnknown * WINAPI CreateInstance( LPUNKNOWN punk, HRESULT *phr );
     CMpegAudEncPropertyPage( LPUNKNOWN punk, HRESULT *phr );
 
     HRESULT OnConnect(IUnknown *pUnknown);

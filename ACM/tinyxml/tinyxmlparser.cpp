@@ -23,7 +23,8 @@ distribution.
 
 #include "tinyxml.h"
 #include <ctype.h>
-#include <strstream>
+#include <istream>
+#include <string.h>
 using namespace std;
 
 //#define DEBUG_PARSER
@@ -317,7 +318,7 @@ const char* TiXmlDocument::Parse( const char* p )
 	if ( !p || !*p  || !( p = SkipWhiteSpace( p ) ) )
 	{
 		SetError( TIXML_ERROR_DOCUMENT_EMPTY );
-		return false;
+		return 0;
 	}
 	
 	while ( p && *p )
@@ -524,7 +525,7 @@ const char* TiXmlElement::Parse( const char* p )
 	if ( !p || !*p || *p != '<' )
 	{
 		if ( document ) document->SetError( TIXML_ERROR_PARSING_ELEMENT );
-		return false;
+		return 0;
 	}
 
 	p = SkipWhiteSpace( p+1 );
@@ -534,7 +535,7 @@ const char* TiXmlElement::Parse( const char* p )
 	if ( !p || !*p )
 	{
 		if ( document )	document->SetError( TIXML_ERROR_FAILED_TO_READ_ELEMENT_NAME );
-		return false;
+		return 0;
 	}
 
 	string endTag = "</";

@@ -81,13 +81,13 @@ LONG WINAPI DriverProc(DWORD dwDriverId, HDRVR hdrvr, UINT msg, LONG lParam1, LO
 			if (debug != NULL)
 			{
 				// Sent when the driver is opened.
-				if (lParam2 != NULL)
+				if (lParam2 != 0)
 					debug->OutPut(DEBUG_LEVEL_MSG, "DRV_OPEN (ID 0x%08X), pDesc = 0x%08X",dwDriverId,lParam2);
 				else
 					debug->OutPut(DEBUG_LEVEL_MSG, "DRV_OPEN (ID 0x%08X), pDesc = NULL",dwDriverId);
 			}
 
-			if (lParam2 != NULL) {
+			if (lParam2 != 0) {
 				LPACMDRVOPENDESC pDesc = (LPACMDRVOPENDESC)lParam2;
 
 				if (pDesc->fccType != ACMDRIVERDETAILS_FCCTYPE_AUDIOCODEC) {
@@ -95,7 +95,7 @@ LONG WINAPI DriverProc(DWORD dwDriverId, HDRVR hdrvr, UINT msg, LONG lParam1, LO
 					{
 						debug->OutPut(DEBUG_LEVEL_FUNC_CODE, "wrong pDesc->fccType (0x%08X)",pDesc->fccType);
 					}
-					return NULL;
+					return 0;
 				}
 			} else {
 				if (debug != NULL)

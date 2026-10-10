@@ -1103,7 +1103,7 @@ void ACM::FillMP3Format(WAVEFORMATEX & the_Format, const unsigned int the_Freque
 	       ACMFORMATDETAILS_FORMAT_CHARS characters, including the terminating
 	       NUL
 */
-void ACM::DescribeMP3Format(const WAVEFORMATEX & the_Format, unsigned short the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const
+void ACM::DescribeMP3Format(const WAVEFORMATEX & the_Format, WCHAR the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const
 {
 	char temp[ACMFORMATDETAILS_FORMAT_CHARS];
 
@@ -1125,7 +1125,7 @@ void ACM::DescribeMP3Format(const WAVEFORMATEX & the_Format, unsigned short the_
 	MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, temp, -1, the_String, ACMFORMATDETAILS_FORMAT_CHARS);
 }
 
-void ACM::GetMP3FormatForIndex(const DWORD the_Index, WAVEFORMATEX & the_Format, unsigned short the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const
+void ACM::GetMP3FormatForIndex(const DWORD the_Index, WAVEFORMATEX & the_Format, WCHAR the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const
 {
 	if (the_Index < bitrate_table.size())
 	{
@@ -1138,7 +1138,7 @@ void ACM::GetMP3FormatForIndex(const DWORD the_Index, WAVEFORMATEX & the_Format,
 	}
 }
 
-void ACM::GetPCMFormatForIndex(const DWORD the_Index, WAVEFORMATEX & the_Format, unsigned short the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const
+void ACM::GetPCMFormatForIndex(const DWORD the_Index, WAVEFORMATEX & the_Format, WCHAR the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const
 {
 	the_Format.nChannels = SIZE_CHANNEL_MODE - int(the_Index % SIZE_CHANNEL_MODE);
 	the_Format.wBitsPerSample = 16;
