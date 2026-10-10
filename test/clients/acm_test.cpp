@@ -61,6 +61,13 @@
 static const char CONFIG_NAME[] = "lame_acm.xml";
 
 /**
+ * @brief The configuration file of the codec under test: CONFIG_NAME in the
+ *        folder of the codec, where the codec reads it however it was
+ *        registered. main() fills it in.
+ */
+static char codec_config[MAX_PATH];
+
+/**
  * @brief Maps a frequency to the MP3 sample-rate ladder. A copy for the
  *        control below.
  *
@@ -2352,6 +2359,82 @@ test_close_after_query(void)
 }
 
 /**
+ * @brief Checks the codec when a program registers it as a function, with
+ *        acmDriverAdd() and @c ACM_DRIVERADDF_FUNCTION.
+ *
+ * Windows gives such a driver no module handle; the codec then uses its own.
+ * Its configuration dialog opens, its configuration file is the one in its
+ * own folder, and no file appears in the current directory of the program.
+ * The test runs from an empty folder of its own, so that the current
+ * directory is never the folder of the codec.
+ *
+ * @param driver the path of the codec.
+ */
+static void
+test_registered_as_a_function(const char *driver)
+{
+    /* Often enough that the dialog closes soon after it opens. */
+    const UINT TIMER_MS = 200;
+    char previous[MAX_PATH], empty[MAX_PATH], temp[MAX_PATH], local_config[MAX_PATH];
+    HMODULE mod;
+    FARPROC proc;
+    HACMDRIVERID hadid = NULL;
+    HACMDRIVER had = NULL;
+    MMRESULT mr;
+
+    printf("the codec registered as a function\n");
+    if (::GetCurrentDirectoryA(sizeof previous, previous) == 0
+        || ::GetTempPathA(sizeof temp, temp) == 0
+        || snprintf(empty, sizeof empty, "%sacm_test_%lu", temp, (unsigned long) ::GetCurrentProcessId())
+               >= (int) sizeof empty
+        || snprintf(local_config, sizeof local_config, "%s\\%s", empty, CONFIG_NAME)
+               >= (int) sizeof local_config
+        || (!::CreateDirectoryA(empty, NULL) && ::GetLastError() != ERROR_ALREADY_EXISTS)
+        || !::SetCurrentDirectoryA(empty)) {
+        CHECK(0, "the test changes to an empty folder of its own");
+        return;
+    }
+    ::DeleteFileA(local_config);
+    ::DeleteFileA(codec_config);
+    mod = ::LoadLibraryA(driver);
+    proc = (mod != NULL) ? ::GetProcAddress(mod, "DriverProc") : NULL;
+    CHECK(proc != NULL, "DriverProc resolves");
+    if (proc != NULL) {
+        mr = acmDriverAdd(&hadid, (HINSTANCE) mod, (LPARAM) proc, 0, ACM_DRIVERADDF_FUNCTION);
+        CHECK_MM(mr, "acmDriverAdd() registers the codec as a function");
+        if (mr == MMSYSERR_NOERROR) {
+            mr = acmDriverOpen(&had, hadid, 0);
+            CHECK_MM(mr, "acmDriverOpen() opens it");
+        }
+        if (had != NULL) {
+            UINT_PTR timer;
+
+            config_dialog_button = IDCANCEL;
+            config_dialog_found = 0;
+            timer = ::SetTimer(NULL, 0, TIMER_MS, close_config_dialog);
+            acmDriverMessage(had, DRV_CONFIGURE, 0, 0);
+            ::KillTimer(NULL, timer);
+            CHECK(config_dialog_found, "its configuration dialog opens");
+            acmDriverClose(had, 0);
+        }
+        if (hadid != NULL) {
+            acmDriverRemove(hadid, 0);
+        }
+        CHECK(::GetFileAttributesA(codec_config) != INVALID_FILE_ATTRIBUTES,
+              "its configuration file is the one in its own folder");
+        CHECK(::GetFileAttributesA(local_config) == INVALID_FILE_ATTRIBUTES,
+              "no configuration file appears in the current directory");
+    }
+    if (mod != NULL) {
+        ::FreeLibrary(mod);
+    }
+    ::DeleteFileA(local_config);
+    ::DeleteFileA(codec_config);
+    ::SetCurrentDirectoryA(previous);
+    ::RemoveDirectoryA(empty);
+}
+
+/**
  * @brief Drives the built codec through the Audio Compression Manager.
  *
  * The smoke test checks that the DLL loads and exports what it should. This
@@ -2816,15 +2899,15 @@ stream_open_result(const char *driver, DWORD rate, DWORD mp3_rate, DWORD open_fl
 }
 
 /**
- * @brief Writes a configuration file with the given elements in its current
- *        configuration.
+ * @brief Writes the configuration file of the codec under test
+ *        (codec_config) with the given elements in its current configuration.
  * @param elements the XML elements, one or more lines.
  * @return 1 on success, 0 if the file cannot be written.
  */
 static int
 write_settings(const char *elements)
 {
-    FILE *f = fopen(CONFIG_NAME, "wb");
+    FILE *f = fopen(codec_config, "wb");
 
     if (f == NULL) {
         return 0;
@@ -3032,18 +3115,16 @@ test_settings_on_start(const char *driver)
  * - Without Smart Output, the 11025 Hz stream does not open, nor does a stream
  *   that LAME rejects: one at 50 Hz, or at 96000 Hz, which MP3 does not have.
  *
- * An installed codec reads its configuration file from its own folder. Here
- * the test adds the codec with @c ACM_DRIVERADDF_FUNCTION, and then the codec
- * gets no module handle and reads the file from the current directory. So the
- * test writes the file there. It keeps a file that was there before, and puts
- * it back at the end.
+ * The codec reads its configuration file from its own folder, also when the
+ * test adds it with @c ACM_DRIVERADDF_FUNCTION. So the test writes the file
+ * there. It keeps a file that was there before, and puts it back at the end.
  *
  * @param driver the path of the codec.
  */
 static void
 test_settings_reach_the_encoder(const char *driver)
 {
-    const char *const config = CONFIG_NAME;
+    const char *const config = codec_config;
     char *saved = NULL;
     long saved_len = -1;
     FILE *f;
@@ -3588,7 +3669,23 @@ main(int argc, char **argv)
 
         CHECK(ctest_load_with_stderr_file(driver, &codec_stderr),
               "the codec loads with its stderr going to a file");
+        {
+            char folder[MAX_PATH];
+            char *name = NULL;
+            DWORD const n = ::GetFullPathNameA(driver, sizeof folder, folder, &name);
+
+            if (n > 0 && n < sizeof folder && name != NULL) {
+                *name = '\0';
+            } else {
+                folder[0] = '\0';
+            }
+            CHECK(folder[0] != '\0'
+                  && snprintf(codec_config, sizeof codec_config, "%s%s", folder, CONFIG_NAME)
+                         < (int) sizeof codec_config,
+                  "the folder of the codec is known");
+        }
         test_under_the_acm(driver);
+        test_registered_as_a_function(driver);
         test_behind_the_acm_wrapper(driver);
         test_settings_reach_the_encoder(driver);
         test_config_dialog_version(driver);

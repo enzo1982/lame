@@ -46,6 +46,26 @@
 
 ADbg * debug = NULL;
 
+/*!
+	Finds the module of the codec, where its dialogs and its settings file
+	are. A program that registers the codec with acmDriverAdd() and
+	ACM_DRIVERADDF_FUNCTION gives the driver no module, so the codec then
+	takes the module that holds its own code and data.
+
+	\param hdrvr the driver handle of DRV_OPEN
+	\return the module, or NULL if neither is known
+*/
+static HMODULE DriverModule(HDRVR hdrvr)
+{
+	HMODULE module = GetDriverModuleHandle(hdrvr);
+
+	if (module == NULL
+	    && !GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+	                          (LPCTSTR) &debug, &module))
+		module = NULL;
+	return module;
+}
+
 LONG WINAPI DriverProc(DWORD dwDriverId, HDRVR hdrvr, UINT msg, LONG lParam1, LONG lParam2)
 {
 
@@ -84,7 +104,7 @@ LONG WINAPI DriverProc(DWORD dwDriverId, HDRVR hdrvr, UINT msg, LONG lParam1, LO
 				}
 			}
 
-			ACM * ThisACM = new (std::nothrow) ACM(GetDriverModuleHandle(hdrvr));
+			ACM * ThisACM = new (std::nothrow) ACM(DriverModule(hdrvr));
 
 			if (debug != NULL)
 			{

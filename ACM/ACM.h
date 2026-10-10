@@ -71,7 +71,7 @@ public:
 protected:
 	inline DWORD About( HWND hParentWindow );
 
-	inline DWORD OnDriverDetails(const HDRVR hdrvr, LPACMDRIVERDETAILS a_DriverDetail);
+	inline DWORD OnDriverDetails(LPACMDRIVERDETAILS a_DriverDetail);
 	inline DWORD OnFormatTagDetails(LPACMFORMATTAGDETAILS a_FormatTagDetails, const LPARAM a_Query);
 	inline DWORD OnFormatDetails(LPACMFORMATDETAILS a_FormatDetails, const LPARAM a_Query);
 	inline DWORD OnFormatSuggest(LPACMDRVFORMATSUGGEST a_FormatSuggest);

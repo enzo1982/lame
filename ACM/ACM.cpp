@@ -359,7 +359,7 @@ switch (msg) {
 		// Fill-in general informations about the driver/codec
 		my_debug.OutPut(DEBUG_LEVEL_MSG, "ACMDM_DRIVER_DETAILS");
 
-		dwRes = OnDriverDetails(hdrvr, (LPACMDRIVERDETAILS) lParam1);
+		dwRes = OnDriverDetails((LPACMDRIVERDETAILS) lParam1);
         
 		break;
 
@@ -644,15 +644,15 @@ inline DWORD ACM::OnFormatTagDetails(LPACMFORMATTAGDETAILS a_FormatTagDetails, c
 }
 
 /*!
-	Fills in the details of this ACM driver.
+	Fills in the details of this ACM driver. The icon comes from the module
+	of the codec.
 
-	\param hdrvr the driver. Its module provides the icon.
 	\param a_DriverDetail receives the driver details
 */
-inline DWORD ACM::OnDriverDetails(const HDRVR hdrvr, LPACMDRIVERDETAILS a_DriverDetail)
+inline DWORD ACM::OnDriverDetails(LPACMDRIVERDETAILS a_DriverDetail)
 {
 	if (my_hIcon == NULL)
-		my_hIcon = LoadIcon(GetDriverModuleHandle(hdrvr), MAKEINTRESOURCE(IDI_ICON));
+		my_hIcon = LoadIcon(my_hModule, MAKEINTRESOURCE(IDI_ICON));
 	a_DriverDetail->hicon       = my_hIcon;
 
 	a_DriverDetail->fccType     = ACMDRIVERDETAILS_FCCTYPE_AUDIOCODEC;
