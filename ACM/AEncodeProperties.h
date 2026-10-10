@@ -399,9 +399,8 @@ private:
 	double SmartRatioMax;
 
 	/** \brief Indexes into the_ChannelModes, in the order of its entries. */
-	enum { CHANNEL_INDEX_STEREO, CHANNEL_INDEX_JOINT_STEREO, CHANNEL_INDEX_DUAL_CHANNEL,
-	       CHANNEL_INDEX_MONO };
-	static const unsigned int the_ChannelModes[4];
+	enum { CHANNEL_INDEX_STEREO, CHANNEL_INDEX_JOINT_STEREO, CHANNEL_INDEX_MONO };
+	static const unsigned int the_ChannelModes[3];
 	int nChannelIndex;
 
 	static unsigned int the_Bitrates[18];

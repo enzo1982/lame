@@ -32,15 +32,7 @@
 
 #define         MPG_MD_STEREO           0
 #define         MPG_MD_JOINT_STEREO     1
-#define         MPG_MD_DUAL_CHANNEL     2
 #define         MPG_MD_MONO             3
-
-// Strings which apear in comboboxes
-const char *chChMode[4] = {
-    "Mono",
-    "Standard stereo",
-    "Joint stereo",
-    "Dual channel"};
 
 /**
  * Creates the property page. The class factory of the filter calls it.
@@ -154,7 +146,6 @@ INT_PTR CMpegAudEncPropertyPageAdv::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM 
         {
         case IDC_RADIO_STEREO:
         case IDC_RADIO_JSTEREO:
-        case IDC_RADIO_DUAL:
         case IDC_RADIO_MONO:
             {
 
@@ -298,7 +289,6 @@ void CMpegAudEncPropertyPageAdv::EnableControls(HWND hwndParent, bool bEnable)
     EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_ENFORCE_MIN), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_RADIO_STEREO), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_RADIO_JSTEREO), bEnable);
-    EnableWindow(GetDlgItem(hwndParent, IDC_RADIO_DUAL), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_RADIO_MONO), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_FORCE_MS), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_KEEP_ALL_FREQ), bEnable);

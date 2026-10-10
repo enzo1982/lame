@@ -1231,6 +1231,10 @@ STDMETHODIMP CMpegAudEnc::get_ChannelMode(DWORD *dwChannelMode)
 STDMETHODIMP CMpegAudEnc::set_ChannelMode(DWORD dwChannelMode)
 {
     MPEG_ENCODER_CONFIG mec;
+
+    // LAME does not implement dual channel
+    if (dwChannelMode != STEREO && dwChannelMode != JOINT_STEREO && dwChannelMode != MONO)
+        return E_INVALIDARG;
     m_Encoder.GetOutputType(&mec);
     mec.ChMode = (MPEG_mode)dwChannelMode;
     m_Encoder.SetOutputType(mec);

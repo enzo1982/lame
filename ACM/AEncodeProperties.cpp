@@ -67,7 +67,7 @@ static const size_t FORMAT_COUNT_CHARS = 80;
 unsigned int AEncodeProperties::the_Bitrates[18];
 unsigned int AEncodeProperties::the_MPEG1_Bitrates[14];
 unsigned int AEncodeProperties::the_MPEG2_Bitrates[14];
-const unsigned int AEncodeProperties::the_ChannelModes[4] = { STEREO, JOINT_STEREO, DUAL_CHANNEL, MONO };
+const unsigned int AEncodeProperties::the_ChannelModes[3] = { STEREO, JOINT_STEREO, MONO };
 
 ToolTipItem AEncodeProperties::Tooltips[TOOLTIP_COUNT]={
 	{ IDC_CHECK_ENC_CBR, "Offer constant bitrate formats: every frame has the\r\nbitrate of the format, for example \"44100 Hz,\r\nCBR 128 kbps, Stereo\"." },
@@ -84,7 +84,7 @@ ToolTipItem AEncodeProperties::Tooltips[TOOLTIP_COUNT]={
 	{ IDC_COMBO_VBR_MAX, "The highest bitrate of a VBR stream. A stream\r\nuses the nearest bitrate that its sample rate has." },
 	{ IDC_CHECK_VBR_ENFORCE_MIN, "Every frame uses at least the minimum bitrate,\r\nsilent frames too." },
 	{ IDC_CHECK_ENC_SMART, "Leave out the formats that compress more than\r\nthis: a low bitrate at a high sample rate." },
-	{ IDC_COMBO_ENC_STEREO, "Select the channel mode used for encoding:\r\n\r\n- Stereo: the usual one\r\n- Joint stereo: codes what both channels share once, for better compression\r\n- Dual channel: encodes both channels separately\r\n- Mono: one channel" },
+	{ IDC_COMBO_ENC_STEREO, "Select the channel mode used for encoding:\r\n\r\n- Stereo: the usual one\r\n- Joint stereo: codes what both channels share once, for better compression\r\n- Mono: one channel" },
 	{ IDC_CHECK_CHANNELFORCE, "Use the selected mode even when the input has another number of channels.\r\n\r\nOnly Mono can be forced: stereo input is then encoded as mono." },
 	{ IDC_SLIDER_QUALITY, "How hard the encoder works: 0 gives the best quality\r\nand is the slowest, 9 is the fastest. 3 is LAME's default." },
 	{ IDC_CHECK_COPYRIGHT, "Mark the encoded data as copyrighted." },
@@ -355,8 +355,6 @@ const char * AEncodeProperties::GetChannelModeString(int a_channelID) const
 			return "Stereo";
 		case CHANNEL_INDEX_JOINT_STEREO:
 			return "Joint stereo";
-		case CHANNEL_INDEX_DUAL_CHANNEL:
-			return "Dual channel";
 		case CHANNEL_INDEX_MONO:
 			return "Mono";
 		default:

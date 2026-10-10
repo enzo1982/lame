@@ -124,7 +124,8 @@ extern "C" {
         STDMETHOD(get_ChannelMode) (THIS_
             DWORD *dwChannelMode
         ) PURE;
-        // Set channel mode
+        // Set channel mode: 0 stereo, 1 joint stereo, 3 mono. LAME does not
+        // implement dual channel (2): E_INVALIDARG
         STDMETHOD(set_ChannelMode) (THIS_
             DWORD dwChannelMode
         ) PURE;

@@ -104,6 +104,10 @@ HRESULT CEncoder::SetOutputType(const MPEG_ENCODER_CONFIG &mabsi)
     CAutoLock l(&m_lock);
 
     m_mabsi = mabsi;
+    // LAME does not implement dual channel: one from saved settings or a
+    // program's parameter block encodes as the default, joint stereo
+    if (m_mabsi.ChMode == DUAL_CHANNEL)
+        m_mabsi.ChMode = JOINT_STEREO;
     m_bOutpuTypeSet = true;
 
     return S_OK;

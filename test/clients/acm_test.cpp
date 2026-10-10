@@ -1145,16 +1145,18 @@ test_config_dialog_version(const char *driver)
  * @brief Checks the names of the channel modes in the configuration dialog
  *        and in the settings file.
  *
- * The dialog lists the modes with the names that the DirectShow filter uses
- * too, and the settings file stores the same names: a file that says "Dual
- * channel" selects dual channel, and saving writes "Dual channel" back.
+ * The dialog lists the modes that LAME implements, with the names that the
+ * DirectShow filter uses too. A file that says "Dual channel", which LAME does
+ * not implement, selects the default, joint stereo, and saving writes "Joint
+ * stereo".
  *
  * @param driver  the path of the built codec.
  */
 static void
 test_config_dialog_channel_modes(const char *driver)
 {
-    static const char *const labels[] = { "Stereo", "Joint stereo", "Dual channel", "Mono" };
+    static const char *const labels[] = { "Stereo", "Joint stereo", "Mono" };
+    enum { MODES = sizeof labels / sizeof labels[0] };
     /* Room for the longest label and for the settings file, with space to spare. */
     enum { LABEL_CHARS = 64, FILE_CHARS = 4096 };
     INITCOMMONCONTROLSEX controls = { sizeof controls, ICC_BAR_CLASSES };
@@ -1197,14 +1199,14 @@ test_config_dialog_channel_modes(const char *driver)
                 listed++;
             }
         }
-        CHECK(listed == 4 && ::SendMessageA(combo, CB_GETCOUNT, 0, 0) == 4,
-              "the dialog lists Stereo, Joint stereo, Dual channel and Mono");
+        CHECK(listed == MODES && ::SendMessageA(combo, CB_GETCOUNT, 0, 0) == MODES,
+              "the dialog lists Stereo, Joint stereo and Mono");
         selected = ::SendMessageA(combo, CB_GETCURSEL, 0, 0);
         item[0] = '\0';
         if (selected >= 0 && ::SendMessageA(combo, CB_GETLBTEXTLEN, selected, 0) < LABEL_CHARS) {
             ::SendMessageA(combo, CB_GETLBTEXT, selected, (LPARAM) item);
         }
-        CHECK(strcmp(item, "Dual channel") == 0, "a file that says \"Dual channel\" selects dual channel");
+        CHECK(strcmp(item, "Joint stereo") == 0, "a file that says \"Dual channel\" selects joint stereo");
         printf("        selected \"%s\"\n", item);
         ::DestroyWindow(dialog);
     }
@@ -1220,8 +1222,8 @@ test_config_dialog_channel_modes(const char *driver)
             fclose(f);
         }
         text[n] = '\0';
-        CHECK(strstr(text, "mode=\"Dual channel\"") != NULL,
-              "saving stores the name \"Dual channel\"");
+        CHECK(strstr(text, "mode=\"Joint stereo\"") != NULL,
+              "saving stores the name \"Joint stereo\"");
     }
     ::FreeLibrary(codec);
     ::DeleteFileA(CONFIG_NAME);

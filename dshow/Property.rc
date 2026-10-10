@@ -145,17 +145,15 @@ BEGIN
                     BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,7,63,140,10
     CONTROL         "Set sample sto&p time",IDC_CHECK_STOP,"Button",
                     BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,7,77,140,10
-    GROUPBOX        "Channel mode",IDC_STATIC,154,7,110,84,WS_GROUP
+    GROUPBOX        "Channel mode",IDC_STATIC,154,7,110,70,WS_GROUP
     CONTROL         "&Stereo",IDC_RADIO_STEREO,"Button",
                     BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,160,18,98,10
     CONTROL         "&Joint stereo",IDC_RADIO_JSTEREO,"Button",
                     BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,160,32,98,10
     CONTROL         "Forced &mid / side stereo",IDC_CHECK_FORCE_MS,"Button",
                     BS_AUTOCHECKBOX | WS_TABSTOP,170,46,88,10
-    CONTROL         "&Dual channel",IDC_RADIO_DUAL,"Button",
-                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,160,60,98,10
     CONTROL         "Mo&no",IDC_RADIO_MONO,"Button",BS_AUTORADIOBUTTON |
-                    WS_GROUP | WS_TABSTOP,160,74,98,10
+                    WS_GROUP | WS_TABSTOP,160,60,98,10
 END
 
 IDD_ABOUT DIALOGEX 0, 0, 291, 153

@@ -27,7 +27,6 @@
 #define IDC_COMBO_VBRq                  1026
 #define IDC_RADIO_STEREO                1027
 #define IDC_RADIO_JSTEREO               1028
-#define IDC_RADIO_DUAL                  1029
 #define IDC_RADIO_MONO                  1030
 #define IDC_CHECK_ENFORCE_MIN           1031
 #define IDC_CHECK_KEEP_ALL_FREQ         1033

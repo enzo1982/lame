@@ -871,6 +871,64 @@ restore_key(const saved_key *s)
 }
 
 /**
+ * @brief Checks that the filter does not offer dual channel, which LAME does
+ *        not implement.
+ *
+ * set_ChannelMode() rejects it and keeps the mode before. A dual channel that
+ * a released filter saved in the registry reads as joint stereo. The user's
+ * own settings key is kept before and put back after.
+ *
+ * @param cf  the class factory of the filter.
+ */
+static void
+test_no_dual_channel(IClassFactory *cf)
+{
+    /* The channel modes of the interface. */
+    enum { MODE_STEREO = 0, MODE_JOINT_STEREO = 1, MODE_DUAL_CHANNEL = 2 };
+    static saved_key saved;
+    IBaseFilter *filter = NULL;
+    IAudioEncoderProperties *props = NULL;
+    DWORD mode = 9, value = MODE_DUAL_CHANNEL;
+    HRESULT hr;
+    HKEY key;
+
+    printf("the filter does not offer dual channel\n");
+    if (FAILED(cf->CreateInstance(NULL, IID_IBaseFilter, (void **) &filter))
+        || FAILED(filter->QueryInterface(IID_IAudioEncoderProperties_local, (void **) &props))) {
+        CHECK(0, "a filter offers its audio encoder properties");
+        if (filter) filter->Release();
+        return;
+    }
+    props->set_ChannelMode(MODE_STEREO);
+    hr = props->set_ChannelMode(MODE_DUAL_CHANNEL);
+    props->get_ChannelMode(&mode);
+    CHECK(hr == E_INVALIDARG && mode == MODE_STEREO, "set_ChannelMode() rejects dual channel and keeps the mode");
+    props->Release();
+    filter->Release();
+    props = NULL;
+    filter = NULL;
+
+    if (!save_key(&saved)) {
+        CHECK(0, "the settings key can be kept before the test writes it");
+        return;
+    }
+    mode = 9;
+    if (RegCreateKeyExA(HKEY_CURRENT_USER, FILTER_SETTINGS_KEY, 0, NULL, 0, KEY_WRITE, NULL, &key, NULL)
+        == ERROR_SUCCESS) {
+        LONG const rc = RegSetValueExA(key, "Stereo Mode", 0, REG_DWORD, (const BYTE *) &value, sizeof value);
+
+        RegCloseKey(key);
+        if (rc == ERROR_SUCCESS && SUCCEEDED(cf->CreateInstance(NULL, IID_IBaseFilter, (void **) &filter))
+            && SUCCEEDED(filter->QueryInterface(IID_IAudioEncoderProperties_local, (void **) &props)))
+            props->get_ChannelMode(&mode);
+    }
+    if (props) props->Release();
+    if (filter) filter->Release();
+    CHECK(restore_key(&saved), "the settings key is put back as it was");
+    CHECK_EQ_U(mode, MODE_JOINT_STEREO, "dual channel that a released filter saved reads as joint stereo");
+}
+
+/**
  * @brief Checks that the 20 settings of ::stored_settings reach a new filter
  *        through the registry.
  *
@@ -2818,7 +2876,7 @@ enum { PAGES = sizeof CLSID_page_local / sizeof CLSID_page_local[0] };
 static const WORD page_dialog[PAGES] = { 100, 102, 105 };
 static const char *const page_name[PAGES] = { "the main page", "the Advanced page", "the About page" };
 /** @brief The controls of each page with an access key. */
-static const size_t page_access_keys[PAGES] = { 16, 11, 0 };
+static const size_t page_access_keys[PAGES] = { 16, 10, 0 };
 /** @brief The encoding-quality slider of the main page and the text beside it. */
 enum { SLIDER_QUALITY_ID = 1021, TEXT_QUALITY_ID = 1023 };
 /** @brief The VBR quality box of the main page, and its VBR minimum and maximum. */
@@ -3309,6 +3367,7 @@ main(int argc, char **argv)
 
     test_property_round_trip(lame);
     test_settings_survive_a_save(cf);
+    test_no_dual_channel(cf);
     test_save_keeps_no_handle(cf);
     test_encoder_properties(lame);
 
