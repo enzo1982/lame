@@ -790,7 +790,9 @@ help_developer_switches(FILE * const fp)
             "    -Z [n]          always do calculate short block maskings\n");
     fprintf(fp,
             "  Noise Shaping related:\n"
-            "(1) --substep n     use pseudo substep noise shaping method types 0-2\n"
+            "(1) --substep n     pseudo substep noise shaping. n is 0 to 7, the sum of\n"
+            "                    1 (apply it), 2 (half steps from the start) and\n"
+            "                    4 (short blocks too)\n"
             "(1) -X n[,m]        selects between different noise measurements\n"
             "                    n for long block, m for short. if m is omitted, m = n\n"
             " 1: CBR, ABR and VBR-old encoding modes only\n"

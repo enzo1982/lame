@@ -3051,8 +3051,9 @@ lame_get_interChRatio(const lame_global_flags * gfp)
   | 1   | start every band in half-step mode instead of deciding per band |
   | 2   | extend the shaping to short blocks, which are otherwise skipped |
 
-  The default is off, but several presets turn it on. The values 0 to 7 are
-  accepted, that is every combination of the three bits.
+  The default is off. The quality settings 0 to 2 (\c lame_set_quality()) turn
+  on bit 1 when the caller left this at 0. The values 0 to 7 are accepted,
+  that is every combination of the three bits.
 
   \param gfp     the encoder instance.
   \param method  the bit combination, 0 to 7.
