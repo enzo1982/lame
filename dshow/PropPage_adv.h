@@ -20,7 +20,7 @@
  * Boston, MA 02111-1307, USA.
  */
 
-class CMpegAudEncPropertyPageAdv : public CBasePropertyPage 
+class CMpegAudEncPropertyPageAdv : public CSystemFontPropertyPage
 {
 
 public:
@@ -40,14 +40,11 @@ private:
     void    SetDirty(void);
 
     DWORD   m_dwEnforceVBRmin;
-    DWORD   m_dwVoiceMode;
     DWORD   m_dwKeepAllFreq;
     DWORD   m_dwStrictISO;
-    DWORD   m_dwNoShortBlock;
     DWORD   m_dwXingTag;
     DWORD   m_dwChannelMode;
     DWORD   m_dwForceMS;
-    DWORD   m_dwModeFixed;
     DWORD   m_dwOverlap;
     DWORD   m_dwSetStop;
 

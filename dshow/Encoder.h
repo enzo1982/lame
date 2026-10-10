@@ -27,6 +27,8 @@
 #pragma once
 #endif // _MSC_VER >= 1000
 
+#include <stddef.h>
+
 #include <lame.h>
 
 
@@ -85,7 +87,17 @@ typedef struct {
     DWORD   dwXingTag;
     DWORD   dwModeFixed;
     DWORD   bSampleOverlap;
+    DWORD   bPrivate;                       ///< nonzero to set the private bit
+    DWORD   bReservoir;                     ///< nonzero to use the bit reservoir
+    DWORD   dwAverageBitrate;               ///< the bitrate that ABR aims at, in kbit/s
 } MPEG_ENCODER_CONFIG;
+
+/**
+ * The size of the settings up to bSampleOverlap: the parameter block and the
+ * saved graphs of the filter before bPrivate was added. The filter still reads
+ * both.
+ */
+#define MPEG_ENCODER_CONFIG_FIRST_BYTES offsetof(MPEG_ENCODER_CONFIG, bPrivate)
 
 
 class CEncoder

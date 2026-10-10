@@ -52,7 +52,9 @@ class bitrate_item {
 		unsigned int bitrate;
 		unsigned int channels;
 		vbr_mode     mode;
-	
+		/** \brief The VBR quality level of a VBR format, 0 to 9; 0 for the others. */
+		unsigned int quality;
+
 		bool operator<(const bitrate_item & bitrate) const;
 };
 
@@ -65,6 +67,12 @@ public:
 	LONG DriverProcedure(const HDRVR hdrvr, const UINT msg, LONG lParam1, LONG lParam2);
 
 	static const char * GetVersionString(void) {return VersionString;}
+
+	/** \brief The families of formats, for BuildFormatList(); any of them
+	    together. */
+	enum { FAMILY_CBR = 1, FAMILY_ABR = 2, FAMILY_VBR = 4, FAMILY_ALL = 7 };
+	static void BuildFormatList(const FormatListSettings & the_Settings, unsigned int the_Families,
+	                            std::vector<bitrate_item> & the_List);
 	/** \brief The size of the buffer that GetVersionString() returns, terminator included. */
 	static const unsigned int VERSION_STRING_CHARS = 120;
 
@@ -86,15 +94,23 @@ protected:
 
 	void GetMP3FormatForIndex(const DWORD the_Index, WAVEFORMATEX & the_Format, WCHAR the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const;
 	void GetPCMFormatForIndex(const DWORD the_Index, WAVEFORMATEX & the_Format, WCHAR the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const;
-	void FillMP3Format(WAVEFORMATEX & the_Format, const unsigned int the_Frequency, const unsigned int the_Bitrate, const unsigned int the_Channels, const vbr_mode the_Mode) const;
+	void FillMP3Format(WAVEFORMATEX & the_Format, const unsigned int the_Frequency, const unsigned int the_Bitrate, const unsigned int the_Channels, const vbr_mode the_Mode, const unsigned int the_Quality = 0) const;
 	void DescribeMP3Format(const WAVEFORMATEX & the_Format, WCHAR the_String[ACMFORMATDETAILS_FORMAT_CHARS]) const;
 	static bool IsABRFormatFlags(const DWORD the_Flags);
+	static bool IsVBRFormatFlags(const DWORD the_Flags);
+	static unsigned int VBRQualityOfFormatFlags(const DWORD the_Flags);
+	static void AddVbrFormats(const FormatListSettings & the_Settings, const unsigned int * freqs, unsigned int nfreqs,
+	                          unsigned int channels, std::vector<bitrate_item> & the_List);
 	DWORD GetNumberEncodingFormats() const;
-	bool IsSmartOutput(const int frequency, const int bitrate, const int channels) const;
+	static bool IsSmartOutput(const FormatListSettings & the_Settings, const int frequency, const int bitrate,
+	                          const int channels);
 	void BuildBitrateTable();
-	void AddFormats(const unsigned int * freqs, unsigned int nfreqs, const unsigned int * bitrates,
-	                unsigned int nbitrates, unsigned int channels, vbr_mode mode);
-	std::vector<unsigned int> AbrBitrates(unsigned int lowest) const;
+	static void AddFormats(const FormatListSettings & the_Settings, const unsigned int * freqs, unsigned int nfreqs,
+	                       const unsigned int * bitrates, unsigned int nbitrates, unsigned int channels,
+	                       vbr_mode mode, std::vector<bitrate_item> & the_List);
+	static std::vector<unsigned int> AbrBitrates(const FormatListSettings & the_Settings, unsigned int lowest);
+	static std::vector<unsigned int> CbrBitrates(const FormatListSettings & the_Settings, const unsigned int * bitrates,
+	                                             unsigned int nbitrates);
 
 	HMODULE my_hModule;
 	HICON   my_hIcon;

@@ -32,19 +32,24 @@
 
 #include <windows.h>
 #include <commctrl.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 
 #include <vector>
 
 #include "ctest.h"
+#include "dialogcheck.h"
 #include "mp3frame.h"
 
 #include <lame.h>
 #include "ACMStream.h"
 #include "AEncodeProperties.h"
 #include "ACM.h"
+#include "DialogFont.h"
+#include "SettingText.h"
 #include <dshow.h>
 #include "resource.h"
 #include "../../libmp3lame/version.h"
@@ -403,7 +408,10 @@ public:
      * @param lowest  the lowest bitrate of the MPEG version, in kbit/s.
      * @return the bitrates, highest first.
      */
-    std::vector<unsigned int> Bitrates(unsigned int lowest) const { return AbrBitrates(lowest); }
+    std::vector<unsigned int> Bitrates(unsigned int lowest) const
+    {
+        return AbrBitrates(my_EncodingProperties.GetFormatListSettings(), lowest);
+    }
 };
 
 /** @brief The input and the result of one run of abr_ladder_worker(). */
@@ -497,6 +505,442 @@ test_abr_ladder_below_step(void)
         }
     }
     CHECK_EQ_U(same, n, "the ABR list steps from 200 down to 8 kbit/s");
+}
+
+/**
+ * @brief The fdwFlags of the codec's VBR format of a quality level: a bit
+ *        beside the ABR bit, and the level in bits 24 to 27.
+ */
+#define ACM_FLAGS_VBR(quality) (0x40000000UL | ((unsigned long) (quality) << 24))
+
+/** @brief Gives the test the format list and the VBR table of a codec object
+ *         compiled into it. */
+class VbrTable : public ACM
+{
+public:
+    /** @brief Creates the codec object. It reads lame_acm.xml in the current directory. */
+    VbrTable() : ACM(NULL) {}
+
+    /** @brief Returns the formats the codec lists. */
+    const std::vector<bitrate_item> &List() const { return bitrate_table; }
+
+    /**
+     * @brief Returns the typical bitrate of a VBR quality level.
+     * @param rate      the sample rate in Hz
+     * @param channels  1 or 2
+     * @param quality   the level, 0 to 9
+     * @return the bitrate in kbit/s, 0 for a rate the codec does not have
+     */
+    static unsigned Typical(DWORD rate, WORD channels, unsigned quality)
+    {
+        return VbrTypicalBitrate(rate, channels, quality);
+    }
+
+    /**
+     * @brief Fills in the format of one entry of the list, and its name.
+     * @param index  the entry
+     * @param mp3    receives the format
+     * @param name   receives the name, ACMFORMATDETAILS_FORMAT_CHARS wide characters
+     */
+    void Format(DWORD index, MPEGLAYER3WAVEFORMAT *mp3, WCHAR *name) const
+    {
+        memset(mp3, 0, sizeof(*mp3));
+        GetMP3FormatForIndex(index, mp3->wfx, name);
+    }
+};
+
+/**
+ * @brief Writes a configuration with Smart Output off and the given VBR
+ *        element, or none.
+ * @param vbr  the VBR element, or an empty string
+ * @return 1 if the file was written
+ */
+static int
+write_vbr_config(const char *vbr)
+{
+    FILE *f = fopen(CONFIG_NAME, "wb");
+
+    if (f == NULL) {
+        return 0;
+    }
+    fprintf(f,
+            "<lame_acm>\n"
+            "    <encodings default=\"Current\">\n"
+            "        <config name=\"Current\">\n"
+            "            <Smart use=\"false\" />\n"
+            "            %s\n"
+            "        </config>\n"
+            "    </encodings>\n"
+            "</lame_acm>\n", vbr);
+    return fclose(f) == 0;
+}
+
+/**
+ * @brief Checks the VBR formats that the codec lists.
+ *
+ * With VBR on and the levels 2 to 4, the list holds one VBR format for each of
+ * the 9 sample rates, both channel counts and the 3 levels, at the level's
+ * typical bitrate, with the VBR bit and the level in its flags and a name that
+ * says both. With VBR off it holds none. The range survives a save.
+ */
+static void
+test_vbr_format_list(void)
+{
+    char detail[CTEST_DETAIL_CHARS];
+    unsigned vbr = 0, right = 0, flagged = 0, named = 0;
+    size_t k;
+
+    printf("the VBR formats in the format list\n");
+    if (!write_vbr_config("<VBR use=\"true\" best=\"2\" worst=\"4\" />")) {
+        CHECK(0, "the configuration file could be written");
+        return;
+    }
+    {
+        VbrTable acm;
+        const std::vector<bitrate_item> &list = acm.List();
+
+        for (k = 0; k < list.size(); k++) {
+            MPEGLAYER3WAVEFORMAT mp3;
+            WCHAR wide[ACMFORMATDETAILS_FORMAT_CHARS];
+            char name[ACMFORMATDETAILS_FORMAT_CHARS];
+            char want[64];
+
+            if (list[k].mode != vbr_mtrh) {
+                continue;
+            }
+            vbr++;
+            if (list[k].quality >= 2 && list[k].quality <= 4
+                && list[k].bitrate == VbrTable::Typical(list[k].frequency, (WORD) list[k].channels, list[k].quality)
+                && list[k].bitrate != 0) {
+                right++;
+            }
+            acm.Format((DWORD) k, &mp3, wide);
+            if (mp3.fdwFlags == ACM_FLAGS_VBR(list[k].quality)
+                && mp3.wfx.nAvgBytesPerSec == list[k].bitrate * 1000 / 8) {
+                flagged++;
+            }
+            WideCharToMultiByte(CP_ACP, 0, wide, -1, name, sizeof(name), NULL, NULL);
+            sprintf(want, "VBR quality %u (about %u kbps)", list[k].quality, list[k].bitrate);
+            if (strstr(name, want) != NULL) {
+                named++;
+            }
+        }
+        sprintf(detail, "%u VBR formats; %u at the level's bitrate, %u flagged, %u named", vbr, right, flagged, named);
+        CHECK(vbr == 9 * 2 * 3 && right == vbr && flagged == vbr && named == vbr,
+              "VBR on, levels 2 to 4: 54 VBR formats, each at its typical bitrate, flagged and named");
+        printf("        %s\n", detail);
+
+        AEncodeProperties held(NULL);
+        held.ParamsRestore();
+        held.ParamsSave();
+        {
+            AEncodeProperties reread(NULL);
+            reread.ParamsRestore();
+            CHECK(reread.GetVbrOutputMode() && reread.GetVbrQualityBest() == 2 && reread.GetVbrQualityWorst() == 4,
+                  "the VBR setting comes back after a save");
+        }
+    }
+    if (write_vbr_config("<VBR use=\"false\" best=\"2\" worst=\"4\" />")) {
+        VbrTable acm;
+        const std::vector<bitrate_item> &list = acm.List();
+        unsigned none = 0;
+
+        for (k = 0; k < list.size(); k++) {
+            if (list[k].mode == vbr_mtrh) {
+                none++;
+            }
+        }
+        CHECK_EQ_U(none, 0, "VBR off: no VBR formats");
+    }
+    if (write_vbr_config("<VBR use=\"true\" best=\"5\" worst=\"3\" />")) {
+        AEncodeProperties props(NULL);
+        props.ParamsRestore();
+        CHECK(props.GetVbrQualityBest() == 0 && props.GetVbrQualityWorst() == AEncodeProperties::VBR_QUALITY_WORST,
+              "a VBR range whose best level is worse than its worst keeps the defaults");
+    }
+    ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Returns the bitrate of one VBR format of a format list.
+ * @param list      the formats of the codec
+ * @param rate      the sample rate in Hz
+ * @param channels  1 or 2
+ * @param quality   the VBR quality level
+ * @return the bitrate in kbit/s, 0 if the list has no such format
+ */
+static unsigned
+vbr_list_bitrate(const std::vector<bitrate_item> &list, unsigned rate, unsigned channels, unsigned quality)
+{
+    size_t k;
+
+    for (k = 0; k < list.size(); k++) {
+        if (list[k].mode == vbr_mtrh && list[k].frequency == rate && list[k].channels == channels
+            && list[k].quality == quality) {
+            return list[k].bitrate;
+        }
+    }
+    return 0;
+}
+
+/**
+ * @brief Checks the VBR formats under bitrate limits, and the limits in the
+ *        configuration file.
+ *
+ * The bitrate of a VBR format is the typical one of its level, held within
+ * the limits that LAME takes for its rate. A 128 kbit/s maximum brings level
+ * 0 at 44.1 kHz stereo down to 128. A 128 kbit/s minimum lifts level 9 there
+ * to 128, and at 8 kHz, whose bitrates end at 64 kbit/s, to 64. Every level of
+ * every rate stays listed. The limits survive a save. A limit that is not a
+ * bitrate of the list, and a minimum above the maximum, leave no limits.
+ */
+static void
+test_vbr_limits_in_the_list(void)
+{
+    /* The VBR formats of the levels 0 to 9: 9 sample rates, 2 channel counts. */
+    enum { ALL_VBR_FORMATS = 9 * 2 * 10, LIMIT_KBPS = 128, MPEG25_HIGHEST_KBPS = 64 };
+    char detail[CTEST_DETAIL_CHARS];
+    size_t k;
+
+    printf("the VBR bitrate limits in the format list\n");
+    if (!write_vbr_config("<VBR use=\"true\" best=\"0\" worst=\"9\" max=\"128\" />")) {
+        CHECK(0, "the configuration file could be written");
+        return;
+    }
+    {
+        VbrTable acm;
+        const std::vector<bitrate_item> &list = acm.List();
+        unsigned vbr = 0, highest = 0;
+
+        for (k = 0; k < list.size(); k++) {
+            if (list[k].mode == vbr_mtrh) {
+                vbr++;
+                if (list[k].bitrate > highest) {
+                    highest = list[k].bitrate;
+                }
+            }
+        }
+        sprintf(detail, "%u VBR formats, the highest at %u kbps; level 0 at 44.1 kHz stereo %u kbps", vbr, highest,
+                vbr_list_bitrate(list, 44100, 2, 0));
+        CHECK(vbr == ALL_VBR_FORMATS && highest == LIMIT_KBPS && vbr_list_bitrate(list, 44100, 2, 0) == LIMIT_KBPS,
+              "a 128 kbps maximum: every level listed, none above 128 kbps, level 0 at 44.1 kHz stereo at 128");
+        printf("        %s\n", detail);
+    }
+    if (!write_vbr_config("<VBR use=\"true\" best=\"0\" worst=\"9\" min=\"128\" enforce_min=\"true\" />")) {
+        CHECK(0, "the configuration file could be written");
+        return;
+    }
+    {
+        VbrTable acm;
+        const std::vector<bitrate_item> &list = acm.List();
+        unsigned vbr = 0;
+
+        for (k = 0; k < list.size(); k++) {
+            if (list[k].mode == vbr_mtrh) {
+                vbr++;
+            }
+        }
+        sprintf(detail, "%u VBR formats; level 9 at %u kbps at 44.1 kHz, at %u kbps at 8 kHz (typical %u and %u)", vbr,
+                vbr_list_bitrate(list, 44100, 2, 9), vbr_list_bitrate(list, 8000, 2, 9),
+                VbrTable::Typical(44100, 2, 9), VbrTable::Typical(8000, 2, 9));
+        CHECK(vbr == ALL_VBR_FORMATS && vbr_list_bitrate(list, 44100, 2, 9) == LIMIT_KBPS
+              && vbr_list_bitrate(list, 8000, 2, 9) == MPEG25_HIGHEST_KBPS,
+              "a 128 kbps minimum: level 9 at 128 kbps at 44.1 kHz, at 64 kbps at 8 kHz");
+        printf("        %s\n", detail);
+
+        AEncodeProperties held(NULL);
+        held.ParamsRestore();
+        held.ParamsSave();
+        {
+            AEncodeProperties reread(NULL);
+            reread.ParamsRestore();
+            CHECK(reread.GetVbrBitrateMin() == LIMIT_KBPS
+                  && reread.GetVbrBitrateMax() == AEncodeProperties::VBR_BITRATE_NO_LIMIT && reread.GetVbrEnforceMin(),
+                  "the VBR bitrate limits come back after a save");
+        }
+    }
+    if (write_vbr_config("<VBR use=\"true\" min=\"100\" />")) {
+        AEncodeProperties props(NULL);
+        props.ParamsRestore();
+        CHECK(props.GetVbrBitrateMin() == AEncodeProperties::VBR_BITRATE_NO_LIMIT,
+              "a VBR minimum that is not a bitrate of the list leaves no limit");
+    }
+    if (write_vbr_config("<VBR use=\"true\" min=\"192\" max=\"128\" />")) {
+        AEncodeProperties props(NULL);
+        props.ParamsRestore();
+        CHECK(props.GetVbrBitrateMin() == AEncodeProperties::VBR_BITRATE_NO_LIMIT
+              && props.GetVbrBitrateMax() == AEncodeProperties::VBR_BITRATE_NO_LIMIT,
+              "a VBR minimum above the maximum leaves no limits");
+    }
+    ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Checks the advanced settings in the configuration file.
+ *
+ * Without their elements all three are off. With each element set, each is
+ * on, and the three come back after a save.
+ */
+static void
+test_advanced_settings_file(void)
+{
+    printf("the advanced settings in the configuration file\n");
+    if (write_vbr_config("")) {
+        AEncodeProperties props(NULL);
+        props.ParamsRestore();
+        CHECK(!props.GetKeepAllFrequencies() && !props.GetStrictISO() && !props.GetForceMS(),
+              "without their elements the three advanced settings are off");
+    }
+    if (!write_vbr_config("<Keep_all_frequencies use=\"true\" />\n"
+                          "            <Strict_ISO use=\"true\" />\n"
+                          "            <Forced_mid_side use=\"true\" />")) {
+        CHECK(0, "the configuration file could be written");
+        return;
+    }
+    {
+        AEncodeProperties props(NULL);
+        props.ParamsRestore();
+        CHECK(props.GetKeepAllFrequencies() && props.GetStrictISO() && props.GetForceMS(),
+              "each element turns its setting on");
+        props.ParamsSave();
+    }
+    {
+        AEncodeProperties reread(NULL);
+        reread.ParamsRestore();
+        CHECK(reread.GetKeepAllFrequencies() && reread.GetStrictISO() && reread.GetForceMS(),
+              "the advanced settings come back after a save");
+    }
+    ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Counts the formats of the codec's list by family.
+ * @param list  the formats.
+ * @param vbr   receives the VBR formats.
+ * @return all formats.
+ */
+static size_t
+count_vbr(const std::vector<bitrate_item> &list, unsigned *vbr)
+{
+    size_t k;
+
+    *vbr = 0;
+    for (k = 0; k < list.size(); k++) {
+        if (list[k].mode == vbr_mtrh)
+            ++*vbr;
+    }
+    return list.size();
+}
+
+/**
+ * @brief Checks which formats the codec lists for each combination of the
+ *        three families, the CBR range, and the names of the formats.
+ *
+ * The counts come from the MPEG tables: CBR, 14 bitrates for each version at
+ * the 3 MPEG-1 and the 6 MPEG-2 and MPEG-2.5 rates, 252 with both channel
+ * counts; ABR, the 11 bitrates from 80 to 160 kbit/s in steps of 8 at the 9
+ * rates, 198; VBR, the 10 levels at the 9 rates, 180. A file that leaves out
+ * all three families gets CBR. Without a file the codec lists all three. A
+ * CBR range of 64 to 128 kbit/s keeps 5 bitrates of each version.
+ */
+static void
+test_format_families(void)
+{
+    enum { CBR_FORMATS = 252, ABR_FORMATS = 198, VBR_FORMATS = 180, CBR_64_TO_128 = 90 };
+    static const char *const use[2] = { "false", "true" };
+    char element[256], detail[CTEST_DETAIL_CHARS];
+    unsigned combination, right = 0, vbr;
+    size_t all;
+
+    printf("the families of formats in the list\n");
+    /* Bit 0 CBR, bit 1 ABR, bit 2 VBR; 0 is the file that leaves out all three. */
+    for (combination = 0; combination < 8; combination++) {
+        unsigned const cbr = (combination & 1) || combination == 0;
+        unsigned const abr = (combination >> 1) & 1, with_vbr = (combination >> 2) & 1;
+
+        sprintf(element, "<CBR use=\"%s\" />\n            <ABR use=\"%s\" />\n            <VBR use=\"%s\" />",
+                use[combination & 1], use[abr], use[with_vbr]);
+        if (!write_vbr_config(element)) {
+            CHECK(0, "the configuration file could be written");
+            return;
+        }
+        {
+            VbrTable acm;
+
+            all = count_vbr(acm.List(), &vbr);
+            if (all == cbr * CBR_FORMATS + abr * ABR_FORMATS + with_vbr * VBR_FORMATS
+                && vbr == with_vbr * VBR_FORMATS)
+                right++;
+            else
+                printf("        CBR %u ABR %u VBR %u: %u formats, %u VBR\n", cbr, abr, with_vbr, (unsigned) all, vbr);
+        }
+    }
+    CHECK_EQ_U(right, 8, "each combination of the families lists its formats, and none at all lists CBR");
+
+    if (write_vbr_config("<CBR use=\"true\" min=\"64\" max=\"128\" />\n            <ABR use=\"false\" />\n"
+                         "            <VBR use=\"false\" />")) {
+        VbrTable acm;
+        AEncodeProperties held(NULL);
+
+        all = count_vbr(acm.List(), &vbr);
+        sprintf(detail, "%u formats", (unsigned) all);
+        ctest_record(all == CBR_64_TO_128, "a CBR range of 64 to 128 kbps lists 5 bitrates of each version", detail);
+        held.ParamsRestore();
+        held.ParamsSave();
+        {
+            AEncodeProperties reread(NULL);
+            reread.ParamsRestore();
+            CHECK(reread.GetCbrOutputMode() && reread.GetCbrBitrateMin() == 64 && reread.GetCbrBitrateMax() == 128
+                  && !reread.GetAbrOutputMode() && !reread.GetVbrOutputMode(),
+                  "the families and the CBR range come back after a save");
+        }
+    }
+    if (write_vbr_config("<CBR use=\"true\" min=\"100\" max=\"128\" />")) {
+        AEncodeProperties props(NULL);
+        props.ParamsRestore();
+        CHECK(props.GetCbrBitrateMin() == 8 && props.GetCbrBitrateMax() == 320,
+              "a CBR range with an end that is not a bitrate of the list keeps the whole range");
+    }
+
+    ::DeleteFileA(CONFIG_NAME);
+    {
+        VbrTable acm;
+        AEncodeProperties props(NULL);
+
+        props.ParamsRestore();
+        all = count_vbr(acm.List(), &vbr);
+        sprintf(detail, "%u formats, %u VBR", (unsigned) all, vbr);
+        ctest_record(props.GetCbrOutputMode() && props.GetAbrOutputMode() && props.GetVbrOutputMode()
+                     && !props.GetSmartOutputMode() && all == CBR_FORMATS + ABR_FORMATS + VBR_FORMATS
+                     && vbr == VBR_FORMATS,
+                     "without a file the codec lists all three families, none left out by Smart encoding", detail);
+
+        {
+            const std::vector<bitrate_item> &list = acm.List();
+            static const char *const want[3] = { "44100 Hz, CBR 128 kbps, Stereo", "44100 Hz, ABR 88 kbps, Stereo",
+                                                 "44100 Hz, VBR quality 2 (about " };
+            int found[3] = { 0, 0, 0 };
+            size_t k;
+
+            for (k = 0; k < list.size(); k++) {
+                MPEGLAYER3WAVEFORMAT mp3;
+                WCHAR wide[ACMFORMATDETAILS_FORMAT_CHARS];
+                char name[ACMFORMATDETAILS_FORMAT_CHARS];
+                int f;
+
+                if (list[k].frequency != 44100 || list[k].channels != 2)
+                    continue;
+                acm.Format((DWORD) k, &mp3, wide);
+                WideCharToMultiByte(CP_ACP, 0, wide, -1, name, sizeof(name), NULL, NULL);
+                for (f = 0; f < 3; f++) {
+                    if (strncmp(name, want[f], strlen(want[f])) == 0)
+                        found[f] = 1;
+                }
+            }
+            CHECK(found[0] && found[1] && found[2],
+                  "the formats are named \"CBR 128 kbps\", \"ABR 88 kbps\", \"VBR quality 2 (about ... kbps)\"");
+        }
+    }
 }
 
 /**
@@ -674,10 +1118,620 @@ test_config_dialog_version(const char *driver)
     ::FreeLibrary(codec);
 }
 
+/**
+ * @brief Checks the names of the channel modes in the configuration dialog
+ *        and in the settings file.
+ *
+ * The dialog lists the modes with the names that the DirectShow filter uses
+ * too, and the settings file stores the same names: a file that says "Dual
+ * channel" selects dual channel, and saving writes "Dual channel" back.
+ *
+ * @param driver  the path of the built codec.
+ */
+static void
+test_config_dialog_channel_modes(const char *driver)
+{
+    static const char *const labels[] = { "Stereo", "Joint stereo", "Dual channel", "Mono" };
+    /* Room for the longest label and for the settings file, with space to spare. */
+    enum { LABEL_CHARS = 64, FILE_CHARS = 4096 };
+    INITCOMMONCONTROLSEX controls = { sizeof controls, ICC_BAR_CLASSES };
+    HMODULE codec;
+    HWND dialog;
+
+    printf("the channel modes of the configuration dialog\n");
+    if (!write_vbr_config("<Channel mode=\"Dual channel\" force=\"false\" />")) {
+        CHECK(0, "the configuration file could be written");
+        return;
+    }
+    ::InitCommonControlsEx(&controls);
+    codec = ::LoadLibraryExA(driver, NULL, LOAD_LIBRARY_AS_DATAFILE);
+    if (codec == NULL) {
+        CHECK(0, "the codec's resources load");
+        ::DeleteFileA(CONFIG_NAME);
+        return;
+    }
+
+    ACM acm(NULL);
+    AEncodeProperties props(NULL);
+
+    props.ParamsRestore();
+    dialog = ::CreateDialogParamA(codec, MAKEINTRESOURCEA(IDD_CONFIG), NULL, quiet_dialog_proc, 0);
+    CHECK(dialog != NULL, "the configuration dialog is created from the codec's resources");
+    if (dialog != NULL) {
+        HWND const combo = ::GetDlgItem(dialog, IDC_COMBO_ENC_STEREO);
+        char item[LABEL_CHARS];
+        int listed = 0;
+        LRESULT selected;
+        size_t i;
+
+        props.InitConfigDlg(dialog);
+        for (i = 0; i < sizeof labels / sizeof labels[0]; i++) {
+            item[0] = '\0';
+            if (::SendMessageA(combo, CB_GETLBTEXTLEN, i, 0) < LABEL_CHARS) {
+                ::SendMessageA(combo, CB_GETLBTEXT, i, (LPARAM) item);
+            }
+            if (strcmp(item, labels[i]) == 0) {
+                listed++;
+            }
+        }
+        CHECK(listed == 4 && ::SendMessageA(combo, CB_GETCOUNT, 0, 0) == 4,
+              "the dialog lists Stereo, Joint stereo, Dual channel and Mono");
+        selected = ::SendMessageA(combo, CB_GETCURSEL, 0, 0);
+        item[0] = '\0';
+        if (selected >= 0 && ::SendMessageA(combo, CB_GETLBTEXTLEN, selected, 0) < LABEL_CHARS) {
+            ::SendMessageA(combo, CB_GETLBTEXT, selected, (LPARAM) item);
+        }
+        CHECK(strcmp(item, "Dual channel") == 0, "a file that says \"Dual channel\" selects dual channel");
+        printf("        selected \"%s\"\n", item);
+        ::DestroyWindow(dialog);
+    }
+    {
+        char text[FILE_CHARS];
+        size_t n = 0;
+        FILE *f;
+
+        props.ParamsSave();
+        f = fopen(CONFIG_NAME, "rb");
+        if (f != NULL) {
+            n = fread(text, 1, sizeof text - 1, f);
+            fclose(f);
+        }
+        text[n] = '\0';
+        CHECK(strstr(text, "mode=\"Dual channel\"") != NULL,
+              "saving stores the name \"Dual channel\"");
+    }
+    ::FreeLibrary(codec);
+    ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Checks the encoding quality in the configuration dialog and in the
+ *        settings file.
+ *
+ * Level 7 from the file sets the slider and its text; without the element,
+ * and with a level LAME does not have, the dialog shows LAME's default, 3.
+ * Saving writes the level.
+ *
+ * @param driver  the path of the built codec.
+ */
+static void
+test_config_dialog_quality(const char *driver)
+{
+    static const struct {
+        const char *element;
+        unsigned level;
+        const char *text;
+        const char *what;
+    } cases[] = {
+        { "<Quality level=\"7\" />", 7, "7 (very fast)", "a file that says level 7 sets the slider and its text" },
+        { "", 3, "3 (default)", "without the element the dialog shows LAME's default, 3" },
+        { "<Quality level=\"12\" />", 3, "3 (default)", "a level LAME does not have keeps the default" },
+    };
+    /* Room for the text of a level and for the settings file. */
+    enum { TEXT_CHARS = 64, FILE_CHARS = 4096 };
+    INITCOMMONCONTROLSEX controls = { sizeof controls, ICC_BAR_CLASSES };
+    HMODULE codec;
+    size_t i;
+
+    printf("the encoding quality of the configuration dialog\n");
+    ::InitCommonControlsEx(&controls);
+    codec = ::LoadLibraryExA(driver, NULL, LOAD_LIBRARY_AS_DATAFILE);
+    if (codec == NULL) {
+        CHECK(0, "the codec's resources load");
+        return;
+    }
+
+    ACM acm(NULL);
+
+    for (i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        char text[TEXT_CHARS];
+        HWND dialog;
+
+        if (!write_vbr_config(cases[i].element)) {
+            CHECK(0, "the configuration file could be written");
+            break;
+        }
+
+        AEncodeProperties props(NULL);
+
+        props.ParamsRestore();
+        dialog = ::CreateDialogParamA(codec, MAKEINTRESOURCEA(IDD_CONFIG), NULL, quiet_dialog_proc, 0);
+        CHECK(dialog != NULL, "the configuration dialog is created from the codec's resources");
+        if (dialog == NULL)
+            continue;
+        props.InitConfigDlg(dialog);
+        text[0] = '\0';
+        ::GetDlgItemTextA(dialog, IDC_STATIC_QUALITY_TEXT, text, sizeof text);
+        CHECK(::SendDlgItemMessageA(dialog, IDC_SLIDER_QUALITY, TBM_GETPOS, 0, 0) == (LRESULT) cases[i].level
+              && strcmp(text, cases[i].text) == 0 && props.GetQuality() == cases[i].level, cases[i].what);
+        printf("        \"%s\"\n", text);
+        ::DestroyWindow(dialog);
+        if (i == 0) {
+            char saved[FILE_CHARS];
+            size_t n = 0;
+            FILE *f;
+
+            props.ParamsSave();
+            f = fopen(CONFIG_NAME, "rb");
+            if (f != NULL) {
+                n = fread(saved, 1, sizeof saved - 1, f);
+                fclose(f);
+            }
+            saved[n] = '\0';
+            CHECK(strstr(saved, "<Quality level=\"7\"") != NULL, "saving writes the level");
+        }
+    }
+    ::FreeLibrary(codec);
+    ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Returns the text of the entry a combo box shows.
+ * @param dialog  the dialog
+ * @param id      the combo box
+ * @param text    receives the text
+ * @param size    the size of @p text; at least the longest entry and its NUL
+ */
+static void
+combo_text(HWND dialog, int id, char *text, size_t size)
+{
+    LRESULT const item = ::SendDlgItemMessageA(dialog, id, CB_GETCURSEL, 0, 0);
+
+    text[0] = '\0';
+    if (item != CB_ERR && ::SendDlgItemMessageA(dialog, id, CB_GETLBTEXTLEN, (WPARAM) item, 0) < (LRESULT) size) {
+        ::SendDlgItemMessageA(dialog, id, CB_GETLBTEXT, (WPARAM) item, (LPARAM) text);
+    }
+}
+
+/**
+ * @brief Selects the entry of a combo box with the given text.
+ * @param dialog  the dialog
+ * @param id      the combo box
+ * @param text    the text of the entry
+ */
+static void
+combo_select(HWND dialog, int id, const char *text)
+{
+    LRESULT const item = ::SendDlgItemMessageA(dialog, id, CB_FINDSTRINGEXACT, (WPARAM) -1, (LPARAM) text);
+
+    ::SendDlgItemMessageA(dialog, id, CB_SETCURSEL, (WPARAM) item, 0);
+}
+
+/**
+ * @brief Checks the line of the settings dialog that lists the ABR bitrates,
+ *        and the lowest ABR bitrate it shows.
+ *
+ * For each ABR range, the test writes a configuration, creates the dialog from
+ * the resources of the built codec and fills it through
+ * AEncodeProperties::InitConfigDlg(). The ends of the range are bitrates of
+ * the list: a saved end that is not one shows as the nearest, the lower of
+ * two as near (88 between 80 and 96). A range of up to four bitrates is listed
+ * in full; a longer one shows its first three bitrates and its last one.
+ *
+ * @param driver  the path of the built codec.
+ */
+static void
+test_config_dialog_abr_list(const char *driver)
+{
+    /* Room for the longest line of the cases, with space to spare. */
+    enum { ABR_LIST_TEXT_CHARS = 128 };
+    static const struct {
+        const char *abr;
+        const char *list;
+        const char *min;
+    } cases[] = {
+        { "<ABR use=\"true\" min=\"88\" max=\"160\" step=\"6\" />",
+          "14 bitrates: 160, 154, 148, ..., 82 kbps", "80 kbps" },
+        { "<ABR use=\"true\" min=\"128\" max=\"160\" step=\"16\" />",
+          "3 bitrates: 160, 144, 128 kbps", "128 kbps" },
+        { "<ABR use=\"true\" min=\"128\" max=\"128\" step=\"8\" />",
+          "1 bitrate: 128 kbps", "128 kbps" },
+    };
+    INITCOMMONCONTROLSEX controls = { sizeof controls, ICC_BAR_CLASSES | ICC_TAB_CLASSES };
+    HMODULE codec;
+    size_t i;
+
+    printf("the ABR bitrates of the settings dialog\n");
+    ::InitCommonControlsEx(&controls);
+    codec = ::LoadLibraryExA(driver, NULL, LOAD_LIBRARY_AS_DATAFILE);
+    if (codec == NULL) {
+        CHECK(0, "the codec's resources load");
+        return;
+    }
+
+    ACM acm(NULL);
+
+    for (i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        char list[ABR_LIST_TEXT_CHARS], min[ABR_LIST_TEXT_CHARS];
+        HWND dialog;
+
+        if (!write_vbr_config(cases[i].abr)) {
+            CHECK(0, "the configuration file could be written");
+            break;
+        }
+
+        AEncodeProperties props(NULL);
+
+        props.ParamsRestore();
+        dialog = ::CreateDialogParamA(codec, MAKEINTRESOURCEA(IDD_CONFIG), NULL, quiet_dialog_proc, 0);
+        CHECK(dialog != NULL, "the settings dialog is created from the codec's resources");
+        if (dialog == NULL)
+            continue;
+        props.InitConfigDlg(dialog);
+        list[0] = '\0';
+        ::GetDlgItemTextA(dialog, IDC_STATIC_AVERAGE_LIST, list, sizeof list);
+        combo_text(dialog, IDC_COMBO_ABR_MIN, min, sizeof min);
+        CHECK(strcmp(list, cases[i].list) == 0 && strcmp(min, cases[i].min) == 0,
+              "the dialog lists the bitrates of the ABR range, the lowest a bitrate of the list");
+        printf("        \"%s\", lowest \"%s\"\n", list, min);
+        ::DestroyWindow(dialog);
+    }
+    ::FreeLibrary(codec);
+    ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Checks the VBR quality levels of the settings dialog.
+ *
+ * The dialog is created as in test_config_dialog_version() and filled from a
+ * configuration with VBR on and the levels 3 to 7. The two lists
+ * show them, each level with its typical 44.1 kHz stereo bitrate. A best level
+ * chosen past the worst one takes the worst one with it. Read back, the dialog
+ * gives the settings it shows, and with VBR cleared its controls are disabled
+ * and VBR is off.
+ *
+ * @param driver  the path of the built codec.
+ */
+static void
+test_config_dialog_vbr(const char *driver)
+{
+    INITCOMMONCONTROLSEX controls = { sizeof controls, ICC_BAR_CLASSES | ICC_TAB_CLASSES };
+    char best_text[CONTROL_TEXT_CHARS], worst_text[CONTROL_TEXT_CHARS];
+    char want_best[CONTROL_TEXT_CHARS], want_worst[CONTROL_TEXT_CHARS];
+    HMODULE codec;
+    HWND dialog;
+
+    printf("the VBR controls of the settings dialog\n");
+    if (!write_vbr_config("<VBR use=\"true\" best=\"3\" worst=\"7\" />")) {
+        CHECK(0, "the configuration file could be written");
+        return;
+    }
+    ::InitCommonControlsEx(&controls);
+    codec = ::LoadLibraryExA(driver, NULL, LOAD_LIBRARY_AS_DATAFILE);
+    if (codec == NULL) {
+        CHECK(0, "the codec's resources load");
+        ::DeleteFileA(CONFIG_NAME);
+        return;
+    }
+
+    ACM acm(NULL);
+    AEncodeProperties props(NULL);
+
+    props.ParamsRestore();
+    dialog = ::CreateDialogParamA(codec, MAKEINTRESOURCEA(IDD_CONFIG), NULL, quiet_dialog_proc, 0);
+    CHECK(dialog != NULL, "the settings dialog is created from the codec's resources");
+    if (dialog != NULL) {
+        HWND const best = ::GetDlgItem(dialog, IDC_COMBO_VBR_BEST);
+        HWND const worst = ::GetDlgItem(dialog, IDC_COMBO_VBR_WORST);
+
+        props.InitConfigDlg(dialog);
+        combo_text(dialog, IDC_COMBO_VBR_BEST, best_text, sizeof best_text);
+        combo_text(dialog, IDC_COMBO_VBR_WORST, worst_text, sizeof worst_text);
+        VbrQualityText(3, want_best, sizeof want_best);
+        VbrQualityText(7, want_worst, sizeof want_worst);
+        CHECK(::IsDlgButtonChecked(dialog, IDC_CHECK_ENC_VBR) == BST_CHECKED && strcmp(best_text, want_best) == 0
+              && strcmp(worst_text, want_worst) == 0 && ::IsWindowEnabled(best) && ::IsWindowEnabled(worst),
+              "the dialog shows VBR on, levels 3 to 7, each with its typical bitrate");
+        printf("        \"%s\", \"%s\"\n", best_text, worst_text);
+
+        VbrQualityText(9, want_best, sizeof want_best);
+        combo_select(dialog, IDC_COMBO_VBR_BEST, want_best);
+        AEncodeProperties::KeepRangeInOrder(dialog, IDC_COMBO_VBR_BEST, IDC_COMBO_VBR_WORST, IDC_COMBO_VBR_BEST);
+        props.UpdateValueFromDlg(dialog);
+        CHECK(props.GetVbrOutputMode() && props.GetVbrQualityBest() == 9 && props.GetVbrQualityWorst() == 9,
+              "a best level chosen past the worst one takes it along, and is read back");
+
+        ::CheckDlgButton(dialog, IDC_CHECK_ENC_VBR, BST_UNCHECKED);
+        props.UpdateValueFromDlg(dialog);
+        CHECK(!props.GetVbrOutputMode() && !::IsWindowEnabled(best) && !::IsWindowEnabled(worst),
+              "with VBR cleared, VBR is off and its controls are disabled");
+        ::DestroyWindow(dialog);
+    }
+    ::FreeLibrary(codec);
+    ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Checks the families of the "Formats" tab: the check boxes, the CBR
+ *        range, the last family, and the line that counts the list.
+ *
+ * A file with CBR from 64 to 128 kbit/s and neither ABR nor VBR: the dialog
+ * shows it, the controls of ABR and VBR are disabled, and the count says 90
+ * formats, all CBR, as the codec lists them (test_format_families()). The
+ * last ticked family cannot be cleared. A lowest CBR bitrate chosen above the
+ * highest takes the highest along. With VBR ticked the count adds its 180
+ * formats. Read back, the families and ranges are the ones on the tab.
+ *
+ * @param driver  the path of the built codec.
+ */
+static void
+test_config_dialog_families(const char *driver)
+{
+    INITCOMMONCONTROLSEX controls = { sizeof controls, ICC_BAR_CLASSES | ICC_TAB_CLASSES };
+    char count[CONTROL_TEXT_CHARS], low[CONTROL_TEXT_CHARS], high[CONTROL_TEXT_CHARS];
+    HMODULE codec;
+    HWND dialog;
+
+    printf("the families of the settings dialog\n");
+    if (!write_vbr_config("<CBR use=\"true\" min=\"64\" max=\"128\" />\n            <ABR use=\"false\" />\n"
+                          "            <VBR use=\"false\" />")) {
+        CHECK(0, "the configuration file could be written");
+        return;
+    }
+    ::InitCommonControlsEx(&controls);
+    codec = ::LoadLibraryExA(driver, NULL, LOAD_LIBRARY_AS_DATAFILE);
+    if (codec == NULL) {
+        CHECK(0, "the codec's resources load");
+        ::DeleteFileA(CONFIG_NAME);
+        return;
+    }
+
+    ACM acm(NULL);
+    AEncodeProperties props(NULL);
+
+    props.ParamsRestore();
+    dialog = ::CreateDialogParamA(codec, MAKEINTRESOURCEA(IDD_CONFIG), NULL, quiet_dialog_proc, 0);
+    CHECK(dialog != NULL, "the settings dialog is created from the codec's resources");
+    if (dialog != NULL) {
+        props.InitConfigDlg(dialog);
+        combo_text(dialog, IDC_COMBO_CBR_MIN, low, sizeof low);
+        combo_text(dialog, IDC_COMBO_CBR_MAX, high, sizeof high);
+        count[0] = '\0';
+        ::GetDlgItemTextA(dialog, IDC_STATIC_FORMAT_COUNT, count, sizeof count);
+        CHECK(::IsDlgButtonChecked(dialog, IDC_CHECK_ENC_CBR) == BST_CHECKED && strcmp(low, "64 kbps") == 0
+              && strcmp(high, "128 kbps") == 0 && ::IsDlgButtonChecked(dialog, IDC_CHECK_ENC_ABR) != BST_CHECKED
+              && ::IsDlgButtonChecked(dialog, IDC_CHECK_ENC_VBR) != BST_CHECKED
+              && !::IsWindowEnabled(::GetDlgItem(dialog, IDC_COMBO_ABR_MIN))
+              && !::IsWindowEnabled(::GetDlgItem(dialog, IDC_COMBO_VBR_BEST)),
+              "the dialog shows CBR from 64 to 128 kbps, ABR and VBR cleared and their controls disabled");
+        CHECK(strcmp(count, "The list offers 90 formats: 90 CBR, 0 ABR, 0 VBR.") == 0,
+              "the count line counts the list as the codec builds it");
+        printf("        \"%s\"\n", count);
+
+        ::CheckDlgButton(dialog, IDC_CHECK_ENC_CBR, BST_UNCHECKED);
+        AEncodeProperties::KeepOneFamily(dialog, IDC_CHECK_ENC_CBR);
+        CHECK(::IsDlgButtonChecked(dialog, IDC_CHECK_ENC_CBR) == BST_CHECKED,
+              "the last ticked family cannot be cleared");
+
+        combo_select(dialog, IDC_COMBO_CBR_MIN, "160 kbps");
+        AEncodeProperties::KeepRangeInOrder(dialog, IDC_COMBO_CBR_MIN, IDC_COMBO_CBR_MAX, IDC_COMBO_CBR_MIN);
+        combo_text(dialog, IDC_COMBO_CBR_MAX, high, sizeof high);
+        CHECK(strcmp(high, "160 kbps") == 0, "a lowest CBR bitrate chosen above the highest takes it along");
+
+        ::CheckDlgButton(dialog, IDC_CHECK_ENC_VBR, BST_CHECKED);
+        props.UpdateFormatCount(dialog);
+        ::GetDlgItemTextA(dialog, IDC_STATIC_FORMAT_COUNT, count, sizeof count);
+        props.UpdateValueFromDlg(dialog);
+        CHECK(strstr(count, ", 180 VBR.") != NULL && props.GetCbrOutputMode() && props.GetVbrOutputMode()
+              && !props.GetAbrOutputMode() && props.GetCbrBitrateMin() == 160 && props.GetCbrBitrateMax() == 160,
+              "with VBR ticked the count adds its formats; read back, the dialog gives what it shows");
+        printf("        \"%s\"\n", count);
+        ::DestroyWindow(dialog);
+    }
+    ::FreeLibrary(codec);
+    ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Checks the VBR bitrate limits of the configuration dialog.
+ *
+ * Each list holds "No limit" and the 18 bitrates. A file with 96 and 192
+ * kbit/s and the minimum enforced shows them. A minimum chosen above the
+ * maximum takes the maximum along, and a maximum chosen below the minimum the
+ * minimum; "No limit" leaves the other one alone. Read back, the dialog gives
+ * what it shows. With VBR cleared the three controls are disabled, and a file
+ * without limits shows none.
+ *
+ * @param driver  the path of the built codec.
+ */
+static void
+test_config_dialog_vbr_limits(const char *driver)
+{
+    /* "No limit" and the 18 bitrates of the list. */
+    enum { LIMIT_ENTRIES = 1 + 18 };
+    INITCOMMONCONTROLSEX controls = { sizeof controls, ICC_BAR_CLASSES };
+    char low[16], high[16], first[16];
+    HMODULE codec;
+    HWND dialog;
+
+    printf("the VBR bitrate limits of the configuration dialog\n");
+    if (!write_vbr_config("<VBR use=\"true\" min=\"96\" max=\"192\" enforce_min=\"true\" />")) {
+        CHECK(0, "the configuration file could be written");
+        return;
+    }
+    ::InitCommonControlsEx(&controls);
+    codec = ::LoadLibraryExA(driver, NULL, LOAD_LIBRARY_AS_DATAFILE);
+    if (codec == NULL) {
+        CHECK(0, "the codec's resources load");
+        ::DeleteFileA(CONFIG_NAME);
+        return;
+    }
+
+    ACM acm(NULL);
+    {
+        AEncodeProperties props(NULL);
+
+        props.ParamsRestore();
+        dialog = ::CreateDialogParamA(codec, MAKEINTRESOURCEA(IDD_CONFIG), NULL, quiet_dialog_proc, 0);
+        CHECK(dialog != NULL, "the configuration dialog is created from the codec's resources");
+        if (dialog != NULL) {
+            props.InitConfigDlg(dialog);
+            combo_text(dialog, IDC_COMBO_VBR_MIN, low, sizeof low);
+            combo_text(dialog, IDC_COMBO_VBR_MAX, high, sizeof high);
+            first[0] = '\0';
+            if (::SendDlgItemMessageA(dialog, IDC_COMBO_VBR_MIN, CB_GETLBTEXTLEN, 0, 0) < (LRESULT) sizeof first) {
+                ::SendDlgItemMessageA(dialog, IDC_COMBO_VBR_MIN, CB_GETLBTEXT, 0, (LPARAM) first);
+            }
+            CHECK(::SendDlgItemMessageA(dialog, IDC_COMBO_VBR_MIN, CB_GETCOUNT, 0, 0) == LIMIT_ENTRIES
+                  && ::SendDlgItemMessageA(dialog, IDC_COMBO_VBR_MAX, CB_GETCOUNT, 0, 0) == LIMIT_ENTRIES
+                  && strcmp(first, "No limit") == 0,
+                  "each list holds \"No limit\" and the 18 bitrates");
+            CHECK(strcmp(low, "96 kbps") == 0 && strcmp(high, "192 kbps") == 0
+                  && ::IsDlgButtonChecked(dialog, IDC_CHECK_VBR_ENFORCE_MIN) == BST_CHECKED
+                  && ::IsWindowEnabled(::GetDlgItem(dialog, IDC_COMBO_VBR_MIN)),
+                  "the dialog shows the limits of the file, 96 to 192 kbps, the minimum enforced");
+            printf("        \"%s\", \"%s\"\n", low, high);
+
+            combo_select(dialog, IDC_COMBO_VBR_MIN, "256 kbps");
+            AEncodeProperties::KeepVbrLimitsInOrder(dialog, IDC_COMBO_VBR_MIN);
+            combo_text(dialog, IDC_COMBO_VBR_MAX, high, sizeof high);
+            CHECK(strcmp(high, "256 kbps") == 0, "a minimum chosen above the maximum takes the maximum along");
+            combo_select(dialog, IDC_COMBO_VBR_MAX, "64 kbps");
+            AEncodeProperties::KeepVbrLimitsInOrder(dialog, IDC_COMBO_VBR_MAX);
+            combo_text(dialog, IDC_COMBO_VBR_MIN, low, sizeof low);
+            CHECK(strcmp(low, "64 kbps") == 0, "a maximum chosen below the minimum takes the minimum along");
+
+            ::CheckDlgButton(dialog, IDC_CHECK_VBR_ENFORCE_MIN, BST_UNCHECKED);
+            props.UpdateValueFromDlg(dialog);
+            CHECK(props.GetVbrBitrateMin() == 64 && props.GetVbrBitrateMax() == 64 && !props.GetVbrEnforceMin(),
+                  "read back, the dialog gives 64 to 64 kbps, the minimum not enforced");
+
+            combo_select(dialog, IDC_COMBO_VBR_MAX, "No limit");
+            combo_select(dialog, IDC_COMBO_VBR_MIN, "320 kbps");
+            AEncodeProperties::KeepVbrLimitsInOrder(dialog, IDC_COMBO_VBR_MIN);
+            props.UpdateValueFromDlg(dialog);
+            CHECK(props.GetVbrBitrateMin() == 320 && props.GetVbrBitrateMax() == AEncodeProperties::VBR_BITRATE_NO_LIMIT,
+                  "with no maximum, any minimum stays");
+
+            ::CheckDlgButton(dialog, IDC_CHECK_ENC_VBR, BST_UNCHECKED);
+            props.UpdateValueFromDlg(dialog);
+            CHECK(!::IsWindowEnabled(::GetDlgItem(dialog, IDC_COMBO_VBR_MIN))
+                  && !::IsWindowEnabled(::GetDlgItem(dialog, IDC_COMBO_VBR_MAX))
+                  && !::IsWindowEnabled(::GetDlgItem(dialog, IDC_CHECK_VBR_ENFORCE_MIN)),
+                  "with VBR cleared, the limits are disabled");
+            ::DestroyWindow(dialog);
+        }
+    }
+    if (write_vbr_config("<VBR use=\"true\" />")) {
+        AEncodeProperties props(NULL);
+
+        props.ParamsRestore();
+        dialog = ::CreateDialogParamA(codec, MAKEINTRESOURCEA(IDD_CONFIG), NULL, quiet_dialog_proc, 0);
+        if (dialog != NULL) {
+            props.InitConfigDlg(dialog);
+            combo_text(dialog, IDC_COMBO_VBR_MIN, low, sizeof low);
+            combo_text(dialog, IDC_COMBO_VBR_MAX, high, sizeof high);
+            CHECK(strcmp(low, "No limit") == 0 && strcmp(high, "No limit") == 0
+                  && ::IsDlgButtonChecked(dialog, IDC_CHECK_VBR_ENFORCE_MIN) == BST_UNCHECKED,
+                  "a file without limits: no limit either way, the minimum not enforced");
+            ::DestroyWindow(dialog);
+        }
+    }
+    ::FreeLibrary(codec);
+    ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Checks the "Encoding" tab of the settings dialog.
+ *
+ * The tab shows the encoding controls and hides those of the formats; the
+ * other tab the other way round. The advanced settings of the file show on
+ * it. Forced mid / side can be chosen only with joint stereo. Read back,
+ * each setting is the one its control shows.
+ *
+ * @param driver  the path of the built codec.
+ */
+static void
+test_config_dialog_encoding_tab(const char *driver)
+{
+    static const char *const files[2] = {
+        "<Channel mode=\"Joint stereo\" />\n            <Keep_all_frequencies use=\"true\" />\n"
+        "            <Strict_ISO use=\"true\" />\n            <Forced_mid_side use=\"true\" />",
+        "<Channel mode=\"Stereo\" />\n            <Forced_mid_side use=\"true\" />",
+    };
+    INITCOMMONCONTROLSEX controls = { sizeof controls, ICC_BAR_CLASSES | ICC_TAB_CLASSES };
+    HMODULE codec;
+    int f;
+
+    printf("the Encoding tab of the settings dialog\n");
+    ::InitCommonControlsEx(&controls);
+    codec = ::LoadLibraryExA(driver, NULL, LOAD_LIBRARY_AS_DATAFILE);
+    if (codec == NULL) {
+        CHECK(0, "the codec's resources load");
+        return;
+    }
+
+    ACM acm(NULL);
+
+    for (f = 0; f < 2; f++) {
+        HWND dialog;
+
+        if (!write_vbr_config(files[f])) {
+            CHECK(0, "the configuration file could be written");
+            break;
+        }
+
+        AEncodeProperties props(NULL);
+
+        props.ParamsRestore();
+        dialog = ::CreateDialogParamA(codec, MAKEINTRESOURCEA(IDD_CONFIG), NULL, quiet_dialog_proc, 0);
+        CHECK(dialog != NULL, "the settings dialog is created from the codec's resources");
+        if (dialog == NULL)
+            continue;
+        props.InitConfigDlg(dialog);
+        if (f == 0) {
+            int const formats_first = (::GetWindowLongW(::GetDlgItem(dialog, IDC_CHECK_ENC_CBR), GWL_STYLE) & WS_VISIBLE)
+                && !(::GetWindowLongW(::GetDlgItem(dialog, IDC_CHECK_KEEP_ALL), GWL_STYLE) & WS_VISIBLE);
+
+            AEncodeProperties::ShowSettingsTab(dialog, AEncodeProperties::TAB_ENCODING);
+            CHECK(formats_first && (::GetWindowLongW(::GetDlgItem(dialog, IDC_CHECK_KEEP_ALL), GWL_STYLE) & WS_VISIBLE)
+                  && !(::GetWindowLongW(::GetDlgItem(dialog, IDC_CHECK_ENC_CBR), GWL_STYLE) & WS_VISIBLE),
+                  "the dialog opens on Formats; the Encoding tab shows its controls and hides the others");
+            CHECK(::IsDlgButtonChecked(dialog, IDC_CHECK_KEEP_ALL) == BST_CHECKED
+                  && ::IsDlgButtonChecked(dialog, IDC_CHECK_STRICT_ISO) == BST_CHECKED
+                  && ::IsDlgButtonChecked(dialog, IDC_CHECK_FORCE_MS) == BST_CHECKED
+                  && ::IsWindowEnabled(::GetDlgItem(dialog, IDC_CHECK_FORCE_MS)),
+                  "with joint stereo the tab shows the three advanced settings of the file, forced mid / side enabled");
+            ::CheckDlgButton(dialog, IDC_CHECK_KEEP_ALL, BST_UNCHECKED);
+            props.UpdateValueFromDlg(dialog);
+            CHECK(!props.GetKeepAllFrequencies() && props.GetStrictISO() && props.GetForceMS(),
+                  "read back, the tab gives what it shows");
+        } else {
+            CHECK(!::IsWindowEnabled(::GetDlgItem(dialog, IDC_CHECK_FORCE_MS)),
+                  "with stereo, forced mid / side is disabled");
+        }
+        ::DestroyWindow(dialog);
+    }
+    ::FreeLibrary(codec);
+    ::DeleteFileA(CONFIG_NAME);
+}
+
 /** @brief The button that close_config_dialog() presses: IDOK or IDCANCEL. */
 static WORD config_dialog_button;
 /** @brief Set by close_config_dialog() when it finds the dialog. */
 static int config_dialog_found;
+/** @brief The font of the dialog that close_config_dialog() found. */
+static LOGFONTW config_dialog_font;
 
 /**
  * @brief Finds the first dialog window of this thread.
@@ -699,11 +1753,16 @@ find_dialog(HWND window, LPARAM found)
     return TRUE;
 }
 
+/** @brief The period of the timer that drives a modal dialog of the test, in
+ *         milliseconds: often enough that the dialog closes soon after it opens. */
+static const UINT DIALOG_TIMER_MS = 200;
+
 /**
  * @brief Presses config_dialog_button in the dialog of this thread.
  *
  * A timer calls it from the message loop of the modal dialog. Once it finds
- * the dialog, it stops the timer.
+ * the dialog, it keeps the dialog's font in config_dialog_font and stops the
+ * timer.
  *
  * @param window   NULL, the timer has no window.
  * @param message  WM_TIMER.
@@ -717,7 +1776,11 @@ close_config_dialog(HWND window, UINT message, UINT_PTR id, DWORD time)
 
     ::EnumThreadWindows(::GetCurrentThreadId(), find_dialog, (LPARAM) &dialog);
     if (dialog != NULL) {
+        HFONT const font = (HFONT) ::SendMessageW(dialog, WM_GETFONT, 0, 0);
+
         config_dialog_found = 1;
+        if (font == NULL || ::GetObjectW(font, sizeof config_dialog_font, &config_dialog_font) == 0)
+            memset(&config_dialog_font, 0, sizeof config_dialog_font);
         ::KillTimer(NULL, id);
         ::PostMessageA(dialog, WM_COMMAND, MAKEWPARAM(config_dialog_button, BN_CLICKED), 0);
     }
@@ -728,7 +1791,10 @@ close_config_dialog(HWND window, UINT message, UINT_PTR id, DWORD time)
  *        Cancel.
  *
  * The codec reports the result to the host of the DRV_CONFIGURE message. OK
- * saves the configuration, so the test removes the file afterwards.
+ * saves the configuration, so the test removes the file afterwards. The
+ * dialog that Config() shows uses the font of the desktop: the typeface that
+ * the system reports (desktop_dialog_font()) and its height, to the nearest
+ * point.
  *
  * @param driver  the path of the built codec.
  */
@@ -743,8 +1809,6 @@ test_config_dialog_result(const char *driver)
         { IDCANCEL, false, "the configuration dialog returns false after Cancel" },
         { IDOK, true, "the configuration dialog returns true after OK" },
     };
-    /* Often enough that the dialog closes soon after it opens. */
-    const UINT TIMER_MS = 200;
     HMODULE codec;
     size_t i;
 
@@ -765,14 +1829,224 @@ test_config_dialog_result(const char *driver)
 
         config_dialog_button = cases[i].button;
         config_dialog_found = 0;
-        timer = ::SetTimer(NULL, 0, TIMER_MS, close_config_dialog);
+        timer = ::SetTimer(NULL, 0, DIALOG_TIMER_MS, close_config_dialog);
         result = props.Config(codec, NULL);
         ::KillTimer(NULL, timer);
         CHECK(config_dialog_found, "the configuration dialog opens");
         CHECK(result == cases[i].result, cases[i].what);
     }
+    {
+        LOGFONTW desktop;
+        LONG height_difference;
+
+        memset(&desktop, 0, sizeof desktop);
+        CHECK(desktop_dialog_font(&desktop), "the desktop reports its dialog font");
+        height_difference = config_dialog_font.lfHeight - desktop.lfHeight;
+        CHECK(wcsncmp(config_dialog_font.lfFaceName, desktop.lfFaceName, LF_FACESIZE) == 0
+              && height_difference >= -1 && height_difference <= 1,
+              "the configuration dialog uses the font of the desktop");
+        printf("        dialog \"%ls\" %ld, desktop \"%ls\" %ld\n", config_dialog_font.lfFaceName,
+               (long) config_dialog_font.lfHeight, desktop.lfFaceName, (long) desktop.lfHeight);
+    }
     ::DeleteFileA(CONFIG_NAME);
     ::FreeLibrary(codec);
+}
+
+/** @brief What drive_settings_tabs() saw, and the button it presses. */
+static struct {
+    WORD button;            /**< IDOK or IDCANCEL, for the settings dialog */
+    int switched;           /**< the Encoding tab showed after the tab changed */
+    int done;               /**< the dialog was closed */
+} tabs_drive;
+
+/**
+ * @brief Drives the settings dialog of the codec as a user does: changes to
+ *        the "Encoding" tab with the tab control, ticks "Keep all
+ *        frequencies", and presses tabs_drive.button.
+ *
+ * It runs as close_config_dialog() does.
+ *
+ * @param window   NULL, the timer has no window.
+ * @param message  WM_TIMER.
+ * @param id       the timer.
+ * @param time     the tick count.
+ */
+static void CALLBACK
+drive_settings_tabs(HWND window, UINT message, UINT_PTR id, DWORD time)
+{
+    HWND dialog = NULL;
+
+    ::EnumThreadWindows(::GetCurrentThreadId(), find_dialog, (LPARAM) &dialog);
+    if (dialog == NULL)
+        return;
+    ::KillTimer(NULL, id);
+    /* Moving the focus of a tab control changes its tab and notifies the
+       dialog, as a click does. */
+    ::SendMessageA(::GetDlgItem(dialog, IDC_TAB_SETTINGS), TCM_SETCURFOCUS, AEncodeProperties::TAB_ENCODING, 0);
+    tabs_drive.switched = ::IsWindowVisible(::GetDlgItem(dialog, IDC_CHECK_KEEP_ALL))
+        && !::IsWindowVisible(::GetDlgItem(dialog, IDC_CHECK_ENC_CBR));
+    ::CheckDlgButton(dialog, IDC_CHECK_KEEP_ALL, BST_CHECKED);
+    ::PostMessageA(dialog, WM_COMMAND, MAKEWPARAM(tabs_drive.button, BN_CLICKED), 0);
+    tabs_drive.done = 1;
+}
+
+/**
+ * @brief Checks the tabs of the settings dialog as the codec shows it.
+ *
+ * The test changes to the "Encoding" tab and ticks "Keep all frequencies"
+ * (drive_settings_tabs()). OK keeps and saves the setting; Cancel neither.
+ *
+ * @param driver  the path of the built codec.
+ */
+static void
+test_settings_tabs_through_the_codec(const char *driver)
+{
+    static const struct {
+        WORD button;
+        bool kept;
+        const char *what;
+    } cases[] = {
+        { IDOK, true, "OK keeps and saves what the Encoding tab set" },
+        { IDCANCEL, false, "Cancel neither keeps nor saves what the Encoding tab set" },
+    };
+    /* Room for the settings file. */
+    enum { FILE_CHARS = 4096 };
+    HMODULE codec;
+    size_t i;
+
+    printf("the tabs of the settings dialog through the codec\n");
+    codec = ::LoadLibraryExA(driver, NULL, LOAD_LIBRARY_AS_DATAFILE);
+    if (codec == NULL) {
+        CHECK(0, "the codec's resources load");
+        return;
+    }
+    for (i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+        char saved[FILE_CHARS];
+        size_t n = 0;
+        UINT_PTR timer;
+        FILE *f;
+
+        if (!write_vbr_config("")) {
+            CHECK(0, "the configuration file could be written");
+            break;
+        }
+
+        AEncodeProperties props(NULL);
+
+        props.ParamsRestore();
+        memset(&tabs_drive, 0, sizeof tabs_drive);
+        tabs_drive.button = cases[i].button;
+        timer = ::SetTimer(NULL, 0, DIALOG_TIMER_MS, drive_settings_tabs);
+        (void) props.Config(codec, NULL);
+        ::KillTimer(NULL, timer);
+        f = fopen(CONFIG_NAME, "rb");
+        if (f != NULL) {
+            n = fread(saved, 1, sizeof saved - 1, f);
+            fclose(f);
+        }
+        saved[n] = '\0';
+        CHECK(tabs_drive.done && tabs_drive.switched, "the tab control changes to the Encoding tab");
+        CHECK(props.GetKeepAllFrequencies() == cases[i].kept
+              && (strstr(saved, "<Keep_all_frequencies use=\"true\"") != NULL) == cases[i].kept,
+              cases[i].what);
+    }
+    ::FreeLibrary(codec);
+    ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Checks the layout of the two dialogs of the codec in three fonts, the
+ *        settings dialog one tab at a time.
+ *
+ * The fonts are the one of the resource, the font of the desktop
+ * (desktop_dialog_font()), and that font one and a half times as high, as
+ * a larger text size of the desktop gives it. The test creates each dialog
+ * as the codec does, through DialogTemplateWithFont(), fills in the
+ * texts that the codec sets at run time and runs check_dialog_layout().
+ *
+ * @param driver  the path of the built codec.
+ */
+static void
+test_dialog_layout(const char *driver)
+{
+    enum { RESOURCE_FONT, DESKTOP_FONT, LARGER_FONT, FONTS };
+    /* The controls with an access key on each tab of the settings dialog:
+       Formats, the three families and their ten range controls and Smart;
+       Encoding, the channel mode and Force, the encoding quality, five frame
+       options and three advanced settings. The about dialog has none. */
+    static const size_t tab_keys[AEncodeProperties::SETTINGS_TABS] = { 14, 11 };
+    static const char *const tab_names[AEncodeProperties::SETTINGS_TABS] = { "Formats", "Encoding" };
+    static const char *const font_names[FONTS] = { "the resource font", "the desktop font", "a larger desktop font" };
+    INITCOMMONCONTROLSEX controls = { sizeof controls, ICC_BAR_CLASSES | ICC_TAB_CLASSES };
+    LOGFONTW desktop;
+    HMODULE codec;
+    int f;
+
+    printf("the layout of the codec's dialogs\n");
+    ::InitCommonControlsEx(&controls);
+    memset(&desktop, 0, sizeof desktop);
+    if (!desktop_dialog_font(&desktop)) {
+        CHECK(0, "the desktop reports its dialog font");
+        return;
+    }
+    codec = ::LoadLibraryExA(driver, NULL, LOAD_LIBRARY_AS_DATAFILE);
+    if (codec == NULL) {
+        CHECK(0, "the codec's resources load");
+        return;
+    }
+
+    ACM acm(NULL);
+    AEncodeProperties props(NULL);
+
+    props.ParamsRestore();
+    for (f = 0; f < FONTS; f++) {
+        static const WORD dialogs[] = { IDD_CONFIG, IDD_ABOUT };
+        LOGFONTW font = desktop;
+        size_t d;
+
+        if (f == LARGER_FONT)
+            font.lfHeight = desktop.lfHeight * 3 / 2;
+        for (d = 0; d < sizeof dialogs / sizeof dialogs[0]; d++) {
+            std::vector<BYTE> dialog_template;
+            char what[100];
+            HWND dialog;
+
+            snprintf(what, sizeof what, "%s in %s", dialogs[d] == IDD_CONFIG ? "settings" : "about", font_names[f]);
+            if (f == RESOURCE_FONT) {
+                dialog = ::CreateDialogParamA(codec, MAKEINTRESOURCEA(dialogs[d]), NULL, quiet_dialog_proc, 0);
+            } else {
+                CHECK(DialogTemplateWithFont(codec, dialogs[d], font, dialog_template),
+                      "the dialog template takes another font");
+                dialog = dialog_template.empty() ? NULL
+                    : ::CreateDialogIndirectParamA(codec, (LPCDLGTEMPLATEA) &dialog_template[0], NULL,
+                                                   quiet_dialog_proc, 0);
+            }
+            CHECK(dialog != NULL, "the dialog is created");
+            if (dialog == NULL)
+                continue;
+            if (dialogs[d] == IDD_CONFIG) {
+                int tab;
+
+                props.InitConfigDlg(dialog);
+                for (tab = 0; tab < AEncodeProperties::SETTINGS_TABS; tab++) {
+                    char tab_what[sizeof what + 32];
+
+                    AEncodeProperties::ShowSettingsTab(dialog, tab);
+                    snprintf(tab_what, sizeof tab_what, "%s, %s", what, tab_names[tab]);
+                    check_dialog_layout(dialog, tab_keys[tab], tab_what);
+                }
+            } else {
+                char title[CONTROL_TEXT_CHARS];
+
+                snprintf(title, sizeof title, "LAME MP3 codec v%s", ACM::GetVersionString());
+                ::SetDlgItemTextA(dialog, IDC_STATIC_ABOUT_TITLE, title);
+                check_dialog_layout(dialog, 0, what);
+            }
+            ::DestroyWindow(dialog);
+        }
+    }
+    ::FreeLibrary(codec);
+    ::DeleteFileA(CONFIG_NAME);
 }
 
 /**
@@ -790,8 +2064,6 @@ test_config_dialog_keeps_the_settings(const char *driver)
 {
     /* Openings; and room for the settings file. */
     enum { OPENINGS = 3, FILE_CHARS = 4096 };
-    /* Often enough that the dialog closes soon after it opens. */
-    const UINT TIMER_MS = 200;
     HMODULE codec;
     int i, named = 0, kept = 0;
 
@@ -820,7 +2092,7 @@ test_config_dialog_keeps_the_settings(const char *driver)
             props.ParamsRestore();
             config_dialog_button = IDCANCEL;
             config_dialog_found = 0;
-            timer = ::SetTimer(NULL, 0, TIMER_MS, close_config_dialog);
+            timer = ::SetTimer(NULL, 0, DIALOG_TIMER_MS, close_config_dialog);
             (void) props.Config(codec, NULL);
             ::KillTimer(NULL, timer);
         }
@@ -2154,7 +3426,7 @@ typedef struct {
  *        that return more than the codec asks room for.
  *
  * The source is at the rate and channels of the format. Noise, so that ABR
- * uses large frames. A format that does not open from PCM at its own
+ * and VBR use large frames. A format that does not open from PCM at its own
  * rate is listed. The destination buffer is larger than any size the codec
  * gives, so a conversion that returns more than it asked room for is seen and
  * not cut.
@@ -2284,6 +3556,108 @@ test_sizes_hold_every_conversion(HACMDRIVER had)
             c.opened, (unsigned) formats.size(), c.failed, c.over, c.least_left);
     ctest_record(c.opened > 0 && c.opened == formats.size() && c.failed == 0 && c.over == 0,
                  "no conversion of any format returns more than the codec asked room for", detail);
+}
+
+/**
+ * @brief Fills in a VBR format of the codec at its typical bitrate.
+ * @param mp3       receives the format
+ * @param rate      the sample rate in Hz
+ * @param channels  1 or 2
+ * @param quality   the VBR quality level, 0 to 9
+ */
+static void
+fill_vbr_format(MPEGLAYER3WAVEFORMAT *mp3, DWORD rate, WORD channels, unsigned quality)
+{
+    fill_mp3_format(mp3, rate, channels, 1000 * VbrTable::Typical(rate, channels, quality));
+    mp3->fdwFlags = ACM_FLAGS_VBR(quality);
+}
+
+/**
+ * @brief Checks the conversion sizes of the VBR formats of the best quality
+ *        level, whose frames are the largest, at every sample rate and with
+ *        one and two channels.
+ *
+ * The configuration of the codec under test may offer no VBR formats, so the
+ * formats are built here, as an application that stored one would pass it.
+ *
+ * @param had the opened driver
+ */
+static void
+test_vbr_sizes_hold(HACMDRIVER had)
+{
+    static const DWORD rates[] = { 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000 };
+    format_list formats;
+    size_counts c = { 0, 0, 0, -1 };
+    char detail[CTEST_DETAIL_CHARS];
+    size_t r;
+    WORD ch;
+
+    printf("the destination size holds every conversion of the VBR formats\n");
+    for (r = 0; r < sizeof(rates) / sizeof(rates[0]); r++) {
+        for (ch = 1; ch <= 2; ch++) {
+            MPEGLAYER3WAVEFORMAT mp3;
+            fill_vbr_format(&mp3, rates[r], ch, 0);
+            formats.push_back(mp3);
+        }
+    }
+    check_conversion_sizes(had, formats, &c);
+    sprintf(detail, "%u of %u formats opened, %u failed, %u conversions beyond their size, %ld bytes left at least",
+            c.opened, (unsigned) formats.size(), c.failed, c.over, c.least_left);
+    ctest_record(c.opened == formats.size() && c.failed == 0 && c.over == 0,
+                 "no conversion of a VBR format returns more than the codec asked room for", detail);
+}
+
+/** @brief The worse VBR level that the VBR encode test compares with level 0. */
+#define VBR_LEVEL_COMPARED 6
+
+/**
+ * @brief Checks that the codec's VBR formats encode VBR at their quality level.
+ *
+ * The source is half a second of silence and half a second of noise, so that
+ * VBR uses frames of several bitrates. A CBR format at the same average
+ * bitrate is the control: one bitrate. The best level must give a larger
+ * stream than a worse one with the same average bitrate in its format, which
+ * it does only if the level reaches the encoder: a stream that encoded the
+ * average bitrate would come out the same size twice.
+ *
+ * @param had the opened driver
+ */
+static void
+test_vbr_formats_encode_vbr(HACMDRIVER had)
+{
+    std::vector<short> src(LIFETIME_FRAMES * LIFETIME_CHANNELS, 0);
+    std::vector<BYTE> best, worst, cbr;
+    MPEGLAYER3WAVEFORMAT mp3;
+    mp3_scan scan_best, scan_cbr;
+    char detail[CTEST_DETAIL_CHARS];
+    DWORD state = 1, i;
+
+    printf("the VBR formats of the codec\n");
+    for (i = LIFETIME_FRAMES / 2 * LIFETIME_CHANNELS; i < LIFETIME_FRAMES * LIFETIME_CHANNELS; i++) {
+        src[i] = noise_sample(&state);
+    }
+    memset(&scan_best, 0, sizeof(scan_best));
+    memset(&scan_cbr, 0, sizeof(scan_cbr));
+    fill_vbr_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 0);
+    if (encode_whole_as(had, &mp3, &src[0], LIFETIME_FRAMES, &best)) {
+        mp3_scan_frames(best.data(), (long) best.size(), LIFETIME_RATE, &scan_best);
+    }
+    fill_vbr_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 0);
+    mp3.fdwFlags = ACM_FLAGS_VBR(VBR_LEVEL_COMPARED);
+    (void) encode_whole_as(had, &mp3, &src[0], LIFETIME_FRAMES, &worst);
+    fill_vbr_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 0);
+    mp3.fdwFlags = ACM_FLAGS_CBR;
+    if (encode_whole_as(had, &mp3, &src[0], LIFETIME_FRAMES, &cbr)) {
+        mp3_scan_frames(cbr.data(), (long) cbr.size(), LIFETIME_RATE, &scan_cbr);
+    }
+    sprintf(detail, "%d frame(s), %d bitrate(s); the CBR control %d frame(s), %d bitrate(s)",
+            scan_best.frames, scan_best.distinct, scan_cbr.frames, scan_cbr.distinct);
+    ctest_record(scan_best.frames > 0 && scan_best.distinct > 1 && scan_cbr.frames > 0 && scan_cbr.distinct == 1,
+                 "a VBR format of the codec encodes frames of several bitrates", detail);
+    sprintf(detail, "%lu bytes at level 0, %lu at level %d",
+            (unsigned long) best.size(), (unsigned long) worst.size(), VBR_LEVEL_COMPARED);
+    ctest_record(!best.empty() && !worst.empty() && best.size() > worst.size(),
+                 "the best VBR level encodes more bytes than a worse one at the same average", detail);
 }
 
 /**
@@ -2504,6 +3878,356 @@ test_low_bitrate_sizes_hold(HACMDRIVER had)
 }
 
 /**
+ * @brief Checks that the encoding quality of the settings file reaches the
+ *        encoder.
+ *
+ * The same noise is encoded as 128 kbit/s CBR at quality 0, at 9 and at 9
+ * again. The two levels give different streams; the same level twice gives
+ * the same bytes, so the difference is the level's.
+ *
+ * @param had  the codec, opened through the ACM.
+ */
+static void
+test_quality_reaches_the_encoder(HACMDRIVER had)
+{
+    static const char *const levels[] = {
+        "            <Quality level=\"0\" />\n",
+        "            <Quality level=\"9\" />\n",
+        "            <Quality level=\"9\" />\n",
+    };
+    std::vector<short> src(LIFETIME_FRAMES * LIFETIME_CHANNELS);
+    std::vector<BYTE> out[3];
+    MPEGLAYER3WAVEFORMAT mp3;
+    char detail[CTEST_DETAIL_CHARS];
+    DWORD state = 1, i;
+    int encoded = 0;
+
+    printf("the encoding quality reaches the encoder\n");
+    for (i = 0; i < LIFETIME_FRAMES * LIFETIME_CHANNELS; i++)
+        src[i] = noise_sample(&state);
+    fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 128000);
+    for (i = 0; i < 3; i++) {
+        if (write_settings(levels[i]) && encode_whole_as(had, &mp3, &src[0], LIFETIME_FRAMES, &out[i]))
+            encoded++;
+    }
+    ::DeleteFileA(codec_config);
+    sprintf(detail, "%d of 3 encoded; %u, %u and %u bytes", encoded, (unsigned) out[0].size(),
+            (unsigned) out[1].size(), (unsigned) out[2].size());
+    ctest_record(encoded == 3 && out[0] != out[1] && out[1] == out[2],
+                 "quality 0 and 9 give different streams, 9 twice the same", detail);
+}
+
+/**
+ * @brief Returns the destination size that the codec asks for one second of
+ *        the source.
+ * @param had  the codec, opened through the ACM
+ * @param mp3  the format, at the rate of the source
+ * @return the size in bytes, 0 if the stream does not open or the size fails
+ */
+static DWORD
+room_for_a_second(HACMDRIVER had, const MPEGLAYER3WAVEFORMAT *mp3)
+{
+    WAVEFORMATEX pcm;
+    HACMSTREAM has;
+    DWORD room = 0;
+
+    fill_pcm_format(&pcm, mp3->wfx.nSamplesPerSec, LIFETIME_CHANNELS);
+    if (acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) mp3, NULL, 0, 0, 0) != MMSYSERR_NOERROR) {
+        return 0;
+    }
+    if (acmStreamSize(has, (DWORD) (LIFETIME_FRAMES * LIFETIME_FRAME_BYTES), &room, ACM_STREAMSIZEF_SOURCE)
+        != MMSYSERR_NOERROR) {
+        room = 0;
+    }
+    acmStreamClose(has, 0);
+    return room;
+}
+
+/**
+ * @brief Checks that the VBR bitrate limits of the settings file reach the
+ *        encoder, and the room the codec asks for.
+ *
+ * The source of test_vbr_formats_encode_vbr(), encoded to the best VBR level,
+ * in stereo. Without limits, the control, the noise takes
+ * frames above 128 kbit/s and the silence frames below it. A 128 kbit/s
+ * maximum keeps every frame at or below it, and the codec asks less room for
+ * a second. A 128 kbit/s minimum still lets the silent frames below it; with
+ * the minimum enforced no frame is below it.
+ *
+ * @param had  the codec, opened through the ACM.
+ */
+static void
+test_vbr_limits_reach_the_encoder(HACMDRIVER had)
+{
+    static const struct {
+        const char *elements;
+        const char *what;
+    } cases[] = {
+        { "", "no limits" },
+        { "            <VBR max=\"128\" />\n", "maximum 128 kbps" },
+        { "            <VBR min=\"128\" />\n", "minimum 128 kbps" },
+        { "            <VBR min=\"128\" enforce_min=\"true\" />\n", "minimum 128 kbps, enforced" },
+    };
+    enum { NO_LIMITS, MAXIMUM, MINIMUM, ENFORCED, CASES, LIMIT_KBPS = 128 };
+    std::vector<short> src(LIFETIME_FRAMES * LIFETIME_CHANNELS, 0);
+    MPEGLAYER3WAVEFORMAT mp3;
+    mp3_scan scan[CASES];
+    DWORD room[CASES];
+    char detail[CTEST_DETAIL_CHARS];
+    DWORD state = 1, i;
+
+    printf("the VBR bitrate limits reach the encoder\n");
+    for (i = LIFETIME_FRAMES / 2 * LIFETIME_CHANNELS; i < LIFETIME_FRAMES * LIFETIME_CHANNELS; i++) {
+        src[i] = noise_sample(&state);
+    }
+    fill_vbr_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 0);
+    for (i = 0; i < CASES; i++) {
+        std::vector<BYTE> out;
+
+        memset(&scan[i], 0, sizeof(scan[i]));
+        room[i] = 0;
+        if (write_settings(cases[i].elements)) {
+            room[i] = room_for_a_second(had, &mp3);
+            if (encode_whole_as(had, &mp3, &src[0], LIFETIME_FRAMES, &out)) {
+                mp3_scan_frames(out.data(), (long) out.size(), LIFETIME_RATE, &scan[i]);
+            }
+        }
+        printf("        %s: %d frames from %d to %d kbps; %lu bytes of room for a second\n", cases[i].what,
+               scan[i].frames, scan[i].lowest_kbps, scan[i].highest_kbps, (unsigned long) room[i]);
+    }
+    ::DeleteFileA(codec_config);
+    sprintf(detail, "frames from %d to %d kbps", scan[NO_LIMITS].lowest_kbps, scan[NO_LIMITS].highest_kbps);
+    ctest_record(scan[NO_LIMITS].frames > 0 && scan[NO_LIMITS].lowest_kbps < LIMIT_KBPS
+                 && scan[NO_LIMITS].highest_kbps > LIMIT_KBPS,
+                 "without limits, frames below and above 128 kbps", detail);
+    sprintf(detail, "frames up to %d kbps", scan[MAXIMUM].highest_kbps);
+    ctest_record(scan[MAXIMUM].frames > 0 && scan[MAXIMUM].highest_kbps <= LIMIT_KBPS,
+                 "a 128 kbps maximum keeps every frame at or below it", detail);
+    sprintf(detail, "%lu bytes with the maximum, %lu without", (unsigned long) room[MAXIMUM],
+            (unsigned long) room[NO_LIMITS]);
+    ctest_record(room[MAXIMUM] > 0 && room[MAXIMUM] < room[NO_LIMITS],
+                 "with the maximum the codec asks less room for a second", detail);
+    sprintf(detail, "frames from %d kbps", scan[MINIMUM].lowest_kbps);
+    ctest_record(scan[MINIMUM].frames > 0 && scan[MINIMUM].lowest_kbps < LIMIT_KBPS,
+                 "a 128 kbps minimum still lets the silent frames below it", detail);
+    sprintf(detail, "frames from %d kbps", scan[ENFORCED].lowest_kbps);
+    ctest_record(scan[ENFORCED].frames > 0 && scan[ENFORCED].lowest_kbps >= LIMIT_KBPS,
+                 "with the minimum enforced, no frame is below it", detail);
+}
+
+/**
+ * @brief Fills in an MPEG-1 Layer III format for Windows' own MP3 decoder,
+ *        which sizes its buffers from the block of one frame.
+ * @param mp3       receives the format
+ * @param rate      the sample rate in Hz
+ * @param channels  1 or 2
+ * @param kbps      the bitrate of the stream, in kbit/s
+ */
+static void
+fill_decode_format(MPEGLAYER3WAVEFORMAT *mp3, DWORD rate, WORD channels, DWORD kbps)
+{
+    fill_mp3_format(mp3, rate, channels, kbps * MP3_BITS_PER_KBIT);
+    mp3->fdwFlags = MPEGLAYER3_FLAG_PADDING_ISO;
+    mp3->nBlockSize = (WORD) (MP3_SAMPLES_PER_FRAME / MP3_BITS_PER_BYTE * kbps * MP3_BITS_PER_KBIT / rate);
+}
+
+/**
+ * @brief Decodes an MP3 stream with the decoder that Windows has. The codec
+ *        under test only encodes, so the ACM chooses another driver.
+ * @param mp3     the stream
+ * @param format  its format, from fill_decode_format()
+ * @param pcm     receives the 16-bit samples
+ * @return 1 if the stream decoded, else 0. A call that fails is printed with
+ *         its result.
+ */
+static int
+decode_with_windows(const std::vector<BYTE> &mp3, const MPEGLAYER3WAVEFORMAT *format, std::vector<short> *pcm)
+{
+    WAVEFORMATEX out;
+    ACMSTREAMHEADER head;
+    HACMSTREAM has;
+    DWORD room = 0;
+    MMRESULT mr;
+    const char *failed = NULL;
+
+    pcm->clear();
+    if (mp3.empty())
+        return 0;
+    memset(&head, 0, sizeof head);
+    head.cbStruct = sizeof head;
+    fill_pcm_format(&out, format->wfx.nSamplesPerSec, format->wfx.nChannels);
+    mr = acmStreamOpen(&has, NULL, (WAVEFORMATEX *) format, &out, NULL, 0, 0, ACM_STREAMOPENF_NONREALTIME);
+    if (mr != MMSYSERR_NOERROR) {
+        printf("        decoding: acmStreamOpen() returned %u\n", (unsigned) mr);
+        return 0;
+    }
+    mr = acmStreamSize(has, (DWORD) mp3.size(), &room, ACM_STREAMSIZEF_SOURCE);
+    if (mr != MMSYSERR_NOERROR || room == 0) {
+        failed = "acmStreamSize()";
+    } else {
+        pcm->assign(room / sizeof(short), 0);
+        head.pbSrc = (LPBYTE) &mp3[0];
+        head.cbSrcLength = (DWORD) mp3.size();
+        head.pbDst = (LPBYTE) &(*pcm)[0];
+        head.cbDstLength = room;
+        mr = acmStreamPrepareHeader(has, &head, 0);
+        if (mr != MMSYSERR_NOERROR) {
+            failed = "acmStreamPrepareHeader()";
+        } else {
+            mr = acmStreamConvert(has, &head, ACM_STREAMCONVERTF_START | ACM_STREAMCONVERTF_END);
+            if (mr != MMSYSERR_NOERROR)
+                failed = "acmStreamConvert()";
+            acmStreamUnprepareHeader(has, &head, 0);
+        }
+    }
+    acmStreamClose(has, 0);
+    if (failed != NULL)
+        printf("        decoding: %s returned %u, %lu bytes of room\n", failed, (unsigned) mr, (unsigned long) room);
+    pcm->resize(failed == NULL ? head.cbDstLengthUsed / sizeof(short) : 0);
+    return failed == NULL && !pcm->empty();
+}
+
+/**
+ * @brief Returns the power of one frequency in the first channel of 16-bit
+ *        samples, by the Goertzel algorithm, per sample frame.
+ * @param pcm        the samples, channels interleaved
+ * @param channels   the channels
+ * @param frequency  the frequency in Hz
+ * @param rate       the sample rate in Hz
+ * @return the power, 0 without samples
+ */
+static double
+tone_power(const std::vector<short> &pcm, unsigned channels, double frequency, double rate)
+{
+    double const coefficient = 2.0 * cos(CTEST_TWO_PI * frequency / rate);
+    double s1 = 0.0, s2 = 0.0;
+    size_t const frames = pcm.size() / channels;
+    size_t i;
+
+    if (frames == 0)
+        return 0.0;
+    for (i = 0; i < frames; i++) {
+        double const s0 = pcm[i * channels] + coefficient * s1 - s2;
+
+        s2 = s1;
+        s1 = s0;
+    }
+    return (s1 * s1 + s2 * s2 - coefficient * s1 * s2) / ((double) frames * (double) frames);
+}
+
+/**
+ * @brief Checks that the advanced settings of the configuration file reach
+ *        the encoder.
+ *
+ * - Strict ISO compliance: noise at 320 kbit/s. Without it frames use the bit
+ *   reservoir; with it LAME's limit leaves none, so main_data_begin is 0 in
+ *   every frame.
+ * - Forced mid / side: noise left and silence right at 128 kbit/s, in joint
+ *   stereo. Without it most frames code left and right; with it every frame
+ *   codes mid and side. In stereo the setting changes nothing, nor with Mono,
+ *   which encodes a stereo source in joint stereo.
+ * - Keep all frequencies: a 15 kHz tone at 64 kbit/s, where LAME's lowpass is
+ *   at 11 kHz. Windows' MP3 decoder decodes both streams: without the setting
+ *   the tone is gone, with it the tone is there, 20 dB and more above.
+ *
+ * @param had  the codec, opened through the ACM.
+ */
+static void
+test_advanced_settings_reach_the_encoder(HACMDRIVER had)
+{
+    /* A tone above the lowpass of 64 kbit/s, and how much stronger it must
+       be where it is kept. */
+    enum { HIGH_TONE_HZ = 15000, KEPT_RATIO = 100 };
+    std::vector<short> noise(LIFETIME_FRAMES * LIFETIME_CHANNELS);
+    std::vector<short> left(LIFETIME_FRAMES * LIFETIME_CHANNELS, 0);
+    std::vector<short> tone(LIFETIME_FRAMES * LIFETIME_CHANNELS);
+    std::vector<BYTE> out;
+    MPEGLAYER3WAVEFORMAT mp3;
+    mp3_scan scan[2];
+    char detail[CTEST_DETAIL_CHARS];
+    DWORD state = 1, i;
+    double power[2] = { 0.0, 0.0 };
+    size_t decoded[2] = { 0, 0 };
+    int k;
+
+    printf("the advanced settings reach the encoder\n");
+    for (i = 0; i < LIFETIME_FRAMES * LIFETIME_CHANNELS; i++)
+        noise[i] = noise_sample(&state);
+    for (i = 0; i < LIFETIME_FRAMES; i++) {
+        left[i * LIFETIME_CHANNELS] = noise[i * LIFETIME_CHANNELS];
+        tone[i * LIFETIME_CHANNELS] = tone[i * LIFETIME_CHANNELS + 1] =
+            ctest_tone(i, LIFETIME_RATE, HIGH_TONE_HZ, TONE_AMPLITUDE);
+    }
+
+    {
+        static const char *const settings[2] = { "", "            <Strict_ISO use=\"true\" />\n" };
+
+        fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 320000);
+        for (k = 0; k < 2; k++) {
+            memset(&scan[k], 0, sizeof scan[k]);
+            if (write_settings(settings[k]) && encode_whole_as(had, &mp3, &noise[0], LIFETIME_FRAMES, &out))
+                mp3_scan_frames(out.data(), (long) out.size(), LIFETIME_RATE, &scan[k]);
+        }
+        sprintf(detail, "frames using the reservoir: %d of %d without, %d of %d with", scan[0].reservoir_frames,
+                scan[0].frames, scan[1].reservoir_frames, scan[1].frames);
+        ctest_record(scan[0].reservoir_frames > 0 && scan[1].frames > 0 && scan[1].reservoir_frames == 0,
+                     "with strict ISO compliance no frame uses the bit reservoir at 320 kbps", detail);
+    }
+    {
+        enum { JOINT, FORCED, STEREO, MONO_SETTING, CASES };
+        static const char *const settings[CASES] = {
+            "            <Channel mode=\"Joint stereo\" />\n",
+            "            <Channel mode=\"Joint stereo\" />\n            <Forced_mid_side use=\"true\" />\n",
+            "            <Channel mode=\"Stereo\" />\n            <Forced_mid_side use=\"true\" />\n",
+            "            <Channel mode=\"Mono\" />\n            <Forced_mid_side use=\"true\" />\n",
+        };
+        mp3_scan ms[CASES];
+
+        fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 128000);
+        for (k = 0; k < CASES; k++) {
+            memset(&ms[k], 0, sizeof ms[k]);
+            if (write_settings(settings[k]) && encode_whole_as(had, &mp3, &left[0], LIFETIME_FRAMES, &out))
+                mp3_scan_frames(out.data(), (long) out.size(), LIFETIME_RATE, &ms[k]);
+        }
+        sprintf(detail, "mid / side frames: %d of %d in joint stereo, %d of %d forced, %d of %d in stereo, "
+                "%d of %d with Mono", ms[JOINT].ms_frames, ms[JOINT].frames, ms[FORCED].ms_frames, ms[FORCED].frames,
+                ms[STEREO].ms_frames, ms[STEREO].frames, ms[MONO_SETTING].ms_frames, ms[MONO_SETTING].frames);
+        ctest_record(ms[JOINT].frames > 0 && ms[JOINT].ms_frames < ms[JOINT].frames && ms[FORCED].frames > 0
+                     && ms[FORCED].ms_frames == ms[FORCED].frames && ms[STEREO].frames > 0
+                     && ms[STEREO].ms_frames == 0 && ms[MONO_SETTING].frames > 0
+                     && ms[MONO_SETTING].ms_frames < ms[MONO_SETTING].frames,
+                     "forced mid / side codes every frame as mid and side with joint stereo only", detail);
+    }
+    {
+        /* Smart encoding would reject 64 kbit/s at this rate. */
+        static const char *const settings[2] = {
+            "            <Smart use=\"false\" />\n",
+            "            <Smart use=\"false\" />\n            <Keep_all_frequencies use=\"true\" />\n",
+        };
+        enum { TONE_KBPS = 64 };
+        MPEGLAYER3WAVEFORMAT decode;
+
+        fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, TONE_KBPS * MP3_BITS_PER_KBIT);
+        fill_decode_format(&decode, LIFETIME_RATE, LIFETIME_CHANNELS, TONE_KBPS);
+        for (k = 0; k < 2; k++) {
+            std::vector<short> pcm;
+
+            if (write_settings(settings[k]) && encode_whole_as(had, &mp3, &tone[0], LIFETIME_FRAMES, &out)
+                && decode_with_windows(out, &decode, &pcm)) {
+                decoded[k] = pcm.size() / LIFETIME_CHANNELS;
+                power[k] = tone_power(pcm, LIFETIME_CHANNELS, HIGH_TONE_HZ, LIFETIME_RATE);
+            }
+        }
+        sprintf(detail, "%u and %u sample frames decoded; tone power %.3g without, %.3g with",
+                (unsigned) decoded[0], (unsigned) decoded[1], power[0], power[1]);
+        ctest_record(decoded[0] >= LIFETIME_FRAMES / 2 && decoded[1] >= LIFETIME_FRAMES / 2 && power[1] > 0.0
+                     && power[1] > KEPT_RATIO * power[0],
+                     "keeping all frequencies keeps a 15 kHz tone that LAME's lowpass removes at 64 kbps", detail);
+    }
+    ::DeleteFileA(codec_config);
+}
+
+/**
  * @brief Checks the codec when a program registers it as a function, with
  *        acmDriverAdd() and @c ACM_DRIVERADDF_FUNCTION.
  *
@@ -2518,8 +4242,6 @@ test_low_bitrate_sizes_hold(HACMDRIVER had)
 static void
 test_registered_as_a_function(const char *driver)
 {
-    /* Often enough that the dialog closes soon after it opens. */
-    const UINT TIMER_MS = 200;
     char previous[MAX_PATH], empty[MAX_PATH], temp[MAX_PATH], local_config[MAX_PATH];
     HMODULE mod;
     FARPROC proc;
@@ -2556,7 +4278,7 @@ test_registered_as_a_function(const char *driver)
 
             config_dialog_button = IDCANCEL;
             config_dialog_found = 0;
-            timer = ::SetTimer(NULL, 0, TIMER_MS, close_config_dialog);
+            timer = ::SetTimer(NULL, 0, DIALOG_TIMER_MS, close_config_dialog);
             acmDriverMessage(had, DRV_CONFIGURE, 0, 0);
             ::KillTimer(NULL, timer);
             CHECK(config_dialog_found, "its configuration dialog opens");
@@ -2577,6 +4299,110 @@ test_registered_as_a_function(const char *driver)
     ::DeleteFileA(codec_config);
     ::SetCurrentDirectoryA(previous);
     ::RemoveDirectoryA(empty);
+}
+
+/** @brief What inspect_about_dialog() found, for test_about_dialog(). */
+static struct {
+    int found;
+    int title_ok;
+    int license_ok;
+    int texts_ok;
+    int font_ok;
+    int focus_on_ok;
+} about_result;
+
+/**
+ * @brief Checks the about dialog of this thread, then closes it.
+ *
+ * It runs as close_config_dialog() does. Once it finds the dialog, it stops
+ * the timer and notes whether the title names the codec
+ * and its version, whether the licence box holds LAME's licence notice,
+ * whether the credits, the address and the icon credit are the ones the
+ * DirectShow filter shows too, whether the dialog uses the font of the
+ * desktop, and whether it
+ * starts with the focus on OK rather than in the licence box. It runs
+ * check_dialog_layout() and presses OK.
+ *
+ * @param window   NULL, the timer has no window.
+ * @param message  WM_TIMER.
+ * @param id       the timer.
+ * @param time     the tick count.
+ */
+static void CALLBACK
+inspect_about_dialog(HWND window, UINT message, UINT_PTR id, DWORD time)
+{
+    /* Room for the licence notice, with space to spare. */
+    enum { LICENSE_CHARS = 2048 };
+    char title[CONTROL_TEXT_CHARS], license[LICENSE_CHARS];
+    HWND dialog = NULL;
+    HFONT font;
+    LOGFONTW used, desktop;
+
+    ::EnumThreadWindows(::GetCurrentThreadId(), find_dialog, (LPARAM) &dialog);
+    if (dialog == NULL)
+        return;
+    ::KillTimer(NULL, id);
+    about_result.found = 1;
+    about_result.focus_on_ok = ::GetFocus() == ::GetDlgItem(dialog, IDOK);
+    title[0] = license[0] = '\0';
+    ::GetDlgItemTextA(dialog, IDC_STATIC_ABOUT_TITLE, title, sizeof title);
+    ::GetDlgItemTextA(dialog, IDC_EDIT_ABOUT_LICENSE, license, sizeof license);
+    about_result.title_ok = strncmp(title, "LAME MP3 Codec v", strlen("LAME MP3 Codec v")) == 0;
+    about_result.license_ok = strcmp(license, LICENSE_NOTICE) == 0;
+    {
+        char credits[CONTROL_TEXT_CHARS], url[CONTROL_TEXT_CHARS], icon[CONTROL_TEXT_CHARS];
+
+        credits[0] = url[0] = icon[0] = '\0';
+        ::GetDlgItemTextA(dialog, IDC_STATIC_ABOUT_CREDITS, credits, sizeof credits);
+        ::GetDlgItemTextA(dialog, IDC_STATIC_ABOUT_URL, url, sizeof url);
+        ::GetDlgItemTextA(dialog, IDC_STATIC_ABOUT_ICON, icon, sizeof icon);
+        about_result.texts_ok = strcmp(credits, ABOUT_CREDITS) == 0 && strcmp(url, LAME_URL) == 0
+            && strcmp(icon, ABOUT_ICON_CREDIT) == 0;
+    }
+    font = (HFONT) ::SendMessageW(dialog, WM_GETFONT, 0, 0);
+    memset(&used, 0, sizeof used);
+    if (font != NULL && ::GetObjectW(font, sizeof used, &used) != 0 && desktop_dialog_font(&desktop))
+        about_result.font_ok = wcsncmp(used.lfFaceName, desktop.lfFaceName, LF_FACESIZE) == 0;
+    printf("        \"%s\"\n", title);
+    check_dialog_layout(dialog, 0, "the about dialog of the codec");
+    ::PostMessageA(dialog, WM_COMMAND, MAKEWPARAM(IDOK, BN_CLICKED), 0);
+}
+
+/**
+ * @brief Opens the about dialog as a program does, through the
+ *        ACMDM_DRIVER_ABOUT message, and checks it (inspect_about_dialog()).
+ *
+ * @param driver  the path of the built codec.
+ */
+static void
+test_about_dialog(const char *driver)
+{
+    HMODULE codec;
+    UINT_PTR timer;
+    LONG result;
+
+    printf("the about dialog of the codec\n");
+    codec = ::LoadLibraryA(driver);
+    if (codec == NULL) {
+        CHECK(0, "the codec loads");
+        return;
+    }
+    {
+        ACM acm(codec);
+
+        memset(&about_result, 0, sizeof about_result);
+        timer = ::SetTimer(NULL, 0, DIALOG_TIMER_MS, inspect_about_dialog);
+        result = acm.DriverProcedure(NULL, ACMDM_DRIVER_ABOUT, 0, 0);
+        ::KillTimer(NULL, timer);
+    }
+    CHECK(result == DRVCNF_OK && about_result.found, "the about dialog opens and closes with OK");
+    CHECK(about_result.title_ok, "the about dialog names the codec and its version");
+    CHECK(about_result.license_ok, "the about dialog shows LAME's licence notice");
+    CHECK(about_result.texts_ok, "the about dialog shows the credits, the address and the icon credit of both components");
+    CHECK(about_result.font_ok, "the about dialog uses the font of the desktop");
+    CHECK(about_result.focus_on_ok, "the about dialog starts with the focus on OK");
+    ::FreeLibrary(codec);
+    ::DeleteFileA(codec_config);
 }
 
 /**
@@ -2772,7 +4598,12 @@ test_under_the_acm(const char *driver)
     test_last_frame_unused(had);
     test_sizes_hold_every_conversion(had);
     test_padding_modes_are_cbr(had);
+    test_vbr_formats_encode_vbr(had);
+    test_vbr_sizes_hold(had);
     test_partial_sample_frame(had);
+    test_quality_reaches_the_encoder(had);
+    test_vbr_limits_reach_the_encoder(had);
+    test_advanced_settings_reach_the_encoder(had);
     test_low_bitrate_sizes_hold(had);
 
 out:
@@ -3868,6 +5699,10 @@ main(int argc, char **argv)
     test_malformed_config();
     test_abr_range_config();
     test_abr_ladder_below_step();
+    test_vbr_format_list();
+    test_vbr_limits_in_the_list();
+    test_advanced_settings_file();
+    test_format_families();
     test_bitrate_list();
     test_save_without_a_file();
     test_save_keeps_no_memory();
@@ -3896,11 +5731,21 @@ main(int argc, char **argv)
         }
         test_under_the_acm(driver);
         test_registered_as_a_function(driver);
+        test_about_dialog(driver);
         test_behind_the_acm_wrapper(driver);
         test_settings_reach_the_encoder(driver);
         test_config_dialog_version(driver);
+        test_config_dialog_vbr(driver);
+        test_config_dialog_families(driver);
+        test_config_dialog_vbr_limits(driver);
+        test_config_dialog_encoding_tab(driver);
+        test_config_dialog_abr_list(driver);
+        test_config_dialog_channel_modes(driver);
+        test_config_dialog_quality(driver);
         test_config_dialog_result(driver);
         test_config_dialog_keeps_the_settings(driver);
+        test_settings_tabs_through_the_codec(driver);
+        test_dialog_layout(driver);
         /* LAME reports why it rejects the 50 Hz to 8000 Hz stream of
            test_settings_reach_the_encoder(). */
         ctest_stderr_empty(&codec_stderr, "the codec writes nothing to the stderr of its host");

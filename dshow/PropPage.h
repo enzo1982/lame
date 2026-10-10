@@ -20,7 +20,7 @@
  * Boston, MA 02111-1307, USA.
  */
 
-class CMpegAudEncPropertyPage : public CBasePropertyPage 
+class CMpegAudEncPropertyPage : public CSystemFontPropertyPage
 {
 
 public:
@@ -51,10 +51,14 @@ private:
     DWORD   m_dwForceMono;
     DWORD   m_dwCopyright;
     DWORD   m_dwOriginal;
+    DWORD   m_dwAverage;
+    DWORD   m_dwAverageBitrate;
+    DWORD   m_dwPrivate;
+    DWORD   m_dwReservoir;
 
     HWND    m_hwndQuality;               //Slider window handle
 
     int     m_srIdx;
 
-    IAudioEncoderProperties *m_pAEProps;
+    IAudioEncoderProperties2 *m_pAEProps;
 };

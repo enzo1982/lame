@@ -51,6 +51,9 @@
 #define VALUE_DISABLE_SHORT_BLOCK   "No Short Block"
 #define VALUE_XING_TAG              "Xing Tag"
 #define VALUE_MODE_FIXED            "Mode Fixed"
+#define VALUE_PRIVATE               "Private"
+#define VALUE_RESERVOIR             "Bit Reservoir"
+#define VALUE_AVERAGE_BITRATE       "Average Bitrate"
 
 
 typedef struct 
@@ -90,7 +93,7 @@ class CMpegAudEncOutPin;
 class CMpegAudEncPropertyPage;
 class CMpegAudEnc : public CTransformFilter,
                     public ISpecifyPropertyPages,
-                    public IAudioEncoderProperties,
+                    public IAudioEncoderProperties2,
                     public CPersistStream
 {
 public:
@@ -179,6 +182,16 @@ public:
     STDMETHODIMP get_SampleOverlap(DWORD *dwFlag);
     STDMETHODIMP set_SampleOverlap(DWORD dwFlag);
 
+    // IAudioEncoderProperties2
+    STDMETHODIMP get_PrivateFlag(DWORD *dwFlag);
+    STDMETHODIMP set_PrivateFlag(DWORD dwFlag);
+    STDMETHODIMP get_BitReservoir(DWORD *dwFlag);
+    STDMETHODIMP set_BitReservoir(DWORD dwFlag);
+    STDMETHODIMP get_Average(DWORD *dwFlag);
+    STDMETHODIMP set_Average(DWORD dwFlag);
+    STDMETHODIMP get_AverageBitrate(DWORD *dwBitrate);
+    STDMETHODIMP set_AverageBitrate(DWORD dwBitrate);
+
     STDMETHODIMP get_ParameterBlockSize(BYTE *pcBlock, DWORD *pdwSize);
     STDMETHODIMP set_ParameterBlockSize(BYTE *pcBlock, DWORD dwSize);
 
@@ -192,6 +205,7 @@ public:
     // CPersistStream
     HRESULT WriteToStream(IStream *pStream);
     HRESULT ReadFromStream(IStream *pStream);
+    DWORD GetSoftwareVersion(void);
 
     int SizeMax();
     STDMETHODIMP GetClassID(CLSID *pClsid);

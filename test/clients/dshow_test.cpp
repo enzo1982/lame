@@ -27,13 +27,21 @@
 #include <windows.h>
 #include <mmreg.h>
 #include <dshow.h>
+#include <commctrl.h>
+#include <olectl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
+#include <vector>
+
 #include "ctest.h"
+#include "dialogcheck.h"
 #include "mp3frame.h"
+#include "DialogFont.h"
+#include "SettingText.h"
+#include "../../libmp3lame/version.h"
 
 /*
  * The filter's CLSID and its property interface's IID, spelled as bytes rather
@@ -47,6 +55,8 @@ static const GUID CLSID_LAMEDShowFilter_local =
     { 0xb8d27088, 0xff5f, 0x4b7c, { 0x98, 0xdc, 0x0e, 0x91, 0xa1, 0x69, 0x62, 0x86 } };
 static const GUID IID_IAudioEncoderProperties_local =
     { 0xca7e9ef0, 0x1cbe, 0x11d3, { 0x8d, 0x29, 0x00, 0xa0, 0xc9, 0x4b, 0xbf, 0xee } };
+static const GUID IID_IAudioEncoderProperties2_local =
+    { 0xcaaa1fc6, 0x2a4f, 0x42f4, { 0x83, 0x75, 0x23, 0xd7, 0xdd, 0x84, 0x2c, 0xa7 } };
 
 typedef HRESULT (STDAPICALLTYPE *PFN_DllGetClassObject)(REFCLSID, REFIID, void **);
 
@@ -1334,11 +1344,17 @@ public:
  * @param sink  the pin to deliver to. It asks for its own alignment.
  * @param connected receives whether the encoder accepted the sink.
  * @param timeout_ms  how long to wait for the end of the stream.
+ * @param configure  when not NULL, called with the encoder's
+ *                   IAudioEncoderProperties2 once its input is connected,
+ *                   to change its settings.
+ * @param setting    passed on to @p configure.
  * @return Non-zero when the stream ended within the timeout.
  */
 static int
 encode_into_aligned_sink(IClassFactory *cf, const WCHAR *wav, AlignedSinkPin &sink,
-                         int *connected, DWORD timeout_ms = GRAPH_TIMEOUT_MS)
+                         int *connected, DWORD timeout_ms = GRAPH_TIMEOUT_MS,
+                         void (*configure)(IAudioEncoderProperties2 *, const void *) = NULL,
+                         const void *setting = NULL)
 {
     IGraphBuilder *graph = NULL;
     IBaseFilter *lame = NULL, *src = NULL;
@@ -1363,6 +1379,14 @@ encode_into_aligned_sink(IClassFactory *cf, const WCHAR *wav, AlignedSinkPin &si
     if (src_out == NULL || lame_in == NULL || lame_out == NULL
         || FAILED(graph->Connect(src_out, lame_in)))
         goto out;
+    if (configure != NULL) {
+        IAudioEncoderProperties2 *props = NULL;
+
+        if (FAILED(lame->QueryInterface(IID_IAudioEncoderProperties2_local, (void **) &props)))
+            goto out;
+        configure(props, setting);
+        props->Release();
+    }
     graph->AddFilter(&owner, L"Aligned sink");
     if (FAILED(graph->ConnectDirect(lame_out, &sink, NULL)))
         goto out;
@@ -1398,6 +1422,466 @@ out:
     }
     if (lame) lame->Release();
     return ended;
+}
+
+/** @brief A setting of IAudioEncoderProperties2 to encode with. */
+typedef struct {
+    const char *what;   /**< the setting, for the check names */
+    DWORD private_flag; /**< set_PrivateFlag() */
+    DWORD reservoir;    /**< set_BitReservoir() */
+    DWORD average_kbps; /**< 0 for CBR, else set_Average(TRUE) and this target */
+} encoder_setting;
+
+/**
+ * @brief Applies an #encoder_setting to the encoder, for
+ *        encode_into_aligned_sink().
+ * @param props    the encoder's settings.
+ * @param setting  the #encoder_setting.
+ */
+static void
+apply_encoder_setting(IAudioEncoderProperties2 *props, const void *setting)
+{
+    const encoder_setting *s = (const encoder_setting *) setting;
+
+    props->set_Variable(FALSE);
+    props->set_Bitrate(128);
+    /* The LAME tag, which records the bitrate method, is written only with this */
+    props->set_XingTag(TRUE);
+    props->set_PrivateFlag(s->private_flag);
+    props->set_BitReservoir(s->reservoir);
+    if (s->average_kbps != 0) {
+        props->set_AverageBitrate(s->average_kbps);
+        props->set_Average(TRUE);
+    }
+}
+
+/** @brief What scan_encoded() found in a stream. */
+typedef struct {
+    int frames;         /**< the frames */
+    int private_set;    /**< the frames with the private bit set */
+    int no_reservoir;   /**< the frames whose main_data_begin is 0 */
+    int tag_method;     /**< the VBR method of the LAME tag, or MP3_TAG_ABSENT */
+    int tag_abr_kbps;   /**< the ABR bitrate of the LAME tag, or MP3_TAG_ABSENT */
+} encoded_scan;
+
+/**
+ * @brief Steps through the MPEG-1 frames of a stream, counts the frames with
+ *        the private bit and the frames that use no bit reservoir, and reads
+ *        the bitrate method and the ABR bitrate from the LAME tag.
+ * @param buf   the stream.
+ * @param len   its length in bytes.
+ * @param rate  its sample rate in Hz.
+ * @return the counts.
+ */
+static encoded_scan
+scan_encoded(const unsigned char *buf, long len, unsigned long rate)
+{
+    encoded_scan s = { 0, 0, 0, MP3_TAG_ABSENT, MP3_TAG_ABSENT };
+    long off = 0;
+
+    while (off + MP3_HEADER_BYTES + MP3_CRC_BYTES + 2 <= len) {
+        const unsigned char *h = buf + off;
+        int index, framelen;
+
+        if (!mp3_is_frame_sync(h)) {
+            off++;
+            continue;
+        }
+        index = mp3_bitrate_index(h);
+        if (index == MP3_BITRATE_FREE_FORMAT || index == MP3_BITRATE_INVALID)
+            break;
+        framelen = mp3_frame_bytes(index, mp3_padding_bytes(h), rate);
+        if (framelen <= 0)
+            break;
+        if (s.frames == 0 && off + framelen <= len) {
+            s.tag_method = mp3_lame_tag_vbr_method(h, framelen);
+            s.tag_abr_kbps = mp3_lame_tag_abr_kbps(h, framelen);
+        }
+        s.frames++;
+        if (h[2] & 0x01)
+            s.private_set++;
+        if (mp3_main_data_begin(h) == 0)
+            s.no_reservoir++;
+        off += framelen;
+    }
+    return s;
+}
+
+/**
+ * @brief Encodes the test WAV with one #encoder_setting into a byte stream.
+ * @param cf       the filter DLL's class factory.
+ * @param wav      the input file.
+ * @param rate     its sample rate in Hz.
+ * @param setting  the setting.
+ * @return what scan_encoded() found; no frames when the encode failed.
+ */
+static encoded_scan
+encode_with(IClassFactory *cf, const WCHAR *wav, DWORD rate, const encoder_setting *setting)
+{
+    AlignedSinkPin bytes(1);
+    int connected = 0;
+    encoded_scan none = { 0, 0, 0, MP3_TAG_ABSENT, MP3_TAG_ABSENT };
+
+    if (!encode_into_aligned_sink(cf, wav, bytes, &connected, GRAPH_TIMEOUT_MS,
+                                  apply_encoder_setting, setting))
+        return none;
+    return scan_encoded(bytes.stream, bytes.length, rate);
+}
+
+/**
+ * @brief Encodes the test WAV through the File Writer, as a program that saves
+ *        a file does, with one #encoder_setting, and reads the LAME tag of
+ *        the file.
+ *
+ * Only a sink that can seek gets the LAME tag: the encoder writes it last,
+ * into the first frame.
+ *
+ * @param cf       the filter DLL's class factory.
+ * @param wav      the input file.
+ * @param path     the output file, as a wide string; it is deleted afterwards.
+ * @param rate     the sample rate of the input, in Hz.
+ * @param setting  the setting.
+ * @return the frames, the bitrate method and the ABR bitrate of the file;
+ *         no frames when the encode failed.
+ */
+static encoded_scan
+encode_to_file(IClassFactory *cf, const WCHAR *wav, const WCHAR *path, DWORD rate,
+               const encoder_setting *setting)
+{
+    encoded_scan result = { 0, 0, 0, MP3_TAG_ABSENT, MP3_TAG_ABSENT };
+    IGraphBuilder *graph = NULL;
+    IBaseFilter *lame = NULL, *src = NULL, *writer = NULL;
+    IFileSinkFilter *sink = NULL;
+    IAudioEncoderProperties2 *props = NULL;
+    IPin *src_out = NULL, *lame_in = NULL, *lame_out = NULL, *wr_in = NULL;
+    IMediaControl *mc = NULL;
+    IMediaEvent *me = NULL;
+    long ev = 0;
+    std::vector<unsigned char> bytes;
+    FILE *f;
+
+    if (FAILED(cf->CreateInstance(NULL, IID_IBaseFilter, (void **) &lame))
+        || FAILED(CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder,
+                                   (void **) &graph))
+        || FAILED(graph->AddFilter(lame, L"LAME Audio Encoder"))
+        || FAILED(graph->AddSourceFilter(wav, L"Source", &src))
+        || (src_out = find_pin(src, PINDIR_OUTPUT)) == NULL
+        || (lame_in = find_pin(lame, PINDIR_INPUT)) == NULL
+        || FAILED(graph->Connect(src_out, lame_in))
+        || FAILED(lame->QueryInterface(IID_IAudioEncoderProperties2_local, (void **) &props)))
+        goto out;
+    apply_encoder_setting(props, setting);
+    if (FAILED(CoCreateInstance(CLSID_FileWriter, NULL, CLSCTX_INPROC_SERVER, IID_IBaseFilter,
+                                (void **) &writer))
+        || FAILED(writer->QueryInterface(IID_IFileSinkFilter, (void **) &sink))
+        || FAILED(sink->SetFileName(path, NULL))
+        || FAILED(graph->AddFilter(writer, L"File Writer"))
+        || (lame_out = find_pin(lame, PINDIR_OUTPUT)) == NULL
+        || (wr_in = find_pin(writer, PINDIR_INPUT)) == NULL
+        || FAILED(graph->Connect(lame_out, wr_in))
+        || FAILED(graph->QueryInterface(IID_IMediaControl, (void **) &mc))
+        || FAILED(graph->QueryInterface(IID_IMediaEvent, (void **) &me))
+        || FAILED(mc->Run()))
+        goto out;
+    me->WaitForCompletion(GRAPH_TIMEOUT_MS, &ev);
+    mc->Stop();
+out:
+    if (me) me->Release();
+    if (mc) mc->Release();
+    if (wr_in) wr_in->Release();
+    if (lame_out) lame_out->Release();
+    if (lame_in) lame_in->Release();
+    if (src_out) src_out->Release();
+    if (props) props->Release();
+    if (sink) sink->Release();
+    if (writer) writer->Release();
+    if (src) src->Release();
+    if (graph) graph->Release();
+    if (lame) lame->Release();
+    f = _wfopen(path, L"rb");
+    if (f != NULL) {
+        unsigned char chunk[4096];
+        size_t n;
+
+        while ((n = fread(chunk, 1, sizeof chunk, f)) > 0)
+            bytes.insert(bytes.end(), chunk, chunk + n);
+        fclose(f);
+        if (!bytes.empty())
+            result = scan_encoded(&bytes[0], (long) bytes.size(), rate);
+    }
+    DeleteFileW(path);
+    return result;
+}
+
+/**
+ * @brief Checks the settings that IAudioEncoderProperties2 adds, in the
+ *        encoded stream.
+ *
+ * - the private bit: set in every frame with it, in none without it;
+ * - the bit reservoir: off, every frame holds all of its own data
+ *   (main_data_begin 0); on, some frames use bytes of earlier ones;
+ * - ABR: the LAME tag of a file records ABR and the target bitrate, for two
+ *   targets; the file of the default settings does not record ABR. On the
+ *   test tone ABR stays at the VBR minimum, so its bitrates do not show the
+ *   target; the tag is only in a file, encode_to_file().
+ *
+ * @param cf    the filter DLL's class factory.
+ * @param wav   the input file.
+ * @param out   a file name for the ABR encodes, as a wide string.
+ * @param rate  its sample rate in Hz.
+ */
+static void
+test_interface2_in_the_stream(IClassFactory *cf, const WCHAR *wav, const WCHAR *out, DWORD rate)
+{
+    static const encoder_setting plain = { "default", 0, 1, 0 };
+    static const encoder_setting with_private = { "private", 1, 1, 0 };
+    static const encoder_setting no_reservoir = { "no reservoir", 0, 0, 0 };
+    static const encoder_setting abr_low = { "ABR 96", 0, 1, 96 };
+    static const encoder_setting abr_high = { "ABR 192", 0, 1, 192 };
+    encoded_scan p, w, n, lo, hi, pf;
+    char detail[CTEST_DETAIL_CHARS];
+    WCHAR file[MAX_PATH];
+
+    printf("the settings of IAudioEncoderProperties2 in the stream\n");
+    p = encode_with(cf, wav, rate, &plain);
+    w = encode_with(cf, wav, rate, &with_private);
+    n = encode_with(cf, wav, rate, &no_reservoir);
+    /* A file of its own: the main graph still holds the one of out. */
+    _snwprintf(file, MAX_PATH, L"%s.abr.mp3", out);
+    file[MAX_PATH - 1] = L'\0';
+    lo = encode_to_file(cf, wav, file, rate, &abr_low);
+    hi = encode_to_file(cf, wav, file, rate, &abr_high);
+    pf = encode_to_file(cf, wav, file, rate, &plain);
+    sprintf(detail, "%d of %d frames with it, %d of %d without", w.private_set, w.frames,
+            p.private_set, p.frames);
+    ctest_record(w.frames > 0 && p.frames > 0 && w.private_set == w.frames && p.private_set == 0,
+                 "the private bit is in every frame with the setting and in none without", detail);
+    sprintf(detail, "%d of %d frames use no reservoir with it off, %d of %d with it on",
+            n.no_reservoir, n.frames, p.no_reservoir, p.frames);
+    ctest_record(n.frames > 0 && n.no_reservoir == n.frames && p.no_reservoir < p.frames,
+                 "without the bit reservoir every frame holds all of its own data", detail);
+    sprintf(detail, "methods %d, %d and %d (ABR is %d), ABR bitrates %d and %d, frames %d, %d and %d",
+            lo.tag_method, hi.tag_method, pf.tag_method, MP3_TAG_METHOD_ABR, lo.tag_abr_kbps,
+            hi.tag_abr_kbps, lo.frames, hi.frames, pf.frames);
+    ctest_record(lo.tag_method == MP3_TAG_METHOD_ABR && hi.tag_method == MP3_TAG_METHOD_ABR
+                 && lo.tag_abr_kbps == 96 && hi.tag_abr_kbps == 192 && pf.tag_method != MP3_TAG_METHOD_ABR,
+                 "an ABR stream records ABR and its target in the LAME tag", detail);
+}
+
+/**
+ * @brief Saves a filter's settings as a filter graph does, into a stream in
+ *        memory, and returns its bytes.
+ * @param filter  the filter.
+ * @param bytes   receives the bytes of the stream.
+ * @return 1 on success, else 0.
+ */
+static int
+save_settings(IUnknown *filter, std::vector<BYTE> &bytes)
+{
+    IPersistStream *persist = NULL;
+    IStream *stream = NULL;
+    HGLOBAL memory = NULL;
+    STATSTG stat;
+    int ok = 0;
+
+    if (SUCCEEDED(filter->QueryInterface(IID_IPersistStream, (void **) &persist))
+        && SUCCEEDED(CreateStreamOnHGlobal(NULL, FALSE, &stream))
+        && SUCCEEDED(persist->Save(stream, TRUE))
+        && SUCCEEDED(stream->Stat(&stat, STATFLAG_NONAME))
+        && SUCCEEDED(GetHGlobalFromStream(stream, &memory))) {
+        const BYTE *p = (const BYTE *) GlobalLock(memory);
+
+        if (p != NULL) {
+            bytes.assign(p, p + (size_t) stat.cbSize.QuadPart);
+            GlobalUnlock(memory);
+            ok = 1;
+        }
+    }
+    if (stream != NULL)
+        stream->Release();
+    if (memory != NULL)
+        GlobalFree(memory);
+    if (persist != NULL)
+        persist->Release();
+    return ok;
+}
+
+/**
+ * @brief Loads saved settings into a filter as a filter graph does.
+ * @param filter  the filter.
+ * @param bytes   the saved stream.
+ * @param left    receives the bytes of the stream that the load left unread.
+ * @return the result of IPersistStream::Load().
+ */
+static HRESULT
+load_settings(IUnknown *filter, const std::vector<BYTE> &bytes, ULONGLONG *left)
+{
+    IPersistStream *persist = NULL;
+    IStream *stream = NULL;
+    HRESULT hr = E_FAIL;
+    LARGE_INTEGER zero;
+    ULARGE_INTEGER at;
+
+    zero.QuadPart = 0;
+    *left = 0;
+    if (SUCCEEDED(filter->QueryInterface(IID_IPersistStream, (void **) &persist))
+        && SUCCEEDED(CreateStreamOnHGlobal(NULL, TRUE, &stream))
+        && SUCCEEDED(stream->Write(&bytes[0], (ULONG) bytes.size(), NULL))
+        && SUCCEEDED(stream->Seek(zero, STREAM_SEEK_SET, NULL))) {
+        hr = persist->Load(stream);
+        if (SUCCEEDED(stream->Seek(zero, STREAM_SEEK_CUR, &at)))
+            *left = bytes.size() - at.QuadPart;
+    }
+    if (stream != NULL)
+        stream->Release();
+    if (persist != NULL)
+        persist->Release();
+    return hr;
+}
+
+/**
+ * @brief Checks the settings in a saved filter graph across the change of
+ *        their size.
+ *
+ * A filter writes its settings after a version: 1 since the settings of
+ * IAudioEncoderProperties2, 0 before, with three DWORDs fewer. The test saves
+ * a filter with the private bit and the CRC set, and makes a version 0 stream
+ * from it by hand, followed by bytes of the next data, as in a saved graph.
+ * Loaded into a fresh filter, the version 0 stream sets the CRC, leaves the
+ * private bit as it was, and leaves the following bytes unread; the version 1
+ * stream sets both.
+ *
+ * @param cf  the filter DLL's class factory.
+ */
+static void
+test_saved_graphs(IClassFactory *cf)
+{
+    /* The version that CPersistStream writes first: 12 wide characters. */
+    const size_t VERSION_BYTES = 12 * sizeof(WCHAR);
+    /* Bytes after the version 0 settings, as another filter's data follows them. */
+    const size_t FOLLOWING_BYTES = 3 * sizeof(DWORD);
+    IAudioEncoderProperties2 *saver = NULL, *older = NULL, *newer = NULL;
+    std::vector<BYTE> saved, version0;
+    DWORD full = 0, crc = 0, private_flag = 1;
+    ULONGLONG left = 1;
+    HRESULT hr;
+
+    printf("the settings in a saved filter graph\n");
+    if (FAILED(cf->CreateInstance(NULL, IID_IAudioEncoderProperties2_local, (void **) &saver))
+        || FAILED(cf->CreateInstance(NULL, IID_IAudioEncoderProperties2_local, (void **) &older))
+        || FAILED(cf->CreateInstance(NULL, IID_IAudioEncoderProperties2_local, (void **) &newer))) {
+        CHECK(0, "three filters with IAudioEncoderProperties2");
+        goto out;
+    }
+    saver->set_PrivateFlag(1);
+    saver->set_CRCFlag(1);
+    saver->get_ParameterBlockSize(NULL, &full);
+    CHECK(save_settings(saver, saved) && saved.size() == VERSION_BYTES + full,
+          "a filter saves its version and its settings");
+    if (saved.size() != VERSION_BYTES + full)
+        goto out;
+    CHECK(memcmp(&saved[0], L"00000000001 ", VERSION_BYTES) == 0, "the saved settings are version 1");
+
+    version0.assign(saved.begin(), saved.end() - 3 * sizeof(DWORD));
+    memcpy(&version0[0], L"00000000000 ", VERSION_BYTES);
+    /* What follows in a real stream, which a load that reads too far takes in. */
+    version0.insert(version0.end(), FOLLOWING_BYTES, 0xA5);
+    older->set_PrivateFlag(0);
+    older->set_CRCFlag(0);
+    hr = load_settings(older, version0, &left);
+    older->get_CRCFlag(&crc);
+    older->get_PrivateFlag(&private_flag);
+    CHECK(SUCCEEDED(hr) && crc == 1 && private_flag == 0 && left == FOLLOWING_BYTES,
+          "a version 0 graph sets the earlier settings, leaves the new ones, and reads its own bytes");
+
+    newer->set_PrivateFlag(0);
+    hr = load_settings(newer, saved, &left);
+    newer->get_PrivateFlag(&private_flag);
+    CHECK(SUCCEEDED(hr) && private_flag == 1 && left == 0, "a version 1 graph sets the new settings too");
+out:
+    if (saver != NULL)
+        saver->Release();
+    if (older != NULL)
+        older->Release();
+    if (newer != NULL)
+        newer->Release();
+}
+
+/**
+ * @brief Checks IAudioEncoderProperties2: each setting reads back what was
+ *        written, ABR and VBR exclude each other, and the parameter block
+ *        works at its full size and at the size before this interface.
+ *
+ * The settings are put back afterwards.
+ *
+ * @param lame  the filter.
+ */
+static void
+test_interface2(IBaseFilter *lame)
+{
+    IAudioEncoderProperties2 *props = NULL;
+    DWORD private_flag = 0, reservoir = 0, average = 0, average_kbps = 0, variable = 0;
+    DWORD got_private = 0, got_reservoir = 0, got_average = 0, got_kbps = 0, got_variable = 0;
+    DWORD full = 0, after = 0;
+    BYTE block[1024], first[1024];
+    HRESULT hr;
+
+    printf("IAudioEncoderProperties2\n");
+    hr = lame->QueryInterface(IID_IAudioEncoderProperties2_local, (void **) &props);
+    REQUIRE_HR(hr, "the filter offers IAudioEncoderProperties2");
+    if (FAILED(hr))
+        return;
+    props->get_PrivateFlag(&private_flag);
+    props->get_BitReservoir(&reservoir);
+    props->get_Average(&average);
+    props->get_AverageBitrate(&average_kbps);
+    props->get_Variable(&variable);
+
+    props->set_PrivateFlag(1);
+    props->set_BitReservoir(0);
+    props->set_AverageBitrate(160);
+    props->set_Average(TRUE);
+    props->get_PrivateFlag(&got_private);
+    props->get_BitReservoir(&got_reservoir);
+    props->get_AverageBitrate(&got_kbps);
+    props->get_Average(&got_average);
+    props->get_Variable(&got_variable);
+    CHECK(got_private == 1 && got_reservoir == 0 && got_kbps == 160 && got_average == 1 && got_variable == 0,
+          "the new settings read back what was written, and ABR is not VBR");
+    props->set_Variable(TRUE);
+    props->get_Average(&got_average);
+    props->get_Variable(&got_variable);
+    CHECK(got_average == 0 && got_variable == 1, "set_Variable() ends ABR");
+
+    /* The parameter block: its size, and a block of the earlier size. */
+    REQUIRE_HR(props->get_ParameterBlockSize(NULL, &full), "the parameter block has a size");
+    CHECK(full > 3 * sizeof(DWORD) && full <= sizeof block, "the parameter block fits the test's buffer");
+    if (full > 3 * sizeof(DWORD) && full <= sizeof block) {
+        DWORD const earlier = full - 3 * sizeof(DWORD);
+        DWORD size = earlier;
+
+        props->set_PrivateFlag(1);
+        hr = props->get_ParameterBlockSize(first, &size);
+        CHECK(hr == S_OK && size == earlier, "a program asking for the earlier block size gets that block");
+        size = full;
+        props->get_ParameterBlockSize(block, &size);
+        props->set_PrivateFlag(0);
+        CHECK(props->set_ParameterBlockSize(first, earlier) == S_OK,
+              "a block of the earlier size is accepted");
+        props->get_PrivateFlag(&after);
+        CHECK(after == 0, "a block of the earlier size leaves the new settings as they are");
+        CHECK(props->set_ParameterBlockSize(block, full) == S_OK, "a block of the full size is accepted");
+        props->get_PrivateFlag(&after);
+        CHECK(after == 1, "a block of the full size sets the new settings too");
+        CHECK(props->set_ParameterBlockSize(block, earlier + 1) == E_FAIL, "a block of another size is refused");
+    }
+
+    props->set_PrivateFlag(private_flag);
+    props->set_BitReservoir(reservoir);
+    props->set_AverageBitrate(average_kbps);
+    props->set_Variable(variable);
+    props->set_Average(average);
+    props->Release();
 }
 
 /** @brief The sample rate of the pushed PCM, in Hz. */
@@ -2080,6 +2564,323 @@ test_frame_times_follow_a_gap(IClassFactory *cf)
                  detail);
 }
 
+/*
+ * The CLSIDs of the filter's three property pages and the resource IDs of
+ * their dialogs, spelled locally for the same reason as the filter's CLSID
+ * above. The tabs of a property frame come in the order of the CLSIDs.
+ */
+static const GUID CLSID_page_local[] = {
+    { 0xb8d27089, 0xff5f, 0x4b7c, { 0x98, 0xdc, 0x0e, 0x91, 0xa1, 0x69, 0x62, 0x86 } },
+    { 0xb8d2708a, 0xff5f, 0x4b7c, { 0x98, 0xdc, 0x0e, 0x91, 0xa1, 0x69, 0x62, 0x86 } },
+    { 0xfe69edd1, 0xf4cb, 0x11d5, { 0x99, 0x4a, 0x00, 0x00, 0x21, 0xd1, 0xfe, 0x2f } },
+};
+/** @brief The number of property pages of the filter. */
+enum { PAGES = sizeof CLSID_page_local / sizeof CLSID_page_local[0] };
+static const WORD page_dialog[PAGES] = { 100, 102, 105 };
+static const char *const page_name[PAGES] = { "the main page", "the Advanced page", "the About page" };
+/** @brief The controls of each page with an access key. */
+static const size_t page_access_keys[PAGES] = { 16, 11, 0 };
+/** @brief The encoding-quality slider of the main page and the text beside it. */
+enum { SLIDER_QUALITY_ID = 1021, TEXT_QUALITY_ID = 1023 };
+/** @brief The VBR quality box of the main page. */
+enum { COMBO_VBR_QUALITY_ID = 1026 };
+/** @brief The title and the licence box of the About page. */
+enum { ABOUT_TITLE_ID = 1046, ABOUT_LICENSE_ID = 1044, ABOUT_URL_ID = 1047, ABOUT_CREDITS_ID = 1100,
+       ABOUT_ICON_ID = 1101 };
+
+/** @brief What inspect_property_frame() found, for test_property_pages(). */
+static struct {
+    int frame_found;
+    int pages_seen;
+    int fonts_match;
+    int quality_range_ok;
+    int quality_texts_fit;
+    int vbr_levels_listed;
+    int about_ok;
+} frame_result;
+
+/**
+ * @brief Finds the property frame among the windows of this thread: a visible
+ *        dialog with a tab control.
+ * @param window  a top-level window of this thread.
+ * @param found   the HWND that receives the frame.
+ * @return FALSE once the frame is found, to stop the enumeration.
+ */
+static BOOL CALLBACK
+find_property_frame(HWND window, LPARAM found)
+{
+    char name[16];
+
+    if (IsWindowVisible(window) && GetClassNameA(window, name, sizeof name) > 0
+        && strcmp(name, "#32770") == 0
+        && FindWindowExA(window, NULL, "SysTabControl32", NULL) != NULL) {
+        *(HWND *) found = window;
+        return FALSE;
+    }
+    return TRUE;
+}
+
+/**
+ * @brief Finds the visible page among the descendants of the frame.
+ *
+ * The frame puts each page into a dialog of its own, which has no controls
+ * of its own. The page is the visible dialog inside that one.
+ *
+ * @param window  a descendant window of the frame.
+ * @param found   the HWND that receives the page.
+ * @return FALSE once the page is found, to stop the enumeration.
+ */
+static BOOL CALLBACK
+find_visible_page(HWND window, LPARAM found)
+{
+    char name[16], parent[16];
+
+    if (IsWindowVisible(window) && GetClassNameA(window, name, sizeof name) > 0
+        && strcmp(name, "#32770") == 0
+        && GetClassNameA(GetParent(window), parent, sizeof parent) > 0
+        && strcmp(parent, "#32770") == 0 && GetParent(window) != GetAncestor(window, GA_ROOT)) {
+        *(HWND *) found = window;
+        return FALSE;
+    }
+    return TRUE;
+}
+
+/**
+ * @brief Checks each page of the property frame of this thread, then closes
+ *        the frame.
+ *
+ * A timer calls it from the message loop of the modal frame. Once it finds the
+ * frame, it stops the timer, selects each tab, and checks the page that shows:
+ * its font is the font of the desktop (the typeface, and the height to the
+ * nearest point), and check_dialog_layout() passes. On the main page it notes
+ * the range of the encoding-quality slider, whether the text of each level
+ * fits beside it, and the levels that the VBR quality box lists; on the
+ * About page, the title and the licence notice.
+ *
+ * @param window   NULL, the timer has no window.
+ * @param message  WM_TIMER.
+ * @param id       the timer.
+ * @param time     the tick count.
+ */
+static void CALLBACK
+inspect_property_frame(HWND window, UINT message, UINT_PTR id, DWORD time)
+{
+    HWND frame = NULL, tabs;
+    LOGFONTW desktop;
+    int p;
+
+    EnumThreadWindows(GetCurrentThreadId(), find_property_frame, (LPARAM) &frame);
+    if (frame == NULL)
+        return;
+    KillTimer(NULL, id);
+    frame_result.frame_found = 1;
+    tabs = FindWindowExA(frame, NULL, "SysTabControl32", NULL);
+    if (!desktop_dialog_font(&desktop))
+        memset(&desktop, 0, sizeof desktop);
+    for (p = 0; p < PAGES; p++) {
+        HWND page = NULL;
+        HFONT font;
+        LOGFONTW used;
+
+        if (p > 0)
+            SendMessageA(tabs, TCM_SETCURFOCUS, (WPARAM) p, 0);
+        EnumChildWindows(frame, find_visible_page, (LPARAM) &page);
+        if (page == NULL)
+            continue;
+        frame_result.pages_seen++;
+        font = (HFONT) SendMessageW(page, WM_GETFONT, 0, 0);
+        memset(&used, 0, sizeof used);
+        if (font != NULL && GetObjectW(font, sizeof used, &used) != 0
+            && wcsncmp(used.lfFaceName, desktop.lfFaceName, LF_FACESIZE) == 0
+            && used.lfHeight - desktop.lfHeight >= -1 && used.lfHeight - desktop.lfHeight <= 1) {
+            frame_result.fonts_match++;
+        }
+        printf("        %s: \"%ls\" %ld, desktop \"%ls\" %ld\n", page_name[p], used.lfFaceName,
+               (long) used.lfHeight, desktop.lfFaceName, (long) desktop.lfHeight);
+        check_dialog_layout(page, page_access_keys[p], page_name[p]);
+        if (p == 2) {
+            char title[CONTROL_TEXT_CHARS], license[2048], credits[CONTROL_TEXT_CHARS], url[CONTROL_TEXT_CHARS];
+            char icon[CONTROL_TEXT_CHARS];
+
+            title[0] = license[0] = credits[0] = url[0] = icon[0] = '\0';
+            GetDlgItemTextA(page, ABOUT_TITLE_ID, title, sizeof title);
+            GetDlgItemTextA(page, ABOUT_LICENSE_ID, license, sizeof license);
+            GetDlgItemTextA(page, ABOUT_CREDITS_ID, credits, sizeof credits);
+            GetDlgItemTextA(page, ABOUT_URL_ID, url, sizeof url);
+            GetDlgItemTextA(page, ABOUT_ICON_ID, icon, sizeof icon);
+            frame_result.about_ok = strncmp(title, "LAME Audio Encoder v", strlen("LAME Audio Encoder v")) == 0
+                && strcmp(license, LICENSE_NOTICE) == 0 && strcmp(credits, ABOUT_CREDITS) == 0
+                && strcmp(url, LAME_URL) == 0 && strcmp(icon, ABOUT_ICON_CREDIT) == 0;
+            printf("        \"%s\"\n", title);
+        }
+        if (p == 0) {
+            HWND const slider = GetDlgItem(page, SLIDER_QUALITY_ID);
+            HWND const text = GetDlgItem(page, TEXT_QUALITY_ID);
+            WCHAR shown[CONTROL_TEXT_CHARS];
+            unsigned int level;
+
+            frame_result.quality_range_ok = slider != NULL
+                && SendMessageA(slider, TBM_GETRANGEMIN, 0, 0) == 0
+                && SendMessageA(slider, TBM_GETRANGEMAX, 0, 0) == (LRESULT) (ENCODING_QUALITY_LEVELS - 1);
+            if (text != NULL) {
+                GetWindowTextW(text, shown, CONTROL_TEXT_CHARS);
+                for (level = 0; level < ENCODING_QUALITY_LEVELS; level++) {
+                    SetWindowTextA(text, EncodingQualityText(level));
+                    frame_result.quality_texts_fit += static_text_fits(text);
+                }
+                SetWindowTextW(text, shown);
+            }
+            {
+                HWND const vbr = GetDlgItem(page, COMBO_VBR_QUALITY_ID);
+                char item[CONTROL_TEXT_CHARS], want[CONTROL_TEXT_CHARS];
+
+                for (level = 0; vbr != NULL && level < VBR_QUALITY_LEVELS; level++) {
+                    item[0] = '\0';
+                    if (SendMessageA(vbr, CB_GETLBTEXTLEN, level, 0) < CONTROL_TEXT_CHARS)
+                        SendMessageA(vbr, CB_GETLBTEXT, level, (LPARAM) item);
+                    VbrQualityText(level, want, sizeof want);
+                    if (strcmp(item, want) == 0)
+                        frame_result.vbr_levels_listed++;
+                }
+                if (vbr != NULL && SendMessageA(vbr, CB_GETCOUNT, 0, 0) != (LRESULT) VBR_QUALITY_LEVELS)
+                    frame_result.vbr_levels_listed = 0;
+            }
+        }
+    }
+    PostMessageA(frame, WM_COMMAND, MAKEWPARAM(IDCANCEL, BN_CLICKED), 0);
+}
+
+/**
+ * @brief Opens the filter's property pages in a real property frame, as a
+ *        program that shows the settings of a filter does.
+ *
+ * OleCreatePropertyFrame() creates the pages from their CLSIDs. The test
+ * registers the class factories of the pages for this process only
+ * (CoRegisterClassObject()), so nothing goes into the registry. A timer
+ * checks every page (inspect_property_frame()) and closes the frame.
+ *
+ * @param get_class  DllGetClassObject() of the filter.
+ * @param cf         the class factory of the filter.
+ */
+static void
+test_property_pages(PFN_DllGetClassObject get_class, IClassFactory *cf)
+{
+    /* Often enough that the frame closes soon after it opens. */
+    const UINT TIMER_MS = 200;
+    DWORD cookies[PAGES] = { 0 };
+    CLSID pages[PAGES];
+    IUnknown *filter = NULL;
+    UINT_PTR timer;
+    HRESULT hr;
+    int i, registered = 0;
+
+    printf("the property pages of the filter\n");
+    for (i = 0; i < PAGES; i++) {
+        IUnknown *factory = NULL;
+
+        pages[i] = CLSID_page_local[i];
+        hr = get_class(CLSID_page_local[i], IID_IClassFactory, (void **) &factory);
+        if (SUCCEEDED(hr)) {
+            hr = CoRegisterClassObject(CLSID_page_local[i], factory, CLSCTX_INPROC_SERVER,
+                                       REGCLS_MULTIPLEUSE, &cookies[i]);
+            factory->Release();
+        }
+        if (SUCCEEDED(hr))
+            registered++;
+    }
+    CHECK_EQ_U(registered, PAGES, "the class factory of every page registers for this process");
+    hr = cf->CreateInstance(NULL, IID_IUnknown, (void **) &filter);
+    REQUIRE_HR(hr, "a filter instance for the pages");
+    if (SUCCEEDED(hr) && registered == PAGES) {
+        memset(&frame_result, 0, sizeof frame_result);
+        timer = SetTimer(NULL, 0, TIMER_MS, inspect_property_frame);
+        hr = OleCreatePropertyFrame(NULL, 0, 0, L"LAME Audio Encoder", 1, &filter, PAGES, pages,
+                                    0, 0, NULL);
+        KillTimer(NULL, timer);
+        REQUIRE_HR(hr, "OleCreatePropertyFrame() shows the pages");
+        CHECK(frame_result.frame_found, "the property frame opens");
+        CHECK_EQ_U(frame_result.pages_seen, PAGES, "every page shows in the frame");
+        CHECK_EQ_U(frame_result.fonts_match, PAGES, "every page uses the font of the desktop");
+        CHECK(frame_result.quality_range_ok, "the encoding-quality slider covers the levels 0 to 9");
+        CHECK_EQ_U(frame_result.quality_texts_fit, ENCODING_QUALITY_LEVELS,
+                   "the text of every quality level fits beside the slider");
+        CHECK_EQ_U(frame_result.vbr_levels_listed, VBR_QUALITY_LEVELS,
+                   "the VBR quality box lists each level with its typical bitrate");
+        CHECK(frame_result.about_ok, "the About page names the filter and its version, and shows the codec's credits, address, icon credit and licence");
+    }
+    if (filter != NULL)
+        filter->Release();
+    for (i = 0; i < PAGES; i++) {
+        if (cookies[i] != 0)
+            CoRevokeClassObject(cookies[i]);
+    }
+}
+
+/**
+ * @brief Leaves every message of a page to the default handling.
+ * @param dialog   the page.
+ * @param message  the message.
+ * @param wparam   the first message parameter.
+ * @param lparam   the second message parameter.
+ * @return FALSE, for "not handled".
+ */
+static INT_PTR CALLBACK
+quiet_page_proc(HWND dialog, UINT message, WPARAM wparam, LPARAM lparam)
+{
+    return FALSE;
+}
+
+/**
+ * @brief Checks the layout of the page templates in a font one and a half
+ *        times as high as the font of the desktop, as a larger text size of
+ *        the desktop gives it.
+ *
+ * The pages are created from the filter's resources through
+ * DialogTemplateWithFont(), as children of a hidden window. They show the
+ * texts of the templates; the frame test covers the texts the filter sets.
+ *
+ * @param filter  the module of the filter.
+ */
+static void
+test_page_templates(HMODULE filter)
+{
+    INITCOMMONCONTROLSEX controls = { sizeof controls, ICC_BAR_CLASSES };
+    LOGFONTW larger;
+    HWND host;
+    int p;
+
+    printf("the property pages of the filter in a larger font\n");
+    InitCommonControlsEx(&controls);
+    if (!desktop_dialog_font(&larger)) {
+        CHECK(0, "the desktop reports its dialog font");
+        return;
+    }
+    larger.lfHeight = larger.lfHeight * 3 / 2;
+    host = CreateWindowExA(0, "STATIC", "", WS_POPUP, 0, 0, 10, 10, NULL, NULL, NULL, NULL);
+    CHECK(host != NULL, "a hidden window holds the pages");
+    if (host == NULL)
+        return;
+    for (p = 0; p < PAGES; p++) {
+        std::vector<BYTE> dialog_template;
+        char what[80];
+        HWND page;
+
+        if (!DialogTemplateWithFont(filter, page_dialog[p], larger, dialog_template)) {
+            CHECK(0, "the page template takes another font");
+            continue;
+        }
+        page = CreateDialogIndirectParamA(filter, (LPCDLGTEMPLATEA) &dialog_template[0], host,
+                                          quiet_page_proc, 0);
+        CHECK(page != NULL, "the page is created from its template");
+        if (page == NULL)
+            continue;
+        snprintf(what, sizeof what, "%s in a larger desktop font", page_name[p]);
+        check_dialog_layout(page, page_access_keys[p], what);
+        DestroyWindow(page);
+    }
+    DestroyWindow(host);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -2283,6 +3084,11 @@ main(int argc, char **argv)
     test_frame_times_follow_a_gap(cf);
     test_failed_output_buffer(cf, wavw);
     test_flush_restarts_the_encoder(cf);
+    test_interface2(lame);
+    test_saved_graphs(cf);
+    test_interface2_in_the_stream(cf, wavw, mp3w, rate);
+    test_property_pages(get_class, cf);
+    test_page_templates(mod);
     /* LAME reports why it rejects the VBR range of
        test_refused_setting_fails_run(). */
     ctest_stderr_empty(&filter_stderr, "the filter writes nothing to the stderr of its host");

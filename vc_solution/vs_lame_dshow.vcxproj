@@ -95,6 +95,9 @@
     <ClCompile Include="..\DShow\PropPage.cpp" />
     <ClCompile Include="..\DShow\PropPage_adv.cpp" />
     <ClCompile Include="..\DShow\REG.CPP" />
+    <ClCompile Include="..\DShow\SystemFontPage.cpp" />
+    <ClCompile Include="..\ACM\DialogFont.cpp" />
+    <ClCompile Include="..\ACM\SettingText.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\DShow\Mpegac.def" />
@@ -110,6 +113,9 @@
     <ClInclude Include="..\DShow\Mpegac.h" />
     <ClInclude Include="..\DShow\PropPage.h" />
     <ClInclude Include="..\DShow\PropPage_adv.h" />
+    <ClInclude Include="..\DShow\SystemFontPage.h" />
+    <ClInclude Include="..\ACM\DialogFont.h" />
+    <ClInclude Include="..\ACM\SettingText.h" />
     <ClInclude Include="..\DShow\reg.h" />
     <ClInclude Include="..\DShow\resource.h" />
     <ClInclude Include="..\DShow\uids.h" />
@@ -117,7 +123,7 @@
     <ClInclude Include="..\include\lame.h" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="..\DShow\elogo.ico" />
+    <Image Include="..\ACM\lame.ico" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="vs_libmp3lame_nodec.vcxproj">

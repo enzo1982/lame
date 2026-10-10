@@ -82,9 +82,12 @@
     <ClCompile Include="..\ACM\ACM.cpp" />
     <ClCompile Include="..\ACM\ACMStream.cpp" />
     <ClCompile Include="..\ACM\AEncodeProperties.cpp" />
+    <ClCompile Include="..\ACM\DialogFont.cpp" />
+    <ClCompile Include="..\ACM\SettingText.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\test\clients\ctest.h" />
+    <ClInclude Include="..\test\clients\dialogcheck.h" />
     <ClInclude Include="..\test\common\mp3frame.h" />
   </ItemGroup>
   <ItemGroup>

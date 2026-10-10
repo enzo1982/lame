@@ -313,10 +313,11 @@ EXTRA_DIST = \
 	README \
 	REG.CPP \
 	REG.H \
+	SystemFontPage.cpp \
+	SystemFontPage.h \
 	UIDS.H \
 	aboutprp.cpp \
 	aboutprp.h \
-	elogo.ico \
 	iaudioprops.h \
 	resource.h
 

@@ -26,6 +26,7 @@
 #include "iaudioprops.h"
 #include "mpegac.h"
 #include "resource.h"
+#include "SystemFontPage.h"
 #include "PropPage_adv.h"
 #include "Reg.h"
 
@@ -59,7 +60,7 @@ CUnknown * WINAPI CMpegAudEncPropertyPageAdv::CreateInstance( LPUNKNOWN punk, HR
  * Creates the property page for the advanced encoder settings.
  */
 CMpegAudEncPropertyPageAdv::CMpegAudEncPropertyPageAdv(LPUNKNOWN punk, HRESULT *phr) :
-    CBasePropertyPage(NAME("Encoder Advanced Property Page"), punk, IDD_ADVPROPS, IDS_AUDIO_ADVANCED_TITLE),
+    CSystemFontPropertyPage(NAME("Encoder Advanced Property Page"), punk, IDD_ADVPROPS, IDS_AUDIO_ADVANCED_TITLE),
     m_pAEProps(NULL)
 {
     ASSERT(phr);
@@ -86,14 +87,11 @@ HRESULT CMpegAudEncPropertyPageAdv::OnConnect(IUnknown *pUnknown)
 //    m_pAEProps->LoadAudioEncoderPropertiesFromRegistry();
 
     m_pAEProps->get_EnforceVBRmin(&m_dwEnforceVBRmin);
-    m_pAEProps->get_VoiceMode(&m_dwVoiceMode);
     m_pAEProps->get_KeepAllFreq(&m_dwKeepAllFreq);
     m_pAEProps->get_StrictISO(&m_dwStrictISO);
-    m_pAEProps->get_NoShortBlock(&m_dwNoShortBlock);
     m_pAEProps->get_XingTag(&m_dwXingTag);
     m_pAEProps->get_ChannelMode(&m_dwChannelMode);
     m_pAEProps->get_ForceMS(&m_dwForceMS);
-    m_pAEProps->get_ModeFixed(&m_dwModeFixed);
     m_pAEProps->get_SampleOverlap(&m_dwOverlap);
     m_pAEProps->get_SetDuration(&m_dwSetStop);
 
@@ -111,14 +109,11 @@ HRESULT CMpegAudEncPropertyPageAdv::OnDisconnect()
         return E_UNEXPECTED;
 
     m_pAEProps->set_EnforceVBRmin(m_dwEnforceVBRmin);
-    m_pAEProps->set_VoiceMode(m_dwVoiceMode);
     m_pAEProps->set_KeepAllFreq(m_dwKeepAllFreq);
     m_pAEProps->set_StrictISO(m_dwStrictISO);
-    m_pAEProps->set_NoShortBlock(m_dwNoShortBlock);
     m_pAEProps->set_XingTag(m_dwXingTag);
     m_pAEProps->set_ChannelMode(m_dwChannelMode);
     m_pAEProps->set_ForceMS(m_dwForceMS);
-    m_pAEProps->set_ModeFixed(m_dwModeFixed);
     m_pAEProps->set_SampleOverlap(m_dwOverlap);
     m_pAEProps->set_SetDuration(m_dwSetStop);
     m_pAEProps->SaveAudioEncoderPropertiesToRegistry();
@@ -181,11 +176,6 @@ INT_PTR CMpegAudEncPropertyPageAdv::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM 
             SetDirty();
             break;
 
-        case IDC_CHECK_VOICE:
-            m_pAEProps->set_VoiceMode(IsDlgButtonChecked(hwnd, IDC_CHECK_VOICE));
-            SetDirty();
-            break;
-
         case IDC_CHECK_KEEP_ALL_FREQ:
             m_pAEProps->set_KeepAllFreq(IsDlgButtonChecked(hwnd, IDC_CHECK_KEEP_ALL_FREQ));
             SetDirty();
@@ -196,11 +186,6 @@ INT_PTR CMpegAudEncPropertyPageAdv::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM 
             SetDirty();
             break;
 
-        case IDC_CHECK_DISABLE_SHORT_BLOCK:
-            m_pAEProps->set_NoShortBlock(IsDlgButtonChecked(hwnd, IDC_CHECK_DISABLE_SHORT_BLOCK));
-            SetDirty();
-            break;
-
         case IDC_CHECK_XING_TAG:
             m_pAEProps->set_XingTag(IsDlgButtonChecked(hwnd, IDC_CHECK_XING_TAG));
             SetDirty();
@@ -208,11 +193,6 @@ INT_PTR CMpegAudEncPropertyPageAdv::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM 
 
         case IDC_CHECK_FORCE_MS:
             m_pAEProps->set_ForceMS(IsDlgButtonChecked(hwnd, IDC_CHECK_FORCE_MS));
-            SetDirty();
-            break;
-
-        case IDC_CHECK_MODE_FIXED:
-            m_pAEProps->set_ModeFixed(IsDlgButtonChecked(hwnd, IDC_CHECK_MODE_FIXED));
             SetDirty();
             break;
 
@@ -244,14 +224,11 @@ INT_PTR CMpegAudEncPropertyPageAdv::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM 
 HRESULT CMpegAudEncPropertyPageAdv::OnApplyChanges()
 {
     m_pAEProps->get_EnforceVBRmin(&m_dwEnforceVBRmin);
-    m_pAEProps->get_VoiceMode(&m_dwVoiceMode);
     m_pAEProps->get_KeepAllFreq(&m_dwKeepAllFreq);
     m_pAEProps->get_StrictISO(&m_dwStrictISO);
     m_pAEProps->get_ChannelMode(&m_dwChannelMode);
     m_pAEProps->get_ForceMS(&m_dwForceMS);
-    m_pAEProps->get_NoShortBlock(&m_dwNoShortBlock);
     m_pAEProps->get_XingTag(&m_dwXingTag);
-    m_pAEProps->get_ModeFixed(&m_dwModeFixed);
     m_pAEProps->get_SampleOverlap(&m_dwOverlap);
     m_pAEProps->get_SetDuration(&m_dwSetStop);
     m_pAEProps->SaveAudioEncoderPropertiesToRegistry();
@@ -287,10 +264,6 @@ void CMpegAudEncPropertyPageAdv::InitPropertiesDialog(HWND hwndParent)
     m_pAEProps->get_EnforceVBRmin(&dwEnforceVBRmin);
     CheckDlgButton(hwndParent, IDC_CHECK_ENFORCE_MIN, dwEnforceVBRmin ? BST_CHECKED : BST_UNCHECKED);
 
-    DWORD dwVoiceMode;
-    m_pAEProps->get_VoiceMode(&dwVoiceMode);
-    CheckDlgButton(hwndParent, IDC_CHECK_VOICE, dwVoiceMode ? BST_CHECKED : BST_UNCHECKED);
-
     DWORD dwKeepAllFreq;
     m_pAEProps->get_KeepAllFreq(&dwKeepAllFreq);
     CheckDlgButton(hwndParent, IDC_CHECK_KEEP_ALL_FREQ, dwKeepAllFreq ? BST_CHECKED : BST_UNCHECKED);
@@ -299,10 +272,6 @@ void CMpegAudEncPropertyPageAdv::InitPropertiesDialog(HWND hwndParent)
     m_pAEProps->get_StrictISO(&dwStrictISO);
     CheckDlgButton(hwndParent, IDC_CHECK_STRICT_ISO, dwStrictISO ? BST_CHECKED : BST_UNCHECKED);
 
-    DWORD dwNoShortBlock;
-    m_pAEProps->get_NoShortBlock(&dwNoShortBlock);
-    CheckDlgButton(hwndParent, IDC_CHECK_DISABLE_SHORT_BLOCK, dwNoShortBlock ? BST_CHECKED : BST_UNCHECKED);
-
     DWORD dwXingEnabled;
     m_pAEProps->get_XingTag(&dwXingEnabled);
     CheckDlgButton(hwndParent, IDC_CHECK_XING_TAG, dwXingEnabled ? BST_CHECKED : BST_UNCHECKED);
@@ -310,10 +279,6 @@ void CMpegAudEncPropertyPageAdv::InitPropertiesDialog(HWND hwndParent)
     DWORD dwForceMS;
     m_pAEProps->get_ForceMS(&dwForceMS);
     CheckDlgButton(hwndParent, IDC_CHECK_FORCE_MS, dwForceMS ? BST_CHECKED : BST_UNCHECKED);
-
-    DWORD dwModeFixed;
-    m_pAEProps->get_ModeFixed(&dwModeFixed);
-    CheckDlgButton(hwndParent, IDC_CHECK_MODE_FIXED, dwModeFixed ? BST_CHECKED : BST_UNCHECKED);
 
     DWORD dwOverlap;
     m_pAEProps->get_SampleOverlap(&dwOverlap);
@@ -336,12 +301,9 @@ void CMpegAudEncPropertyPageAdv::EnableControls(HWND hwndParent, bool bEnable)
     EnableWindow(GetDlgItem(hwndParent, IDC_RADIO_DUAL), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_RADIO_MONO), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_FORCE_MS), bEnable);
-    EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_VOICE), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_KEEP_ALL_FREQ), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_STRICT_ISO), bEnable);
-    EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_DISABLE_SHORT_BLOCK), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_XING_TAG), bEnable);
-    EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_MODE_FIXED), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_OVERLAP), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_STOP), bEnable);
 }

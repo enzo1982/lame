@@ -158,6 +158,24 @@ mp3_main_data_begin(const unsigned char *h)
 }
 
 /**
+ * @brief The ms_stereo bit of a Layer III frame: the upper bit of the
+ *        mode_extension, in the fourth header byte (ISO/IEC 11172-3, 2.4.2.3).
+ */
+#define MP3_MODE_EXT_MS_STEREO      0x20
+
+/**
+ * @brief Tells whether the Layer III frame at @a h codes mid and side.
+ * @param h the frame header.
+ * @return 1 for a frame in joint stereo with ms_stereo on, else 0.
+ */
+static inline int
+mp3_ms_stereo(const unsigned char *h)
+{
+    return mp3_channel_mode(h) == MP3_MODE_JOINT_STEREO
+        && (h[MP3_HEADER_MODE_BYTE] & MP3_MODE_EXT_MS_STEREO) != 0;
+}
+
+/**
  * @brief Returns the length in bytes of an MPEG-1 frame, padding included.
  *
  * The usual form of this formula writes the leading coefficient as 144. That
@@ -192,12 +210,18 @@ typedef struct {
     int frames;         /**< the MPEG-1 frames in the run */
     int distinct;       /**< the distinct bitrates among them */
     int sole_kbps;      /**< the bitrate when there is one, in kbit/s, else 0 */
+    int lowest_kbps;    /**< the lowest bitrate among them, in kbit/s, 0 without frames */
+    int highest_kbps;   /**< the highest bitrate among them, in kbit/s, 0 without frames */
+    int ms_frames;      /**< the frames that code mid and side (mp3_ms_stereo()) */
+    int reservoir_frames; /**< the whole frames whose main data begins in an earlier frame */
     long first_off;     /**< the offset of the first frame */
     long first_len;     /**< the length of the first frame, 0 when there is none */
 } mp3_scan;
 
 /**
- * @brief Counts the MPEG-1 frames in a stream, and the distinct bitrates.
+ * @brief Counts the MPEG-1 frames in a stream and the distinct bitrates, finds
+ *        the lowest and the highest bitrate, and counts the frames that code
+ *        mid and side and those that use the bit reservoir.
  *
  * The scan skips bytes up to the first frame sync. From there it steps from
  * frame to frame by the length that each header gives. It stops at the end of
@@ -238,6 +262,16 @@ mp3_scan_frames(const unsigned char *buf, long len, unsigned long rate, mp3_scan
             seen_rate[index] = 1;
             ++s->distinct;
             s->sole_kbps = mp3_bitrate_kbps[index];
+        }
+        if (s->frames == 0 || mp3_bitrate_kbps[index] < s->lowest_kbps) {
+            s->lowest_kbps = mp3_bitrate_kbps[index];
+        }
+        if (mp3_bitrate_kbps[index] > s->highest_kbps) {
+            s->highest_kbps = mp3_bitrate_kbps[index];
+        }
+        s->ms_frames += mp3_ms_stereo(h);
+        if (off + framelen <= len && mp3_main_data_begin(h) > 0) {
+            ++s->reservoir_frames;
         }
         if (s->frames == 0) {
             s->first_off = off;

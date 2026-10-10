@@ -173,7 +173,7 @@ extern "C" {
         STDMETHOD(set_EnforceVBRmin) (THIS_
             DWORD dwFlag
         ) PURE;
-        // Control 'Voice' flag
+        // The 'Voice' flag. It has no effect; the methods stay for programs that call them.
         STDMETHOD(get_VoiceMode) (THIS_
             DWORD *dwFlag
         ) PURE;
@@ -194,14 +194,15 @@ extern "C" {
         STDMETHOD(set_StrictISO) (THIS_
             DWORD dwFlag
         ) PURE;
-        // Control 'Disable short block' flag
+        // The 'Disable short block' flag. No effect, as the 'Voice' flag.
         STDMETHOD(get_NoShortBlock) (THIS_
             DWORD *dwDisable
         ) PURE;
         STDMETHOD(set_NoShortBlock) (THIS_
             DWORD dwDisable
         ) PURE;
-        // Control 'Xing VBR Tag' flag
+        // The LAME tag in the first frame, which records how the stream was
+        // encoded: nonzero writes it
         STDMETHOD(get_XingTag) (THIS_
             DWORD *dwXingTag
         ) PURE;
@@ -215,7 +216,7 @@ extern "C" {
         STDMETHOD(set_ForceMS) (THIS_
             DWORD dwFlag
         ) PURE;
-        // Control 'ModeFixed' flag
+        // The 'ModeFixed' flag. It does nothing either.
         STDMETHOD(get_ModeFixed) (THIS_
             DWORD *dwFlag
         ) PURE;
@@ -262,6 +263,48 @@ extern "C" {
         ) PURE;
         STDMETHOD(get_SampleOverlap) (THIS_
             DWORD *dwFlag
+        ) PURE;
+    };
+
+    // {caaa1fc6-2a4f-42f4-8375-23d7dd842ca7}
+    DEFINE_GUID(IID_IAudioEncoderProperties2,
+    0xcaaa1fc6, 0x2a4f, 0x42f4, 0x83, 0x75, 0x23, 0xd7, 0xdd, 0x84, 0x2c, 0xa7);
+    //
+    // The settings that IAudioEncoderProperties does not have. A filter that
+    // offers this interface offers IAudioEncoderProperties too.
+    //
+    DECLARE_INTERFACE_(IAudioEncoderProperties2, IAudioEncoderProperties)
+    {
+        // The private bit of the frame headers: nonzero sets it
+        STDMETHOD(get_PrivateFlag) (THIS_
+            DWORD *dwFlag
+        ) PURE;
+        STDMETHOD(set_PrivateFlag) (THIS_
+            DWORD dwFlag
+        ) PURE;
+        // The bit reservoir: nonzero to use it (the default), 0 for frames
+        // that each hold all of their own data
+        STDMETHOD(get_BitReservoir) (THIS_
+            DWORD *dwFlag
+        ) PURE;
+        STDMETHOD(set_BitReservoir) (THIS_
+            DWORD dwFlag
+        ) PURE;
+        // Average bitrate (ABR): nonzero to encode with an average bitrate.
+        // get_Variable() then returns 0; set_Variable() ends ABR, as 0 gives
+        // CBR and nonzero VBR.
+        STDMETHOD(get_Average) (THIS_
+            DWORD *dwFlag
+        ) PURE;
+        STDMETHOD(set_Average) (THIS_
+            DWORD dwFlag
+        ) PURE;
+        // The average bitrate that ABR aims at, in kbit/s
+        STDMETHOD(get_AverageBitrate) (THIS_
+            DWORD *dwBitrate
+        ) PURE;
+        STDMETHOD(set_AverageBitrate) (THIS_
+            DWORD dwBitrate
         ) PURE;
     };
 #ifdef __cplusplus

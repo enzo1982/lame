@@ -33,6 +33,15 @@
     <ClCompile Include="..\DShow\REG.CPP">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\DShow\SystemFontPage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ACM\DialogFont.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ACM\SettingText.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\DShow\Mpegac.def">
@@ -67,6 +76,15 @@
     <ClInclude Include="..\DShow\PropPage_adv.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\DShow\SystemFontPage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ACM\DialogFont.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ACM\SettingText.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\DShow\reg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -81,7 +99,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="..\DShow\elogo.ico">
+    <Image Include="..\ACM\lame.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

@@ -194,7 +194,7 @@ setting_taken(const ADbg & log, int result, const char *setter, int value)
 	return false;
 }
 
-bool ACMStream::init(const int nSamplesPerSec, const int nOutputSamplesPerSec, const int nChannels, const int nOutputChannels, const int nAvgBytesPerSec, const vbr_mode mode)
+bool ACMStream::init(const int nSamplesPerSec, const int nOutputSamplesPerSec, const int nChannels, const int nOutputChannels, const int nAvgBytesPerSec, const vbr_mode mode, const unsigned int vbrQuality)
 {
 	bool bResult = false;
 
@@ -204,6 +204,7 @@ bool ACMStream::init(const int nSamplesPerSec, const int nOutputSamplesPerSec, c
 	my_OutChannels    = nOutputChannels;
 	my_AvgBytesPerSec = nAvgBytesPerSec;
 	my_VBRMode = mode;
+	my_VBRQuality = vbrQuality;
 
 	bResult = true;
 
@@ -267,7 +268,20 @@ void ACMStream::read_settings(const AEncodeProperties & the_Properties)
 	my_CRC       = the_Properties.GetCRCMode();
 	my_Private   = the_Properties.GetPrivateMode();
 	my_NoBitRes  = the_Properties.GetNoBiResMode();
+	my_Quality   = the_Properties.GetQuality();
+	my_VbrBitrateMin = the_Properties.GetVbrBitrateMin();
+	my_VbrBitrateMax = the_Properties.GetVbrBitrateMax();
+	my_VbrEnforceMin = the_Properties.GetVbrEnforceMin();
+	my_KeepAllFrequencies = the_Properties.GetKeepAllFrequencies();
+	my_StrictISO = the_Properties.GetStrictISO();
+	// Forced mid / side belongs to the joint stereo of the settings, not to the
+	// joint stereo that Mono without Force gives a stereo stream
+	my_ForceMS = the_Properties.GetForceMS() && the_Properties.GetChannelModeValue() == JOINT_STEREO;
 }
+
+/// The cutoff of lame_set_lowpassfreq() and lame_set_highpassfreq() that
+/// turns the filter off.
+static const int NO_FILTER = -1;
 
 /**
 	\brief Starts a new encoder with the settings that open() or restart()
@@ -320,13 +334,27 @@ bool ACMStream::start()
 			                 "lame_set_VBR_max_bitrate_kbps", max_kbps);
 	}
 
+	// A VBR stream encodes at the quality level of its format, within the
+	// bitrate limits of the settings. Its average bitrate is the typical one
+	// of that level, not a bitrate for LAME.
+	if (taken && my_VBRMode == vbr_mtrh)
+		taken = setting_taken(my_debug, lame_set_VBR_q( gfp, (int) my_VBRQuality ),
+		                      "lame_set_VBR_q", (int) my_VBRQuality)
+			&& setting_taken(my_debug, lame_set_VBR_min_bitrate_kbps( gfp, (int) my_VbrBitrateMin ),
+			                 "lame_set_VBR_min_bitrate_kbps", (int) my_VbrBitrateMin)
+			&& setting_taken(my_debug, lame_set_VBR_max_bitrate_kbps( gfp, (int) my_VbrBitrateMax ),
+			                 "lame_set_VBR_max_bitrate_kbps", (int) my_VbrBitrateMax)
+			&& setting_taken(my_debug, lame_set_VBR_hard_min( gfp, my_VbrEnforceMin?1:0 ),
+			                 "lame_set_VBR_hard_min", my_VbrEnforceMin?1:0);
+	else if (taken)
+		taken = setting_taken(my_debug, lame_set_brate( gfp, my_AvgBytesPerSec * 8 / 1000 ),
+		                      "lame_set_brate", my_AvgBytesPerSec * 8 / 1000);
+
 	/// \todo Get the mode from the default configuration
-	// The bitrate, the header bits and the bit reservoir. No INFO tag: it
-	// needs the start of the output again after the encoding, and an ACM
-	// stream cannot go back.
+	// The header bits and the bit reservoir. No INFO tag: it needs the start
+	// of the output again after the encoding, and an ACM stream cannot go
+	// back.
 	taken = taken
-		&& setting_taken(my_debug, lame_set_brate( gfp, my_AvgBytesPerSec * 8 / 1000 ),
-		                 "lame_set_brate", my_AvgBytesPerSec * 8 / 1000)
 		&& setting_taken(my_debug, lame_set_copyright( gfp, my_Copyright?1:0 ),
 		                 "lame_set_copyright", my_Copyright?1:0)
 		&& setting_taken(my_debug, lame_set_original( gfp, my_Original?1:0 ),
@@ -337,7 +365,20 @@ bool ACMStream::start()
 		                 "lame_set_extension", my_Private?1:0)
 		&& setting_taken(my_debug, lame_set_disable_reservoir( gfp, my_NoBitRes?1:0 ),
 		                 "lame_set_disable_reservoir", my_NoBitRes?1:0)
-		&& setting_taken(my_debug, lame_set_bWriteVbrTag( gfp, 0 ), "lame_set_bWriteVbrTag", 0);
+		&& setting_taken(my_debug, lame_set_bWriteVbrTag( gfp, 0 ), "lame_set_bWriteVbrTag", 0)
+		&& setting_taken(my_debug, lame_set_quality( gfp, (int) my_Quality ), "lame_set_quality",
+		                 (int) my_Quality);
+
+	// The advanced settings. Without strict ISO compliance LAME keeps its own
+	// limit of the bit reservoir.
+	if (taken && my_KeepAllFrequencies)
+		taken = setting_taken(my_debug, lame_set_lowpassfreq( gfp, NO_FILTER ), "lame_set_lowpassfreq", NO_FILTER)
+			&& setting_taken(my_debug, lame_set_highpassfreq( gfp, NO_FILTER ), "lame_set_highpassfreq", NO_FILTER);
+	if (taken && my_StrictISO)
+		taken = setting_taken(my_debug, lame_set_strict_ISO( gfp, MDB_STRICT_ISO ), "lame_set_strict_ISO",
+		                      MDB_STRICT_ISO);
+	if (taken && my_ForceMS && my_Mode == JOINT_STEREO)
+		taken = setting_taken(my_debug, lame_set_force_ms( gfp, 1 ), "lame_set_force_ms", 1);
 
 	if (!taken)
 	{
@@ -371,6 +412,50 @@ bool ACMStream::start()
 
 	read_bounds();
 	return true;
+}
+
+/**
+	\brief Returns the bitrate limits that LAME takes for a VBR stream of a
+	sample rate with the VBR bitrate limits of the settings. LAME uses the
+	bitrate of the MPEG version of the rate that is nearest to each limit,
+	and its own limit where the settings have none.
+
+	\param the_SampleRate the sample rate of the stream, in Hz.
+	\param the_Channels   its channel count, 1 or 2.
+	\param the_Min        the VBR minimum bitrate of the settings, in kbit/s,
+	                      or VBR_BITRATE_NO_LIMIT.
+	\param the_Max        the VBR maximum bitrate, likewise.
+	\param the_Lowest     receives the lowest bitrate, in kbit/s.
+	\param the_Highest    receives the highest bitrate, in kbit/s.
+	\return false if lame_init() fails or LAME rejects the stream. The limits
+	        are then not set.
+*/
+bool ACMStream::VbrBitrateBounds(int the_SampleRate, int the_Channels, unsigned int the_Min, unsigned int the_Max,
+                                 unsigned int & the_Lowest, unsigned int & the_Highest)
+{
+	lame_global_flags * const flags = lame_init();
+	bool taken;
+
+	if (flags == NULL)
+		return false;
+	// No stream log is the target here, so the reports go nowhere
+	lame_set_msgf( flags, acm_report );
+	lame_set_debugf( flags, acm_report );
+	lame_set_errorf( flags, acm_report_error );
+	taken = lame_set_in_samplerate( flags, the_SampleRate ) == 0
+		&& lame_set_out_samplerate( flags, the_SampleRate ) == 0
+		&& lame_set_num_channels( flags, the_Channels ) == 0
+		&& lame_set_VBR( flags, vbr_mtrh ) == 0
+		&& lame_set_VBR_min_bitrate_kbps( flags, (int) the_Min ) == 0
+		&& lame_set_VBR_max_bitrate_kbps( flags, (int) the_Max ) == 0
+		&& lame_init_params( flags ) == 0;
+	if (taken)
+	{
+		the_Lowest = (unsigned int) lame_get_VBR_min_bitrate_kbps( flags );
+		the_Highest = (unsigned int) lame_get_VBR_max_bitrate_kbps( flags );
+	}
+	lame_close( flags );
+	return taken;
 }
 
 /// Bytes per second of one kbit/s.

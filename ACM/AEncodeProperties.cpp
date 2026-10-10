@@ -44,6 +44,7 @@
 #include "adebug.h"
 #include "AEncodeProperties.h"
 #include "ACM.h"
+#include "DialogFont.h"
 
 #ifndef TTS_BALLOON
 #define TTS_BALLOON            0x40
@@ -51,6 +52,13 @@
 
 /** \brief The highest bitrate that LAME encodes, in kbit/s. */
 static const unsigned int ABR_BITRATE_LIMIT = 320;
+/// The largest step between two ABR bitrates that the dialog offers, in kbit/s.
+static const unsigned int ABR_STEP_LIMIT = 16;
+/// Room for the text of a VBR quality level, terminator included.
+static const size_t VBR_TEXT_CHARS = 32;
+/// Room for the line that counts the formats, terminator included.
+static const size_t FORMAT_COUNT_CHARS = 80;
+
 
 // The bitrates of the standard, in kbit/s, highest first: those of MPEG-1, those
 // of MPEG-2 (which MPEG-2.5 uses here too), and both lists together.
@@ -61,21 +69,33 @@ unsigned int AEncodeProperties::the_MPEG1_Bitrates[14];
 unsigned int AEncodeProperties::the_MPEG2_Bitrates[14];
 const unsigned int AEncodeProperties::the_ChannelModes[4] = { STEREO, JOINT_STEREO, DUAL_CHANNEL, MONO };
 
-ToolTipItem AEncodeProperties::Tooltips[14]={
-	{ IDC_CHECK_ENC_ABR, "Allow encoding with an average bitrate\r\ninstead of a constant one.\r\n\r\nIt can improve the quality for the same bitrate." },
+ToolTipItem AEncodeProperties::Tooltips[TOOLTIP_COUNT]={
+	{ IDC_CHECK_ENC_CBR, "Offer constant bitrate formats: every frame has the\r\nbitrate of the format, for example \"44100 Hz,\r\nCBR 128 kbps, Stereo\"." },
+	{ IDC_COMBO_CBR_MIN, "The lowest CBR bitrate offered. Each sample rate\r\noffers the bitrates of its MPEG version." },
+	{ IDC_COMBO_CBR_MAX, "The highest CBR bitrate offered." },
+	{ IDC_CHECK_ENC_ABR, "Offer average bitrate formats: the bitrate follows\r\nthe music and averages out at the bitrate of the\r\nformat. It can improve the quality for the same size." },
+	{ IDC_COMBO_ABR_MIN, "The lowest ABR bitrate offered." },
+	{ IDC_COMBO_ABR_MAX, "The highest ABR bitrate offered." },
+	{ IDC_COMBO_ABR_STEP, "The distance between two ABR bitrates offered,\r\nfrom the highest down." },
+	{ IDC_CHECK_ENC_VBR, "Offer one VBR format for each quality level\r\nfrom the best to the lowest one below.\r\n\r\nWith VBR the bitrate follows the music: simple\r\nor quiet passages get fewer bits. A program lists\r\neach format with its level and typical bitrate,\r\nfor example \"44100 Hz, VBR quality 2 (about\r\n190 kbps), Stereo\"." },
+	{ IDC_COMBO_VBR_BEST, "The best quality level offered. 0 is the best and\r\ngives the largest files. The bitrate is typical for\r\nmusic at 44.1 kHz stereo." },
+	{ IDC_COMBO_VBR_WORST, "The lowest quality level offered. 9 gives the\r\nsmallest files." },
+	{ IDC_COMBO_VBR_MIN, "The lowest bitrate of a VBR stream. Silent frames\r\nstill use less, unless the minimum is strictly\r\nenforced. A stream uses the nearest bitrate\r\nthat its sample rate has." },
+	{ IDC_COMBO_VBR_MAX, "The highest bitrate of a VBR stream. A stream\r\nuses the nearest bitrate that its sample rate has." },
+	{ IDC_CHECK_VBR_ENFORCE_MIN, "Every frame uses at least the minimum bitrate,\r\nsilent frames too." },
+	{ IDC_CHECK_ENC_SMART, "Leave out the formats that compress more than\r\nthis: a low bitrate at a high sample rate." },
+	{ IDC_COMBO_ENC_STEREO, "Select the channel mode used for encoding:\r\n\r\n- Stereo: the usual one\r\n- Joint stereo: codes what both channels share once, for better compression\r\n- Dual channel: encodes both channels separately\r\n- Mono: one channel" },
+	{ IDC_CHECK_CHANNELFORCE, "Use the selected mode even when the input has another number of channels.\r\n\r\nOnly Mono can be forced: stereo input is then encoded as mono." },
+	{ IDC_SLIDER_QUALITY, "How hard the encoder works: 0 gives the best quality\r\nand is the slowest, 9 is the fastest. 3 is LAME's default." },
 	{ IDC_CHECK_COPYRIGHT, "Mark the encoded data as copyrighted." },
 	{ IDC_CHECK_CHECKSUM, "Put a checksum in the encoded data.\r\n\r\nThis can make the file less sensitive to data loss." },
 	{ IDC_CHECK_ORIGINAL, "Mark the encoded data as an original file." },
 	{ IDC_CHECK_PRIVATE, "Mark the encoded data as private." },
 	{ IDC_CHECK_RESERVOIR, "Use the bit reservoir.\r\n\r\nA frame can then use bits that earlier frames left over.\r\nWithout it, every frame contains all of its own data." },
-	{ IDC_COMBO_ENC_STEREO, "Select the type of stereo mode used for encoding:\r\n\r\n- Stereo : the usual one\r\n- Joint-Stereo : mix both channel to achieve better compression\r\n- Dual Channel : treat both channel as separate\r\n- Mono : one channel" },
-	{ IDC_CHECK_CHANNELFORCE, "Use the selected mode even when the input has another number of channels.\r\n\r\nOnly Mono can be forced: stereo input is then encoded as mono." },
-	{ IDC_CHECK_ENC_SMART, "Disable bitrate when there is too much compression.\r\n(default 1:15 ratio)" },
-	{ IDC_STATIC_CONFIG_VERSION, "Version of this codec.\r\n\r\nvX.X.X is the version of the codec interface.\r\nX.XX is the version of the encoding engine." },
-	{ IDC_SLIDER_AVERAGE_MIN, "Select the minimum Average Bitrate allowed." },
-	{ IDC_SLIDER_AVERAGE_MAX, "Select the maximum Average Bitrate allowed." },
-	{ IDC_SLIDER_AVERAGE_STEP, "Select the step of Average Bitrate between the min and max.\r\n\r\nA step of 5 between 152 and 165 means you have :\r\n165, 160 and 155" },
-	{ IDC_SLIDER_AVERAGE_SAMPLE, "Check the resulting values of the (min,max,step) combination.\r\n\r\nUse the keyboard to navigate (right -> left)." },
+	{ IDC_CHECK_KEEP_ALL, "Encode all frequencies: no lowpass and no highpass\r\nfilter. Otherwise LAME leaves out what the bitrate\r\ncannot carry well." },
+	{ IDC_CHECK_STRICT_ISO, "Keep the bit reservoir within the limit of the\r\nISO standard, for decoders that need it." },
+	{ IDC_CHECK_FORCE_MS, "Code every frame of joint stereo as mid and side.\r\nOnly with joint stereo." },
+	{ IDC_STATIC_CONFIG_VERSION, "The version of LAME in this codec." },
 };
 
 /** \name The names in the settings file
@@ -89,11 +109,17 @@ static const char ELEMENT_ENCODINGS[]     = "encodings";
 static const char ELEMENT_CONFIG[]        = "config";
 static const char ELEMENT_SMART[]         = "Smart";
 static const char ELEMENT_ABR[]           = "ABR";
+static const char ELEMENT_CBR[]           = "CBR";
+static const char ELEMENT_VBR[]           = "VBR";
 static const char ELEMENT_COPYRIGHT[]     = "Copyright";
 static const char ELEMENT_CRC[]           = "CRC";
 static const char ELEMENT_ORIGINAL[]      = "Original";
 static const char ELEMENT_PRIVATE[]       = "Private";
 static const char ELEMENT_BIT_RESERVOIR[] = "Bit_reservoir";
+static const char ELEMENT_QUALITY[]       = "Quality";
+static const char ELEMENT_KEEP_ALL_FREQUENCIES[] = "Keep_all_frequencies";
+static const char ELEMENT_STRICT_ISO[]    = "Strict_ISO";
+static const char ELEMENT_FORCE_MS[]      = "Forced_mid_side";
 static const char ELEMENT_CHANNEL[]       = "Channel";
 static const char ATTRIBUTE_DEFAULT[]     = "default";
 static const char ATTRIBUTE_NAME[]        = "name";
@@ -102,8 +128,12 @@ static const char ATTRIBUTE_RATIO[]       = "ratio";
 static const char ATTRIBUTE_MIN[]         = "min";
 static const char ATTRIBUTE_MAX[]         = "max";
 static const char ATTRIBUTE_STEP[]        = "step";
+static const char ATTRIBUTE_BEST[]        = "best";
+static const char ATTRIBUTE_WORST[]       = "worst";
 static const char ATTRIBUTE_MODE[]        = "mode";
 static const char ATTRIBUTE_FORCE[]       = "force";
+static const char ATTRIBUTE_LEVEL[]       = "level";
+static const char ATTRIBUTE_ENFORCE_MIN[] = "enforce_min";
 static const char VALUE_TRUE[]            = "true";
 /** The one configuration that the codec reads and writes. */
 static const char CONFIG_CURRENT[]        = "Current";
@@ -154,6 +184,73 @@ static unsigned int UnsignedFromAttribute(const std::string & the_text)
 	    || the_text.find('-') != std::string::npos)
 		return 0;
 	return (unsigned int) the_value;
+}
+
+/**
+	\brief Returns the value of the entry that a combo box of the settings
+	       dialog shows: the data of the entry.
+
+	\param combo     the combo box.
+	\param otherwise what to return when no entry is selected.
+	\return the value.
+*/
+static unsigned int ItemDataOf(HWND combo, unsigned int otherwise)
+{
+	LRESULT const item = SendMessage(combo, CB_GETCURSEL, 0, 0);
+
+	if (item == CB_ERR)
+		return otherwise;
+	return (unsigned int) SendMessage(combo, CB_GETITEMDATA, (WPARAM) item, 0);
+}
+
+/**
+	\brief Selects the entry whose data is the given value: the counterpart
+	       of ItemDataOf().
+
+	\param combo the combo box.
+	\param value the data of the entry; with no such entry the selection
+	       stays as it is.
+*/
+static void SelectItemData(HWND combo, unsigned int value)
+{
+	LRESULT const count = SendMessage(combo, CB_GETCOUNT, 0, 0);
+
+	for (LRESULT item = 0; item < count; item++)
+	{
+		if ((unsigned int) SendMessage(combo, CB_GETITEMDATA, (WPARAM) item, 0) == value)
+		{
+			SendMessage(combo, CB_SETCURSEL, (WPARAM) item, 0);
+			return;
+		}
+	}
+}
+
+/**
+	\brief Selects the entry whose value is nearest to the given one, the
+	       lower of two as near: a saved value that the list does not have.
+
+	\param combo the combo box.
+	\param value the value.
+*/
+static void SelectNearest(HWND combo, unsigned int value)
+{
+	LRESULT const count = SendMessage(combo, CB_GETCOUNT, 0, 0);
+	LRESULT best = CB_ERR;
+	unsigned int best_distance = 0;
+
+	for (LRESULT item = 0; item < count; item++)
+	{
+		unsigned int const data = (unsigned int) SendMessage(combo, CB_GETITEMDATA, (WPARAM) item, 0);
+		unsigned int const distance = data > value ? data - value : value - data;
+
+		if (best == CB_ERR || distance < best_distance || (distance == best_distance && data < value))
+		{
+			best = item;
+			best_distance = distance;
+		}
+	}
+	if (best != CB_ERR)
+		SendMessage(combo, CB_SETCURSEL, (WPARAM) best, 0);
 }
 
 static void SetAttributeDouble(TiXmlElement * the_elt, const std::string & the_string, const double the_value)
@@ -207,26 +304,20 @@ static BOOL CALLBACK ConfigProc(
 			break;
 
 		case WM_HSCROLL:
-			// check if it's the ABR sliders
-			if ((HWND)lParam == GetDlgItem(hwndDlg,IDC_SLIDER_AVERAGE_MIN))
+			// the encoding quality
+			if ((HWND)lParam == GetDlgItem(hwndDlg,IDC_SLIDER_QUALITY))
 			{
-				the_prop->UpdateDlgFromSlides(hwndDlg);
-			}
-			else if ((HWND)lParam == GetDlgItem(hwndDlg,IDC_SLIDER_AVERAGE_MAX))
-			{
-				the_prop->UpdateDlgFromSlides(hwndDlg);
-			}
-			else if ((HWND)lParam == GetDlgItem(hwndDlg,IDC_SLIDER_AVERAGE_STEP))
-			{
-				the_prop->UpdateDlgFromSlides(hwndDlg);
-			}
-			else if ((HWND)lParam == GetDlgItem(hwndDlg,IDC_SLIDER_AVERAGE_SAMPLE))
-			{
-				the_prop->UpdateDlgFromSlides(hwndDlg);
+				LRESULT const level = SendMessage((HWND)lParam, TBM_GETPOS, 0, 0);
+				if (level >= 0 && (unsigned int) level < ENCODING_QUALITY_LEVELS)
+					SetDlgItemText(hwndDlg, IDC_STATIC_QUALITY_TEXT, EncodingQualityText((unsigned int) level));
 			}
 			break;
 
 		case WM_NOTIFY:
+			if (((LPNMHDR)lParam)->idFrom == IDC_TAB_SETTINGS && ((LPNMHDR)lParam)->code == TCN_SELCHANGE) {
+				AEncodeProperties::ShowSettingsTab(hwndDlg, TabCtrl_GetCurSel(((LPNMHDR)lParam)->hwndFrom));
+				return TRUE;
+			}
 			if (TTN_GETDISPINFO == ((LPNMHDR)lParam)->code) {
 				NMTTDISPINFO *lphdr = (NMTTDISPINFO *)lParam;
 				UINT id = (lphdr->uFlags & TTF_IDISHWND) ? GetWindowLong((HWND)lphdr->hdr.idFrom, GWL_ID) : lphdr->hdr.idFrom;
@@ -263,9 +354,9 @@ const char * AEncodeProperties::GetChannelModeString(int a_channelID) const
 		case CHANNEL_INDEX_STEREO:
 			return "Stereo";
 		case CHANNEL_INDEX_JOINT_STEREO:
-			return "Joint-stereo";
+			return "Joint stereo";
 		case CHANNEL_INDEX_DUAL_CHANNEL:
-			return "Dual Channel";
+			return "Dual channel";
 		case CHANNEL_INDEX_MONO:
 			return "Mono";
 		default:
@@ -338,14 +429,25 @@ bool AEncodeProperties::Config(const HINSTANCE Hinstance, const HWND HwndParent)
 {
 
 	my_debug.OutPut("here");
-	INT_PTR const ret = ::DialogBoxParam(Hinstance, MAKEINTRESOURCE(IDD_CONFIG), HwndParent, ::ConfigProc, (LPARAM) this);
+	INT_PTR const ret = DialogBoxSystemFont(Hinstance, IDD_CONFIG, HwndParent, ::ConfigProc, (LPARAM) this);
 	return ret > 0;
 }
 
 bool AEncodeProperties::InitConfigDlg(HWND HwndDlg)
 {
-
+	static const char * const tab_names[SETTINGS_TABS] = { "Formats", "Encoding" };
 	int i;
+
+	// The two tabs; the first shows
+	for (i = 0; i < SETTINGS_TABS; i++)
+	{
+		TCITEM item;
+
+		item.mask = TCIF_TEXT;
+		item.pszText = const_cast<char *>(tab_names[i]);
+		SendMessage(GetDlgItem( HwndDlg, IDC_TAB_SETTINGS), TCM_INSERTITEM, i, (LPARAM) &item);
+	}
+	ShowSettingsTab(HwndDlg, TAB_FORMATS);
 
 	// Add required channel modes
 	SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ENC_STEREO), CB_RESETCONTENT , 0, 0);
@@ -356,20 +458,51 @@ bool AEncodeProperties::InitConfigDlg(HWND HwndDlg)
 	snprintf(tmp, sizeof tmp, "v%s", ACM::GetVersionString());
 	SetWindowText( GetDlgItem( HwndDlg, IDC_STATIC_CONFIG_VERSION), tmp);
 
-	// Add ABR Sliders
-	SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MIN), TBM_SETRANGE, TRUE, MAKELONG(8,320));
-	SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MAX), TBM_SETRANGE, TRUE, MAKELONG(8,320));
-	SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_STEP), TBM_SETRANGE, TRUE, MAKELONG(1,16));
+	// The ranges of the families
+	FillBitrateList(GetDlgItem( HwndDlg, IDC_COMBO_CBR_MIN), false);
+	FillBitrateList(GetDlgItem( HwndDlg, IDC_COMBO_CBR_MAX), false);
+	FillBitrateList(GetDlgItem( HwndDlg, IDC_COMBO_ABR_MIN), false);
+	FillBitrateList(GetDlgItem( HwndDlg, IDC_COMBO_ABR_MAX), false);
+	for (unsigned int step = 1; step <= ABR_STEP_LIMIT; step++)
+	{
+		char text[sizeof "16 kbps"];
+		LRESULT item;
+
+		snprintf(text, sizeof text, "%u kbps", step);
+		item = SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ABR_STEP), CB_ADDSTRING, 0, (LPARAM) text);
+		SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ABR_STEP), CB_SETITEMDATA, item, step);
+	}
+	for (unsigned int level = 0; level <= VBR_QUALITY_WORST; level++)
+	{
+		char text[VBR_TEXT_CHARS];
+		LRESULT item;
+
+		VbrQualityText(level, text, sizeof text);
+		item = SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_VBR_BEST), CB_ADDSTRING, 0, (LPARAM) text);
+		SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_VBR_BEST), CB_SETITEMDATA, item, level);
+		item = SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_VBR_WORST), CB_ADDSTRING, 0, (LPARAM) text);
+		SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_VBR_WORST), CB_SETITEMDATA, item, level);
+	}
+	FillBitrateList(GetDlgItem( HwndDlg, IDC_COMBO_VBR_MIN), true);
+	FillBitrateList(GetDlgItem( HwndDlg, IDC_COMBO_VBR_MAX), true);
+	SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_QUALITY), TBM_SETRANGE, TRUE, MAKELONG(0, ENCODING_QUALITY_LEVELS - 1));
+
+	// The Smart filter names its ratio
+	{
+		char smart[sizeof "Leave out formats above 1000000:1 compressio&n"];
+
+		snprintf(smart, sizeof smart, "Leave out formats above %g:1 compressio&n", SmartRatioMax);
+		SetDlgItemText(HwndDlg, IDC_CHECK_ENC_SMART, smart);
+	}
 
 	// Tool-Tip initialiasiation
 	TOOLINFO ti;
 	HWND ToolTipWnd;
-	char DisplayStr[30] = "test tooltip";
 
 	ToolTipWnd = CreateWindowEx(WS_EX_TOPMOST,
         TOOLTIPS_CLASS,
         NULL,
-        WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP|TTS_BALLOON ,		
+        WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP|TTS_BALLOON ,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
@@ -393,9 +526,9 @@ bool AEncodeProperties::InitConfigDlg(HWND HwndDlg)
 	ti.uFlags		= TTF_SUBCLASS | TTF_IDISHWND;
 	ti.hwnd			= HwndDlg;
 	ti.lpszText		= LPSTR_TEXTCALLBACK;
-    
+
     /* SEND AN ADDTOOL MESSAGE TO THE TOOLTIP CONTROL WINDOW */
-	for(i=0; i<sizeof Tooltips/sizeof Tooltips[0]; ++i) {
+	for(i=0; i<TOOLTIP_COUNT; ++i) {
 		ti.uId			= (WPARAM)GetDlgItem(HwndDlg, Tooltips[i].id);
 
 		if (ti.uId)
@@ -428,10 +561,12 @@ bool AEncodeProperties::UpdateDlgFromValue(HWND HwndDlg)
 	::CheckDlgButton( HwndDlg, IDC_CHECK_PRIVATE,      GetPrivateMode()    ?BST_CHECKED:BST_UNCHECKED );
 	::CheckDlgButton( HwndDlg, IDC_CHECK_COPYRIGHT,    GetCopyrightMode()  ?BST_CHECKED:BST_UNCHECKED );
 	::CheckDlgButton( HwndDlg, IDC_CHECK_ENC_SMART,    GetSmartOutputMode()?BST_CHECKED:BST_UNCHECKED );
-	::CheckDlgButton( HwndDlg, IDC_CHECK_ENC_ABR,      GetAbrOutputMode()  ?BST_CHECKED:BST_UNCHECKED );
 	::CheckDlgButton( HwndDlg, IDC_CHECK_RESERVOIR,    !GetNoBiResMode() ?BST_CHECKED:BST_UNCHECKED );
 	::CheckDlgButton( HwndDlg, IDC_CHECK_CHANNELFORCE, bForceChannel     ?BST_CHECKED:BST_UNCHECKED );
-	
+	::CheckDlgButton( HwndDlg, IDC_CHECK_KEEP_ALL,     bKeepAllFrequencies ?BST_CHECKED:BST_UNCHECKED );
+	::CheckDlgButton( HwndDlg, IDC_CHECK_STRICT_ISO,   bStrictISO        ?BST_CHECKED:BST_UNCHECKED );
+	::CheckDlgButton( HwndDlg, IDC_CHECK_FORCE_MS,     bForceMS          ?BST_CHECKED:BST_UNCHECKED );
+
 	// Add required channel modes
 	for (i=0;i<GetChannelLentgh();i++)
 	{
@@ -441,22 +576,28 @@ bool AEncodeProperties::UpdateDlgFromValue(HWND HwndDlg)
 			break;
 		}
 	}
+	::EnableWindow(::GetDlgItem( HwndDlg, IDC_CHECK_FORCE_MS), ShowsJointStereo(HwndDlg));
 
-	// Add VBR Quality
-	SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MIN), TBM_SETPOS, TRUE, AverageBitrate_Min);
-	SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MAX), TBM_SETPOS, TRUE, AverageBitrate_Max);
-	SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_STEP), TBM_SETPOS, TRUE, AverageBitrate_Step);
-	SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETPOS, TRUE, AverageBitrate_Max);
+	// The families of formats and their ranges
+	::CheckDlgButton( HwndDlg, IDC_CHECK_ENC_CBR, bCbrOutput ? BST_CHECKED : BST_UNCHECKED );
+	SelectNearest(GetDlgItem( HwndDlg, IDC_COMBO_CBR_MIN), CbrBitrate_Min);
+	SelectNearest(GetDlgItem( HwndDlg, IDC_COMBO_CBR_MAX), CbrBitrate_Max);
+	::CheckDlgButton( HwndDlg, IDC_CHECK_ENC_ABR, bAbrOutput ? BST_CHECKED : BST_UNCHECKED );
+	SelectNearest(GetDlgItem( HwndDlg, IDC_COMBO_ABR_MIN), AverageBitrate_Min);
+	SelectNearest(GetDlgItem( HwndDlg, IDC_COMBO_ABR_MAX), AverageBitrate_Max);
+	SelectNearest(GetDlgItem( HwndDlg, IDC_COMBO_ABR_STEP), AverageBitrate_Step);
+	UpdateAbrList(HwndDlg);
+	::CheckDlgButton( HwndDlg, IDC_CHECK_ENC_VBR, bVbrOutput ? BST_CHECKED : BST_UNCHECKED );
+	SelectNearest(GetDlgItem( HwndDlg, IDC_COMBO_VBR_BEST), VbrQuality_Best);
+	SelectNearest(GetDlgItem( HwndDlg, IDC_COMBO_VBR_WORST), VbrQuality_Worst);
+	SelectItemData(GetDlgItem( HwndDlg, IDC_COMBO_VBR_MIN), VbrBitrate_Min);
+	SelectItemData(GetDlgItem( HwndDlg, IDC_COMBO_VBR_MAX), VbrBitrate_Max);
+	::CheckDlgButton( HwndDlg, IDC_CHECK_VBR_ENFORCE_MIN, bVbrEnforceMin ? BST_CHECKED : BST_UNCHECKED );
+	EnableFamilyControls(HwndDlg);
+	UpdateFormatCount(HwndDlg);
 
-	UpdateDlgFromSlides(HwndDlg);
-
-	EnableAbrOptions(HwndDlg, GetAbrOutputMode());
-
-
-
-
-
-
+	SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_QUALITY), TBM_SETPOS, TRUE, nQuality);
+	::SetDlgItemText(HwndDlg, IDC_STATIC_QUALITY_TEXT, EncodingQualityText(nQuality));
 	/**
 		\todo Select the right saved config
 	*/
@@ -466,27 +607,43 @@ bool AEncodeProperties::UpdateDlgFromValue(HWND HwndDlg)
 
 bool AEncodeProperties::UpdateValueFromDlg(HWND HwndDlg)
 {
+	FormatListSettings const list = FormatListFromDlg(HwndDlg);
+
 	nChannelIndex      = SendMessage(GetDlgItem( HwndDlg, IDC_COMBO_ENC_STEREO),   CB_GETCURSEL, 0, 0);
 
 	bCRC          = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_CHECKSUM)     == BST_CHECKED);
 	bCopyright    = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_COPYRIGHT)    == BST_CHECKED);
 	bOriginal     = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_ORIGINAL)     == BST_CHECKED);
 	bPrivate      = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_PRIVATE)      == BST_CHECKED);
-	bSmartOutput  = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_ENC_SMART)    == BST_CHECKED);
-	bAbrOutput    = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_ENC_ABR)      == BST_CHECKED);
 	bNoBitRes     =!(::IsDlgButtonChecked( HwndDlg, IDC_CHECK_RESERVOIR)    == BST_CHECKED);
 	bForceChannel = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_CHANNELFORCE) == BST_CHECKED);
+	bKeepAllFrequencies = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_KEEP_ALL) == BST_CHECKED);
+	bStrictISO    = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_STRICT_ISO)   == BST_CHECKED);
+	bForceMS      = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_FORCE_MS)     == BST_CHECKED);
 
-	AverageBitrate_Min  = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MIN), TBM_GETPOS , 0, 0);
-	AverageBitrate_Max  = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_MAX), TBM_GETPOS , 0, 0);
-	AverageBitrate_Step = SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_AVERAGE_STEP), TBM_GETPOS , 0, 0);
+	bCbrOutput          = list.cbr;
+	bAbrOutput          = list.abr;
+	bVbrOutput          = list.vbr;
+	bSmartOutput        = list.smart;
+	CbrBitrate_Min      = list.cbr_min;
+	CbrBitrate_Max      = list.cbr_max;
+	AverageBitrate_Min  = list.abr_min;
+	AverageBitrate_Max  = list.abr_max;
+	AverageBitrate_Step = list.abr_step;
+	VbrQuality_Best     = list.vbr_best;
+	VbrQuality_Worst    = list.vbr_worst;
+	VbrBitrate_Min      = list.vbr_min;
+	VbrBitrate_Max      = list.vbr_max;
+	bVbrEnforceMin   = (::IsDlgButtonChecked( HwndDlg, IDC_CHECK_VBR_ENFORCE_MIN) == BST_CHECKED);
+	nQuality = (unsigned int) SendMessage(GetDlgItem( HwndDlg, IDC_SLIDER_QUALITY), TBM_GETPOS , 0, 0);
 
-	EnableAbrOptions(HwndDlg, bAbrOutput);
+	EnableFamilyControls(HwndDlg);
 
 my_debug.OutPut("nChannelIndex %d, bCRC %d, bCopyright %d, bOriginal %d, bPrivate %d",nChannelIndex, bCRC, bCopyright, bOriginal, bPrivate);
 
 	return true;
 }
+
 void AEncodeProperties::ParamsRestore()
 {
 	// use these default parameters in case one is not found
@@ -495,17 +652,31 @@ void AEncodeProperties::ParamsRestore()
 	bOriginal     = true;
 	bPrivate      = true;
 	bNoBitRes     = false; // enable bit reservoir
+	nQuality      = ENCODING_QUALITY_DEFAULT;
+	bKeepAllFrequencies = false;
+	bStrictISO    = false;
+	bForceMS      = false;
 	bForceChannel = false;
-	bSmartOutput  = true;
+	// Every format: the three families, the whole CBR range, no Smart filter
+	bSmartOutput  = false;
+	bCbrOutput    = true;
 	bAbrOutput    = true;
-	
+	bVbrOutput    = true;
+	CbrBitrate_Min = the_Bitrates[sizeof the_Bitrates / sizeof the_Bitrates[0] - 1];
+	CbrBitrate_Max = the_Bitrates[0];
+
+	VbrQuality_Best = 0;
+	VbrQuality_Worst = VBR_QUALITY_WORST;
+	VbrBitrate_Min = VBR_BITRATE_NO_LIMIT;
+	VbrBitrate_Max = VBR_BITRATE_NO_LIMIT;
+	bVbrEnforceMin = false;
+
 	AverageBitrate_Min = 80; // a bit lame
 	AverageBitrate_Max = 160; // a bit lame
 	AverageBitrate_Step = 8; // a bit lame
 	SmartRatioMax = 15.0;
 
 	nChannelIndex = CHANNEL_INDEX_JOINT_STEREO;
-	nMinBitrateIndex = 6; // 128 kbps (works for both MPEGI and II)
 
 	// get the values from the saved file if possible
 	TiXmlElement* CurrentNode = LoadEncodings();
@@ -519,6 +690,11 @@ void AEncodeProperties::ParamsRestore()
 		}
 
 		GetValuesFromKey(CurrentConfig, *CurrentNode);
+
+		// The codec offers at least one family: a file that leaves out all
+		// three offers CBR
+		if (!bCbrOutput && !bAbrOutput && !bVbrOutput)
+			bCbrOutput = true;
 	}
 	else
 	{
@@ -715,6 +891,35 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 		}
 
 		// Smart output parameter
+		// CBR parameter
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_CBR);
+		if (tmpElt != NULL)
+		{
+			unsigned int cbr_min = CbrBitrate_Min;
+			unsigned int cbr_max = CbrBitrate_Max;
+
+			tmpname = tmpElt->Attribute(ATTRIBUTE_USE);
+			if (tmpname != NULL)
+				bCbrOutput = (tmpname->compare(VALUE_TRUE) == 0);
+
+			tmpname = tmpElt->Attribute(ATTRIBUTE_MIN);
+			if (tmpname != NULL)
+				cbr_min = UnsignedFromAttribute(*tmpname);
+
+			tmpname = tmpElt->Attribute(ATTRIBUTE_MAX);
+			if (tmpname != NULL)
+				cbr_max = UnsignedFromAttribute(*tmpname);
+
+			/* A range is taken only if both ends are bitrates of the list and
+			   the lowest is not above the highest; any other keeps the one
+			   before. */
+			if (IsListBitrate(cbr_min) && IsListBitrate(cbr_max) && cbr_min <= cbr_max)
+			{
+				CbrBitrate_Min = cbr_min;
+				CbrBitrate_Max = cbr_max;
+			}
+		}
+
 		tmpElt = iterateElmt->FirstChildElement(ELEMENT_ABR);
 		if (tmpElt != NULL)
 		{
@@ -746,6 +951,58 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 				AverageBitrate_Max = abr_max;
 				AverageBitrate_Step = abr_step;
 			}
+		}
+
+		// VBR parameter
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_VBR);
+		if (tmpElt != NULL)
+		{
+			unsigned int vbr_best = VbrQuality_Best;
+			unsigned int vbr_worst = VbrQuality_Worst;
+			unsigned int vbr_min = VbrBitrate_Min;
+			unsigned int vbr_max = VbrBitrate_Max;
+
+			tmpname = tmpElt->Attribute(ATTRIBUTE_USE);
+			if (tmpname != NULL)
+				bVbrOutput = (tmpname->compare(VALUE_TRUE) == 0);
+
+			tmpname = tmpElt->Attribute(ATTRIBUTE_BEST);
+			if (tmpname != NULL)
+				vbr_best = UnsignedFromAttribute(*tmpname);
+
+			tmpname = tmpElt->Attribute(ATTRIBUTE_WORST);
+			if (tmpname != NULL)
+				vbr_worst = UnsignedFromAttribute(*tmpname);
+
+			/* A range is taken only if it runs from a better level to a worse
+			   one within the levels LAME has; any other keeps the one before. */
+			if (vbr_best <= vbr_worst && vbr_worst <= VBR_QUALITY_WORST)
+			{
+				VbrQuality_Best = vbr_best;
+				VbrQuality_Worst = vbr_worst;
+			}
+
+			tmpname = tmpElt->Attribute(ATTRIBUTE_MIN);
+			if (tmpname != NULL)
+				vbr_min = UnsignedFromAttribute(*tmpname);
+
+			tmpname = tmpElt->Attribute(ATTRIBUTE_MAX);
+			if (tmpname != NULL)
+				vbr_max = UnsignedFromAttribute(*tmpname);
+
+			/* The bitrate limits are taken only if each is a bitrate of the list
+			   or no limit, and the minimum is not above the maximum; any other
+			   pair keeps the one before. */
+			if (IsVbrBitrateLimit(vbr_min) && IsVbrBitrateLimit(vbr_max)
+			    && (vbr_min == VBR_BITRATE_NO_LIMIT || vbr_max == VBR_BITRATE_NO_LIMIT || vbr_min <= vbr_max))
+			{
+				VbrBitrate_Min = vbr_min;
+				VbrBitrate_Max = vbr_max;
+			}
+
+			tmpname = tmpElt->Attribute(ATTRIBUTE_ENFORCE_MIN);
+			if (tmpname != NULL)
+				bVbrEnforceMin = (tmpname->compare(VALUE_TRUE) == 0);
 		}
 
 		// Copyright parameter
@@ -790,6 +1047,42 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 			tmpname = tmpElt->Attribute(ATTRIBUTE_USE);
 			if (tmpname != NULL)
 				bNoBitRes = !(tmpname->compare(VALUE_TRUE) == 0);
+		}
+
+		// Encoding quality: a level LAME does not have keeps the one before
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_QUALITY);
+		if (tmpElt != NULL)
+		{
+			tmpname = tmpElt->Attribute(ATTRIBUTE_LEVEL);
+			if (tmpname != NULL)
+			{
+				unsigned int const level = UnsignedFromAttribute(*tmpname);
+				if (level < ENCODING_QUALITY_LEVELS)
+					nQuality = level;
+			}
+		}
+
+		// The advanced settings
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_KEEP_ALL_FREQUENCIES);
+		if (tmpElt != NULL)
+		{
+			tmpname = tmpElt->Attribute(ATTRIBUTE_USE);
+			if (tmpname != NULL)
+				bKeepAllFrequencies = (tmpname->compare(VALUE_TRUE) == 0);
+		}
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_STRICT_ISO);
+		if (tmpElt != NULL)
+		{
+			tmpname = tmpElt->Attribute(ATTRIBUTE_USE);
+			if (tmpname != NULL)
+				bStrictISO = (tmpname->compare(VALUE_TRUE) == 0);
+		}
+		tmpElt = iterateElmt->FirstChildElement(ELEMENT_FORCE_MS);
+		if (tmpElt != NULL)
+		{
+			tmpname = tmpElt->Attribute(ATTRIBUTE_USE);
+			if (tmpname != NULL)
+				bForceMS = (tmpname->compare(VALUE_TRUE) == 0);
 		}
 		// Channel mode parameter
 		tmpElt = iterateElmt->FirstChildElement(ELEMENT_CHANNEL);
@@ -867,6 +1160,22 @@ void AEncodeProperties::SaveValuesToElement(TiXmlElement * the_element) const
 	if (tmpElt != NULL)
 		SetAttributeBool(tmpElt, ATTRIBUTE_USE, !bNoBitRes);
 
+	// Encoding quality
+	tmpElt = ChildElement(*the_element, ELEMENT_QUALITY);
+	if (tmpElt != NULL)
+		tmpElt->SetAttribute(ATTRIBUTE_LEVEL, nQuality);
+
+	// The advanced settings
+	tmpElt = ChildElement(*the_element, ELEMENT_KEEP_ALL_FREQUENCIES);
+	if (tmpElt != NULL)
+		SetAttributeBool(tmpElt, ATTRIBUTE_USE, bKeepAllFrequencies);
+	tmpElt = ChildElement(*the_element, ELEMENT_STRICT_ISO);
+	if (tmpElt != NULL)
+		SetAttributeBool(tmpElt, ATTRIBUTE_USE, bStrictISO);
+	tmpElt = ChildElement(*the_element, ELEMENT_FORCE_MS);
+	if (tmpElt != NULL)
+		SetAttributeBool(tmpElt, ATTRIBUTE_USE, bForceMS);
+
 	// Copyright parameter
 	tmpElt = ChildElement(*the_element, ELEMENT_COPYRIGHT);
 	if (tmpElt != NULL)
@@ -880,7 +1189,16 @@ void AEncodeProperties::SaveValuesToElement(TiXmlElement * the_element) const
 		SetAttributeDouble( tmpElt, ATTRIBUTE_RATIO, SmartRatioMax);
 	}
 
-	// Smart Output parameter
+	// CBR parameter
+	tmpElt = ChildElement(*the_element, ELEMENT_CBR);
+	if (tmpElt != NULL)
+	{
+		SetAttributeBool( tmpElt, ATTRIBUTE_USE, bCbrOutput);
+		tmpElt->SetAttribute(ATTRIBUTE_MIN, CbrBitrate_Min);
+		tmpElt->SetAttribute(ATTRIBUTE_MAX, CbrBitrate_Max);
+	}
+
+	// ABR parameter
 	tmpElt = ChildElement(*the_element, ELEMENT_ABR);
 	if (tmpElt != NULL)
 	{
@@ -888,6 +1206,18 @@ void AEncodeProperties::SaveValuesToElement(TiXmlElement * the_element) const
 		tmpElt->SetAttribute(ATTRIBUTE_MIN, AverageBitrate_Min);
 		tmpElt->SetAttribute(ATTRIBUTE_MAX, AverageBitrate_Max);
 		tmpElt->SetAttribute(ATTRIBUTE_STEP, AverageBitrate_Step);
+	}
+
+	// VBR parameter
+	tmpElt = ChildElement(*the_element, ELEMENT_VBR);
+	if (tmpElt != NULL)
+	{
+		SetAttributeBool( tmpElt, ATTRIBUTE_USE, bVbrOutput);
+		tmpElt->SetAttribute(ATTRIBUTE_BEST, VbrQuality_Best);
+		tmpElt->SetAttribute(ATTRIBUTE_WORST, VbrQuality_Worst);
+		tmpElt->SetAttribute(ATTRIBUTE_MIN, VbrBitrate_Min);
+		tmpElt->SetAttribute(ATTRIBUTE_MAX, VbrBitrate_Max);
+		SetAttributeBool( tmpElt, ATTRIBUTE_ENFORCE_MIN, bVbrEnforceMin);
 	}
 
 	// CRC parameter
@@ -952,12 +1282,57 @@ my_debug.OutPut("finished saving");
         EndDialog(parentWnd, false);
 		break;
 
-		case IDC_CHECK_ENC_ABR:
-			EnableAbrOptions(parentWnd, ::IsDlgButtonChecked( parentWnd, IDC_CHECK_ENC_ABR) == BST_CHECKED);
-			break;
+	case IDC_CHECK_ENC_CBR:
+	case IDC_CHECK_ENC_ABR:
+	case IDC_CHECK_ENC_VBR:
+		KeepOneFamily(parentWnd, command);
+		EnableFamilyControls(parentWnd);
+		UpdateFormatCount(parentWnd);
+		break;
+	case IDC_CHECK_ENC_SMART:
+		UpdateFormatCount(parentWnd);
+		break;
+	case IDC_COMBO_ENC_STEREO:
+		if (GET_WM_COMMAND_CMD(wParam, lParam) == CBN_SELCHANGE)
+			::EnableWindow(::GetDlgItem( parentWnd, IDC_CHECK_FORCE_MS), ShowsJointStereo(parentWnd));
+		break;
+	case IDC_COMBO_CBR_MIN:
+	case IDC_COMBO_CBR_MAX:
+		if (GET_WM_COMMAND_CMD(wParam, lParam) == CBN_SELCHANGE)
+		{
+			KeepRangeInOrder(parentWnd, IDC_COMBO_CBR_MIN, IDC_COMBO_CBR_MAX, command);
+			UpdateFormatCount(parentWnd);
+		}
+		break;
+	case IDC_COMBO_ABR_MIN:
+	case IDC_COMBO_ABR_MAX:
+	case IDC_COMBO_ABR_STEP:
+		if (GET_WM_COMMAND_CMD(wParam, lParam) == CBN_SELCHANGE)
+		{
+			KeepRangeInOrder(parentWnd, IDC_COMBO_ABR_MIN, IDC_COMBO_ABR_MAX, command);
+			UpdateAbrList(parentWnd);
+			UpdateFormatCount(parentWnd);
+		}
+		break;
+	case IDC_COMBO_VBR_BEST:
+	case IDC_COMBO_VBR_WORST:
+		if (GET_WM_COMMAND_CMD(wParam, lParam) == CBN_SELCHANGE)
+		{
+			KeepRangeInOrder(parentWnd, IDC_COMBO_VBR_BEST, IDC_COMBO_VBR_WORST, command);
+			UpdateFormatCount(parentWnd);
+		}
+		break;
+	case IDC_COMBO_VBR_MIN:
+	case IDC_COMBO_VBR_MAX:
+		if (GET_WM_COMMAND_CMD(wParam, lParam) == CBN_SELCHANGE)
+		{
+			KeepVbrLimitsInOrder(parentWnd, command);
+			UpdateFormatCount(parentWnd);
+		}
+		break;
 	}
-	
-    return FALSE;
+
+	return FALSE;
 }
 
 void AEncodeProperties::UpdateConfigs(const HWND HwndDlg)
@@ -1027,62 +1402,320 @@ std::vector<unsigned int> AEncodeProperties::AbrLadder(unsigned int min, unsigne
 	return ladder;
 }
 
-void AEncodeProperties::UpdateDlgFromSlides(HWND hwndDlg) const
+/** \name The line that lists the ABR bitrates
+    Up to ABR_LIST_ALL bitrates are listed in full. A longer range shows its
+    first ABR_LIST_FIRST bitrates and its last one.
+    @{ */
+static const size_t ABR_LIST_ALL   = 4;
+static const size_t ABR_LIST_FIRST = 3;
+/** @} */
+
+/**
+	\brief Writes the bitrates of an ABR range as one line of text, for
+	       example "13 bitrates: 160, 154, 148, ..., 88 kbps".
+
+	\param the_Ladder the bitrates, as AbrLadder() returns them
+	\param the_Text   receives the text
+	\param the_Size   the size of \a the_Text in bytes
+*/
+static void DescribeAbrLadder(const std::vector<unsigned int> & the_Ladder, char * the_Text, size_t the_Size)
 {
-	UINT value_min, value_max, value_step, value;
-	char tmp[4];
+	size_t const count = the_Ladder.size();
+	size_t const listed = (count <= ABR_LIST_ALL) ? count : ABR_LIST_FIRST;
+	size_t used;
+	int n;
 
-	value_min = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_MIN), TBM_GETPOS, 0, 0);
-	value_max = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_MAX), TBM_GETPOS, 0, 0);
-
-	if (value_min>value_max)
+	n = snprintf(the_Text, the_Size, "%u %s:", (unsigned int) count, (count == 1) ? "bitrate" : "bitrates");
+	used = (n > 0) ? (size_t) n : 0;
+	for (size_t i = 0; i < listed && used < the_Size; i++)
 	{
-		SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_MIN), TBM_SETPOS, TRUE, value_max);
-		UpdateDlgFromSlides(hwndDlg);
-		return;
+		n = snprintf(the_Text + used, the_Size - used, "%s %u", (i == 0) ? "" : ",", the_Ladder[i]);
+		used += (n > 0) ? (size_t) n : 0;
 	}
-
-	snprintf(tmp, sizeof tmp, "%3u", value_min);
-	::SetWindowText(GetDlgItem( hwndDlg, IDC_STATIC_AVERAGE_MIN_VALUE), tmp);
-	
-	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETRANGEMIN, TRUE, value_min);
-
-	snprintf(tmp, sizeof tmp, "%3u", value_max);
-	::SetWindowText(GetDlgItem( hwndDlg, IDC_STATIC_AVERAGE_MAX_VALUE), tmp);
-	
-	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETRANGEMAX, TRUE, value_max);
-	
-	value_step = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_STEP), TBM_GETPOS, 0, 0);
-	snprintf(tmp, sizeof tmp, "%3u", value_step);
-	::SetWindowText(GetDlgItem( hwndDlg, IDC_STATIC_AVERAGE_STEP_VALUE), tmp);
-
-	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_CLEARTICS, TRUE, 0);
-	std::vector<unsigned int> const tics = AbrLadder(value_min, value_max, value_step);
-	for (size_t i = 0; i < tics.size(); i++)
+	if (listed < count && used < the_Size)
 	{
-		SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETTIC, 0, tics[i]);
+		n = snprintf(the_Text + used, the_Size - used, ", ..., %u", the_Ladder[count - 1]);
+		used += (n > 0) ? (size_t) n : 0;
 	}
-	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETLINESIZE, 0, value_step);
-	SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_SETPAGESIZE, 0, value_step);
-	
-	value = SendMessage(GetDlgItem( hwndDlg, IDC_SLIDER_AVERAGE_SAMPLE), TBM_GETPOS, 0, 0);
-	snprintf(tmp, sizeof tmp, "%3u", value);
-	::SetWindowText(GetDlgItem( hwndDlg, IDC_STATIC_AVERAGE_SAMPLE_VALUE), tmp);
+	if (used < the_Size)
+		snprintf(the_Text + used, the_Size - used, " kbps");
 }
 
-void AEncodeProperties::EnableAbrOptions(HWND hDialog, bool enable)
+/**
+	\brief Shows the controls of one tab of the settings dialog and hides
+	those of the other one.
+
+	\param hDialog the settings dialog.
+	\param tab     TAB_FORMATS or TAB_ENCODING.
+*/
+void AEncodeProperties::ShowSettingsTab(HWND hDialog, int tab)
 {
-	::EnableWindow(::GetDlgItem( hDialog, IDC_SLIDER_AVERAGE_MIN), enable);
-	::EnableWindow(::GetDlgItem( hDialog, IDC_SLIDER_AVERAGE_MAX), enable);
-	::EnableWindow(::GetDlgItem( hDialog, IDC_SLIDER_AVERAGE_STEP), enable);
-	::EnableWindow(::GetDlgItem( hDialog, IDC_SLIDER_AVERAGE_SAMPLE), enable);
-	::EnableWindow(::GetDlgItem( hDialog, IDC_STATIC_AVERAGE_MIN), enable);
-	::EnableWindow(::GetDlgItem( hDialog, IDC_STATIC_AVERAGE_MAX), enable);
-	::EnableWindow(::GetDlgItem( hDialog, IDC_STATIC_AVERAGE_STEP), enable);
-	::EnableWindow(::GetDlgItem( hDialog, IDC_STATIC_AVERAGE_SAMPLE), enable);
-	::EnableWindow(::GetDlgItem( hDialog, IDC_STATIC_AVERAGE_MIN_VALUE), enable);
-	::EnableWindow(::GetDlgItem( hDialog, IDC_STATIC_AVERAGE_MAX_VALUE), enable);
-	::EnableWindow(::GetDlgItem( hDialog, IDC_STATIC_AVERAGE_STEP_VALUE), enable);
-	::EnableWindow(::GetDlgItem( hDialog, IDC_STATIC_AVERAGE_SAMPLE_VALUE), enable);
+	static const int formats[] = {
+		IDC_CHECK_ENC_CBR, IDC_STATIC_CBR_MIN, IDC_COMBO_CBR_MIN, IDC_STATIC_CBR_MAX, IDC_COMBO_CBR_MAX,
+		IDC_CHECK_ENC_ABR, IDC_STATIC_AVERAGE_MIN, IDC_COMBO_ABR_MIN, IDC_STATIC_AVERAGE_MAX, IDC_COMBO_ABR_MAX,
+		IDC_STATIC_AVERAGE_STEP, IDC_COMBO_ABR_STEP, IDC_STATIC_AVERAGE_LIST,
+		IDC_CHECK_ENC_VBR, IDC_STATIC_VBR_BEST, IDC_COMBO_VBR_BEST, IDC_STATIC_VBR_WORST, IDC_COMBO_VBR_WORST,
+		IDC_STATIC_VBR_MIN, IDC_COMBO_VBR_MIN, IDC_STATIC_VBR_MAX, IDC_COMBO_VBR_MAX, IDC_CHECK_VBR_ENFORCE_MIN,
+		IDC_CHECK_ENC_SMART, IDC_STATIC_FORMAT_COUNT };
+	static const int encoding[] = {
+		IDC_STATIC_CHANNEL, IDC_COMBO_ENC_STEREO, IDC_CHECK_CHANNELFORCE, IDC_STATIC_QUALITY, IDC_SLIDER_QUALITY,
+		IDC_STATIC_QUALITY_TEXT, IDC_GROUP_FRAME, IDC_CHECK_COPYRIGHT, IDC_CHECK_CHECKSUM, IDC_CHECK_ORIGINAL,
+		IDC_CHECK_PRIVATE, IDC_CHECK_RESERVOIR, IDC_GROUP_ADVANCED, IDC_CHECK_KEEP_ALL, IDC_CHECK_STRICT_ISO,
+		IDC_CHECK_FORCE_MS };
+	size_t i;
+
+	for (i = 0; i < sizeof formats / sizeof formats[0]; i++)
+		::ShowWindow(::GetDlgItem( hDialog, formats[i]), tab == TAB_FORMATS ? SW_SHOW : SW_HIDE);
+	for (i = 0; i < sizeof encoding / sizeof encoding[0]; i++)
+		::ShowWindow(::GetDlgItem( hDialog, encoding[i]), tab == TAB_ENCODING ? SW_SHOW : SW_HIDE);
+	SendMessage(::GetDlgItem( hDialog, IDC_TAB_SETTINGS), TCM_SETCURSEL, (WPARAM) tab, 0);
+}
+
+/**
+	\brief Moves the other end of a range along when the end that was chosen
+	       passes it, so that the lower end stays at or below the upper one.
+
+	\param hDialog the settings dialog.
+	\param lower   the combo box of the lower end.
+	\param upper   the combo box of the upper end.
+	\param moved   the one that changed; any other leaves both as they are.
+*/
+void AEncodeProperties::KeepRangeInOrder(HWND hDialog, int lower, int upper, int moved)
+{
+	HWND const low = GetDlgItem( hDialog, lower);
+	HWND const high = GetDlgItem( hDialog, upper);
+	unsigned int const low_value = ItemDataOf(low, 0);
+	unsigned int const high_value = ItemDataOf(high, 0);
+
+	if (low_value <= high_value)
+		return;
+	if (moved == lower)
+		SelectItemData(high, low_value);
+	else if (moved == upper)
+		SelectItemData(low, high_value);
+}
+
+/**
+	\brief Ticks again the family of formats that was cleared if no other
+	       one is ticked.
+
+	\param hDialog the settings dialog.
+	\param clicked the check box that changed.
+*/
+void AEncodeProperties::KeepOneFamily(HWND hDialog, int clicked)
+{
+	if (::IsDlgButtonChecked( hDialog, IDC_CHECK_ENC_CBR) != BST_CHECKED
+	    && ::IsDlgButtonChecked( hDialog, IDC_CHECK_ENC_ABR) != BST_CHECKED
+	    && ::IsDlgButtonChecked( hDialog, IDC_CHECK_ENC_VBR) != BST_CHECKED)
+		::CheckDlgButton( hDialog, clicked, BST_CHECKED);
+}
+
+/**
+	\brief Enables the range controls of each family that is ticked and
+	       disables those of each that is not.
+
+	\param hDialog the settings dialog.
+*/
+void AEncodeProperties::EnableFamilyControls(HWND hDialog)
+{
+	static const int cbr[] = { IDC_STATIC_CBR_MIN, IDC_COMBO_CBR_MIN, IDC_STATIC_CBR_MAX, IDC_COMBO_CBR_MAX };
+	static const int abr[] = { IDC_STATIC_AVERAGE_MIN, IDC_COMBO_ABR_MIN, IDC_STATIC_AVERAGE_MAX, IDC_COMBO_ABR_MAX,
+	                           IDC_STATIC_AVERAGE_STEP, IDC_COMBO_ABR_STEP, IDC_STATIC_AVERAGE_LIST };
+	static const int vbr[] = { IDC_STATIC_VBR_BEST, IDC_COMBO_VBR_BEST, IDC_STATIC_VBR_WORST, IDC_COMBO_VBR_WORST,
+	                           IDC_STATIC_VBR_MIN, IDC_COMBO_VBR_MIN, IDC_STATIC_VBR_MAX, IDC_COMBO_VBR_MAX,
+	                           IDC_CHECK_VBR_ENFORCE_MIN };
+	BOOL const with_cbr = ::IsDlgButtonChecked( hDialog, IDC_CHECK_ENC_CBR) == BST_CHECKED;
+	BOOL const with_abr = ::IsDlgButtonChecked( hDialog, IDC_CHECK_ENC_ABR) == BST_CHECKED;
+	BOOL const with_vbr = ::IsDlgButtonChecked( hDialog, IDC_CHECK_ENC_VBR) == BST_CHECKED;
+	size_t i;
+
+	for (i = 0; i < sizeof cbr / sizeof cbr[0]; i++)
+		::EnableWindow(::GetDlgItem( hDialog, cbr[i]), with_cbr);
+	for (i = 0; i < sizeof abr / sizeof abr[0]; i++)
+		::EnableWindow(::GetDlgItem( hDialog, abr[i]), with_abr);
+	for (i = 0; i < sizeof vbr / sizeof vbr[0]; i++)
+		::EnableWindow(::GetDlgItem( hDialog, vbr[i]), with_vbr);
+}
+
+/**
+	\brief Writes the ABR bitrate line (see ABR_LIST_ALL) for the range the
+	       dialog shows.
+
+	\param hDialog the settings dialog.
+*/
+void AEncodeProperties::UpdateAbrList(HWND hDialog)
+{
+	char text[ABR_TEXT_CHARS];
+
+	DescribeAbrLadder(AbrLadder(ItemDataOf(GetDlgItem( hDialog, IDC_COMBO_ABR_MIN), 0),
+	                            ItemDataOf(GetDlgItem( hDialog, IDC_COMBO_ABR_MAX), 0),
+	                            ItemDataOf(GetDlgItem( hDialog, IDC_COMBO_ABR_STEP), 1)),
+	                  text, sizeof text);
+	::SetDlgItemText(hDialog, IDC_STATIC_AVERAGE_LIST, text);
+}
+
+/**
+	\brief Tells whether the settings dialog shows joint stereo as the channel
+	       mode.
+
+	\param hSettings the settings dialog.
+	\return true for joint stereo.
+*/
+bool AEncodeProperties::ShowsJointStereo(HWND hSettings)
+{
+	return SendMessage(GetDlgItem( hSettings, IDC_COMBO_ENC_STEREO), CB_GETCURSEL, 0, 0) == CHANNEL_INDEX_JOINT_STEREO;
+}
+
+/**
+	\brief Returns the FormatListSettings that the settings dialog shows.
+
+	\param hDialog the settings dialog.
+	\return the dialog's choices, with the Smart ratio of the settings, which
+	        the dialog does not show.
+*/
+FormatListSettings AEncodeProperties::FormatListFromDlg(HWND hDialog) const
+{
+	FormatListSettings list = GetFormatListSettings();
+
+	list.cbr = ::IsDlgButtonChecked( hDialog, IDC_CHECK_ENC_CBR) == BST_CHECKED;
+	list.abr = ::IsDlgButtonChecked( hDialog, IDC_CHECK_ENC_ABR) == BST_CHECKED;
+	list.vbr = ::IsDlgButtonChecked( hDialog, IDC_CHECK_ENC_VBR) == BST_CHECKED;
+	list.smart = ::IsDlgButtonChecked( hDialog, IDC_CHECK_ENC_SMART) == BST_CHECKED;
+	list.cbr_min = ItemDataOf(GetDlgItem( hDialog, IDC_COMBO_CBR_MIN), list.cbr_min);
+	list.cbr_max = ItemDataOf(GetDlgItem( hDialog, IDC_COMBO_CBR_MAX), list.cbr_max);
+	list.abr_min = ItemDataOf(GetDlgItem( hDialog, IDC_COMBO_ABR_MIN), list.abr_min);
+	list.abr_max = ItemDataOf(GetDlgItem( hDialog, IDC_COMBO_ABR_MAX), list.abr_max);
+	list.abr_step = ItemDataOf(GetDlgItem( hDialog, IDC_COMBO_ABR_STEP), list.abr_step);
+	list.vbr_best = ItemDataOf(GetDlgItem( hDialog, IDC_COMBO_VBR_BEST), list.vbr_best);
+	list.vbr_worst = ItemDataOf(GetDlgItem( hDialog, IDC_COMBO_VBR_WORST), list.vbr_worst);
+	list.vbr_min = ItemDataOf(GetDlgItem( hDialog, IDC_COMBO_VBR_MIN), list.vbr_min);
+	list.vbr_max = ItemDataOf(GetDlgItem( hDialog, IDC_COMBO_VBR_MAX), list.vbr_max);
+	return list;
+}
+
+/**
+	\brief Writes the line that counts the formats the dialog would offer, by
+	       family.
+
+	\param hDialog the settings dialog.
+*/
+void AEncodeProperties::UpdateFormatCount(HWND hDialog) const
+{
+	FormatListSettings const list = FormatListFromDlg(hDialog);
+	std::vector<bitrate_item> cbr, abr, vbr;
+	char text[FORMAT_COUNT_CHARS];
+
+	ACM::BuildFormatList(list, ACM::FAMILY_CBR, cbr);
+	ACM::BuildFormatList(list, ACM::FAMILY_ABR, abr);
+	ACM::BuildFormatList(list, ACM::FAMILY_VBR, vbr);
+	snprintf(text, sizeof text, "The list offers %u formats: %u CBR, %u ABR, %u VBR.",
+	         (unsigned int) (cbr.size() + abr.size() + vbr.size()), (unsigned int) cbr.size(),
+	         (unsigned int) abr.size(), (unsigned int) vbr.size());
+	::SetDlgItemText(hDialog, IDC_STATIC_FORMAT_COUNT, text);
+}
+
+/**
+	\brief Returns the FormatListSettings of the current settings.
+
+	\return the settings' choices.
+*/
+FormatListSettings AEncodeProperties::GetFormatListSettings() const
+{
+	FormatListSettings list;
+
+	list.cbr = bCbrOutput;
+	list.abr = bAbrOutput;
+	list.vbr = bVbrOutput;
+	list.smart = bSmartOutput;
+	list.smart_ratio = SmartRatioMax;
+	list.cbr_min = CbrBitrate_Min;
+	list.cbr_max = CbrBitrate_Max;
+	list.abr_min = AverageBitrate_Min;
+	list.abr_max = AverageBitrate_Max;
+	list.abr_step = AverageBitrate_Step;
+	list.vbr_best = VbrQuality_Best;
+	list.vbr_worst = VbrQuality_Worst;
+	list.vbr_min = VbrBitrate_Min;
+	list.vbr_max = VbrBitrate_Max;
+	return list;
+}
+
+/**
+	\brief Tells whether a value is one of the bitrates of the list, the
+	       MPEG-1 and MPEG-2 bitrates.
+
+	\param kbps the value, in kbit/s.
+	\return true for a bitrate of the list.
+*/
+bool AEncodeProperties::IsListBitrate(unsigned int kbps)
+{
+	for (size_t i = 0; i < sizeof the_Bitrates / sizeof the_Bitrates[0]; i++)
+	{
+		if (the_Bitrates[i] == kbps)
+			return true;
+	}
+	return false;
+}
+
+/**
+	\brief Tells whether a value is a VBR bitrate limit that the codec takes:
+	       VBR_BITRATE_NO_LIMIT or a bitrate of the list.
+
+	\param kbps the value, in kbit/s.
+	\return true for a limit the codec takes.
+*/
+bool AEncodeProperties::IsVbrBitrateLimit(unsigned int kbps)
+{
+	return kbps == VBR_BITRATE_NO_LIMIT || IsListBitrate(kbps);
+}
+
+/**
+	\brief Fills a list with the bitrates of the list, highest first, and
+	       for a VBR limit "No limit" before them. The data of each entry is
+	       its bitrate, VBR_BITRATE_NO_LIMIT for "No limit".
+
+	\param combo         the combo box.
+	\param with_no_limit true for a VBR limit.
+*/
+void AEncodeProperties::FillBitrateList(HWND combo, bool with_no_limit)
+{
+	char text[sizeof "320 kbps"];
+	LRESULT item;
+
+	SendMessage(combo, CB_RESETCONTENT, 0, 0);
+	if (with_no_limit)
+	{
+		item = SendMessage(combo, CB_ADDSTRING, 0, (LPARAM) "No limit");
+		SendMessage(combo, CB_SETITEMDATA, item, VBR_BITRATE_NO_LIMIT);
+	}
+	for (size_t i = 0; i < sizeof the_Bitrates / sizeof the_Bitrates[0]; i++)
+	{
+		snprintf(text, sizeof text, "%u kbps", the_Bitrates[i]);
+		item = SendMessage(combo, CB_ADDSTRING, 0, (LPARAM) text);
+		SendMessage(combo, CB_SETITEMDATA, item, the_Bitrates[i]);
+	}
+}
+
+/**
+	\brief Keeps the VBR bitrate limits in order, as KeepRangeInOrder() keeps
+	       a range, when both limits are set.
+
+	\param hDialog the configuration dialog.
+	\param moved   the combo box that changed: IDC_COMBO_VBR_MIN or
+	               IDC_COMBO_VBR_MAX.
+*/
+void AEncodeProperties::KeepVbrLimitsInOrder(HWND hDialog, int moved)
+{
+	HWND const min_combo = GetDlgItem( hDialog, IDC_COMBO_VBR_MIN);
+	HWND const max_combo = GetDlgItem( hDialog, IDC_COMBO_VBR_MAX);
+	unsigned int const lowest = ItemDataOf(min_combo, VBR_BITRATE_NO_LIMIT);
+	unsigned int const highest = ItemDataOf(max_combo, VBR_BITRATE_NO_LIMIT);
+
+	if (lowest == VBR_BITRATE_NO_LIMIT || highest == VBR_BITRATE_NO_LIMIT || lowest <= highest)
+		return;
+	if (moved == IDC_COMBO_VBR_MIN)
+		SelectItemData(max_combo, lowest);
+	else
+		SelectItemData(min_combo, highest);
 }
 

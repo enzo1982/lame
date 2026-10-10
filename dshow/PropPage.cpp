@@ -26,6 +26,8 @@
 #include "iaudioprops.h"
 #include "mpegac.h"
 #include "resource.h"
+#include "../ACM/SettingText.h"
+#include "SystemFontPage.h"
 #include "PropPage.h"
 #include "Reg.h"
 
@@ -43,26 +45,6 @@ const char * szBitRateString[2][14] = {
         "80 kbps","96 kbps","112 kbps","128 kbps",
         "144 kbps","160 kbps"
     }
-};
-
-LPCSTR szQualityDesc[10] = {
-    "High", "High", "High", "High", "High",
-    "Medium", "Medium",
-    "Low", "Low",
-    "Fast mode"
-};
-
-LPCSTR szVBRqDesc[10] = {
-    "0 - ~1:4",
-    "1 - ~1:5",
-    "2 - ~1:6",
-    "3 - ~1:7",
-    "4 - ~1:9",
-    "5 - ~1:9",
-    "6 - ~1:10",
-    "7 - ~1:11",
-    "8 - ~1:12",
-    "9 - ~1:14"
 };
 
 struct SSampleRate {
@@ -105,7 +87,7 @@ CUnknown * WINAPI CMpegAudEncPropertyPage::CreateInstance( LPUNKNOWN punk, HRESU
  * Creates the property page for the basic encoder settings.
  */
 CMpegAudEncPropertyPage::CMpegAudEncPropertyPage(LPUNKNOWN punk, HRESULT *phr)
- : CBasePropertyPage(NAME("Encoder Property Page"), 
+ : CSystemFontPropertyPage(NAME("Encoder Property Page"), 
                       punk, IDD_AUDIOENCPROPS, IDS_AUDIO_PROPS_TITLE)                      
     , m_pAEProps(NULL)
 {
@@ -126,7 +108,7 @@ HRESULT CMpegAudEncPropertyPage::OnConnect(IUnknown *pUnknown)
 
     // Ask the filter for it's control interface
 
-    HRESULT hr = pUnknown->QueryInterface(IID_IAudioEncoderProperties,(void **)&m_pAEProps);
+    HRESULT hr = pUnknown->QueryInterface(IID_IAudioEncoderProperties2,(void **)&m_pAEProps);
     if (FAILED(hr))
         return E_NOINTERFACE;
 
@@ -144,6 +126,10 @@ HRESULT CMpegAudEncPropertyPage::OnConnect(IUnknown *pUnknown)
     m_pAEProps->get_ForceMono(&m_dwForceMono);
     m_pAEProps->get_CopyrightFlag(&m_dwCopyright);
     m_pAEProps->get_OriginalFlag(&m_dwOriginal);
+    m_pAEProps->get_Average(&m_dwAverage);
+    m_pAEProps->get_AverageBitrate(&m_dwAverageBitrate);
+    m_pAEProps->get_PrivateFlag(&m_dwPrivate);
+    m_pAEProps->get_BitReservoir(&m_dwReservoir);
 
     return NOERROR;
 }
@@ -169,6 +155,10 @@ HRESULT CMpegAudEncPropertyPage::OnDisconnect()
     m_pAEProps->set_ForceMono(m_dwForceMono);
     m_pAEProps->set_CopyrightFlag(m_dwCopyright);
     m_pAEProps->set_OriginalFlag(m_dwOriginal);
+    m_pAEProps->set_Average(m_dwAverage);
+    m_pAEProps->set_AverageBitrate(m_dwAverageBitrate);
+    m_pAEProps->set_PrivateFlag(m_dwPrivate);
+    m_pAEProps->set_BitReservoir(m_dwReservoir);
     m_pAEProps->SaveAudioEncoderPropertiesToRegistry();
 
     m_pAEProps->Release();
@@ -206,9 +196,9 @@ INT_PTR CMpegAudEncPropertyPage::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wPa
         if ((HWND)lParam == m_hwndQuality)
         {
             int pos = SendMessage(m_hwndQuality, TBM_GETPOS, 0, 0);
-            if (pos >= 0 && pos < 10)
+            if (pos >= 0 && (unsigned int) pos < ENCODING_QUALITY_LEVELS)
             {
-                SetDlgItemText(hwnd,IDC_TEXT_QUALITY,szQualityDesc[pos]);
+                SetDlgItemText(hwnd,IDC_TEXT_QUALITY,EncodingQualityText(pos));
                 m_pAEProps->set_Quality(pos);
                 SetDirty();
             }
@@ -323,7 +313,35 @@ INT_PTR CMpegAudEncPropertyPage::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wPa
 
         case IDC_RADIO_CBR:
         case IDC_RADIO_VBR:
-            m_pAEProps->set_Variable(LOWORD(wParam)-IDC_RADIO_CBR);
+            // set_Variable() ends ABR too: 0 gives CBR, 1 VBR
+            m_pAEProps->set_Variable(LOWORD(wParam) == IDC_RADIO_VBR);
+            SetDirty();
+            break;
+
+        case IDC_RADIO_ABR:
+            m_pAEProps->set_Average(TRUE);
+            SetDirty();
+            break;
+
+        case IDC_COMBO_ABR:
+            if (HIWORD(wParam) == CBN_SELCHANGE)
+            {
+                int nAverage = SendDlgItemMessage(hwnd, IDC_COMBO_ABR, CB_GETCURSEL, 0, 0L);
+                DWORD dwSampleRate;
+                m_pAEProps->get_SampleRate(&dwSampleRate);
+                if (nAverage >= 0 && nAverage < 14)
+                    m_pAEProps->set_AverageBitrate(BitRateValue(dwSampleRate >= 32000 ? 0 : 1, nAverage));
+                SetDirty();
+            }
+            break;
+
+        case IDC_CHECK_PRIVATE:
+            m_pAEProps->set_PrivateFlag(IsDlgButtonChecked(hwnd, IDC_CHECK_PRIVATE));
+            SetDirty();
+            break;
+
+        case IDC_CHECK_RESERVOIR:
+            m_pAEProps->set_BitReservoir(IsDlgButtonChecked(hwnd, IDC_CHECK_RESERVOIR));
             SetDirty();
             break;
 
@@ -381,6 +399,10 @@ HRESULT CMpegAudEncPropertyPage::OnApplyChanges()
     m_pAEProps->get_ForceMono(&m_dwForceMono);
     m_pAEProps->get_CopyrightFlag(&m_dwCopyright);
     m_pAEProps->get_OriginalFlag(&m_dwOriginal);
+    m_pAEProps->get_Average(&m_dwAverage);
+    m_pAEProps->get_AverageBitrate(&m_dwAverageBitrate);
+    m_pAEProps->get_PrivateFlag(&m_dwPrivate);
+    m_pAEProps->get_BitReservoir(&m_dwReservoir);
     m_pAEProps->SaveAudioEncoderPropertiesToRegistry();
 
     m_pAEProps->ApplyChanges();
@@ -398,10 +420,10 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
     m_hwndQuality = GetDlgItem(hwndParent,IDC_SLIDER_QUALITY);
     DWORD dwQuality;
     m_pAEProps->get_Quality(&dwQuality);
-    SendDlgItemMessage(hwndParent, IDC_SLIDER_QUALITY, TBM_SETRANGE, 1, MAKELONG (2,9));
+    SendDlgItemMessage(hwndParent, IDC_SLIDER_QUALITY, TBM_SETRANGE, 1, MAKELONG (0, ENCODING_QUALITY_LEVELS - 1));
     SendDlgItemMessage(hwndParent, IDC_SLIDER_QUALITY, TBM_SETPOS, 1, dwQuality);
-    if (dwQuality<10)
-        SetDlgItemText(hwndParent,IDC_TEXT_QUALITY,szQualityDesc[dwQuality]);
+    if (dwQuality < ENCODING_QUALITY_LEVELS)
+        SetDlgItemText(hwndParent,IDC_TEXT_QUALITY,EncodingQualityText(dwQuality));
 
     //
     // initialize sample rate selection
@@ -456,14 +478,19 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
     //
     //initialize VBRq combo box
     //
-    int k;
+    unsigned int k;
     SendDlgItemMessage(hwndParent, IDC_COMBO_VBRq, CB_RESETCONTENT, 0, 0);
-    for (k = 0; k < 10; k++)
-        SendDlgItemMessage(hwndParent, IDC_COMBO_VBRq, CB_ADDSTRING, 0, (LPARAM)(LPCTSTR)szVBRqDesc[k]);
+    for (k = 0; k < VBR_QUALITY_LEVELS; k++)
+    {
+        char level_text[sizeof "9 (about 320 kbps)"];
+
+        VbrQualityText(k, level_text, sizeof level_text);
+        SendDlgItemMessage(hwndParent, IDC_COMBO_VBRq, CB_ADDSTRING, 0, (LPARAM)(LPCTSTR)level_text);
+    }
     DWORD dwVBRq;
     m_pAEProps->get_VariableQ(&dwVBRq);
-    if (dwVBRq>9)
-        dwVBRq = 9;
+    if (dwVBRq >= VBR_QUALITY_LEVELS)
+        dwVBRq = VBR_QUALITY_LEVELS - 1;
     m_pAEProps->set_VariableQ(dwVBRq);
     SendDlgItemMessage(hwndParent, IDC_COMBO_VBRq, CB_SETCURSEL, dwVBRq, 0);
 
@@ -512,9 +539,27 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
     //
     // Check VBR/CBR radio button
     //
-    DWORD dwVariable;
+    DWORD dwVariable, dwAverage;
     m_pAEProps->get_Variable(&dwVariable);
-    CheckRadioButton(hwndParent, IDC_RADIO_CBR, IDC_RADIO_VBR, IDC_RADIO_CBR + dwVariable);
+    m_pAEProps->get_Average(&dwAverage);
+    CheckDlgButton(hwndParent, IDC_RADIO_CBR, !dwVariable && !dwAverage ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(hwndParent, IDC_RADIO_VBR, dwVariable ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(hwndParent, IDC_RADIO_ABR, dwAverage ? BST_CHECKED : BST_UNCHECKED);
+
+    //
+    // The ABR target, from the bitrates of the MPEG version of the sample rate
+    //
+    DWORD dwAverageBitrate;
+    int nAverageSel = 0;
+    SendDlgItemMessage(hwndParent, IDC_COMBO_ABR, CB_RESETCONTENT, 0, 0);
+    for (int i = 0; i < 14; i++)
+        SendDlgItemMessage(hwndParent, IDC_COMBO_ABR, CB_ADDSTRING, 0, (LPARAM)(LPCTSTR)szBitRateString[nSt][i]);
+    m_pAEProps->get_AverageBitrate(&dwAverageBitrate);
+    while (nAverageSel < 13 && BitRateValue(nSt, nAverageSel) < dwAverageBitrate)
+        nAverageSel++;
+    SendDlgItemMessage(hwndParent, IDC_COMBO_ABR, CB_SETCURSEL, nAverageSel, 0);
+    if (BitRateValue(nSt, nAverageSel) != dwAverageBitrate)
+        m_pAEProps->set_AverageBitrate(BitRateValue(nSt, nAverageSel));
 
 //////////////////////////////////////////////////
 // initialize VBR selection
@@ -597,6 +642,14 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
     m_pAEProps->get_ForceMono(&dwForceMono);
     CheckDlgButton(hwndParent, IDC_FORCE_MONO, dwForceMono ? BST_CHECKED : BST_UNCHECKED);
 
+    DWORD dwPrivate;
+    m_pAEProps->get_PrivateFlag(&dwPrivate);
+    CheckDlgButton(hwndParent, IDC_CHECK_PRIVATE, dwPrivate ? BST_CHECKED : BST_UNCHECKED);
+
+    DWORD dwReservoir;
+    m_pAEProps->get_BitReservoir(&dwReservoir);
+    CheckDlgButton(hwndParent, IDC_CHECK_RESERVOIR, dwReservoir ? BST_CHECKED : BST_UNCHECKED);
+
     DWORD dwCopyright;
     m_pAEProps->get_CopyrightFlag(&dwCopyright);
     CheckDlgButton(hwndParent, IDC_CHECK_COPYRIGHT, dwCopyright ? BST_CHECKED : BST_UNCHECKED);
@@ -616,6 +669,10 @@ void CMpegAudEncPropertyPage::EnableControls(HWND hwndParent, bool bEnable)
     EnableWindow(GetDlgItem(hwndParent, IDC_RADIO_CBR), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_COMBO_CBR), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_RADIO_VBR), bEnable);
+    EnableWindow(GetDlgItem(hwndParent, IDC_RADIO_ABR), bEnable);
+    EnableWindow(GetDlgItem(hwndParent, IDC_COMBO_ABR), bEnable);
+    EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_PRIVATE), bEnable);
+    EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_RESERVOIR), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_COMBO_VBRMIN), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_COMBO_VBRMAX), bEnable);
     EnableWindow(GetDlgItem(hwndParent, IDC_CHECK_COPYRIGHT), bEnable);

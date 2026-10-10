@@ -25,6 +25,8 @@
 #include <olectl.h>
 #include <commctrl.h>
 #include "iaudioprops.h"
+#include "../ACM/SettingText.h"
+#include "SystemFontPage.h"
 #include "aboutprp.h"
 #include "mpegac.h"
 #include "resource.h"
@@ -36,25 +38,6 @@
 // -------------------------------------------------------------------------
 
 
-CHAR lpszText[] =   "This library is free software; you can redistribute it \r\n"
-                    "and/or modify it under the terms of the GNU \r\n"
-                    "Library General Public License\r\n"
-                    "as published by the Free Software Foundation;\r\n"
-                    "either version 2 of the License,\r\n"
-                    "or (at your option) any later version.\r\n"
-                    "\r\n"
-                    "This library is distributed in the hope that it will be useful,\r\n" 
-                    "but WITHOUT ANY WARRANTY;\r\n"
-                    "without even the implied warranty of MERCHANTABILITY or \r\n"
-                    "FITNESS FOR A PARTICULAR PURPOSE. See the GNU \r\n"
-                    "Library General Public License for more details.\r\n"
-                    "\r\n"
-                    "You should have received a copy of the GNU\r\n"
-                    "Library General Public License\r\n"
-                    "along with this library; if not, write to the\r\n"
-                    "Free Software Foundation,\r\n"
-                    "Inc., 59 Temple Place - Suite 330,\r\n"
-                    "Boston, MA 02111-1307, USA.\r\n";
 
 /**
  * Creates the About page. The class factory of the filter calls it.
@@ -74,7 +57,7 @@ CUnknown * WINAPI CMAEAbout::CreateInstance(LPUNKNOWN lpunk, HRESULT *phr)
  * Creates the About page.
  */
 CMAEAbout::CMAEAbout(LPUNKNOWN lpunk, HRESULT *phr)
-    : CBasePropertyPage(NAME("About LAME Ain't MP3 Encoder"), lpunk,
+    : CSystemFontPropertyPage(NAME("About LAME Ain't MP3 Encoder"), lpunk,
         IDD_ABOUT,IDS_ABOUT)
     , m_fWindowInactive(TRUE)
 {
@@ -111,15 +94,15 @@ HRESULT CMAEAbout::OnActivate(void)
 {
     // Add text to the window.
     m_fWindowInactive = FALSE;
-    SendDlgItemMessage(m_hwnd, IDC_LAME_LA, WM_SETTEXT, 0, (LPARAM)lpszText);
+    SendDlgItemMessage(m_hwnd, IDC_LAME_LA, WM_SETTEXT, 0, (LPARAM)LICENSE_NOTICE);
 
 
     CHAR strbuf[250];
-    snprintf(strbuf, sizeof strbuf, "LAME Encoder Version %s", get_lame_version());
+    snprintf(strbuf, sizeof strbuf, "LAME Audio Encoder v%s", get_lame_version());
     SendDlgItemMessage(m_hwnd, IDC_LAME_VER, WM_SETTEXT, 0, (LPARAM)strbuf);
-
-    snprintf(strbuf, sizeof strbuf, "LAME Project Homepage: %s", get_lame_url());
-    SendDlgItemMessage(m_hwnd, IDC_LAME_URL, WM_SETTEXT, 0, (LPARAM)strbuf);
+    SendDlgItemMessage(m_hwnd, IDC_LAME_URL, WM_SETTEXT, 0, (LPARAM)get_lame_url());
+    SendDlgItemMessage(m_hwnd, IDC_LAME_CREDITS, WM_SETTEXT, 0, (LPARAM)ABOUT_CREDITS);
+    SendDlgItemMessage(m_hwnd, IDC_LAME_ICON, WM_SETTEXT, 0, (LPARAM)ABOUT_ICON_CREDIT);
     return NOERROR;
 }
 

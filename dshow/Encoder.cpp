@@ -207,10 +207,13 @@ HRESULT CEncoder::Init()
                 && setting_taken(lame_set_brate(pgf, brate), "lame_set_brate", brate)
                 && setting_taken(lame_set_VBR(pgf, m_mabsi.vmVariable), "lame_set_VBR",
                                  m_mabsi.vmVariable)
-                && setting_taken(lame_set_VBR_min_bitrate_kbps(pgf, m_mabsi.dwVariableMin),
-                                 "lame_set_VBR_min_bitrate_kbps", m_mabsi.dwVariableMin)
-                && setting_taken(lame_set_VBR_max_bitrate_kbps(pgf, m_mabsi.dwVariableMax),
-                                 "lame_set_VBR_max_bitrate_kbps", m_mabsi.dwVariableMax)
+                // The VBR limits are not ABR's: they would cap its target
+                && (m_mabsi.vmVariable == vbr_abr
+                    || setting_taken(lame_set_VBR_min_bitrate_kbps(pgf, m_mabsi.dwVariableMin),
+                                     "lame_set_VBR_min_bitrate_kbps", m_mabsi.dwVariableMin))
+                && (m_mabsi.vmVariable == vbr_abr
+                    || setting_taken(lame_set_VBR_max_bitrate_kbps(pgf, m_mabsi.dwVariableMax),
+                                     "lame_set_VBR_max_bitrate_kbps", m_mabsi.dwVariableMax))
                 && setting_taken(lame_set_copyright(pgf, m_mabsi.bCopyright),
                                  "lame_set_copyright", m_mabsi.bCopyright)
                 && setting_taken(lame_set_original(pgf, m_mabsi.bOriginal),
@@ -222,7 +225,15 @@ HRESULT CEncoder::Init()
                 && setting_taken(lame_set_strict_ISO(pgf, m_mabsi.dwStrictISO),
                                  "lame_set_strict_ISO", m_mabsi.dwStrictISO)
                 && setting_taken(lame_set_VBR_hard_min(pgf, m_mabsi.dwEnforceVBRmin),
-                                 "lame_set_VBR_hard_min", m_mabsi.dwEnforceVBRmin);
+                                 "lame_set_VBR_hard_min", m_mabsi.dwEnforceVBRmin)
+                && setting_taken(lame_set_extension(pgf, m_mabsi.bPrivate != 0),
+                                 "lame_set_extension", m_mabsi.bPrivate != 0)
+                && setting_taken(lame_set_disable_reservoir(pgf, m_mabsi.bReservoir == 0),
+                                 "lame_set_disable_reservoir", m_mabsi.bReservoir == 0);
+            if (m_mabsi.vmVariable == vbr_abr)
+                taken = taken
+                    && setting_taken(lame_set_VBR_mean_bitrate_kbps(pgf, (int) m_mabsi.dwAverageBitrate),
+                                     "lame_set_VBR_mean_bitrate_kbps", (long) m_mabsi.dwAverageBitrate);
 
             if (m_wfex.nChannels == 2 && !m_mabsi.bForceMono)
             {
@@ -241,14 +252,6 @@ HRESULT CEncoder::Init()
                                                "lame_set_force_ms", m_mabsi.dwForceMS);
             else
                 taken = taken && setting_taken(lame_set_force_ms(pgf, 0), "lame_set_force_ms", 0);
-
-//            pgf->mode_fixed = m_mabsi.dwModeFixed;
-
-            if (m_mabsi.dwVoiceMode != 0)
-            {
-                lame_set_lowpassfreq(pgf,12000);
-                //pgf->VBR_max_bitrate_kbps = 160;
-            }
 
             if (m_mabsi.dwKeepAllFreq != 0)
             {

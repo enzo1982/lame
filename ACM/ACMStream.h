@@ -57,7 +57,7 @@ public:
 	static ACMStream * Create();
 	static bool Erase(const ACMStream * a_ACMStream);
 
-	bool init(const int nSamplesPerSec, const int nOutputSamplesPerSec, const int nChannels, const int nOutputChannels, const int nAvgBytesPerSec, const vbr_mode mode);
+	bool init(const int nSamplesPerSec, const int nOutputSamplesPerSec, const int nChannels, const int nOutputChannels, const int nAvgBytesPerSec, const vbr_mode mode, const unsigned int vbrQuality = 0);
 	bool open(const AEncodeProperties & the_Properties);
 
 	DWORD GetOutputSizeForInput(const DWORD the_SrcLength) const;
@@ -65,6 +65,8 @@ public:
 	bool  ConvertBuffer(LPACMDRVSTREAMHEADER a_StreamHeader);
 
 	static unsigned int GetOutputSampleRate(int samples_per_sec, int bitrate, int channels);
+	static bool VbrBitrateBounds(int the_SampleRate, int the_Channels, unsigned int the_Min, unsigned int the_Max,
+	                             unsigned int & the_Lowest, unsigned int & the_Highest);
 
 protected:
 	void read_settings(const AEncodeProperties & the_Properties);
@@ -102,6 +104,7 @@ protected:
 	int my_OutChannels;  // of the encoded stream
 	int my_AvgBytesPerSec;
 	vbr_mode my_VBRMode;
+	unsigned int my_VBRQuality;  // the VBR quality level of a vbr_mtrh stream
 
 	// The settings that open() and restart() read, for start()
 	MPEG_mode my_Mode;
@@ -110,6 +113,13 @@ protected:
 	bool my_CRC;
 	bool my_Private;
 	bool my_NoBitRes;
+	unsigned int my_Quality;  // the encoding quality of lame_set_quality()
+	unsigned int my_VbrBitrateMin;  // kbit/s, 0 for none
+	unsigned int my_VbrBitrateMax;  // kbit/s, 0 for none
+	bool my_VbrEnforceMin;
+	bool my_KeepAllFrequencies;
+	bool my_StrictISO;
+	bool my_ForceMS;  // of a joint stereo stream
 };
 
 #endif // !defined(_ACMSTREAM_H__INCLUDED_)

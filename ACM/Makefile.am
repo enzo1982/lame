@@ -11,6 +11,10 @@ EXTRA_DIST = \
 	ACMStream.h \
 	AEncodeProperties.cpp \
 	AEncodeProperties.h \
+	DialogFont.cpp \
+	DialogFont.h \
+	SettingText.cpp \
+	SettingText.h \
 	LameACM.inf \
 	TODO \
 	acm.rc \

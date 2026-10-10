@@ -5,10 +5,12 @@
 #define IDS_AUDIO_PROPS_TITLE           3
 #define IDS_AUDIO_ADVANCED_TITLE        4
 #define IDS_ABOUT                       5
+#define IDC_LAME_CREDITS                1100
+#define IDC_LAME_ICON                   1101
 #define IDD_AUDIOENCPROPS               100
 #define IDD_ADVPROPS                    102
 #define IDD_ABOUT                       105
-#define IDI_ICON2                       106
+#define IDI_ICON                        106
 #define IDC_COMBO_CBR                   1004
 #define IDC_CHECK_COPYRIGHT             1007
 #define IDC_CHECK_ORIGINAL              1008
@@ -28,13 +30,10 @@
 #define IDC_RADIO_DUAL                  1029
 #define IDC_RADIO_MONO                  1030
 #define IDC_CHECK_ENFORCE_MIN           1031
-#define IDC_CHECK_VOICE                 1032
 #define IDC_CHECK_KEEP_ALL_FREQ         1033
 #define IDC_CHECK_STRICT_ISO            1034
-#define IDC_CHECK_DISABLE_SHORT_BLOCK   1035
 #define IDC_CHECK_XING_TAG              1036
 #define IDC_CHECK_FORCE_MS              1037
-#define IDC_CHECK_MODE_FIXED            1038
 #define IDC_RICHEDIT_LAME               1039
 #define IDC_CHECK_OVERLAP               1039
 #define IDC_CHECK_STOP                  1040
@@ -44,6 +43,10 @@
 #define IDC_LAME_VER                    1046
 #define IDC_LAME_URL                    1047
 #define IDC_SET_DURATION                1048
+#define IDC_RADIO_ABR                   1049
+#define IDC_COMBO_ABR                   1050
+#define IDC_CHECK_PRIVATE               1051
+#define IDC_CHECK_RESERVOIR             1052
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -53,7 +56,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        107
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1049
+#define _APS_NEXT_CONTROL_VALUE         1053
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

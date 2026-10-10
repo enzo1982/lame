@@ -20,7 +20,7 @@
  * Boston, MA 02111-1307, USA.
  */
 
-class CMAEAbout: public CBasePropertyPage
+class CMAEAbout: public CSystemFontPropertyPage
 {
 public:
 

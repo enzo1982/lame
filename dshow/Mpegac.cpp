@@ -29,6 +29,8 @@
 #include "mpegac.h"
 #include "resource.h"
 
+#include "../ACM/SettingText.h"
+#include "SystemFontPage.h"
 #include "PropPage.h"
 #include "PropPage_adv.h"
 #include "aboutprp.h"
@@ -64,6 +66,9 @@
 #define         DEFAULT_ENCODING_QUALITY    5
 #define         DEFAULT_VBR_QUALITY         4
 #define         DEFAULT_PES                 0
+#define         DEFAULT_PRIVATE             0
+#define         DEFAULT_RESERVOIR           1
+#define         DEFAULT_AVERAGE_BITRATE     128
 
 #define         DEFAULT_FILTER_MERIT        MERIT_DO_NOT_USE                // Standard compressor merit value
 
@@ -965,6 +970,9 @@ static const struct {
     { VALUE_DISABLE_SHORT_BLOCK, &MPEG_ENCODER_CONFIG::dwNoShortBlock, DEFAULT_DISABLE_SHORT_BLOCK },
     { VALUE_XING_TAG, &MPEG_ENCODER_CONFIG::dwXingTag, DEFAULT_XING_TAG },
     { VALUE_MODE_FIXED, &MPEG_ENCODER_CONFIG::dwModeFixed, DEFAULT_MODE_FIXED },
+    { VALUE_PRIVATE, &MPEG_ENCODER_CONFIG::bPrivate, DEFAULT_PRIVATE },
+    { VALUE_RESERVOIR, &MPEG_ENCODER_CONFIG::bReservoir, DEFAULT_RESERVOIR },
+    { VALUE_AVERAGE_BITRATE, &MPEG_ENCODER_CONFIG::dwAverageBitrate, DEFAULT_AVERAGE_BITRATE },
 };
 
 /**
@@ -978,7 +986,9 @@ void CMpegAudEnc::ReadPresetSettings(MPEG_ENCODER_CONFIG * pmec)
 
     for (size_t i = 0; i < sizeof(registry_fields) / sizeof(registry_fields[0]); i++)
         pmec->*registry_fields[i].field = rk.getDWORD(registry_fields[i].name, registry_fields[i].dflt);
-    pmec->vmVariable        = rk.getDWORD(VALUE_VARIABLE, DEFAULT_VARIABLE) ? vbr_rh : vbr_off;
+    // The registry holds the vbr_mode: vbr_abr for ABR, any other nonzero value for VBR
+    DWORD const variable = rk.getDWORD(VALUE_VARIABLE, DEFAULT_VARIABLE);
+    pmec->vmVariable        = (variable == (DWORD) vbr_abr) ? vbr_abr : variable ? vbr_rh : vbr_off;
     pmec->ChMode            = (MPEG_mode)rk.getDWORD(VALUE_STEREO_MODE, DEFAULT_STEREO_MODE);
 
     rk.Close();
@@ -1013,8 +1023,8 @@ STDMETHODIMP CMpegAudEnc::NonDelegatingQueryInterface(REFIID riid, void ** ppv)
         return GetInterface((IPersistStream *)this, ppv);
 //    else if (riid == IID_IVAudioEncSettings)
 //        return GetInterface((IVAudioEncSettings*) this, ppv);
-    else if (riid == IID_IAudioEncoderProperties)
-        return GetInterface((IAudioEncoderProperties*) this, ppv);
+    else if (riid == IID_IAudioEncoderProperties || riid == IID_IAudioEncoderProperties2)
+        return GetInterface((IAudioEncoderProperties2*) this, ppv);
 
     return CTransformFilter::NonDelegatingQueryInterface(riid, ppv);
 }
@@ -1093,7 +1103,7 @@ STDMETHODIMP CMpegAudEnc::get_Variable(DWORD *dwVariable)
 {
     MPEG_ENCODER_CONFIG mec;
     m_Encoder.GetOutputType(&mec);
-    *dwVariable = (DWORD)(mec.vmVariable == vbr_off ? 0 : 1);
+    *dwVariable = (DWORD)(mec.vmVariable == vbr_off || mec.vmVariable == vbr_abr ? 0 : 1);
     DbgLog((LOG_TRACE, 1, TEXT("get_Variable -> %d"), *dwVariable));
     return S_OK;
 }
@@ -1253,6 +1263,108 @@ STDMETHODIMP CMpegAudEnc::set_SampleOverlap(DWORD dwFlag)
     return SetConfigField(&MPEG_ENCODER_CONFIG::bSampleOverlap, dwFlag, TEXT("set_SampleOverlap"));
 }
 
+/**
+ * Reports whether the frames carry the private bit.
+ *
+ * \param dwFlag  receives nonzero for set.
+ * \return S_OK.
+ */
+STDMETHODIMP CMpegAudEnc::get_PrivateFlag(DWORD *dwFlag)
+{
+    return GetConfigField(&MPEG_ENCODER_CONFIG::bPrivate, dwFlag, TEXT("get_PrivateFlag"));
+}
+
+/**
+ * Sets or clears the private bit of the frames.
+ *
+ * \param dwFlag  nonzero to set it.
+ * \return S_OK.
+ */
+STDMETHODIMP CMpegAudEnc::set_PrivateFlag(DWORD dwFlag)
+{
+    return SetConfigField(&MPEG_ENCODER_CONFIG::bPrivate, dwFlag, TEXT("set_PrivateFlag"));
+}
+
+/**
+ * Reports whether the encoder uses the bit reservoir.
+ *
+ * \param dwFlag  receives nonzero for in use.
+ * \return S_OK.
+ */
+STDMETHODIMP CMpegAudEnc::get_BitReservoir(DWORD *dwFlag)
+{
+    return GetConfigField(&MPEG_ENCODER_CONFIG::bReservoir, dwFlag, TEXT("get_BitReservoir"));
+}
+
+/**
+ * Lets the encoder use the bit reservoir, or makes every frame hold all of
+ * its own data.
+ *
+ * \param dwFlag  nonzero to use it.
+ * \return S_OK.
+ */
+STDMETHODIMP CMpegAudEnc::set_BitReservoir(DWORD dwFlag)
+{
+    return SetConfigField(&MPEG_ENCODER_CONFIG::bReservoir, dwFlag, TEXT("set_BitReservoir"));
+}
+
+/**
+ * Reports the bitrate that ABR aims at.
+ *
+ * \param dwBitrate  receives it, in kbit/s.
+ * \return S_OK.
+ */
+STDMETHODIMP CMpegAudEnc::get_AverageBitrate(DWORD *dwBitrate)
+{
+    return GetConfigField(&MPEG_ENCODER_CONFIG::dwAverageBitrate, dwBitrate, TEXT("get_AverageBitrate"));
+}
+
+/**
+ * Sets the bitrate that ABR aims at.
+ *
+ * \param dwBitrate  the bitrate, in kbit/s.
+ * \return S_OK.
+ */
+STDMETHODIMP CMpegAudEnc::set_AverageBitrate(DWORD dwBitrate)
+{
+    return SetConfigField(&MPEG_ENCODER_CONFIG::dwAverageBitrate, dwBitrate, TEXT("set_AverageBitrate"));
+}
+
+/**
+ * Reports whether the filter encodes with an average bitrate (ABR).
+ *
+ * \param dwFlag  receives 1 for ABR, else 0.
+ * \return S_OK.
+ */
+STDMETHODIMP CMpegAudEnc::get_Average(DWORD *dwFlag)
+{
+    MPEG_ENCODER_CONFIG mec;
+    m_Encoder.GetOutputType(&mec);
+    *dwFlag = (DWORD)(mec.vmVariable == vbr_abr ? 1 : 0);
+    DbgLog((LOG_TRACE, 1, TEXT("get_Average -> %d"), *dwFlag));
+    return S_OK;
+}
+
+/**
+ * Switches ABR on, or off. Off gives CBR; it changes nothing when the filter
+ * encodes VBR.
+ *
+ * \param dwFlag  nonzero for ABR.
+ * \return S_OK.
+ */
+STDMETHODIMP CMpegAudEnc::set_Average(DWORD dwFlag)
+{
+    MPEG_ENCODER_CONFIG mec;
+    m_Encoder.GetOutputType(&mec);
+    if (dwFlag)
+        mec.vmVariable = vbr_abr;
+    else if (mec.vmVariable == vbr_abr)
+        mec.vmVariable = vbr_off;
+    m_Encoder.SetOutputType(mec);
+    DbgLog((LOG_TRACE, 1, TEXT("set_Average(%d)"), dwFlag));
+    return S_OK;
+}
+
 STDMETHODIMP CMpegAudEnc::get_EnforceVBRmin(DWORD *dwFlag)
 {
     return GetConfigField(&MPEG_ENCODER_CONFIG::dwEnforceVBRmin, dwFlag, TEXT("get_EnforceVBRmin"));
@@ -1349,8 +1461,11 @@ STDMETHODIMP CMpegAudEnc::get_ParameterBlockSize(BYTE *pcBlock, DWORD *pdwSize)
 {
     if (pcBlock != NULL && pdwSize != NULL) {
         DbgLog((LOG_TRACE, 1, TEXT("get_ParameterBlockSize -> %d%d"), *pcBlock, *pdwSize));
-        if (*pdwSize >= sizeof(MPEG_ENCODER_CONFIG)) {
-            m_Encoder.GetOutputType((MPEG_ENCODER_CONFIG*)pcBlock);
+        // A program written for the earlier, shorter block gets that part.
+        if (*pdwSize >= sizeof(MPEG_ENCODER_CONFIG) || *pdwSize == MPEG_ENCODER_CONFIG_FIRST_BYTES) {
+            MPEG_ENCODER_CONFIG mec;
+            m_Encoder.GetOutputType(&mec);
+            memcpy(pcBlock, &mec, *pdwSize >= sizeof(mec) ? sizeof(mec) : MPEG_ENCODER_CONFIG_FIRST_BYTES);
             return S_OK;
         }
         else {
@@ -1366,16 +1481,21 @@ STDMETHODIMP CMpegAudEnc::get_ParameterBlockSize(BYTE *pcBlock, DWORD *pdwSize)
     return E_FAIL;
 }
 
+
 STDMETHODIMP CMpegAudEnc::set_ParameterBlockSize(BYTE *pcBlock, DWORD dwSize)
 {
     if (pcBlock != NULL) {
         DbgLog((LOG_TRACE, 1, TEXT("get_ParameterBlockSize(%d, %d)"), *pcBlock, dwSize));
-        if (sizeof(MPEG_ENCODER_CONFIG) == dwSize){
-            m_Encoder.SetOutputType(*(MPEG_ENCODER_CONFIG*)pcBlock);
+        // A block of the earlier size leaves the settings after it as they are.
+        if (dwSize == sizeof(MPEG_ENCODER_CONFIG) || dwSize == MPEG_ENCODER_CONFIG_FIRST_BYTES) {
+            MPEG_ENCODER_CONFIG mec;
+            m_Encoder.GetOutputType(&mec);
+            memcpy(&mec, pcBlock, dwSize);
+            m_Encoder.SetOutputType(mec);
             return S_OK;
         }
     }
-    return E_FAIL; 
+    return E_FAIL;
 }
 
 
@@ -1416,6 +1536,9 @@ STDMETHODIMP CMpegAudEnc::DefaultAudioEncoderProperties()
     set_ForceMS(DEFAULT_FORCE_MS);
     set_ChannelMode(DEFAULT_STEREO_MODE);
     set_ModeFixed(DEFAULT_MODE_FIXED);
+    set_PrivateFlag(DEFAULT_PRIVATE);
+    set_BitReservoir(DEFAULT_RESERVOIR);
+    set_AverageBitrate(DEFAULT_AVERAGE_BITRATE);
 
     return S_OK;
 }
@@ -1509,7 +1632,10 @@ HRESULT CMpegAudEnc::ReadFromStream(IStream *pStream)
 {
     MPEG_ENCODER_CONFIG mec;
 
-    HRESULT hr = pStream->Read(&mec, sizeof(mec), 0);
+    // A graph saved before version 1 holds the settings up to bSampleOverlap.
+    m_Encoder.GetOutputType(&mec);
+    HRESULT hr = pStream->Read(&mec,
+                               mPS_dwFileVersion >= 1 ? sizeof(mec) : MPEG_ENCODER_CONFIG_FIRST_BYTES, 0);
     if(FAILED(hr))
         return hr;
 
@@ -1520,6 +1646,17 @@ HRESULT CMpegAudEnc::ReadFromStream(IStream *pStream)
 
     hr = S_OK;
     return hr;
+}
+
+
+/**
+ * Returns the version of the settings that WriteToStream() writes.
+ *
+ * \return 1 since bPrivate, bReservoir and dwAverageBitrate were added, 0 before.
+ */
+DWORD CMpegAudEnc::GetSoftwareVersion(void)
+{
+    return 1;
 }
 
 
@@ -1686,8 +1823,10 @@ HRESULT CMpegAudEncOutPin::GetMediaType(int iPosition, CMediaType *pmt)
     }
 
     // Select the encoder bit rate. In VBR mode we set the data rate parameter
-    // of the WAVE_FORMAT_MPEGLAYER3 structure to the minimum VBR value
-    m_CurrentOutputFormat.nBitRate = (mec.vmVariable == vbr_off) ? mec.dwBitrate : mec.dwVariableMin;
+    // of the WAVE_FORMAT_MPEGLAYER3 structure to the minimum VBR value, in ABR
+    // mode to the average it aims at
+    m_CurrentOutputFormat.nBitRate = (mec.vmVariable == vbr_off) ? mec.dwBitrate
+        : (mec.vmVariable == vbr_abr) ? mec.dwAverageBitrate : mec.dwVariableMin;
 
     if (pmt->majortype == MEDIATYPE_Stream) return NOERROR;     // No further config required for MEDIATYPE_Stream
 
