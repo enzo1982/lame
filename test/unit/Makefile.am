@@ -625,4 +625,5 @@ EXTRA_DIST += test_pkgconfig.sh
 # And the frontend tests, for the same two reasons.
 EXTRA_DIST += test_exit_status.sh test_swap_channel.sh test_pipe_length.sh test_mp3rtp_status.sh \
 	test_preset_range.sh test_nogap_files.sh test_brhist_cbr.sh \
-	test_nogap_failures.sh test_decode_swap.sh test_preserve_modtime.sh \n	test_output_complete.sh
+	test_nogap_failures.sh test_decode_swap.sh test_preserve_modtime.sh \
+	test_output_complete.sh
