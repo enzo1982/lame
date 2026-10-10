@@ -146,6 +146,19 @@ ctest_tone(unsigned long n, unsigned long rate, double hz, double amplitude)
 }
 
 /**
+ * @brief Returns the next sample of a noise source, which makes an encoder use
+ *        large frames.
+ * @param state the state of the source, any start value
+ * @return the sample
+ */
+static inline short
+ctest_noise(DWORD *state)
+{
+    *state = *state * 1103515245UL + 12345UL;
+    return (short) (*state >> 16);
+}
+
+/**
  * @brief Counts the allocated blocks of the process heap.
  *
  * The C runtime allocates from the process heap, in this program and in the

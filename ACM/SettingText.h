@@ -22,6 +22,8 @@ const char * EncodingQualityText(unsigned int level);
 
 /** @brief The VBR quality levels that lame_set_VBR_q() takes: 0 (the best) to 9. */
 static const unsigned int VBR_QUALITY_LEVELS = 10;
+/** @brief The VBR bitrate limit that leaves the limit to LAME. */
+static const unsigned int VBR_BITRATE_NO_LIMIT = 0;
 
 /** \name The input whose typical VBR bitrates the dialogs show: 44.1 kHz stereo
     @{ */

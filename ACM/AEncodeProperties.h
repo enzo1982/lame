@@ -256,8 +256,6 @@ public:
 		       GetVbrQualityBest() to VBR_QUALITY_WORST.
 	*/
 	inline unsigned int GetVbrQualityWorst() const { return VbrQuality_Worst;}
-	/** \brief The VBR bitrate limit that leaves the limit to LAME. */
-	static const unsigned int VBR_BITRATE_NO_LIMIT = 0;
 	/**
 		\brief Returns the lowest bitrate of a VBR stream, in kbit/s, or
 		       VBR_BITRATE_NO_LIMIT.

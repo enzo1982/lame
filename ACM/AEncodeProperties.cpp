@@ -647,10 +647,11 @@ my_debug.OutPut("nChannelIndex %d, bCRC %d, bCopyright %d, bOriginal %d, bPrivat
 void AEncodeProperties::ParamsRestore()
 {
 	// use these default parameters in case one is not found
-	bCopyright    = true;
-	bCRC          = true;
+	// LAME's defaults
+	bCopyright    = false;
+	bCRC          = false;
 	bOriginal     = true;
-	bPrivate      = true;
+	bPrivate      = false;
 	bNoBitRes     = false; // enable bit reservoir
 	nQuality      = ENCODING_QUALITY_DEFAULT;
 	bKeepAllFrequencies = false;

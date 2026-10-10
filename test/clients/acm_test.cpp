@@ -755,21 +755,21 @@ test_vbr_limits_in_the_list(void)
             AEncodeProperties reread(NULL);
             reread.ParamsRestore();
             CHECK(reread.GetVbrBitrateMin() == LIMIT_KBPS
-                  && reread.GetVbrBitrateMax() == AEncodeProperties::VBR_BITRATE_NO_LIMIT && reread.GetVbrEnforceMin(),
+                  && reread.GetVbrBitrateMax() == VBR_BITRATE_NO_LIMIT && reread.GetVbrEnforceMin(),
                   "the VBR bitrate limits come back after a save");
         }
     }
     if (write_vbr_config("<VBR use=\"true\" min=\"100\" />")) {
         AEncodeProperties props(NULL);
         props.ParamsRestore();
-        CHECK(props.GetVbrBitrateMin() == AEncodeProperties::VBR_BITRATE_NO_LIMIT,
+        CHECK(props.GetVbrBitrateMin() == VBR_BITRATE_NO_LIMIT,
               "a VBR minimum that is not a bitrate of the list leaves no limit");
     }
     if (write_vbr_config("<VBR use=\"true\" min=\"192\" max=\"128\" />")) {
         AEncodeProperties props(NULL);
         props.ParamsRestore();
-        CHECK(props.GetVbrBitrateMin() == AEncodeProperties::VBR_BITRATE_NO_LIMIT
-              && props.GetVbrBitrateMax() == AEncodeProperties::VBR_BITRATE_NO_LIMIT,
+        CHECK(props.GetVbrBitrateMin() == VBR_BITRATE_NO_LIMIT
+              && props.GetVbrBitrateMax() == VBR_BITRATE_NO_LIMIT,
               "a VBR minimum above the maximum leaves no limits");
     }
     ::DeleteFileA(CONFIG_NAME);
@@ -811,6 +811,29 @@ test_advanced_settings_file(void)
               "the advanced settings come back after a save");
     }
     ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
+ * @brief Checks the settings of the codec without a configuration file: LAME's
+ *        defaults.
+ */
+static void
+test_lame_defaults(void)
+{
+    AEncodeProperties props(NULL);
+
+    printf("the settings without a configuration file\n");
+    ::DeleteFileA(CONFIG_NAME);
+    props.ParamsRestore();
+    CHECK(!props.GetCopyrightMode() && !props.GetCRCMode() && props.GetOriginalMode() && !props.GetPrivateMode()
+          && !props.GetNoBiResMode(),
+          "the frame options are LAME's: copyright, checksum and private off, original and the bit reservoir on");
+    CHECK(props.GetQuality() == ENCODING_QUALITY_DEFAULT && props.GetChannelModeValue() == JOINT_STEREO,
+          "LAME's encoding quality, 3, and LAME's channel mode, joint stereo");
+    CHECK(props.GetVbrBitrateMin() == VBR_BITRATE_NO_LIMIT && props.GetVbrBitrateMax() == VBR_BITRATE_NO_LIMIT
+          && !props.GetVbrEnforceMin() && !props.GetKeepAllFrequencies() && !props.GetStrictISO()
+          && !props.GetForceMS(),
+          "no VBR limits and none of the advanced settings, as in LAME");
 }
 
 /**
@@ -1620,7 +1643,7 @@ test_config_dialog_vbr_limits(const char *driver)
             combo_select(dialog, IDC_COMBO_VBR_MIN, "320 kbps");
             AEncodeProperties::KeepVbrLimitsInOrder(dialog, IDC_COMBO_VBR_MIN);
             props.UpdateValueFromDlg(dialog);
-            CHECK(props.GetVbrBitrateMin() == 320 && props.GetVbrBitrateMax() == AEncodeProperties::VBR_BITRATE_NO_LIMIT,
+            CHECK(props.GetVbrBitrateMin() == 320 && props.GetVbrBitrateMax() == VBR_BITRATE_NO_LIMIT,
                   "with no maximum, any minimum stays");
 
             ::CheckDlgButton(dialog, IDC_CHECK_ENC_VBR, BST_UNCHECKED);
@@ -3399,19 +3422,6 @@ collect_format_cb(HACMDRIVERID hadid, LPACMFORMATDETAILSA pafd, DWORD_PTR user, 
     return TRUE;
 }
 
-/**
- * @brief Returns the next sample of a noise source, so that ABR uses large
- *        frames.
- * @param state the state of the source, any start value
- * @return the sample
- */
-static short
-noise_sample(DWORD *state)
-{
-    *state = *state * 1103515245UL + 12345UL;
-    return (short) (*state >> 16);
-}
-
 /** @brief What check_conversion_sizes() counted. */
 typedef struct {
     unsigned opened;    /**< the formats that opened */
@@ -3456,7 +3466,7 @@ check_conversion_sizes(HACMDRIVER had, const format_list &formats, size_counts *
         int ok;
 
         for (i = 0; i < rate * channels; i++) {
-            src[i] = noise_sample(&state);
+            src[i] = ctest_noise(&state);
         }
         fill_pcm_format(&pcm, rate, channels);
         if (acmStreamOpen(&has, had, &pcm, (WAVEFORMATEX *) &formats[f], NULL, 0, 0, 0)
@@ -3634,7 +3644,7 @@ test_vbr_formats_encode_vbr(HACMDRIVER had)
 
     printf("the VBR formats of the codec\n");
     for (i = LIFETIME_FRAMES / 2 * LIFETIME_CHANNELS; i < LIFETIME_FRAMES * LIFETIME_CHANNELS; i++) {
-        src[i] = noise_sample(&state);
+        src[i] = ctest_noise(&state);
     }
     memset(&scan_best, 0, sizeof(scan_best));
     memset(&scan_cbr, 0, sizeof(scan_cbr));
@@ -3692,7 +3702,7 @@ test_padding_modes_are_cbr(HACMDRIVER had)
 
     printf("the padding modes of fdwFlags\n");
     for (i = 0; i < LIFETIME_FRAMES * LIFETIME_CHANNELS; i++) {
-        src[i] = noise_sample(&state);
+        src[i] = ctest_noise(&state);
     }
     for (m = 0; m < sizeof(modes) / sizeof(modes[0]); m++) {
         fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 128000);
@@ -3904,7 +3914,7 @@ test_quality_reaches_the_encoder(HACMDRIVER had)
 
     printf("the encoding quality reaches the encoder\n");
     for (i = 0; i < LIFETIME_FRAMES * LIFETIME_CHANNELS; i++)
-        src[i] = noise_sample(&state);
+        src[i] = ctest_noise(&state);
     fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 128000);
     for (i = 0; i < 3; i++) {
         if (write_settings(levels[i]) && encode_whole_as(had, &mp3, &src[0], LIFETIME_FRAMES, &out[i]))
@@ -3978,7 +3988,7 @@ test_vbr_limits_reach_the_encoder(HACMDRIVER had)
 
     printf("the VBR bitrate limits reach the encoder\n");
     for (i = LIFETIME_FRAMES / 2 * LIFETIME_CHANNELS; i < LIFETIME_FRAMES * LIFETIME_CHANNELS; i++) {
-        src[i] = noise_sample(&state);
+        src[i] = ctest_noise(&state);
     }
     fill_vbr_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 0);
     for (i = 0; i < CASES; i++) {
@@ -4152,7 +4162,7 @@ test_advanced_settings_reach_the_encoder(HACMDRIVER had)
 
     printf("the advanced settings reach the encoder\n");
     for (i = 0; i < LIFETIME_FRAMES * LIFETIME_CHANNELS; i++)
-        noise[i] = noise_sample(&state);
+        noise[i] = ctest_noise(&state);
     for (i = 0; i < LIFETIME_FRAMES; i++) {
         left[i * LIFETIME_CHANNELS] = noise[i * LIFETIME_CHANNELS];
         tone[i * LIFETIME_CHANNELS] = tone[i * LIFETIME_CHANNELS + 1] =
@@ -5702,6 +5712,7 @@ main(int argc, char **argv)
     test_vbr_format_list();
     test_vbr_limits_in_the_list();
     test_advanced_settings_file();
+    test_lame_defaults();
     test_format_families();
     test_bitrate_list();
     test_save_without_a_file();

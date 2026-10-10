@@ -2,9 +2,9 @@
     <encodings default="Current">
         <config name="Current">
             <Smart use="false" />
-            <Copyright use="true" />
-            <CRC use="true" />
-            <Original use="false" />
+            <Copyright use="false" />
+            <CRC use="false" />
+            <Original use="true" />
             <Private use="false" />
             <Channel mode="Joint stereo" />
             <ABR use="true" min="80" max="160" step="8" />

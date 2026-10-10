@@ -222,8 +222,11 @@ HRESULT CEncoder::Init()
                                  "lame_set_error_protection", m_mabsi.bCRCProtect)
                 && setting_taken(lame_set_bWriteVbrTag(pgf, m_mabsi.dwXingTag),
                                  "lame_set_bWriteVbrTag", m_mabsi.dwXingTag)
-                && setting_taken(lame_set_strict_ISO(pgf, m_mabsi.dwStrictISO),
-                                 "lame_set_strict_ISO", m_mabsi.dwStrictISO)
+                // Without strict ISO compliance LAME keeps its own limit of the
+                // bit reservoir
+                && (m_mabsi.dwStrictISO == 0
+                    || setting_taken(lame_set_strict_ISO(pgf, MDB_STRICT_ISO),
+                                     "lame_set_strict_ISO", MDB_STRICT_ISO))
                 && setting_taken(lame_set_VBR_hard_min(pgf, m_mabsi.dwEnforceVBRmin),
                                  "lame_set_VBR_hard_min", m_mabsi.dwEnforceVBRmin)
                 && setting_taken(lame_set_extension(pgf, m_mabsi.bPrivate != 0),

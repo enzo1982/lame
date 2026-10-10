@@ -175,21 +175,32 @@ find_pin(IBaseFilter *f, PIN_DIRECTION want)
 /** @brief What the LAME tag reports for the lowpass when there is no filter. */
 #define NO_LOWPASS_HZ           0
 
+/** @brief What write_wav() writes: the test tone in every channel, or noise. */
+enum wav_content { WAV_TONE, WAV_NOISE };
+
 /**
- * @brief Writes a WAV file with a sine. The graph reads this file.
+ * @brief Writes a WAV file with a sine or with noise. The graph reads this
+ *        file.
  *
  * The header is the canonical 44-byte header: a RIFF chunk, a PCM format
  * chunk of the minimum size, and a data chunk. Each field is at an offset
  * that the format fixes. So the offsets have names, and the code does not
  * count them.
+ *
+ * @param path      the file.
+ * @param rate      the sample rate in Hz.
+ * @param channels  the channels.
+ * @param frames    the sample frames.
+ * @param content   the tone or noise, a different sample in each channel.
+ * @return 1 if the file was written, else 0.
  */
 static int
-write_wav(const char *path, DWORD rate, WORD channels, DWORD frames)
+write_wav(const char *path, DWORD rate, WORD channels, DWORD frames, wav_content content)
 {
     FILE *f = fopen(path, "wb");
     DWORD data_bytes = frames * channels * WAV_BYTES_PER_SAMPLE;
     unsigned char h[WAV_HEADER_BYTES];
-    DWORD i;
+    DWORD i, state = 1;
 
     if (f == NULL) {
         return 0;
@@ -213,6 +224,8 @@ write_wav(const char *path, DWORD rate, WORD channels, DWORD frames)
         WORD c;
 
         for (c = 0; c < channels; c++) {
+            if (content == WAV_NOISE)
+                v = ctest_noise(&state);
             fwrite(&v, WAV_BYTES_PER_SAMPLE, 1, f);
         }
     }
@@ -668,6 +681,57 @@ static const stored_setting stored_settings[] = {
 };
 
 /**
+ * @brief Checks that the filter's defaults are LAME's: encoding quality 3,
+ *        original and the LAME tag on, copyright, checksum and private off,
+ *        VBR level 4 without bitrate limits, the sample rate of the input.
+ *
+ * DefaultAudioEncoderProperties() needs a connected input. The test runs after
+ * the graph has, so no later test sees the defaults.
+ *
+ * @param lame  the filter, with its input connected.
+ */
+static void
+test_default_settings(IBaseFilter *lame)
+{
+    IAudioEncoderProperties *props = NULL;
+    DWORD quality = 0;
+    HRESULT hr;
+
+    printf("the default settings of the filter\n");
+    hr = lame->QueryInterface(IID_IAudioEncoderProperties_local, (void **) &props);
+    REQUIRE_HR(hr, "the filter offers its audio encoder properties");
+    if (FAILED(hr))
+        return;
+    REQUIRE_HR(props->DefaultAudioEncoderProperties(), "the filter resets its settings to the defaults");
+    REQUIRE_HR(props->get_Quality(&quality), "the encoding quality reads back");
+    CHECK_EQ_U(quality, 3, "the default encoding quality is LAME's, 3");
+    {
+        DWORD original = 0, copyright = 1, crc = 1, tag = 0, vbr_min = 1, vbr_max = 1, level = 0, rate = 1;
+        DWORD private_flag = 1;
+        IAudioEncoderProperties2 *props2 = NULL;
+
+        props->get_OriginalFlag(&original);
+        props->get_CopyrightFlag(&copyright);
+        props->get_CRCFlag(&crc);
+        props->get_XingTag(&tag);
+        props->get_VariableMin(&vbr_min);
+        props->get_VariableMax(&vbr_max);
+        props->get_VariableQ(&level);
+        props->get_SampleRate(&rate);
+        if (SUCCEEDED(props->QueryInterface(IID_IAudioEncoderProperties2_local, (void **) &props2))) {
+            props2->get_PrivateFlag(&private_flag);
+            props2->Release();
+        }
+        CHECK(original == 1 && copyright == 0 && crc == 0 && private_flag == 0 && tag == 1,
+              "the default frame options are LAME's: original and the LAME tag on, the others off");
+        CHECK(vbr_min == VBR_BITRATE_NO_LIMIT && vbr_max == VBR_BITRATE_NO_LIMIT && level == 4,
+              "the default VBR is LAME's: level 4, no bitrate limits");
+        CHECK_EQ_U(rate, 0, "by default the output keeps the sample rate of the input, as lame does");
+    }
+    props->Release();
+}
+
+/**
  * @brief Checks that each of the settings that the filter stores as they are
  *        reads back the value written to it, and only that one.
  *
@@ -1080,6 +1144,7 @@ public:
     int     flushing;       /**< set between BeginFlush() and EndFlush() */
     int     flush_mark;     /**< #sample_count at the last BeginFlush(), -1 before one */
     int     while_flushing; /**< samples that arrived during a flush, and were rejected */
+    DWORD   avg_bytes_per_sec; /**< of the connection's WAVEFORMATEX, 0 without one */
 
     /**
      * @brief Creates a pin that asks for @p a bytes of alignment.
@@ -1089,7 +1154,7 @@ public:
     AlignedSinkPin(long a, const GUID &m = MEDIATYPE_Stream) : align(a), major(m), peer(NULL),
         owner(NULL), stream(NULL), length(0), capacity(0), samples(NULL), sample_count(0),
         sample_capacity(0), deliveries(0), reject_from(0), rejected(0), failing(NULL),
-        flushing(0), flush_mark(-1), while_flushing(0)
+        flushing(0), flush_mark(-1), while_flushing(0), avg_bytes_per_sec(0)
     {
         eos = CreateEvent(NULL, TRUE, FALSE, NULL);
     }
@@ -1124,6 +1189,8 @@ public:
     {
         if (mt == NULL || mt->majortype != major)
             return VFW_E_TYPE_NOT_ACCEPTED;
+        if (mt->formattype == FORMAT_WaveFormatEx && mt->cbFormat >= sizeof(WAVEFORMATEX) && mt->pbFormat != NULL)
+            avg_bytes_per_sec = ((const WAVEFORMATEX *) mt->pbFormat)->nAvgBytesPerSec;
         peer = p;
         peer->AddRef();
         return S_OK;
@@ -1430,7 +1497,17 @@ typedef struct {
     DWORD private_flag; /**< set_PrivateFlag() */
     DWORD reservoir;    /**< set_BitReservoir() */
     DWORD average_kbps; /**< 0 for CBR, else set_Average(TRUE) and this target */
+    DWORD kbps;         /**< the CBR bitrate, 0 for 128 kbit/s */
+    DWORD strict_iso;   /**< set_StrictISO() */
+    int bitrate_mode;   /**< an #encoder_bitrate_mode */
 } encoder_setting;
+
+/** @brief How apply_encoder_setting() sets the bitrate mode. */
+enum encoder_bitrate_mode {
+    SETTING_CBR,        /**< set_Variable(FALSE) and the CBR bitrate */
+    SETTING_VBR,        /**< set_Variable(TRUE) */
+    SETTING_AS_READ     /**< the mode the filter read from the registry */
+};
 
 /**
  * @brief Applies an #encoder_setting to the encoder, for
@@ -1443,8 +1520,11 @@ apply_encoder_setting(IAudioEncoderProperties2 *props, const void *setting)
 {
     const encoder_setting *s = (const encoder_setting *) setting;
 
-    props->set_Variable(FALSE);
-    props->set_Bitrate(128);
+    if (s->bitrate_mode != SETTING_AS_READ) {
+        props->set_Variable(s->bitrate_mode == SETTING_VBR);
+        props->set_Bitrate(s->kbps != 0 ? s->kbps : 128);
+    }
+    props->set_StrictISO(s->strict_iso);
     /* The LAME tag, which records the bitrate method, is written only with this */
     props->set_XingTag(TRUE);
     props->set_PrivateFlag(s->private_flag);
@@ -1462,12 +1542,14 @@ typedef struct {
     int no_reservoir;   /**< the frames whose main_data_begin is 0 */
     int tag_method;     /**< the VBR method of the LAME tag, or MP3_TAG_ABSENT */
     int tag_abr_kbps;   /**< the ABR bitrate of the LAME tag, or MP3_TAG_ABSENT */
+    int most_main_data_begin; /**< the largest main_data_begin, in bytes */
 } encoded_scan;
 
 /**
  * @brief Steps through the MPEG-1 frames of a stream, counts the frames with
- *        the private bit and the frames that use no bit reservoir, and reads
- *        the bitrate method and the ABR bitrate from the LAME tag.
+ *        the private bit and the frames that use no bit reservoir, finds the
+ *        largest main_data_begin, and reads the bitrate method and the ABR
+ *        bitrate from the LAME tag.
  * @param buf   the stream.
  * @param len   its length in bytes.
  * @param rate  its sample rate in Hz.
@@ -1476,7 +1558,7 @@ typedef struct {
 static encoded_scan
 scan_encoded(const unsigned char *buf, long len, unsigned long rate)
 {
-    encoded_scan s = { 0, 0, 0, MP3_TAG_ABSENT, MP3_TAG_ABSENT };
+    encoded_scan s = { 0, 0, 0, MP3_TAG_ABSENT, MP3_TAG_ABSENT, 0 };
     long off = 0;
 
     while (off + MP3_HEADER_BYTES + MP3_CRC_BYTES + 2 <= len) {
@@ -1502,6 +1584,8 @@ scan_encoded(const unsigned char *buf, long len, unsigned long rate)
             s.private_set++;
         if (mp3_main_data_begin(h) == 0)
             s.no_reservoir++;
+        if (mp3_main_data_begin(h) > s.most_main_data_begin)
+            s.most_main_data_begin = mp3_main_data_begin(h);
         off += framelen;
     }
     return s;
@@ -1520,7 +1604,7 @@ encode_with(IClassFactory *cf, const WCHAR *wav, DWORD rate, const encoder_setti
 {
     AlignedSinkPin bytes(1);
     int connected = 0;
-    encoded_scan none = { 0, 0, 0, MP3_TAG_ABSENT, MP3_TAG_ABSENT };
+    encoded_scan none = { 0, 0, 0, MP3_TAG_ABSENT, MP3_TAG_ABSENT, 0 };
 
     if (!encode_into_aligned_sink(cf, wav, bytes, &connected, GRAPH_TIMEOUT_MS,
                                   apply_encoder_setting, setting))
@@ -1548,7 +1632,7 @@ static encoded_scan
 encode_to_file(IClassFactory *cf, const WCHAR *wav, const WCHAR *path, DWORD rate,
                const encoder_setting *setting)
 {
-    encoded_scan result = { 0, 0, 0, MP3_TAG_ABSENT, MP3_TAG_ABSENT };
+    encoded_scan result = { 0, 0, 0, MP3_TAG_ABSENT, MP3_TAG_ABSENT, 0 };
     IGraphBuilder *graph = NULL;
     IBaseFilter *lame = NULL, *src = NULL, *writer = NULL;
     IFileSinkFilter *sink = NULL;
@@ -1666,6 +1750,161 @@ test_interface2_in_the_stream(IClassFactory *cf, const WCHAR *wav, const WCHAR *
     ctest_record(lo.tag_method == MP3_TAG_METHOD_ABR && hi.tag_method == MP3_TAG_METHOD_ABR
                  && lo.tag_abr_kbps == 96 && hi.tag_abr_kbps == 192 && pf.tag_method != MP3_TAG_METHOD_ABR,
                  "an ABR stream records ABR and its target in the LAME tag", detail);
+}
+
+/** @brief The VBR settings of one announced-bitrate case. */
+typedef struct {
+    DWORD level;    /**< set_VariableQ() */
+    DWORD lowest;   /**< set_VariableMin(), VBR_BITRATE_NO_LIMIT for none */
+    DWORD highest;  /**< set_VariableMax(), VBR_BITRATE_NO_LIMIT for none */
+} vbr_announce_case;
+
+/**
+ * @brief Sets VBR with the level and limits of a #vbr_announce_case, for
+ *        encode_into_aligned_sink().
+ * @param props    the encoder's settings.
+ * @param setting  the #vbr_announce_case.
+ */
+static void
+apply_vbr_announce_case(IAudioEncoderProperties2 *props, const void *setting)
+{
+    const vbr_announce_case *c = (const vbr_announce_case *) setting;
+
+    props->set_Variable(TRUE);
+    props->set_VariableQ(c->level);
+    props->set_VariableMin(c->lowest);
+    props->set_VariableMax(c->highest);
+}
+
+/**
+ * @brief Checks the bitrate that the format of a VBR stream announces.
+ *
+ * It is the typical bitrate of the VBR level at the stream's rate and
+ * channels, held within the VBR limits: level 4 without limits, level 0 under
+ * a 128 kbit/s maximum, level 9 over a 128 kbit/s minimum.
+ *
+ * @param cf    the filter DLL's class factory.
+ * @param wav   the input file, stereo.
+ * @param rate  its sample rate in Hz.
+ */
+static void
+test_vbr_announced_bitrate(IClassFactory *cf, const WCHAR *wav, DWORD rate)
+{
+    enum { LIMIT_KBPS = 128, CHANNELS = 2, CASES = 3 };
+    static const vbr_announce_case cases[CASES] = {
+        { 4, VBR_BITRATE_NO_LIMIT, VBR_BITRATE_NO_LIMIT },
+        { 0, VBR_BITRATE_NO_LIMIT, LIMIT_KBPS },
+        { 9, LIMIT_KBPS, VBR_BITRATE_NO_LIMIT },
+    };
+    DWORD const want[CASES] = { VbrTypicalBitrate(rate, CHANNELS, 4), LIMIT_KBPS, LIMIT_KBPS };
+    DWORD got[CASES];
+    char detail[CTEST_DETAIL_CHARS];
+    int i, connected;
+
+    printf("the bitrate that the format of a VBR stream announces\n");
+    for (i = 0; i < CASES; i++) {
+        AlignedSinkPin audio(1, MEDIATYPE_Audio);
+
+        connected = 0;
+        (void) encode_into_aligned_sink(cf, wav, audio, &connected, GRAPH_TIMEOUT_MS, apply_vbr_announce_case,
+                                        &cases[i]);
+        got[i] = audio.avg_bytes_per_sec * 8 / 1000;
+    }
+    sprintf(detail, "%lu, %lu and %lu kbps; wanted %lu, %lu and %lu", (unsigned long) got[0], (unsigned long) got[1],
+            (unsigned long) got[2], (unsigned long) want[0], (unsigned long) want[1], (unsigned long) want[2]);
+    ctest_record(want[0] != 0 && got[0] == want[0] && got[1] == want[1] && got[2] == want[2],
+                 "a VBR format announces the typical bitrate of its level, within the limits", detail);
+}
+
+/**
+ * @brief Checks "Strict ISO compliance" in the stream, on noise at 320 kbit/s.
+ *
+ * With it no frame uses the bit reservoir. Without it the encoder has LAME's
+ * own limit, as the lame program does, and main_data_begin reaches past 396
+ * bytes: the most that the limit MDB_DEFAULT (lame_set_strict_ISO(0)) leaves
+ * at this bitrate, measured.
+ *
+ * @param cf     the filter DLL's class factory.
+ * @param noise  the noise WAV.
+ * @param rate   its sample rate in Hz.
+ */
+static void
+test_strict_iso_in_the_stream(IClassFactory *cf, const WCHAR *noise, DWORD rate)
+{
+    /* The highest MPEG-1 bitrate, where the two limits differ; and the largest
+       main_data_begin of MDB_DEFAULT there. */
+    enum { HIGHEST_KBPS = 320, MDB_DEFAULT_MOST_BYTES = 396 };
+    static const encoder_setting lame_limit = { "LAME's limit", 0, 1, 0, HIGHEST_KBPS, 0 };
+    static const encoder_setting strict = { "strict ISO", 0, 1, 0, HIGHEST_KBPS, 1 };
+    encoded_scan own, iso;
+    char detail[CTEST_DETAIL_CHARS];
+
+    printf("strict ISO compliance in the stream\n");
+    own = encode_with(cf, noise, rate, &lame_limit);
+    iso = encode_with(cf, noise, rate, &strict);
+    sprintf(detail, "main_data_begin up to %d bytes without, %d of %d frames use no reservoir with",
+            own.most_main_data_begin, iso.no_reservoir, iso.frames);
+    ctest_record(own.frames > 0 && own.most_main_data_begin > MDB_DEFAULT_MOST_BYTES,
+                 "without strict ISO compliance the bit reservoir has LAME's own limit", detail);
+    ctest_record(iso.frames > 0 && iso.no_reservoir == iso.frames,
+                 "with strict ISO compliance no frame uses the bit reservoir at 320 kbps", detail);
+}
+
+/**
+ * @brief Checks that the filter's VBR is LAME's default VBR mode, from
+ *        set_Variable() and from the registry.
+ *
+ * The LAME tag of a file records the VBR method. A file encoded after
+ * set_Variable(TRUE) records LAME's default one. So does a file of a filter
+ * that reads VBR from the registry, where a released filter stored its older
+ * mode, vbr_rh. The user's own settings key is kept before and put back after.
+ *
+ * @param cf    the filter DLL's class factory.
+ * @param wav   the input file.
+ * @param out   a file name for the encodes, as a wide string.
+ * @param rate  its sample rate in Hz.
+ */
+static void
+test_vbr_is_lames_default(IClassFactory *cf, const WCHAR *wav, const WCHAR *out, DWORD rate)
+{
+    /* What a released filter stored in the registry for VBR: vbr_rh. */
+    enum { RELEASED_VBR_VALUE = 2 };
+    static const encoder_setting vbr = { "VBR", 0, 1, 0, 0, 0, SETTING_VBR };
+    static const encoder_setting as_read = { "as read", 0, 1, 0, 0, 0, SETTING_AS_READ };
+    static saved_key saved;
+    encoded_scan set, read;
+    char detail[CTEST_DETAIL_CHARS];
+    WCHAR file[MAX_PATH];
+    DWORD value = RELEASED_VBR_VALUE;
+    HKEY key;
+
+    printf("the filter's VBR is LAME's default VBR mode\n");
+    _snwprintf(file, MAX_PATH, L"%s.vbr.mp3", out);
+    file[MAX_PATH - 1] = L'\0';
+    set = encode_to_file(cf, wav, file, rate, &vbr);
+    sprintf(detail, "LAME tag method %d of %d frames, LAME's default is %d", set.tag_method, set.frames,
+            MP3_TAG_METHOD_VBR_MTRH);
+    ctest_record(set.frames > 0 && set.tag_method == MP3_TAG_METHOD_VBR_MTRH,
+                 "set_Variable(TRUE) encodes LAME's default VBR mode", detail);
+
+    if (!save_key(&saved)) {
+        CHECK(0, "the settings key can be kept before the test writes it");
+        return;
+    }
+    memset(&read, 0, sizeof read);
+    if (RegCreateKeyExA(HKEY_CURRENT_USER, FILTER_SETTINGS_KEY, 0, NULL, 0, KEY_WRITE, NULL, &key, NULL)
+        == ERROR_SUCCESS) {
+        LONG const rc = RegSetValueExA(key, "Variable", 0, REG_DWORD, (const BYTE *) &value, sizeof value);
+
+        RegCloseKey(key);
+        if (rc == ERROR_SUCCESS)
+            read = encode_to_file(cf, wav, file, rate, &as_read);
+    }
+    CHECK(restore_key(&saved), "the settings key is put back as it was");
+    sprintf(detail, "LAME tag method %d of %d frames, LAME's default is %d", read.tag_method, read.frames,
+            MP3_TAG_METHOD_VBR_MTRH);
+    ctest_record(read.frames > 0 && read.tag_method == MP3_TAG_METHOD_VBR_MTRH,
+                 "VBR that a released filter stored is read as LAME's default VBR mode", detail);
 }
 
 /**
@@ -2582,8 +2821,10 @@ static const char *const page_name[PAGES] = { "the main page", "the Advanced pag
 static const size_t page_access_keys[PAGES] = { 16, 11, 0 };
 /** @brief The encoding-quality slider of the main page and the text beside it. */
 enum { SLIDER_QUALITY_ID = 1021, TEXT_QUALITY_ID = 1023 };
-/** @brief The VBR quality box of the main page. */
-enum { COMBO_VBR_QUALITY_ID = 1026 };
+/** @brief The VBR quality box of the main page, and its VBR minimum and maximum. */
+enum { COMBO_VBR_QUALITY_ID = 1026, COMBO_VBR_MIN_ID = 1013, COMBO_VBR_MAX_ID = 1024 };
+/** @brief The sample rate box of the main page. */
+enum { COMBO_SAMPLE_RATE_ID = 1025 };
 /** @brief The title and the licence box of the About page. */
 enum { ABOUT_TITLE_ID = 1046, ABOUT_LICENSE_ID = 1044, ABOUT_URL_ID = 1047, ABOUT_CREDITS_ID = 1100,
        ABOUT_ICON_ID = 1101 };
@@ -2596,6 +2837,8 @@ static struct {
     int quality_range_ok;
     int quality_texts_fit;
     int vbr_levels_listed;
+    int vbr_no_limit_shown;
+    int same_rate_shown;
     int about_ok;
 } frame_result;
 
@@ -2654,7 +2897,8 @@ find_visible_page(HWND window, LPARAM found)
  * its font is the font of the desktop (the typeface, and the height to the
  * nearest point), and check_dialog_layout() passes. On the main page it notes
  * the range of the encoding-quality slider, whether the text of each level
- * fits beside it, and the levels that the VBR quality box lists; on the
+ * fits beside it, the levels that the VBR quality box lists, and what the
+ * VBR minimum and maximum show; on the
  * About page, the title and the licence notice.
  *
  * @param window   NULL, the timer has no window.
@@ -2745,6 +2989,21 @@ inspect_property_frame(HWND window, UINT message, UINT_PTR id, DWORD time)
                 if (vbr != NULL && SendMessageA(vbr, CB_GETCOUNT, 0, 0) != (LRESULT) VBR_QUALITY_LEVELS)
                     frame_result.vbr_levels_listed = 0;
             }
+            {
+                char lowest[CONTROL_TEXT_CHARS], highest[CONTROL_TEXT_CHARS];
+
+                lowest[0] = highest[0] = '\0';
+                GetDlgItemTextA(page, COMBO_VBR_MIN_ID, lowest, sizeof lowest);
+                GetDlgItemTextA(page, COMBO_VBR_MAX_ID, highest, sizeof highest);
+                frame_result.vbr_no_limit_shown = strcmp(lowest, "No limit") == 0 && strcmp(highest, "No limit") == 0;
+            }
+            {
+                char rate[CONTROL_TEXT_CHARS];
+
+                rate[0] = '\0';
+                GetDlgItemTextA(page, COMBO_SAMPLE_RATE_ID, rate, sizeof rate);
+                frame_result.same_rate_shown = strcmp(rate, "Same as input") == 0;
+            }
         }
     }
     PostMessageA(frame, WM_COMMAND, MAKEWPARAM(IDCANCEL, BN_CLICKED), 0);
@@ -2792,11 +3051,29 @@ test_property_pages(PFN_DllGetClassObject get_class, IClassFactory *cf)
     hr = cf->CreateInstance(NULL, IID_IUnknown, (void **) &filter);
     REQUIRE_HR(hr, "a filter instance for the pages");
     if (SUCCEEDED(hr) && registered == PAGES) {
+        IAudioEncoderProperties *props = NULL;
+        DWORD lowest = 1, highest = 1;
+
+        /* The VBR limits and the sample rate as LAME has them by default: no
+           limits, the rate of the input. */
+        if (SUCCEEDED(filter->QueryInterface(IID_IAudioEncoderProperties_local, (void **) &props))) {
+            props->set_VariableMin(VBR_BITRATE_NO_LIMIT);
+            props->set_VariableMax(VBR_BITRATE_NO_LIMIT);
+            props->set_SampleRate(0);
+        }
         memset(&frame_result, 0, sizeof frame_result);
         timer = SetTimer(NULL, 0, TIMER_MS, inspect_property_frame);
         hr = OleCreatePropertyFrame(NULL, 0, 0, L"LAME Audio Encoder", 1, &filter, PAGES, pages,
                                     0, 0, NULL);
         KillTimer(NULL, timer);
+        if (props != NULL) {
+            props->get_VariableMin(&lowest);
+            props->get_VariableMax(&highest);
+            props->Release();
+        }
+        CHECK(frame_result.vbr_no_limit_shown && lowest == VBR_BITRATE_NO_LIMIT && highest == VBR_BITRATE_NO_LIMIT,
+              "without VBR limits the page shows \"No limit\" and leaves them as they are");
+        CHECK(frame_result.same_rate_shown, "with the sample rate of the input the page shows \"Same as input\"");
         REQUIRE_HR(hr, "OleCreatePropertyFrame() shows the pages");
         CHECK(frame_result.frame_found, "the property frame opens");
         CHECK_EQ_U(frame_result.pages_seen, PAGES, "every page shows in the frame");
@@ -2900,8 +3177,8 @@ main(int argc, char **argv)
     HRESULT hr;
     long ev = 0;
     char filter[MAX_PATH];
-    char wav[MAX_PATH], mp3[MAX_PATH];
-    WCHAR wavw[MAX_PATH], mp3w[MAX_PATH];
+    char wav[MAX_PATH], mp3[MAX_PATH], noise[MAX_PATH];
+    WCHAR wavw[MAX_PATH], mp3w[MAX_PATH], noisew[MAX_PATH];
     int require;
     ctest_component found;
 
@@ -2935,8 +3212,13 @@ main(int argc, char **argv)
     GetTempPathA(MAX_PATH, mp3);
     strcat(mp3, "lame_dshow_test_out.mp3");
     DeleteFileA(mp3);
-    CHECK(write_wav(wav, rate, 2, (DWORD) (rate * seconds)) != 0,
+    CHECK(write_wav(wav, rate, 2, (DWORD) (rate * seconds), WAV_TONE) != 0,
           "the input WAV was written");
+    GetTempPathA(MAX_PATH, noise);
+    strcat(noise, "lame_dshow_test_noise.wav");
+    CHECK(write_wav(noise, rate, 2, (DWORD) (rate * seconds), WAV_NOISE) != 0,
+          "the noise WAV was written");
+    MultiByteToWideChar(CP_ACP, 0, noise, -1, noisew, MAX_PATH);
     MultiByteToWideChar(CP_ACP, 0, wav, -1, wavw, MAX_PATH);
     MultiByteToWideChar(CP_ACP, 0, mp3, -1, mp3w, MAX_PATH);
 
@@ -3084,9 +3366,13 @@ main(int argc, char **argv)
     test_frame_times_follow_a_gap(cf);
     test_failed_output_buffer(cf, wavw);
     test_flush_restarts_the_encoder(cf);
+    test_default_settings(lame);
     test_interface2(lame);
     test_saved_graphs(cf);
     test_interface2_in_the_stream(cf, wavw, mp3w, rate);
+    test_strict_iso_in_the_stream(cf, noisew, rate);
+    test_vbr_announced_bitrate(cf, wavw, rate);
+    test_vbr_is_lames_default(cf, wavw, mp3w, rate);
     test_property_pages(get_class, cf);
     test_page_templates(mod);
     /* LAME reports why it rejects the VBR range of

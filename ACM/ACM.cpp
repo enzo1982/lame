@@ -1313,8 +1313,8 @@ void ACM::AddVbrFormats(const FormatListSettings & the_Settings, const unsigned 
 {
 	unsigned int freq, quality;
 	// Without bitrate limits the typical bitrates hold as they were measured
-	bool const limited = the_Settings.vbr_min != AEncodeProperties::VBR_BITRATE_NO_LIMIT
-		|| the_Settings.vbr_max != AEncodeProperties::VBR_BITRATE_NO_LIMIT;
+	bool const limited = the_Settings.vbr_min != VBR_BITRATE_NO_LIMIT
+		|| the_Settings.vbr_max != VBR_BITRATE_NO_LIMIT;
 
 	for (freq = 0; freq < nfreqs; freq++)
 	{

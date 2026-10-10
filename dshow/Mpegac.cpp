@@ -51,8 +51,8 @@
 #define         DEFAULT_KEEP_ALL_FREQ       0
 #define         DEFAULT_STRICT_ISO          0
 #define         DEFAULT_DISABLE_SHORT_BLOCK 0
-#define         DEFAULT_XING_TAG            0
-#define         DEFAULT_SAMPLE_RATE         44100
+#define         DEFAULT_XING_TAG            1
+#define         DEFAULT_SAMPLE_RATE         0               // the rate of the input
 #define         DEFAULT_BITRATE             128
 #define         DEFAULT_VARIABLE            0
 #define         DEFAULT_CRC                 0
@@ -60,10 +60,10 @@
 #define         DEFAULT_SET_DURATION        1
 #define         DEFAULT_SAMPLE_OVERLAP      1
 #define         DEFAULT_COPYRIGHT           0
-#define         DEFAULT_ORIGINAL            0
-#define         DEFAULT_VARIABLEMIN         80
-#define         DEFAULT_VARIABLEMAX         160
-#define         DEFAULT_ENCODING_QUALITY    5
+#define         DEFAULT_ORIGINAL            1
+#define         DEFAULT_VARIABLEMIN         VBR_BITRATE_NO_LIMIT
+#define         DEFAULT_VARIABLEMAX         VBR_BITRATE_NO_LIMIT
+#define         DEFAULT_ENCODING_QUALITY    ENCODING_QUALITY_DEFAULT
 #define         DEFAULT_VBR_QUALITY         4
 #define         DEFAULT_PES                 0
 #define         DEFAULT_PRIVATE             0
@@ -978,6 +978,31 @@ static const struct {
 /**
  * Reads the saved encoder settings from the registry.
  */
+/**
+ * Returns the bitrate that a VBR output format announces: the typical bitrate
+ * of the VBR quality level at the sample rate and channel count, held within
+ * the VBR bitrate limits. At a sample rate without a typical bitrate it is the
+ * VBR minimum.
+ *
+ * \param mec       the settings of the encoder.
+ * \param rate      the sample rate of the output, in Hz.
+ * \param channels  its channel count, 1 or 2.
+ * \return the bitrate in kbit/s.
+ */
+static DWORD VbrAnnouncedBitrate(const MPEG_ENCODER_CONFIG &mec, DWORD rate, unsigned int channels)
+{
+    unsigned int const level = mec.dwVBRq < VBR_QUALITY_LEVELS ? (unsigned int) mec.dwVBRq : VBR_QUALITY_LEVELS - 1;
+    DWORD kbps = VbrTypicalBitrate(rate, channels, level);
+
+    if (kbps == 0)
+        return mec.dwVariableMin;
+    if (mec.dwVariableMin != VBR_BITRATE_NO_LIMIT && kbps < mec.dwVariableMin)
+        kbps = mec.dwVariableMin;
+    if (mec.dwVariableMax != VBR_BITRATE_NO_LIMIT && kbps > mec.dwVariableMax)
+        kbps = mec.dwVariableMax;
+    return kbps;
+}
+
 void CMpegAudEnc::ReadPresetSettings(MPEG_ENCODER_CONFIG * pmec)
 {
     DbgLog((LOG_TRACE,1,TEXT("CMpegAudEnc::ReadPresetSettings()")));
@@ -986,9 +1011,10 @@ void CMpegAudEnc::ReadPresetSettings(MPEG_ENCODER_CONFIG * pmec)
 
     for (size_t i = 0; i < sizeof(registry_fields) / sizeof(registry_fields[0]); i++)
         pmec->*registry_fields[i].field = rk.getDWORD(registry_fields[i].name, registry_fields[i].dflt);
-    // The registry holds the vbr_mode: vbr_abr for ABR, any other nonzero value for VBR
+    // The registry holds the vbr_mode: vbr_abr for ABR, any other nonzero value
+    // for VBR, which is LAME's default VBR mode
     DWORD const variable = rk.getDWORD(VALUE_VARIABLE, DEFAULT_VARIABLE);
-    pmec->vmVariable        = (variable == (DWORD) vbr_abr) ? vbr_abr : variable ? vbr_rh : vbr_off;
+    pmec->vmVariable        = (variable == (DWORD) vbr_abr) ? vbr_abr : variable ? vbr_default : vbr_off;
     pmec->ChMode            = (MPEG_mode)rk.getDWORD(VALUE_STEREO_MODE, DEFAULT_STEREO_MODE);
 
     rk.Close();
@@ -1113,7 +1139,7 @@ STDMETHODIMP CMpegAudEnc::set_Variable(DWORD dwVariable)
     MPEG_ENCODER_CONFIG mec;
     m_Encoder.GetOutputType(&mec);
 
-    mec.vmVariable = dwVariable ? vbr_rh : vbr_off;
+    mec.vmVariable = dwVariable ? vbr_default : vbr_off;
     m_Encoder.SetOutputType(mec);
     DbgLog((LOG_TRACE, 1, TEXT("set_Variable(%d)"), dwVariable));
     return S_OK;
@@ -1507,9 +1533,6 @@ STDMETHODIMP CMpegAudEnc::DefaultAudioEncoderProperties()
     if (FAILED(hr))
         return hr;
 
-    DWORD dwSourceSampleRate;
-    get_SourceSampleRate(&dwSourceSampleRate);
-
     set_PESOutputEnabled(DEFAULT_PES);
 
     set_Bitrate(DEFAULT_BITRATE);
@@ -1519,7 +1542,7 @@ STDMETHODIMP CMpegAudEnc::DefaultAudioEncoderProperties()
     set_Quality(DEFAULT_ENCODING_QUALITY);
     set_VariableQ(DEFAULT_VBR_QUALITY);
 
-    set_SampleRate(dwSourceSampleRate);
+    set_SampleRate(DEFAULT_SAMPLE_RATE);
     set_CRCFlag(DEFAULT_CRC);
     set_ForceMono(DEFAULT_FORCE_MONO);
     set_SetDuration(DEFAULT_SET_DURATION);
@@ -1822,11 +1845,12 @@ HRESULT CMpegAudEncOutPin::GetMediaType(int iPosition, CMediaType *pmt)
         }
     }
 
-    // Select the encoder bit rate. In VBR mode we set the data rate parameter
-    // of the WAVE_FORMAT_MPEGLAYER3 structure to the minimum VBR value, in ABR
-    // mode to the average it aims at
+    // Select the encoder bit rate: the CBR bitrate, the ABR target, or the
+    // bitrate that a VBR format announces
     m_CurrentOutputFormat.nBitRate = (mec.vmVariable == vbr_off) ? mec.dwBitrate
-        : (mec.vmVariable == vbr_abr) ? mec.dwAverageBitrate : mec.dwVariableMin;
+        : (mec.vmVariable == vbr_abr) ? mec.dwAverageBitrate
+        : VbrAnnouncedBitrate(mec, m_CurrentOutputFormat.nSampleRate,
+                              m_CurrentOutputFormat.ChMode == MONO ? 1 : 2);
 
     if (pmt->majortype == MEDIATYPE_Stream) return NOERROR;     // No further config required for MEDIATYPE_Stream
 

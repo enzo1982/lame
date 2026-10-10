@@ -241,15 +241,19 @@ INT_PTR CMpegAudEncPropertyPage::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wPa
                 m_pAEProps->get_SampleRate(&dwSampleRate);
                 DWORD dwMin;
 
-                if (dwSampleRate >= 32000)
+                if (nVariableMin <= 0)
+                {
+                    dwMin = VBR_BITRATE_NO_LIMIT;
+                }
+                else if (dwSampleRate >= 32000)
                 {
                     // Consider MPEG-1
-                    dwMin = BitRateValue(0, nVariableMin);
+                    dwMin = BitRateValue(0, nVariableMin - 1);
                 }
                 else
                 {
                     // Consider MPEG-2/2.5
-                    dwMin = BitRateValue(1, nVariableMin);
+                    dwMin = BitRateValue(1, nVariableMin - 1);
                 }
 
                 m_pAEProps->set_VariableMin(dwMin);
@@ -266,15 +270,19 @@ INT_PTR CMpegAudEncPropertyPage::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wPa
                 m_pAEProps->get_SampleRate(&dwSampleRate);
                 DWORD dwMax;
 
-                if (dwSampleRate >= 32000)
+                if (nVariableMax <= 0)
+                {
+                    dwMax = VBR_BITRATE_NO_LIMIT;
+                }
+                else if (dwSampleRate >= 32000)
                 {
                     // Consider MPEG-1
-                    dwMax = BitRateValue(0, nVariableMax);
+                    dwMax = BitRateValue(0, nVariableMax - 1);
                 }
                 else
                 {
                     // Consider MPEG-2/2.5
-                    dwMax = BitRateValue(1, nVariableMax);
+                    dwMax = BitRateValue(1, nVariableMax - 1);
                 }
 
                 m_pAEProps->set_VariableMax(dwMax);
@@ -288,12 +296,11 @@ INT_PTR CMpegAudEncPropertyPage::OnReceiveMessage(HWND hwnd,UINT uMsg,WPARAM wPa
             {
                 int nSampleRate = SendDlgItemMessage(hwnd, IDC_COMBO_SAMPLE_RATE, CB_GETCURSEL, 0, 0L);
 
-                if (nSampleRate < 0)
-                    nSampleRate = 0;
-                else if (nSampleRate > 2)
-                    nSampleRate = 2;
+                // Entry 0 is "Same as input", the three rates follow it
+                if (nSampleRate > 3)
+                    nSampleRate = 3;
 
-                DWORD dwSampleRate = srRates[nSampleRate * 3 + m_srIdx].dwSampleRate;
+                DWORD dwSampleRate = nSampleRate <= 0 ? 0 : srRates[(nSampleRate - 1) * 3 + m_srIdx].dwSampleRate;
 
                 m_pAEProps->set_SampleRate(dwSampleRate);
                 InitPropertiesDialog(hwnd);
@@ -454,6 +461,7 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
         m_srIdx = 1;
     }
 
+    SendDlgItemMessage(hwndParent, IDC_COMBO_SAMPLE_RATE, CB_ADDSTRING, 0, (LPARAM) TEXT("Same as input"));
     for (int i = 0; i < 3; i++)
         SendDlgItemMessage(hwndParent, IDC_COMBO_SAMPLE_RATE, CB_ADDSTRING, 0, (LPARAM)(LPCTSTR)srRates[i * 3 + m_srIdx].lpSampleRate);
 
@@ -461,16 +469,14 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
     m_pAEProps->get_SampleRate(&dwSampleRate);
     m_pAEProps->set_SampleRate(dwSampleRate);
 
+    // A rate that the list does not have shows as "Same as input", entry 0
     int nSR = 0;
     while (nSR < 3 && dwSampleRate != srRates[nSR * 3 + m_srIdx].dwSampleRate)
     {
         nSR++;
     }
 
-    if (nSR >= 3)
-        nSR = 0;
-
-    SendDlgItemMessage(hwndParent, IDC_COMBO_SAMPLE_RATE, CB_SETCURSEL, nSR, 0);
+    SendDlgItemMessage(hwndParent, IDC_COMBO_SAMPLE_RATE, CB_SETCURSEL, nSR >= 3 ? 0 : nSR + 1, 0);
 
     DWORD dwChannels;
     m_pAEProps->get_SourceChannels(&dwChannels);
@@ -569,6 +575,8 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
 
     SendDlgItemMessage(hwndParent, IDC_COMBO_VBRMIN, CB_RESETCONTENT, 0, 0);
     SendDlgItemMessage(hwndParent, IDC_COMBO_VBRMAX, CB_RESETCONTENT, 0, 0);
+    SendDlgItemMessage(hwndParent, IDC_COMBO_VBRMIN, CB_ADDSTRING, 0, (LPARAM) TEXT("No limit"));
+    SendDlgItemMessage(hwndParent, IDC_COMBO_VBRMAX, CB_ADDSTRING, 0, (LPARAM) TEXT("No limit"));
 
     if (dwSampleRate >= 32000)
     {
@@ -598,17 +606,20 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
     // BitRateValue() is in ascending order
     // We use this fact. We also know there are 14 bitrate values available.
     // We are going to use the closest possible, so we can limit loop with 13
+    // Entry 0 is "No limit", the bitrates follow it
     while (nVariableMinSel<13 && BitRateValue(nST, nVariableMinSel) < dwMin)
         nVariableMinSel++;
-    SendDlgItemMessage(hwndParent, IDC_COMBO_VBRMIN, CB_SETCURSEL, nVariableMinSel, 0);
+    SendDlgItemMessage(hwndParent, IDC_COMBO_VBRMIN, CB_SETCURSEL,
+                       dwMin == VBR_BITRATE_NO_LIMIT ? 0 : nVariableMinSel + 1, 0);
 
     while (nVariableMaxSel<13 && BitRateValue(nST, nVariableMaxSel) < dwMax)
         nVariableMaxSel++;
-    SendDlgItemMessage(hwndParent, IDC_COMBO_VBRMAX, CB_SETCURSEL, nVariableMaxSel, 0);
+    SendDlgItemMessage(hwndParent, IDC_COMBO_VBRMAX, CB_SETCURSEL,
+                       dwMax == VBR_BITRATE_NO_LIMIT ? 0 : nVariableMaxSel + 1, 0);
 
     
     // check if the specified bitrate is found exactly and correct if not
-    if (BitRateValue(nST, nVariableMinSel) != dwMin)
+    if (dwMin != VBR_BITRATE_NO_LIMIT && BitRateValue(nST, nVariableMinSel) != dwMin)
     {
         dwMin = BitRateValue(nST, nVariableMinSel);
         // we can change it, because it is independent of any other parameters
@@ -617,7 +628,7 @@ void CMpegAudEncPropertyPage::InitPropertiesDialog(HWND hwndParent)
     }
 
     // check if the specified bitrate is found exactly and correct if not
-    if (BitRateValue(nST, nVariableMaxSel) != dwMax)
+    if (dwMax != VBR_BITRATE_NO_LIMIT && BitRateValue(nST, nVariableMaxSel) != dwMax)
     {
         dwMax = BitRateValue(nST, nVariableMaxSel);
         // we can change it, because it is independent of any other parameters
