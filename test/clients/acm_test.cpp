@@ -776,6 +776,78 @@ test_config_dialog_result(const char *driver)
 }
 
 /**
+ * @brief Checks that opening and cancelling the configuration dialog keeps the
+ *        saved settings.
+ *
+ * The file names its configuration "Current" and holds the ABR range 96 to
+ * 192 kbps in steps of 32. After each of three openings, each closed with
+ * Cancel, the file still names "Current" and the codec still reads that range.
+ *
+ * @param driver  the path of the built codec.
+ */
+static void
+test_config_dialog_keeps_the_settings(const char *driver)
+{
+    /* Openings; and room for the settings file. */
+    enum { OPENINGS = 3, FILE_CHARS = 4096 };
+    /* Often enough that the dialog closes soon after it opens. */
+    const UINT TIMER_MS = 200;
+    HMODULE codec;
+    int i, named = 0, kept = 0;
+
+    printf("the configuration dialog keeps the saved settings\n");
+    if (!write_raw_config("<lame_acm>\n    <encodings default=\"Current\">\n        <config name=\"Current\">\n"
+                          "            <ABR use=\"true\" min=\"96\" max=\"192\" step=\"32\" />\n"
+                          "        </config>\n    </encodings>\n</lame_acm>\n")) {
+        CHECK(0, "the configuration file could be written");
+        return;
+    }
+    codec = ::LoadLibraryExA(driver, NULL, LOAD_LIBRARY_AS_DATAFILE);
+    if (codec == NULL) {
+        CHECK(0, "the codec's resources load");
+        ::DeleteFileA(CONFIG_NAME);
+        return;
+    }
+    for (i = 0; i < OPENINGS; i++) {
+        char saved[FILE_CHARS];
+        size_t n = 0;
+        UINT_PTR timer;
+        FILE *f;
+
+        {
+            AEncodeProperties props(NULL);
+
+            props.ParamsRestore();
+            config_dialog_button = IDCANCEL;
+            config_dialog_found = 0;
+            timer = ::SetTimer(NULL, 0, TIMER_MS, close_config_dialog);
+            (void) props.Config(codec, NULL);
+            ::KillTimer(NULL, timer);
+        }
+        f = fopen(CONFIG_NAME, "rb");
+        if (f != NULL) {
+            n = fread(saved, 1, sizeof saved - 1, f);
+            fclose(f);
+        }
+        saved[n] = '\0';
+        if (config_dialog_found && strstr(saved, "<encodings default=\"Current\"") != NULL)
+            named++;
+        {
+            AEncodeProperties reread(NULL);
+
+            reread.ParamsRestore();
+            if (reread.GetAbrOutputMode() && reread.GetAbrBitrateMin() == 96 && reread.GetAbrBitrateMax() == 192
+                && reread.GetAbrBitrateStep() == 32)
+                kept++;
+        }
+    }
+    CHECK_EQ_U(named, OPENINGS, "after each opening the file still names the configuration \"Current\"");
+    CHECK_EQ_U(kept, OPENINGS, "after each opening the codec still reads the saved ABR range");
+    ::FreeLibrary(codec);
+    ::DeleteFileA(CONFIG_NAME);
+}
+
+/**
  * @brief Asserts that a multimedia call returned MMSYSERR_NOERROR. The detail
  *        line shows the result.
  */
@@ -3094,6 +3166,69 @@ test_settings_on_start(const char *driver)
 }
 
 /**
+ * @brief Checks that the codec reads a settings file that appears after a
+ *        load of it failed.
+ *
+ * The file is deleted and a stream is encoded without it, so the codec's load
+ * of the file fails. Then the file says CRC off, on and on again, and the same
+ * tone is encoded each time: the two settings give different streams only if
+ * the codec reads the file again.
+ *
+ * @param driver the path of the codec.
+ */
+static void
+test_settings_after_a_failed_load(const char *driver)
+{
+    static const char *const settings[] = {
+        "            <CRC use=\"false\" />\n",
+        "            <CRC use=\"true\" />\n",
+        "            <CRC use=\"true\" />\n",
+    };
+    HMODULE mod = LoadLibraryA(driver);
+    FARPROC proc = (mod != NULL) ? GetProcAddress(mod, "DriverProc") : NULL;
+    HACMDRIVERID hadid = NULL;
+    HACMDRIVER had = NULL;
+    std::vector<short> src(LIFETIME_FRAMES * LIFETIME_CHANNELS);
+    std::vector<BYTE> without, out[3];
+    MPEGLAYER3WAVEFORMAT mp3;
+    char detail[CTEST_DETAIL_CHARS];
+    DWORD i;
+    int encoded = 0, first = 0;
+
+    printf("the settings file after a load of it failed\n");
+    for (i = 0; i < LIFETIME_FRAMES; i++) {
+        short v = ctest_tone(i, LIFETIME_RATE, TONE_HZ, TONE_AMPLITUDE);
+        src[LIFETIME_CHANNELS * i] = v;
+        src[LIFETIME_CHANNELS * i + 1] = v;
+    }
+    fill_mp3_format(&mp3, LIFETIME_RATE, LIFETIME_CHANNELS, 128000);
+    ::DeleteFileA(codec_config);
+    if (proc != NULL
+        && acmDriverAdd(&hadid, (HINSTANCE) mod, (LPARAM) proc, 0, ACM_DRIVERADDF_FUNCTION) == MMSYSERR_NOERROR
+        && acmDriverOpen(&had, hadid, 0) == MMSYSERR_NOERROR) {
+        first = encode_whole_as(had, &mp3, &src[0], LIFETIME_FRAMES, &without);
+        for (i = 0; i < 3; i++) {
+            if (write_settings(settings[i]) && encode_whole_as(had, &mp3, &src[0], LIFETIME_FRAMES, &out[i]))
+                encoded++;
+        }
+    }
+    if (had != NULL) {
+        acmDriverClose(had, 0);
+    }
+    if (hadid != NULL) {
+        acmDriverRemove(hadid, 0);
+    }
+    if (mod != NULL) {
+        FreeLibrary(mod);
+    }
+    ::DeleteFileA(codec_config);
+    sprintf(detail, "without the file %s; %d of 3 encoded; %u, %u and %u bytes", first ? "encoded" : "failed",
+            encoded, (unsigned) out[0].size(), (unsigned) out[1].size(), (unsigned) out[2].size());
+    ctest_record(first && encoded == 3 && out[0] != out[1] && out[1] == out[2],
+                 "a settings file written after a failed load reaches the encoder", detail);
+}
+
+/**
  * @brief Checks that the defaults, the bit reservoir setting, the forced Mono
  *        setting and Smart Output reach the encoder.
  *
@@ -3264,6 +3399,7 @@ test_settings_reach_the_encoder(const char *driver)
     }
 
     test_settings_on_start(driver);
+    test_settings_after_a_failed_load(driver);
 
     ::DeleteFileA(config);
     if (saved != NULL) {
@@ -3690,6 +3826,7 @@ main(int argc, char **argv)
         test_settings_reach_the_encoder(driver);
         test_config_dialog_version(driver);
         test_config_dialog_result(driver);
+        test_config_dialog_keeps_the_settings(driver);
         /* LAME reports why it rejects the 50 Hz to 8000 Hz stream of
            test_settings_reach_the_encoder(). */
         ctest_stderr_empty(&codec_stderr, "the codec writes nothing to the stderr of its host");

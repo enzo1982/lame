@@ -581,6 +581,9 @@ AEncodeProperties::AEncodeProperties(HMODULE hModule)
 */
 TiXmlElement * AEncodeProperties::LoadEncodings()
 {
+	// TinyXML keeps the error of a load that failed, and LoadFile() reports it
+	// again for a file that loads; this load starts without it
+	my_stored_data.ClearError();
 	if (!my_stored_data.LoadFile(my_store_location))
 		return NULL;
 
@@ -811,7 +814,7 @@ void AEncodeProperties::GetValuesFromKey(const std::string & config_name, const 
 	}
 }
 
-void AEncodeProperties::SelectSavedParams(const std::string & the_string)
+void AEncodeProperties::SelectSavedParams(const std::string the_string)
 {
 	// get the values from the saved file if possible
 	TiXmlElement* CurrentNode = LoadEncodings();

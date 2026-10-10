@@ -254,8 +254,12 @@ public:
 
 	/**
 		\brief Makes the configuration with the given name the default.
+
+		\param config_name the name. It is a copy: the function reloads the
+		       settings file, which frees the strings of the document that the
+		       caller read the name from.
 	*/
-	void SelectSavedParams(const std::string & config_name);
+	void SelectSavedParams(const std::string config_name);
 	/**
 		\brief Saves the current settings under the given configuration name.
 	*/
