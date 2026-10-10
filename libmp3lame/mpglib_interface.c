@@ -492,7 +492,7 @@ hip_decode1_unclipped(hip_t hip, LAME_UNUSED unsigned char *buffer, LAME_UNUSED 
             NULL, NULL, NULL, 1 );
 #endif
     }
-    return 0; /* not -1 ? */
+    return -1;
 }
 
 /*! Decode at most one frame, and report what the frame header said. */
