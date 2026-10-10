@@ -136,6 +136,33 @@ free_global_data(lame_internal_flags * gfc)
 }
 
 
+/*! Release what a failed \c lame_init_params() built. */
+/*!
+  \internal
+  The next \c lame_init_params() then builds the psychoacoustic tables, the
+  quantizer tables, the bitstream buffer and the decoder again, for its own
+  settings. The ID3 tag data and the buffers of \c lame_init() stay.
+
+  \param gfc the internal flags of the encoder instance.
+*/
+void
+free_init_state(lame_internal_flags * const gfc)
+{
+    free_global_data(gfc);
+    gfc->iteration_init_init = 0;
+    if (gfc->bs.buf != NULL) {
+        free(gfc->bs.buf);
+        gfc->bs.buf = NULL;
+    }
+#ifdef HAVE_MPG123
+    if (gfc->hip) {
+        hip_decode_exit(gfc->hip);
+        gfc->hip = 0;
+    }
+#endif
+}
+
+
 void
 freegfc(lame_internal_flags * const gfc)
 {                       /* bit stream structure */

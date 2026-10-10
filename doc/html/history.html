@@ -595,6 +595,11 @@
 			        <i>lame_set_debugf()</i>.</li>
 			    <li><i>lame_set_preset()</i> returns -1 for a value that is
 			        no preset, and changes nothing.</li>
+			    <li>A program that calls <i>lame_init_params()</i> again
+			        after it failed gets the same encoder as a new
+			        instance. The failed call no longer changes the
+			        program's settings, and the second call no longer
+			        keeps tables of the first one.</li>
 			</ul>
 		    </li>
 		    <li><b>Windows components</b>

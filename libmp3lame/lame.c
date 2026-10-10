@@ -519,6 +519,8 @@ lowest_usable_free_format_bitrate(SessionConfig_t const *const cfg)
  *  lame_init_qval(gfp);
  *
  ********************************************************************/
+static int init_params(lame_global_flags * gfp);
+
 /*! Validate the settings and prepare the encoder for use. */
 /*!
   \ingroup api_encoding
@@ -543,27 +545,62 @@ lowest_usable_free_format_bitrate(SessionConfig_t const *const cfg)
   \retval -1 the settings cannot be used: the input sample rate, the output
              sample rate or the number of channels makes no sense, a buffer
              could not be allocated, or the instance was already initialized.
-             The instance stays valid after a failure. Release it with
+             The instance stays valid after a failure, and its settings are
+             as they were before the call. The caller can change them and call
+             this function again, or release the instance with
              \c lame_close().
 */
 int
 lame_init_params(lame_global_flags * gfp)
 {
-
-    int     i;
-    int     j;
     lame_internal_flags *gfc;
-    SessionConfig_t *cfg;
+    lame_global_flags settings;
+    SessionConfig_t config;
+    int     ret;
 
-    if (!is_lame_global_flags_valid(gfp)) 
+    if (!is_lame_global_flags_valid(gfp))
         return -1;
 
     gfc = gfp->internal_flags;
-    if (gfc == 0) 
+    if (gfc == 0)
         return -1;
 
     if (is_lame_internal_flags_valid(gfc))
         return -1; /* already initialized */
+
+    /* lame_set_preset() writes some of the session configuration as well */
+    settings = *gfp;
+    config = gfc->cfg;
+    ret = init_params(gfp);
+    if (ret != 0) {
+        *gfp = settings;
+        gfc->cfg = config;
+        free_init_state(gfc);
+    }
+    return ret;
+}
+
+/*! The body of \c lame_init_params(), for an instance that is not
+    initialized yet. */
+/*!
+  \internal
+  It computes the session configuration from the caller's settings and writes
+  the values it settled on back into them. It builds the tables and buffers
+  of the encoder.
+
+  \param gfp the encoder instance. Its internal flags exist.
+  \return 0 on success. -1 if the settings cannot be used or a buffer could
+          not be allocated; the settings and the tables may then be changed
+          in part.
+*/
+static int
+init_params(lame_global_flags * gfp)
+{
+
+    int     i;
+    int     j;
+    lame_internal_flags *const gfc = gfp->internal_flags;
+    SessionConfig_t *cfg;
 
     /* start updating lame internal flags */
     gfc->class_id = LAME_ID;

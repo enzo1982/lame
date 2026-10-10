@@ -650,6 +650,7 @@ extern  "C" {
 *
 ***********************************************************************/
     void    freegfc(lame_internal_flags * const gfc);
+    void    free_init_state(lame_internal_flags * const gfc);
     void    free_id3tag(lame_internal_flags * const gfc);
     extern int BitrateIndex(int, int, int);
     extern int FindNearestBitrate(int, int, int);
