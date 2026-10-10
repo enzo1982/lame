@@ -261,6 +261,10 @@ test_decoder_init_fail_OBJECTS = $(am_test_decoder_init_fail_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@test_decoder_init_fail_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+test_decoder_init_fail_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(AM_CFLAGS) $(CFLAGS) $(test_decoder_init_fail_LDFLAGS) \
+	$(LDFLAGS) -o $@
 am__test_encode_api_SOURCES_DIST = test_encode_api.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_encode_api_OBJECTS = test_encode_api-test_encode_api.$(OBJEXT)
 test_encode_api_OBJECTS = $(am_test_encode_api_OBJECTS)
@@ -382,6 +386,10 @@ test_id3tag_alloc_OBJECTS = $(am_test_id3tag_alloc_OBJECTS)
 @ENABLE_UNIT_TESTS_TRUE@test_id3tag_alloc_DEPENDENCIES =  \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
+test_id3tag_alloc_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(AM_CFLAGS) $(CFLAGS) $(test_id3tag_alloc_LDFLAGS) $(LDFLAGS) \
+	-o $@
 am__test_lib_info_SOURCES_DIST = test_lib_info.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_lib_info_OBJECTS =  \
 @ENABLE_UNIT_TESTS_TRUE@	test_lib_info-test_lib_info.$(OBJEXT)
@@ -1213,26 +1221,30 @@ SH_LOG_COMPILER = $(SHELL)
 
 
 # The allocation test compiles id3tag.c in, with a calloc() that fails on
-# request, and takes the rest of the library from libmp3lame.
+# request, and takes the rest of the library from the static archive: id3tag.c
+# calls internal functions that the shared library does not export.
 @ENABLE_UNIT_TESTS_TRUE@test_id3tag_alloc_SOURCES = test_id3tag_alloc.c
 @ENABLE_UNIT_TESTS_TRUE@test_id3tag_alloc_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
 
+@ENABLE_UNIT_TESTS_TRUE@test_id3tag_alloc_LDFLAGS = -static
 @ENABLE_UNIT_TESTS_TRUE@test_id3tag_alloc_LDADD = $(CMOCKA_LIBS) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
 
 # The decoder start test compiles lame.c in, with a hip_decode_init() that
-# fails on request, and takes the rest of the library from libmp3lame.
+# fails on request, and takes the rest of the library from the static archive:
+# lame.c calls internal functions that the shared library does not export.
 @ENABLE_UNIT_TESTS_TRUE@test_decoder_init_fail_SOURCES = test_decoder_init_fail.c
 @ENABLE_UNIT_TESTS_TRUE@test_decoder_init_fail_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
 
+@ENABLE_UNIT_TESTS_TRUE@test_decoder_init_fail_LDFLAGS = -static
 @ENABLE_UNIT_TESTS_TRUE@test_decoder_init_fail_LDADD = $(CMOCKA_LIBS) \
 @ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
 @ENABLE_UNIT_TESTS_TRUE@	-lm
@@ -1700,7 +1712,7 @@ test_decoder_api$(EXEEXT): $(test_decoder_api_OBJECTS) $(test_decoder_api_DEPEND
 
 test_decoder_init_fail$(EXEEXT): $(test_decoder_init_fail_OBJECTS) $(test_decoder_init_fail_DEPENDENCIES) $(EXTRA_test_decoder_init_fail_DEPENDENCIES) 
 	@rm -f test_decoder_init_fail$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(test_decoder_init_fail_OBJECTS) $(test_decoder_init_fail_LDADD) $(LIBS)
+	$(AM_V_CCLD)$(test_decoder_init_fail_LINK) $(test_decoder_init_fail_OBJECTS) $(test_decoder_init_fail_LDADD) $(LIBS)
 
 test_encode_api$(EXEEXT): $(test_encode_api_OBJECTS) $(test_encode_api_DEPENDENCIES) $(EXTRA_test_encode_api_DEPENDENCIES) 
 	@rm -f test_encode_api$(EXEEXT)
@@ -1769,7 +1781,7 @@ test_id3tag$(EXEEXT): $(test_id3tag_OBJECTS) $(test_id3tag_DEPENDENCIES) $(EXTRA
 
 test_id3tag_alloc$(EXEEXT): $(test_id3tag_alloc_OBJECTS) $(test_id3tag_alloc_DEPENDENCIES) $(EXTRA_test_id3tag_alloc_DEPENDENCIES) 
 	@rm -f test_id3tag_alloc$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(test_id3tag_alloc_OBJECTS) $(test_id3tag_alloc_LDADD) $(LIBS)
+	$(AM_V_CCLD)$(test_id3tag_alloc_LINK) $(test_id3tag_alloc_OBJECTS) $(test_id3tag_alloc_LDADD) $(LIBS)
 
 test_lib_info$(EXEEXT): $(test_lib_info_OBJECTS) $(test_lib_info_DEPENDENCIES) $(EXTRA_test_lib_info_DEPENDENCIES) 
 	@rm -f test_lib_info$(EXEEXT)

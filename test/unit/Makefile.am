@@ -224,23 +224,27 @@ test_id3tag_LDADD = $(CMOCKA_LIBS) \
 	-lm
 
 # The allocation test compiles id3tag.c in, with a calloc() that fails on
-# request, and takes the rest of the library from libmp3lame.
+# request, and takes the rest of the library from the static archive: id3tag.c
+# calls internal functions that the shared library does not export.
 test_id3tag_alloc_SOURCES = test_id3tag_alloc.c
 test_id3tag_alloc_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
+test_id3tag_alloc_LDFLAGS = -static
 test_id3tag_alloc_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 
 # The decoder start test compiles lame.c in, with a hip_decode_init() that
-# fails on request, and takes the rest of the library from libmp3lame.
+# fails on request, and takes the rest of the library from the static archive:
+# lame.c calls internal functions that the shared library does not export.
 test_decoder_init_fail_SOURCES = test_decoder_init_fail.c
 test_decoder_init_fail_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
+test_decoder_init_fail_LDFLAGS = -static
 test_decoder_init_fail_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
