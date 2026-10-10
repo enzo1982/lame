@@ -610,74 +610,44 @@
 			        user can see could not be opened by name. Patch by
 			        Maya R. Odinezenko, patch ticket
 			        <i class="ticket">[ #104 ]</i>.</li>
-			    <li>The Windows ACM codec and the DirectShow filter
-			        build again with a current Visual Studio, and both
-			        link the static runtime, so neither needs a
-			        redistributable installed in order to load.</li>
-			    <li>The Windows ACM codec derives the output sample
-			        rate for smart output mode from the compression
-			        ratio as computed rather than rounded down, so
-			        48&nbsp;kHz stereo at 112&nbsp;kbps, 48&nbsp;kHz mono
-			        at 56&nbsp;kbps and 24&nbsp;kHz stereo at
-			        56&nbsp;kbps resample the way that mode intends. A
-			        smart output ratio configured with a fractional part
-			        is kept as configured.</li>
-			    <li>The Windows ACM codec suggests a well-formed MP3
-			        format when an application asks it what to encode
-			        a PCM stream to, and describes a format handed to
-			        it in the wording its own format list uses, so an
-			        application listing the codec no longer shows a
-			        nameless 16-bit entry for it. Bug ticket
-			        <i class="ticket">[ #362 ]</i>.</li>
-			    <li>The ACM codec offers no MP3 format for PCM input
-			        whose sample rate MP3 does not support.</li>
-			    <li>If the ACM codec's configuration file holds an ABR
-			        range the codec cannot list, the codec uses its default
-			        ABR range.</li>
-			    <li>With an ABR minimum smaller than the ABR step, the ACM
-			        codec and its configuration dialog no longer loop
-			        without end.</li>
-			    <li>The configuration dialog of the ACM codec has a
-			        <i>Bit reservoir</i> switch. When it is off, every
-			        frame contains all of its own data.</li>
-			    <li>Without its configuration file, the ACM codec
-			        encodes stereo input as joint stereo.</li>
-			    <li>The configuration dialog of the ACM codec offers
-			        <i>Mono</i> as a channel mode, and a <i>Force mode</i>
-			        switch. With both, the codec encodes stereo input as
-			        mono.</li>
-			    <li>When smart output mode picks a lower sample rate, the
-			        ACM codec resamples the input to that rate.</li>
-			    <li>The ACM codec encodes all buffers of a stream into one
-			        MP3 stream that includes the end of the audio, and it no
-			        longer leaks memory for each buffer an application
-			        prepares. Opening a stream fails when LAME rejects its
-			        settings.</li>
-			    <li>The ACM codec no longer frees memory that belongs to an
-			        application that only asked whether it can do a
-			        conversion. It no longer drops the partial sample at the
-			        end of a source buffer, or the end of the audio when the
-			        buffer for it is too small: such a conversion converts
-			        nothing and can be repeated with a larger buffer. An
-			        application can ask how much input fits into an output
-			        buffer.</li>
-			    <li>Programs that encode through DirectShow's ACM Wrapper
-			        get the whole input encoded by the ACM codec, for every
-			        format the codec offers there.</li>
-			    <li>A program that builds its own MP3 format gets CBR at the
-			        bitrate it sets, whatever padding mode it names. An ABR
-			        format saved from the codec's list of an earlier version
-			        opens as CBR; choose it again from the list.</li>
-			    <li>Programs that list the ACM codec's format tags get the
-			        right index for each tag, and asking for the tag with
-			        the largest format no longer fails.</li>
-			    <li>The ACM codec no longer offers to decode MP3, which it
-			        cannot do, so Windows can pick another codec for MP3
-			        input.</li>
-			    <li>The ACM codec, <i>lame_enc.dll</i> and the DirectShow
-			        filter no longer write LAME's messages into the standard
-			        error of the program that uses them; the messages go to
-			        the debug output.</li>
+			    <li>The settings of the Windows ACM codec and of the
+			        DirectShow filter are easier to use. The codec's
+			        dialog has two tabs: one for the formats it offers to
+			        programs, one for how it encodes them. Both follow the
+			        font and text size of the desktop, work from the
+			        keyboard, and give the same settings the same names.</li>
+			    <li>New in the ACM codec: VBR formats, the choice of which
+			        kinds of format (CBR, ABR, VBR) programs see, the
+			        encoding quality, limits for the VBR bitrate, and the
+			        advanced settings of the DirectShow filter. New in the
+			        DirectShow filter: average bitrate (ABR), the private
+			        bit, and turning the bit reservoir off, also for
+			        programs through the new interface
+			        <i>IAudioEncoderProperties2</i>. Without saved settings
+			        both start with LAME's own defaults, and both encode
+			        VBR as the lame program does.</li>
+			    <li>Many fixes make the ACM codec and the DirectShow filter
+			        more reliable. They build with a current Visual Studio
+			        and need no runtime installed. They work with more
+			        programs, among them DirectShow's ACM Wrapper and
+			        programs that bring the codec along instead of
+			        installing it. They no longer lose audio at the end of
+			        a stream or after a seek, no longer crash, hang or leak
+			        memory on unusual requests, keep their settings, and no
+			        longer write messages into the program's error output.
+			        Their file version shows the LAME version. They no
+			        longer offer dual channel, which LAME does not
+			        implement. Settings
+			        and filter graphs saved by an earlier version still
+			        load; an ABR format that a program saved from the
+			        codec's list, and the codec's channel mode, may have
+			        to be chosen again. Bug tickets
+			        <i class="ticket">[ #362 ]</i>, <i class="ticket">[ #416 ]</i>,
+			        <i class="ticket">[ #424 ]</i> and
+			        <i class="ticket">[ #511 ]</i> (reported by Julio Jose).</li>
+			    <li><i>lame_enc.dll</i> no longer writes LAME's messages
+			        into the standard error of the program that uses it;
+			        the messages go to the debug output.</li>
 			    <li><i>lame_enc.dll</i> rejects a stream that asks for a
 			        VBR method it does not support.</li>
 			    <li>When LAME rejects a setting, such as an output sample
@@ -694,50 +664,6 @@
 			        below 8 kbit/s at 8 kbit/s and one above 320 kbit/s at
 			        320 kbit/s, as the ABR preset does, instead of at 128
 			        kbit/s.</li>
-			    <li>The Windows ACM codec and the DirectShow filter
-			        carry the LAME version as their file version, and
-			        the codec reports it as its driver version, so the
-			        installed version can be read off either file. Bug
-			        ticket <i class="ticket">[ #416 ]</i>.</li>
-			    <li>The DirectShow filter's output pin answers
-			        interface requests through the pin class it is
-			        built on, so seeking works again when the filter
-			        is part of a graph. Reported by Julio Jose, bug
-			        ticket <i class="ticket">[ #511 ]</i>.</li>
-			    <li>An application can ask the DirectShow filter which
-			        output formats it supports without crashing it,
-			        whether or not the filter's output is connected at
-			        the time. Reported by an anonymous user, bug ticket
-			        <i class="ticket">[ #424 ]</i>.</li>
-			    <li>The DirectShow filter's "Keep all frequencies"
-			        setting encodes without the lowpass and highpass
-			        filters.</li>
-			    <li>When its output sample rate is set to 0, the
-			        DirectShow filter connects and uses the input sample
-			        rate for its output.</li>
-			    <li>The DirectShow filter does not start if LAME rejects
-			        its settings.</li>
-			    <li>The DirectShow filter pads the end of a stream with
-			        zeros when the next filter requires aligned buffers. It
-			        refuses to connect if that alignment is larger than its
-			        buffer.</li>
-			    <li>The DirectShow filter stops encoding when the next
-			        filter rejects a sample, and returns the error to the
-			        filter before it.</li>
-			    <li>When the DirectShow filter gets no buffer for its
-			        output, it no longer drops that audio and goes on; it
-			        stops encoding and returns the error to the filter
-			        before it.</li>
-			    <li>After a seek or another flush of the graph, the
-			        DirectShow filter no longer delivers MP3 data from
-			        before the flush. It begins a new MP3 stream with the
-			        data after it, also after the end of the stream.</li>
-			    <li>MP3 frames that the DirectShow filter gives a muxer or a
-			        player no longer start with a broken frame or lose the
-			        last samples. The filter delivers the first frame as
-			        preroll and the last frame too.</li>
-			    <li>The DirectShow filter no longer leaks a registry handle
-			        each time it saves its settings.</li>
 			    <li>The Visual Studio build has been brought up to
 			        date: the solutions and project files agree with
 			        each other and with the autotools build; the nmake
