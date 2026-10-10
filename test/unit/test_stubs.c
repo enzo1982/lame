@@ -5,8 +5,8 @@
  *
  * @c get_audio.c uses frontend globals and helpers that are defined in other
  * files: @c parse.c, @c main.c, @c console.c and @c lametime.c. This file
- * defines minimal stand-ins for them. The AIFF, WAVE and floating point reader
- * tests link this file. The console stand-ins print nothing.
+ * defines minimal stand-ins for them. The AIFF, WAVE, floating point and cut
+ * input reader tests link this file. The console stand-ins print nothing.
  *
  * The file stays small because the tests compile @c get_audio.c with
  * @c HAVE_MPG123 undefined. The large mpg123 and mpglib code paths are then not

@@ -306,6 +306,8 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
 
     if (dp != 0)
         decoder_progress_finish(dp);
+    if (input_ends_inside_a_frame())
+        return -1;
     return 0;
 
   write_failure:
@@ -827,6 +829,8 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
     if (frontend_config.ui_config.silent <= 0) {
         print_trailing_info(gf);
     }
+    if (input_ends_inside_a_frame())
+        return ENCODE_INPUT_FAILED;
     return 0;
 }
 

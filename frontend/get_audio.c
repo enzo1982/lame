@@ -507,6 +507,7 @@ typedef struct get_audio_global_data_struct {
     int     pcm_is_ieee_float;
     unsigned long num_samples_read;
     unsigned long num_samples_above_full_scale;
+    int     input_ends_inside_a_frame;
     FILE   *music_in;
     SNDFILE *snd_file;
     hip_t     hip;
@@ -752,6 +753,7 @@ init_infile(lame_t gfp, char const *inPath)
     global. count_samples_carefully = 0;
     global. num_samples_read = 0;
     global. num_samples_above_full_scale = 0;
+    global. input_ends_inside_a_frame = 0;
     global. pcmbitwidth = frontend_config.raw_pcm.in_bitwidth;
     global. pcmswapbytes = frontend_config.reader.swapbytes;
     global. pcm_is_unsigned_8bit = frontend_config.raw_pcm.in_signed == 1 ? 0 : 1;
@@ -824,6 +826,21 @@ unsigned long
 samples_above_full_scale(void)
 {
     return global.num_samples_above_full_scale;
+}
+
+/**
+ * @internal
+ * @brief Tells whether the input file ended inside a sample frame.
+ *
+ * The samples of that last frame are not encoded. The result covers the part
+ * of the file that was read so far, and is 0 again for each new input file.
+ *
+ * @return 1 if the input ended inside a frame, else 0.
+ */
+int
+input_ends_inside_a_frame(void)
+{
+    return global.input_ends_inside_a_frame;
 }
 
 /**
@@ -1085,6 +1102,32 @@ note: exactly one of the three is given; a floating point file is read into
 /** @internal @brief Keeps the top 16 bits of an int sample, for DEINTERLEAVE(). */
 #define INT_TO_16BIT(x)     ((x) >> (8 * sizeof(int) - 16))
 
+/**
+ * @internal
+ * @brief Returns the number of samples of a read that make up whole frames.
+ *
+ * A read returns fewer samples than it asked for only at the end of the input.
+ * When that number is not a multiple of the channel count, the input ends
+ * inside a frame. The samples of that frame are left out, and an error
+ * message says so once. The encoding then ends with the last whole frame.
+ *
+ * @param samples_read  the number of samples that the read returned.
+ * @param num_channels  the number of channels of the input.
+ * @return the number of samples in whole frames.
+ */
+static int
+whole_frame_samples(int samples_read, int num_channels)
+{
+    int const partial = samples_read % num_channels;
+
+    if (partial != 0 && !global.input_ends_inside_a_frame) {
+        global.input_ends_inside_a_frame = 1;
+        reader_error("Error: the input ends inside a sample frame. The samples of that frame\n"
+                     "       are not encoded.\n");
+    }
+    return samples_read - partial;
+}
+
 static int
 get_audio_common(lame_t gfp, int buffer[2][FRAME_BUFFER_SAMPLES],
                  short buffer16[2][FRAME_BUFFER_SAMPLES], float bufferf[2][FRAME_BUFFER_SAMPLES])
@@ -1177,6 +1220,7 @@ get_audio_common(lame_t gfp, int buffer[2][FRAME_BUFFER_SAMPLES],
         if (samples_read < 0) {
             return samples_read;
         }
+        samples_read = whole_frame_samples(samples_read, num_channels);
         q = fsamp + samples_read;
         if (bufferf == NULL) {
             /* --decode writes 16 bit PCM, and a sample that is not a finite
@@ -1211,6 +1255,7 @@ get_audio_common(lame_t gfp, int buffer[2][FRAME_BUFFER_SAMPLES],
         if (samples_read < 0) {
             return samples_read;
         }
+        samples_read = whole_frame_samples(samples_read, num_channels);
         p = insamp + samples_read;
         samples_read /= num_channels;
         if (buffer != NULL)

@@ -53,6 +53,7 @@ int     init_infile(lame_t gfp, char const * inPath);
 int     samples_to_skip_at_start(void);
 int     samples_to_skip_at_end(void);
 unsigned long samples_above_full_scale(void);
+int     input_ends_inside_a_frame(void);
 int     input_is_float(void);
 void    close_infile(void);
 int     get_audio(lame_t gfp, int buffer[2][FRAME_BUFFER_SAMPLES]);

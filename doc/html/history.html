@@ -309,6 +309,12 @@
 			        file.</li>
 			    <li><i>--decode</i> writes the correct data size into
 			        the header of a WAV file larger than 2&nbsp;GiB.</li>
+			    <li>LAME now reports corrupt input. When an input file
+			        ends partway through a sample frame (the samples of
+			        all channels for one moment), LAME encodes the audio
+			        before that point, finishes the MP3 file and exits
+			        with an error. The channels at the end of such a file
+			        are no longer swapped.</li>
 			</ul>
 		    </li>
 		    <li><b>Tags and metadata</b>

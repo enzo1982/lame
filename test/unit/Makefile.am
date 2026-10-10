@@ -20,7 +20,8 @@ SH_LOG_COMPILER = $(SHELL)
 if ENABLE_UNIT_TESTS
 
 check_PROGRAMS = test_sanity test_get_audio_aiff test_get_audio_wav \
-	test_get_audio_float test_parse_pathlen test_encode_error_text test_classify_suffix \
+	test_get_audio_float test_get_audio_truncated \
+	test_parse_pathlen test_encode_error_text test_classify_suffix \
 	test_merge_argv \
 	test_id3tag test_id3tag_alloc test_parse_id3 test_encode_nonfinite \
 	test_encode_mono_interleaved \
@@ -149,6 +150,18 @@ test_get_audio_float_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_get_audio_float_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	$(SNDFILE_LIBS)
+
+# An input that ends inside a sample frame, through both readers: the same
+# arrangement as the floating point reader's test.
+test_get_audio_truncated_SOURCES = test_get_audio_truncated.c test_stubs.c
+test_get_audio_truncated_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/frontend \
+	-I$(top_srcdir)/libmp3lame \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_get_audio_truncated_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	$(SNDFILE_LIBS)
 
