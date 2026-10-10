@@ -2268,7 +2268,8 @@ id3tag_set_fieldvalue_utf8(lame_t gfp, const char *fieldvalue)
   \ingroup api_tags
   Builds the tag as it would be written to the file. A caller that turned off
   the automatic tag writing with \c lame_set_write_id3tag_automatic() uses it
-  to get the bytes and write them itself.
+  to get the bytes and write them itself. Call it after
+  \c lame_init_params().
 
   Call it once with a buffer that is too small, for example with a size of 0,
   to get the size. Then call it again with a buffer of that size. **Only a

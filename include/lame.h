@@ -29,9 +29,11 @@
  *  Nothing else in the source tree is part of the interface, and no other
  *  header is installed.
  *
- *  The functions below appear in the order a program uses them: create an
- *  encoder, describe the input and choose the encoding parameters, call
- *  lame_init_params(), then feed audio and collect MP3 frames.
+ *  A program creates an encoder, sets the parameters and the tag fields,
+ *  calls lame_init_params() once, then feeds audio and collects MP3 frames.
+ *  Functions that report on the encode need lame_init_params() first. A call
+ *  outside this order is a programming error: the library may stop with an
+ *  assertion, and promises nothing else.
  */
 
 
@@ -219,8 +221,8 @@ typedef lame_global_flags *lame_t;
 /***********************************************************************
  *
  *  The LAME API
- *  These functions should be called, in this order, for each
- *  MP3 file to be encoded.  See the file "API" for more documentation
+ *  Call lame_init_params() once for each encoder instance, after all
+ *  settings.  See the file "API" for more documentation
  *
  ***********************************************************************/
 
@@ -240,13 +242,18 @@ int CDECL lame_init_old(lame_global_flags *);
 
 /*
  * OPTIONAL:
- * set as needed to override defaults
+ * set as needed to override defaults.
+ * Set these before lame_init_params(). A call after it has no defined effect.
+ * Before lame_init_params(), a getter returns the value that was set. After
+ * it, the getter returns the value the encoder uses.
  */
 
 /********************************************************************
  *  input stream description
  ***********************************************************************/
-/* number of samples.  default = 2^32-1   */
+/* number of samples.  default = 2^32-1
+   Set it before lame_init_params(). The ID3v2 tag and
+   lame_get_totalframes() use it. */
 int CDECL lame_set_num_samples(lame_global_flags *, unsigned long);
 unsigned long CDECL lame_get_num_samples(const lame_global_flags *);
 
@@ -390,7 +397,8 @@ int CDECL lame_set_findPeakSample(lame_global_flags *, int);
 int CDECL lame_get_findPeakSample(const lame_global_flags *);
 #endif
 
-/* counters for gapless encoding */
+/* counters for gapless encoding. These can also be set after
+   lame_init_params(). Set them before the LAME tag of the file is written. */
 int CDECL lame_set_nogap_total(lame_global_flags*, int);
 int CDECL lame_get_nogap_total(const lame_global_flags*);
 
@@ -434,7 +442,8 @@ int CDECL lame_get_asm_optimizations( const lame_global_flags*  gfp, int );
  * This replaces lame_set_asm_optimizations() and lame_get_asm_optimizations().
  * Each set of routines has a name.  Names are lowercase and name the real
  * instruction set ("sse2", not "sse").  The displayed form is the name in
- * uppercase.
+ * uppercase.  lame_get_vector_routines() returns NULL before
+ * lame_init_params().
  */
 int CDECL lame_get_num_vector_routines(void);
 const char* CDECL lame_get_vector_routines_name(int index);
@@ -645,8 +654,11 @@ int CDECL lame_get_emphasis(const lame_global_flags *);
 /************************************************************************/
 /* internal variables, cannot be set...                                 */
 /* provided because they may be of use to calling application           */
+/* Call these after lame_init_params(). Before it, they return 0.       */
 /************************************************************************/
-/* version  0=MPEG-2  1=MPEG-1  (2=MPEG-2.5)     */
+/* version  0=MPEG-2  1=MPEG-1  (2=MPEG-2.5)
+   Before lame_init_params() it returns 0, which is also the value for
+   MPEG-2. */
 int CDECL lame_get_version(const lame_global_flags *);
 
 /* encoder delay   */
@@ -678,7 +690,8 @@ int CDECL lame_get_frameNum(const lame_global_flags *);
 
 /*
   LAME's estimate of the total number of frames to be encoded.
-  Valid only if the program set num_samples.
+  Valid only after lame_init_params(), and only if the program set
+  num_samples.
 */
 int CDECL lame_get_totalframes(const lame_global_flags *);
 
@@ -703,7 +716,8 @@ int CDECL lame_get_noclipGainChange(const lame_global_flags *);
 float CDECL lame_get_noclipScale(const lame_global_flags *);
 
 /* returns the largest number of PCM samples that one encode call can take,
-   so that the output fits into a buffer of buffer_size bytes */
+   so that the output fits into a buffer of buffer_size bytes.
+   Call it after lame_init_params(). Before it, it returns -1. */
 int CDECL lame_get_maximum_number_of_samples(lame_t gfp, size_t buffer_size);
 
 
@@ -714,6 +728,9 @@ int CDECL lame_get_maximum_number_of_samples(lame_t gfp, size_t buffer_size);
  * REQUIRED:
  * checks the settings and prepares the encoder.
  * returns -1 if something failed.
+ * Call it once, after the settings and before the first encode call. A
+ * second call after a success returns -1. After a failure the settings are
+ * as they were, and it can be called again.
  */
 int CDECL lame_init_params(lame_global_flags *);
 
@@ -759,7 +776,8 @@ void CDECL get_lame_version_numerical(lame_version_t *);
 
 /*
  * OPTIONAL:
- * print the LAME configuration through the message function
+ * print the LAME configuration through the message function.
+ * Call them after lame_init_params(). Before it, they print nothing.
  */
 void CDECL lame_print_config(const lame_global_flags*  gfp);
 
@@ -1000,8 +1018,8 @@ int CDECL lame_encode_buffer_interleaved_int(
  * It also writes the ID3v1 tag into the stream, if there is one.
  *
  * return code = number of bytes written to mp3buf. Can be 0.  -1 when
- * mp3buf is too small for them, or NULL.  LAME_INTERNALERROR as for
- * lame_encode_buffer().
+ * mp3buf is too small for them, or NULL.  -3 if lame_init_params() was not
+ * called.  LAME_INTERNALERROR as for lame_encode_buffer().
  */
 int CDECL lame_encode_flush(
         lame_global_flags *  gfp,    /* encoder instance                      */
@@ -1026,8 +1044,8 @@ int CDECL lame_encode_flush(
  * This function does NOT write an ID3v1 tag into the stream.
  *
  * return code = number of bytes written to mp3buf. Can be 0.  -1 when
- * mp3buf is too small for them, or NULL.  LAME_INTERNALERROR as for
- * lame_encode_buffer().
+ * mp3buf is too small for them, or NULL.  -3 if lame_init_params() was not
+ * called.  LAME_INTERNALERROR as for lame_encode_buffer().
  */
 int CDECL lame_encode_flush_nogap(
         lame_global_flags *  gfp,    /* encoder instance                      */
@@ -1039,7 +1057,7 @@ int CDECL lame_encode_flush_nogap(
  * Normally, lame_init_params() calls this.  It writes the ID3v2 tag and the
  * LAME tag frame at the start of the stream, and sets the frame counters and
  * the bitrate histogram to 0.  You can also call this after
- * lame_encode_flush_nogap().
+ * lame_encode_flush_nogap().  Call it only after lame_init_params().
  */
 int CDECL lame_init_bitstream(
         lame_global_flags *  gfp);    /* encoder instance                      */
@@ -1058,6 +1076,7 @@ int CDECL lame_init_bitstream(
  *
  * attention: call them before lame_close()
  * suggested: lame_encode_flush -> lame_*_hist -> lame_close
+ * Before lame_init_params(), they do not write the arrays.
  */
 
 void CDECL lame_bitrate_hist(
@@ -1347,6 +1366,10 @@ void CDECL id3tag_genre_list(
         void (*handler)(int, const char *, void *),
         void*  cookie);
 
+/* Set the tag fields before lame_init_params(). A program that writes the
+ * tags itself (lame_set_write_id3tag_automatic(gfp, 0)) can also change them
+ * after lame_init_params(): lame_get_id3v2_tag() and lame_get_id3v1_tag()
+ * return the tag with the fields as they are at that call. */
 void CDECL id3tag_init     (lame_t gfp);
 
 /* always add a version 2 tag */
@@ -1407,13 +1430,14 @@ size_t CDECL lame_get_id3v1_tag(lame_t gfp, unsigned char* buffer, size_t size);
  * if 'size' is too small.  A return value larger than 'size' means failure.
  * NOTE:
  * This function does nothing if the user or LAME turned the ID3v2 tag off.
+ * Call it after lame_init_params().
  */
 size_t CDECL lame_get_id3v2_tag(lame_t gfp, unsigned char* buffer, size_t size);
 
 /* By default, lame_init_params() writes the ID3v2 tag into the MP3 stream.
  * To write the tag yourself, call lame_set_write_id3tag_automatic(gfp, 0)
- * before lame_init_params().  Then get the tag with lame_get_id3v2_tag()
- * and write it to your file.
+ * before lame_init_params().  After lame_init_params(), get the tag with
+ * lame_get_id3v2_tag() and write it to your file.
  */
 void CDECL lame_set_write_id3tag_automatic(lame_global_flags * gfp, int);
 int CDECL lame_get_write_id3tag_automatic(lame_global_flags const* gfp);

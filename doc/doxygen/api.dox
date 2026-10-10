@@ -7,10 +7,18 @@ that LAME installs. Nothing else in the source tree is part of the interface,
 and nothing else has a stability or ABI guarantee.
 
 The sections below are in the order a program uses them: create an encoder,
-choose the encoding parameters, then pass in audio and collect MP3 frames.
-Set up the tags before the first frame is encoded. Read the statistics at the
+choose the encoding parameters and the tag fields, call lame_init_params()
+once, then pass in audio and collect MP3 frames. Read the statistics at the
 end, before the encoder is released. The decoder does not depend on any of
 this.
+
+**This order is the contract.** The settings and the tag fields belong before
+lame_init_params(); @ref api_tags says when the tag fields may change later.
+The functions that report on the encode belong after it:
+the encoding and the flush, the print functions, the statistics, the getters
+of values that the encoder computes, lame_init_bitstream() and
+lame_get_id3v2_tag(). A call outside this order is a programming error. The
+library may stop with an assertion, and promises nothing else.
 */
 
 /**
@@ -24,7 +32,9 @@ the final configuration.
 
 The order of calls is: lame_init(), then any number of the functions in
 @ref api_settings, then lame_init_params(). lame_init_params() checks whether
-the combination of settings is usable. Audio goes in through one of the
+the combination of settings is usable. Call it once per instance. After a
+failure the settings are as they were before the call, and the caller can
+change them and call it again. Audio goes in through one of the
 lame_encode_buffer() functions. lame_encode_flush() returns the last frames.
 lame_close() releases the encoder instance.
 */
@@ -43,10 +53,19 @@ These rules apply to every function in this group:
 - a setter returns 0 on success. It returns -1 if it rejects the value or if
   the instance is not usable. A setter that returns other values lists them
   on its own page.
+- **set them before lame_init_params().** A setter called after it has no
+  defined effect. lame_set_num_samples() and the two nogap counters are the
+  exceptions; their pages say when they may be set.
+- **a getter returns the value that was set** until lame_init_params(), and
+  the value the encoder uses after it: lame_init_params() writes the values it
+  settled on back into the settings.
 - **a getter cannot report an error.** If the instance is not usable, the
   getter returns 0. For most settings, 0 is also a valid value, so the caller
   cannot tell the two cases apart. Check the instance before you call a
   getter.
+- the getters of values that the encoder computes (the frame size, the
+  encoder delay, the ReplayGain values and the others that cannot be set) need
+  lame_init_params() first. Before it they return 0, -1 or NULL.
 */
 
 /**
@@ -61,8 +80,14 @@ request.
 
 These rules apply to every function in this group:
 
-- **set all of this first**, before lame_init_params(). lame_init_params()
+- **set the tag fields first**, before lame_init_params(). lame_init_params()
   builds the ID3v2 tag, and the tag comes before the audio.
+- a program that writes the tags itself
+  (lame_set_write_id3tag_automatic(gfp, 0)) can also change the tag fields
+  after lame_init_params(). lame_get_id3v2_tag() and lame_get_id3v1_tag()
+  return the tag with the fields as they are at that call.
+- **lame_get_id3v2_tag() needs lame_init_params() first.**
+  lame_get_id3v1_tag() can be called at any time.
 - id3tag_init() and the functions after it choose which tags are written. By
   default LAME writes an ID3v1 tag. It also writes an ID3v2 tag as soon as a
   field is set that ID3v1 cannot hold.
@@ -90,8 +115,9 @@ These rules apply to every function in this group:
   Releasing the instance also releases the counts.
 - **lame_init_bitstream() sets them to 0.** lame_init_params() calls it too,
   so the counts describe the current stream, not the whole process.
-- **they cannot report an error.** If the instance is not usable, they write
-  nothing and the caller's array keeps its old contents. So an array that the
+- **they cannot report an error.** If the instance is not usable, or
+  lame_init_params() was not called, they write nothing and the caller's
+  array keeps its old contents. So an array that the
   caller did not initialize looks like a result.
 - **the 14 bitrate slots are the bitrates of the selected MPEG version**, in
   the order of the standard's table. The bitrate field in a frame header has

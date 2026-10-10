@@ -2369,7 +2369,7 @@ lame_encode_flush_nogap(lame_global_flags * gfp, unsigned char *mp3buffer, int m
   \c lame_init_params() already does this, so a caller that encodes one file
   never needs it. It is for the next file: call it after
   \c lame_encode_flush_nogap() to give the next output file its own tags and
-  its own statistics.
+  its own statistics. Call it only after \c lame_init_params().
 
   \param gfp the encoder instance.
   \retval 0  success.
