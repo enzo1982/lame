@@ -385,24 +385,39 @@ static const int MPEG1_FRAME_SAMPLES = 1152;
 static const DWORD HELD_FRAMES_MPEG1 = 5;
 /// The same, for the shorter frames of MPEG-2 and MPEG-2.5.
 static const DWORD HELD_FRAMES_MPEG2 = 6;
+/// How far back the bit reservoir reaches in MPEG-1: the largest
+/// main_data_begin, 9 bits (ISO/IEC 11172-3, 2.4.1.7 and 2.4.2.7).
+static const int RESERVOIR_BYTES_MPEG1 = 511;
+/// The same in MPEG-2 and MPEG-2.5: 8 bits (ISO/IEC 13818-3, 2.4.1.2).
+static const int RESERVOIR_BYTES_MPEG2 = 255;
+/// The index of the lowest bitrate in the tables of lame_get_bitrate().
+static const int LOWEST_BITRATE_INDEX = 1;
 
 /**
 	\brief Takes the bounds of the MP3 stream from the started encoder: the
-	input of one MP3 frame, the largest frame, and the held frames of its
-	MPEG version.
+	input of one MP3 frame, the largest frame, and the held frames.
 
 	The largest frame is one at the highest bitrate of the MP3 stream, its
-	bitrate for CBR, the highest one of ABR, with its padding byte.
+	bitrate for CBR, the highest one of ABR, with its padding byte. The held
+	frames are those of the MPEG version and those that the bit reservoir
+	holds back: LAME returns a frame only once the frames whose main data
+	begin in it are encoded. They are counted in frames of the lowest bitrate
+	the stream can have, its bitrate for CBR, the lowest of the MPEG version
+	otherwise, as silent frames of VBR and ABR can have it.
 */
 void ACMStream::read_bounds()
 {
 	int const frame_samples = lame_get_framesize( gfp );
 	int const kbps = lame_get_VBR( gfp ) == vbr_off
 		? lame_get_brate( gfp ) : lame_get_VBR_max_bitrate_kbps( gfp );
+	int const lowest_kbps = lame_get_VBR( gfp ) == vbr_off
+		? lame_get_brate( gfp ) : lame_get_bitrate( lame_get_version( gfp ), LOWEST_BITRATE_INDEX );
+	int const smallest_frame = frame_samples * lowest_kbps * BYTES_PER_KBPS / lame_get_out_samplerate( gfp );
+	int const reservoir = frame_samples == MPEG1_FRAME_SAMPLES ? RESERVOIR_BYTES_MPEG1 : RESERVOIR_BYTES_MPEG2;
 	DWORD const largest_frame = DWORD(frame_samples * kbps * BYTES_PER_KBPS
 		/ lame_get_out_samplerate( gfp )) + PADDING_BYTES;
-	DWORD const held_frames = frame_samples == MPEG1_FRAME_SAMPLES
-		? HELD_FRAMES_MPEG1 : HELD_FRAMES_MPEG2;
+	DWORD const held_frames = (frame_samples == MPEG1_FRAME_SAMPLES ? HELD_FRAMES_MPEG1 : HELD_FRAMES_MPEG2)
+		+ DWORD((reservoir + smallest_frame - 1) / smallest_frame);
 
 	// A frame holds frame_samples samples of the output rate
 	my_FrameInput = double(frame_samples) * my_SamplesPerSec / lame_get_out_samplerate( gfp );

@@ -2140,42 +2140,36 @@ noise_sample(DWORD *state)
     return (short) (*state >> 16);
 }
 
+/** @brief What check_conversion_sizes() counted. */
+typedef struct {
+    unsigned opened;    /**< the formats that opened */
+    unsigned over;      /**< the conversions that returned more than asked room for */
+    unsigned failed;    /**< the formats whose conversions failed */
+    long least_left;    /**< the smallest room left over, -1 before the first */
+} size_counts;
+
 /**
- * @brief Checks, for every MP3 format the codec offers, that no conversion
- *        returns more than the codec asks room for: in pieces of several
- *        sizes, and at the end of the MP3 stream.
+ * @brief Converts one second of noise to each format, in pieces of several
+ *        sizes and at the end of the MP3 stream, and counts the conversions
+ *        that return more than the codec asks room for.
  *
- * The source is one second of noise at the rate and channels of the format,
- * so that ABR uses large frames. A format that does not open from PCM at its
- * own rate is listed and fails the check. The destination buffer is larger than any
- * size the codec gives, so a conversion that returns more than it asked room for is seen
- * and not cut. The smallest room left over is printed, as a measure of how
- * close the sizes are.
+ * The source is at the rate and channels of the format. Noise, so that ABR
+ * uses large frames. A format that does not open from PCM at its own
+ * rate is listed. The destination buffer is larger than any size the codec
+ * gives, so a conversion that returns more than it asked room for is seen and
+ * not cut.
  *
- * @param had the opened driver
+ * @param had      the opened driver
+ * @param formats  the formats
+ * @param c        receives the counts; set @c least_left to -1 first
  */
 static void
-test_sizes_hold_every_conversion(HACMDRIVER had)
+check_conversion_sizes(HACMDRIVER had, const format_list &formats, size_counts *c)
 {
     static const DWORD piece_frames[] = { 4096, 1, 577, 11025, 2000 };
     enum { PIECE_KINDS = sizeof(piece_frames) / sizeof(piece_frames[0]), MOST_PIECE = 11025 };
-    format_list formats;
-    MPEGLAYER3WAVEFORMAT probe;
-    ACMFORMATDETAILSA fd;
-    unsigned opened = 0, over = 0, failed = 0;
-    long least_left = -1;
-    char detail[CTEST_DETAIL_CHARS];
     size_t f;
 
-    printf("the destination size holds every conversion, for every format\n");
-    memset(&fd, 0, sizeof(fd));
-    fd.cbStruct = sizeof(fd);
-    fd.pwfx = (WAVEFORMATEX *) &probe;
-    fd.cbwfx = sizeof(probe);
-    fd.dwFormatTag = WAVE_FORMAT_MPEGLAYER3;
-    fill_mp3_format(&probe, 44100, 2, 128000);
-    CHECK_MM(acmFormatEnumA(had, &fd, collect_format_cb, (DWORD_PTR) &formats, ACM_FORMATENUMF_WFORMATTAG),
-             "the format list is walked");
     for (f = 0; f < formats.size(); f++) {
         const WORD channels = formats[f].wfx.nChannels;
         const DWORD rate = formats[f].wfx.nSamplesPerSec;
@@ -2200,7 +2194,7 @@ test_sizes_hold_every_conversion(HACMDRIVER had)
                    (unsigned long) formats[f].fdwFlags);
             continue;
         }
-        opened++;
+        c->opened++;
         memset(&hdr, 0, sizeof(hdr));
         hdr.cbStruct = sizeof(hdr);
         hdr.cbSrcLength = (MOST_PIECE + 1) * frame_bytes;
@@ -2233,9 +2227,9 @@ test_sizes_hold_every_conversion(HACMDRIVER had)
                            (unsigned long) rate, channels, (unsigned long) formats[f].wfx.nAvgBytesPerSec,
                            (unsigned long) formats[f].fdwFlags, (unsigned long) hdr.cbDstLengthUsed,
                            (unsigned long) asked, (unsigned long) hdr.cbSrcLength, last ? ", the end" : "");
-                    over++;
-                } else if (least_left < 0 || (long) (asked - hdr.cbDstLengthUsed) < least_left) {
-                    least_left = (long) (asked - hdr.cbDstLengthUsed);
+                    c->over++;
+                } else if (c->least_left < 0 || (long) (asked - hdr.cbDstLengthUsed) < c->least_left) {
+                    c->least_left = (long) (asked - hdr.cbDstLengthUsed);
                 }
                 carry.assign(hdr.pbSrc + hdr.cbSrcLengthUsed, hdr.pbSrc + hdr.cbSrcLength);
             }
@@ -2246,7 +2240,7 @@ test_sizes_hold_every_conversion(HACMDRIVER had)
             }
         }
         if (!ok) {
-            failed++;
+            c->failed++;
         }
         if (hdr.fdwStatus & ACMSTREAMHEADER_STATUSF_PREPARED) {
             acmStreamUnprepareHeader(has, &hdr, 0);
@@ -2255,9 +2249,40 @@ test_sizes_hold_every_conversion(HACMDRIVER had)
         free(hdr.pbDst);
         acmStreamClose(has, 0);
     }
+}
+
+/**
+ * @brief Checks, for every MP3 format the codec offers, that no conversion
+ *        returns more than the codec asks room for: in pieces of several
+ *        sizes, and at the end of the MP3 stream.
+ *
+ * A format that does not open from PCM at its own rate fails the check. The
+ * smallest room left over is printed, as a measure of how close the sizes are.
+ *
+ * @param had the opened driver
+ */
+static void
+test_sizes_hold_every_conversion(HACMDRIVER had)
+{
+    format_list formats;
+    MPEGLAYER3WAVEFORMAT probe;
+    ACMFORMATDETAILSA fd;
+    size_counts c = { 0, 0, 0, -1 };
+    char detail[CTEST_DETAIL_CHARS];
+
+    printf("the destination size holds every conversion, for every format\n");
+    memset(&fd, 0, sizeof(fd));
+    fd.cbStruct = sizeof(fd);
+    fd.pwfx = (WAVEFORMATEX *) &probe;
+    fd.cbwfx = sizeof(probe);
+    fd.dwFormatTag = WAVE_FORMAT_MPEGLAYER3;
+    fill_mp3_format(&probe, 44100, 2, 128000);
+    CHECK_MM(acmFormatEnumA(had, &fd, collect_format_cb, (DWORD_PTR) &formats, ACM_FORMATENUMF_WFORMATTAG),
+             "the format list is walked");
+    check_conversion_sizes(had, formats, &c);
     sprintf(detail, "%u of %u formats opened, %u failed, %u conversions beyond their size, %ld bytes left at least",
-            opened, (unsigned) formats.size(), failed, over, least_left);
-    ctest_record(opened > 0 && opened == formats.size() && failed == 0 && over == 0,
+            c.opened, (unsigned) formats.size(), c.failed, c.over, c.least_left);
+    ctest_record(c.opened > 0 && c.opened == formats.size() && c.failed == 0 && c.over == 0,
                  "no conversion of any format returns more than the codec asked room for", detail);
 }
 
@@ -2428,6 +2453,54 @@ test_close_after_query(void)
     if (!driver_deleted) {
         delete before;
     }
+}
+
+static int write_settings(const char *elements);
+
+/**
+ * @brief Checks the conversion sizes of CBR formats at low bitrates and high
+ *        sample rates, whose frames are the smallest.
+ *
+ * The bit reservoir reaches back up to 511 bytes in MPEG-1, which is several
+ * of these frames: LAME holds them back until the frames whose data begin in
+ * them are encoded, so the end of the stream returns them too. The formats are
+ * built here, 32 to 56 kbit/s at 32, 44.1 and 48 kHz with one and two
+ * channels; Smart encoding, which would leave them out, is off.
+ *
+ * @param had the opened driver
+ */
+static void
+test_low_bitrate_sizes_hold(HACMDRIVER had)
+{
+    static const DWORD rates[] = { 48000, 44100, 32000 };
+    static const DWORD kbps[] = { 32, 40, 48, 56 };
+    format_list formats;
+    size_counts c = { 0, 0, 0, -1 };
+    char detail[CTEST_DETAIL_CHARS];
+    size_t r, b;
+    WORD ch;
+
+    printf("the destination size holds every conversion of low-bitrate CBR formats\n");
+    if (!write_settings("            <Smart use=\"false\" />\n")) {
+        CHECK(0, "the settings file could be written");
+        return;
+    }
+    for (r = 0; r < sizeof(rates) / sizeof(rates[0]); r++) {
+        for (b = 0; b < sizeof(kbps) / sizeof(kbps[0]); b++) {
+            for (ch = 1; ch <= 2; ch++) {
+                MPEGLAYER3WAVEFORMAT mp3;
+                fill_mp3_format(&mp3, rates[r], ch, kbps[b] * MP3_BITS_PER_KBIT);
+                mp3.fdwFlags = ACM_FLAGS_CBR;
+                formats.push_back(mp3);
+            }
+        }
+    }
+    check_conversion_sizes(had, formats, &c);
+    ::DeleteFileA(codec_config);
+    sprintf(detail, "%u of %u formats opened, %u failed, %u conversions beyond their size, %ld bytes left at least",
+            c.opened, (unsigned) formats.size(), c.failed, c.over, c.least_left);
+    ctest_record(c.opened == formats.size() && c.failed == 0 && c.over == 0,
+                 "no conversion of a low-bitrate CBR format returns more than the codec asked room for", detail);
 }
 
 /**
@@ -2700,6 +2773,7 @@ test_under_the_acm(const char *driver)
     test_sizes_hold_every_conversion(had);
     test_padding_modes_are_cbr(had);
     test_partial_sample_frame(had);
+    test_low_bitrate_sizes_hold(had);
 
 out:
     free(src);
