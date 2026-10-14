@@ -1331,10 +1331,7 @@ VBR_encode_granule(lame_internal_flags * gfc, gr_info * const cod_info, const FL
  *
  *  Robert Hegemann 2000-09-05
  *
- *  calculates
- *  * how many bits are available for analog silent granules
- *  * how many bits to use for the lowest allowed bitrate
- *  * how many bits each bitrate would provide
+ *  calculates how many bits each bitrate would provide
  *
  ************************************************************************/
 
@@ -1345,16 +1342,7 @@ get_framebits(lame_internal_flags * gfc, int frameBits[15])
     EncResult_t *const eov = &gfc->ov_enc;
     int     bitsPerFrame, i;
 
-    /*  always use at least this many bits per granule per channel
-     *  unless we detect analog silence, see below
-     */
-    eov->bitrate_index = cfg->vbr_min_bitrate_index;
-    bitsPerFrame = getframebits(gfc);
-
-    /*  bits for analog silence
-     */
     eov->bitrate_index = 1;
-    bitsPerFrame = getframebits(gfc);
 
     for (i = 1; i <= cfg->vbr_max_bitrate_index; i++) {
         eov->bitrate_index = i;
@@ -1447,9 +1435,10 @@ VBR_old_prepare(lame_internal_flags * gfc,
     int     gr, ch;
     int     analog_silence = 1;
     int     avg, mxb, bits = 0;
+    int     mean_bits;
 
     eov->bitrate_index = cfg->vbr_max_bitrate_index;
-    avg = ResvFrameBegin(gfc, &avg) / cfg->mode_gr;
+    avg = ResvFrameBegin(gfc, &mean_bits) / cfg->mode_gr;
 
     get_framebits(gfc, frameBits);
 
@@ -1850,7 +1839,6 @@ calc_target_bits(lame_internal_flags * gfc,
                 int     add_bits = bits_in_range((pe[gr][ch] - 700) / 1.4, 0, mean_bits * 3 / 2);
 
                 gr_info const *const cod_info = &l3_side->tt[gr][ch];
-                targ_bits[gr][ch] = res_factor * mean_bits;
 
                 /* short blocks use a little extra, no matter what the pe */
                 if (cod_info->block_type == SHORT_TYPE) {

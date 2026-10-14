@@ -891,12 +891,6 @@ calc_noise(gr_info const *const cod_info,
         }
         *distort++ = distort_;
 
-        if (prev_noise) {
-            /* save noise values */
-            prev_noise->global_gain = cod_info->global_gain;;
-        }
-
-
         /*tot_noise *= Max(noise, 1E-20); */
         tot_noise_db += noise;
 
@@ -913,6 +907,9 @@ calc_noise(gr_info const *const cod_info,
         }
         max_noise = Max(max_noise, noise);
 
+    }
+    if (prev_noise) {
+        prev_noise->global_gain = cod_info->global_gain;
     }
 
     res->over_count = over;
