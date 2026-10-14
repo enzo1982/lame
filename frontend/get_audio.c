@@ -1529,6 +1529,10 @@ open_snd_file(audio_reader * reader, lame_t gfp, char const *inPath)
 #else
         gs_pSndFileIn = sf_open(lpszFileName, SFM_READ, &gs_wfInfo);
 #endif
+        if (gs_pSndFileIn != NULL && frontend_config.reader.swapbytes) {
+            reader_error("WARNING: libsndfile takes the byte order from the file's header;\n"
+                         "-x applies only to raw input (-r)\n");
+        }
 
         /* Only a caller who asked for headerless PCM gets it. libsndfile
            cannot recognise raw input, so -r is the only thing that can say

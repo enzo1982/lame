@@ -1989,6 +1989,8 @@
         swap bytes in the input file (and output file when using --decode).
         For sorting out little endian/big endian type problems.  If your
         encodings sound like static, try this first.
+        A LAME built with libsndfile swaps the bytes of raw input (-r) only;
+        for a file with a header, such as WAV or AIFF, it ignores -x.
     </p>
     <p class="settingtitle">
         <a name="Y"><span class="hilight">-Y</span></a> Ignore noise in sbf21, like CBR mode does

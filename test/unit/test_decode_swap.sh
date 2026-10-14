@@ -13,7 +13,10 @@
 # swapped samples are not finite numbers, and lame stops with an error.
 #
 # The control makes the result meaningful: when encoding, -x still swaps the
-# input, so the MP3 of -x differs from the one without it.
+# input, so the MP3 of -x differs from the one without it. The control's input
+# is raw PCM, because a LAME built with libsndfile swaps only raw input. Such a
+# build warns when -x meets a file with a header, and the default build does
+# not: the last check reads which build this is from config.h.
 
 set -u
 
@@ -103,14 +106,37 @@ for arm in "s16 $SRC" "f32 $WORK/in.f32.wav"; do
     fi
 done
 
-# control: when encoding, -x swaps the input
-run "$WORK/plain.mp3" "$SRC"
+# control: when encoding raw input, -x swaps it
+dd if="$SRC" of="$WORK/in.raw" bs=44 skip=1 2>/dev/null
+test -s "$WORK/in.raw" || die "cannot write the raw input"
+run "$WORK/plain.mp3" -r -s 44.1 "$WORK/in.raw"
 plain=$status
-run "$WORK/x.mp3" -x "$SRC"
+run "$WORK/x.mp3" -r -s 44.1 -x "$WORK/in.raw"
 if test "$plain" -eq 0 && test "$status" -eq 0 && ! cmp -s "$WORK/plain.mp3" "$WORK/x.mp3"; then
-    ok "control: when encoding, -x changes the MP3"
+    ok "control: when encoding raw input, -x changes the MP3"
 else
     bad "control: encoding exited $plain, with -x $status, or -x did not change the MP3"
+fi
+
+# a libsndfile build warns that -x does not reach a WAV input; the default
+# build swaps it and says nothing
+run "$WORK/wav.x.mp3" -x "$SRC"
+if grep -q '^#define LIBSNDFILE 1' "$abs_top_builddir/config.h"; then
+    build=libsndfile
+    want=yes
+else
+    build=default
+    want=no
+fi
+if grep -q -- "-x applies only to raw input" "$WORK/err.txt"; then
+    got=yes
+else
+    got=no
+fi
+if test "$status" -eq 0 && test "$got" = "$want"; then
+    ok "$build build: the warning for -x on a WAV input is printed: $got"
+else
+    bad "$build build: encoding with -x exited $status; warning printed: $got, expected: $want"
 fi
 
 exit $rc

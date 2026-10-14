@@ -30,6 +30,10 @@ Might not be available on your release.
 .B \-x
 Swap bytes in the input file (or output file when using
 .B \-\-decode).
+A LAME built with libsndfile swaps the bytes of raw input
+.RB ( \-r )
+only; for a file with a header, such as WAV or AIFF, it ignores
+.BR \-x .
 .br
 For sorting out little endian/big endian type problems.
 If your encodings sounds like static,
