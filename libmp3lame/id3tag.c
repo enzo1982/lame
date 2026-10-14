@@ -1901,6 +1901,35 @@ sizeOfString(FrameString const *s, int terminated)
     return (s->dim + (terminated ? 1 : 0)) * unit;
 }
 
+/**
+ * \internal
+ * \brief The layouts of the frames LAME writes from a FrameDataNode.
+ */
+enum frame_kind {
+    FRAME_KIND_TEXT,    /**< a text frame */
+    FRAME_KIND_COMMENT, /**< COMM or USER: with a language */
+    FRAME_KIND_URL      /**< a W... frame: the URL in Latin-1 */
+};
+
+/**
+ * \internal
+ * \brief Returns the layout of a frame, for the size and the writing alike.
+ *
+ * \param node  the frame.
+ * \return its layout.
+ */
+static enum frame_kind
+frame_kind(FrameDataNode const *node)
+{
+    if (node->fid == ID_COMMENT || node->fid == ID_USER) {
+        return FRAME_KIND_COMMENT;
+    }
+    if (isFrameIdMatching(node->fid, FRAME_ID('W',0,0,0))) {
+        return FRAME_KIND_URL;
+    }
+    return FRAME_KIND_TEXT;
+}
+
 static  size_t
 sizeOfNode(FrameDataNode const *node)
 {
@@ -1947,6 +1976,9 @@ sizeOfWxxxNode(FrameDataNode const *node)
                 n += node->txt.dim;
                 break;
             case ID3V2_ENC_UCS2:
+                /* the setters keep UCS-2 text with its BOM, which
+                   writeLoBytes() drops */
+                assert(hasUcs2ByteOrderMarker(node->txt.ptr.u[0]));
                 n += node->txt.dim - 1; /* UCS2 -> Latin1, skip BOM */
                 break;
             }
@@ -2347,14 +2379,17 @@ lame_get_id3v2_tag(lame_t gfp, unsigned char *buffer, size_t size)
                 if (tag->v2_head != 0) {
                     FrameDataNode *node;
                     for (node = tag->v2_head; node != 0; node = node->nxt) {
-                        if (node->fid == ID_COMMENT || node->fid == ID_USER) {
+                        switch (frame_kind(node)) {
+                        case FRAME_KIND_COMMENT:
                             tag_size += sizeOfCommentNode(node);
-                        }
-                        else if (isFrameIdMatching(node->fid, FRAME_ID('W',0,0,0))) {
+                            break;
+                        case FRAME_KIND_URL:
                             tag_size += sizeOfWxxxNode(node);
-                        }
-                        else {
+                            break;
+                        case FRAME_KIND_TEXT:
+                        default:
                             tag_size += sizeOfNode(node);
+                            break;
                         }
                     }
                 }
@@ -2417,14 +2452,17 @@ lame_get_id3v2_tag(lame_t gfp, unsigned char *buffer, size_t size)
                 if (tag->v2_head != 0) {
                     FrameDataNode *node;
                     for (node = tag->v2_head; node != 0; node = node->nxt) {
-                        if (node->fid == ID_COMMENT || node->fid == ID_USER) {
+                        switch (frame_kind(node)) {
+                        case FRAME_KIND_COMMENT:
                             p = set_frame_comment(p, node, synchsafe);
-                        }
-                        else if (isFrameIdMatching(node->fid,FRAME_ID('W',0,0,0))) {
+                            break;
+                        case FRAME_KIND_URL:
                             p = set_frame_wxxx(p, node, synchsafe);
-                        }
-                        else {
+                            break;
+                        case FRAME_KIND_TEXT:
+                        default:
                             p = set_frame_custom2(p, node, synchsafe);
+                            break;
                         }
                     }
                 }
