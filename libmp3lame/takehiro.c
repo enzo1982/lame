@@ -383,9 +383,9 @@ quantize_xrpow(const FLOAT * xp, int *pi, FLOAT istep, gr_info const *const cod_
     prev_data_use = (prev_noise && (cod_info->global_gain == prev_noise->global_gain));
 
     if (cod_info->block_type == SHORT_TYPE)
-        sfbmax = 38;
+        sfbmax = SFBMAX - 1;
     else
-        sfbmax = 21;
+        sfbmax = SBMAX_l - 1;
 
     for (sfb = 0; sfb <= sfbmax; sfb++) {
         int     step = -1;
