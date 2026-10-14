@@ -228,7 +228,7 @@ init_outer_loop(lame_internal_flags const *gfc, gr_info * const cod_info)
     cod_info->part2_3_length = 0;
     cod_info->big_values = 0;
     cod_info->count1 = 0;
-    cod_info->global_gain = 210;
+    cod_info->global_gain = GLOBAL_GAIN_UNITY;
     cod_info->scalefac_compress = 0;
     /* mixed_block_flag, block_type was set in psymodel.c */
     cod_info->table_select[0] = 0;
@@ -404,16 +404,16 @@ bin_search_StepSize(lame_internal_flags * const gfc, gr_info * const cod_info,
             cod_info->global_gain = 0;
             flag_GoneOver = 1;
         }
-        if (cod_info->global_gain > 255) {
-            cod_info->global_gain = 255;
+        if (cod_info->global_gain > GLOBAL_GAIN_MAX) {
+            cod_info->global_gain = GLOBAL_GAIN_MAX;
             flag_GoneOver = 1;
         }
     }
 
     assert(cod_info->global_gain >= 0);
-    assert(cod_info->global_gain < 256);
+    assert(cod_info->global_gain <= GLOBAL_GAIN_MAX);
 
-    while (nBits > desired_rate && cod_info->global_gain < 255) {
+    while (nBits > desired_rate && cod_info->global_gain < GLOBAL_GAIN_MAX) {
         cod_info->global_gain++;
         nBits = count_bits(gfc, xrpow, cod_info, 0);
     }
@@ -903,7 +903,7 @@ inc_subblock_gain(const lame_internal_flags * const gfc, gr_info * const cod_inf
                    value. The intent is s * 2^(scalefac_scale + 1); expressing it
                    as a multiply by a power of two is defined and value-identical
                    (the small negative s cannot overflow). */
-                int const gain = 210 + s * (1 << (cod_info->scalefac_scale + 1));
+                int const gain = GLOBAL_GAIN_UNITY + s * (1 << (cod_info->scalefac_scale + 1));
                 amp = IPOW20(gain);
             }
             j += width * (window + 1);
@@ -912,7 +912,7 @@ inc_subblock_gain(const lame_internal_flags * const gfc, gr_info * const cod_inf
         }
 
         {
-            FLOAT const amp = IPOW20(202);
+            FLOAT const amp = IPOW20(GLOBAL_GAIN_UNITY - 8); /* one subblock gain step */
             j += cod_info->width[sfb] * (window + 1);
             amp_band(xrpow + j - cod_info->width[sfb], cod_info->width[sfb], amp,
                      &cod_info->xrpow_max);
@@ -1051,7 +1051,7 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
         do {
             calc_noise_result noise_info;
             int     search_limit;
-            int     maxggain = 255;
+            int     maxggain = GLOBAL_GAIN_MAX;
 
             /* When quantization with no distorted bands is found,
              * allow up to X new unsuccesful tries in serial. This
@@ -1088,7 +1088,7 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
             if (balance_noise(gfc, &cod_info_w, distort, xrpow, bRefine) == 0)
                 break;
             if (cod_info_w.scalefac_scale)
-                maxggain = 254;
+                maxggain = GLOBAL_GAIN_MAX - 1; /* global_gain + scalefac_scale stays <= GLOBAL_GAIN_MAX */
 
             /* inner_loop starts with the initial quantization step computed above
              * and slowly increases until the bits < huff_bits.
@@ -1160,7 +1160,7 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
                 }
             }
         }
-        while ((cod_info_w.global_gain + cod_info_w.scalefac_scale) < 255);
+        while ((cod_info_w.global_gain + cod_info_w.scalefac_scale) < GLOBAL_GAIN_MAX);
 
         if (cfg->noise_shaping_amp == 3) {
             if (!bRefine) {
@@ -1183,7 +1183,7 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
         }
     }
 
-    assert((cod_info->global_gain + cod_info->scalefac_scale) <= 255);
+    assert((cod_info->global_gain + cod_info->scalefac_scale) <= GLOBAL_GAIN_MAX);
     /*  finish up
      */
     if (cfg->vbr == vbr_rh || cfg->vbr == vbr_mtrh || cfg->vbr == vbr_mt)

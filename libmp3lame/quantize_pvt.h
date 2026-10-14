@@ -65,6 +65,19 @@
  */
 #define SWITCHED_REGION0_COUNT 7
 
+/**
+ * \internal
+ * \brief The global gain whose quantizer step is 1.0. The tables that
+ * POW20() and IPOW20() read are centred on it.
+ */
+#define GLOBAL_GAIN_UNITY 210
+
+/**
+ * \internal
+ * \brief The largest global gain, an 8-bit field of the side information.
+ */
+#define GLOBAL_GAIN_MAX 255
+
 
 extern const int nr_of_sfb_block[6][3][4];
 extern const int pretab[SBMAX_l];

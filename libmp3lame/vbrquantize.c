@@ -352,7 +352,7 @@ static int
 calc_scalefac(FLOAT l3_xmin, int bw)
 {
     FLOAT const c = 5.799142446; /* 10 * 10^(2/3) * log10(4/3) */
-    return 210 + (int) (c * log10f(l3_xmin / bw) - .5f);
+    return GLOBAL_GAIN_UNITY + (int) (c * log10f(l3_xmin / bw) - .5f);
 }
 
 static uint8_t
@@ -361,7 +361,7 @@ guess_scalefac_x34(LAME_UNUSED const FLOAT * xr, LAME_UNUSED const FLOAT * xr34,
 {
     int const guess = calc_scalefac(l3_xmin, bw);
     if (guess < sf_min) return sf_min;
-    if (guess >= 255) return 255;
+    if (guess >= GLOBAL_GAIN_MAX) return GLOBAL_GAIN_MAX;
     return guess;
 }
 
@@ -837,8 +837,8 @@ short_block_constrain(const algo_t * that, const int vbrsf[SFBMAX],
     if (cod_info->global_gain < 0) {
         cod_info->global_gain = 0;
     }
-    else if (cod_info->global_gain > 255) {
-        cod_info->global_gain = 255;
+    else if (cod_info->global_gain > GLOBAL_GAIN_MAX) {
+        cod_info->global_gain = GLOBAL_GAIN_MAX;
     }
     {
         int     sf_temp[SFBMAX];
@@ -978,8 +978,8 @@ long_block_constrain(const algo_t * that, const int vbrsf[SFBMAX], const int vbr
     if (cod_info->global_gain < 0) {
         cod_info->global_gain = 0;
     }
-    else if (cod_info->global_gain > 255) {
-        cod_info->global_gain = 255;
+    else if (cod_info->global_gain > GLOBAL_GAIN_MAX) {
+        cod_info->global_gain = GLOBAL_GAIN_MAX;
     }
     {
         int     sf_temp[SFBMAX];
@@ -1045,8 +1045,8 @@ tryGlobalStepsize(const algo_t * that, const int sfwork[SFBMAX],
         if (gain < vbrsfmin[i]) {
             gain = vbrsfmin[i];
         }
-        if (gain > 255) {
-            gain = 255;
+        if (gain > GLOBAL_GAIN_MAX) {
+            gain = GLOBAL_GAIN_MAX;
         }
         if (vbrmax < gain) {
             vbrmax = gain;
@@ -1098,15 +1098,15 @@ sfDepth(const int sfwork[SFBMAX])
     int     m = 0;
     unsigned int i, j;
     for (j = SFBMAX, i = 0; j > 0; --j, ++i) {
-        int const di = 255 - sfwork[i];
+        int const di = GLOBAL_GAIN_MAX - sfwork[i];
         if (m < di) {
             m = di;
         }
         assert(sfwork[i] >= 0);
-        assert(sfwork[i] <= 255);
+        assert(sfwork[i] <= GLOBAL_GAIN_MAX);
     }
     assert(m >= 0);
-    assert(m <= 255);
+    assert(m <= GLOBAL_GAIN_MAX);
     return m;
 }
 
@@ -1138,8 +1138,8 @@ flattenDistribution(const int sfwork[SFBMAX], const int vbrsfmin[SFBMAX],
                 x = vbrsfmin[i];
             }
             else {
-                if (x > 255) {
-                    x = 255;
+                if (x > GLOBAL_GAIN_MAX) {
+                    x = GLOBAL_GAIN_MAX;
                 }
             }
             sf_out[i] = x;
@@ -1237,7 +1237,7 @@ outOfBitsStrategy(algo_t const* that, const int sfwork[SFBMAX], const int vbrsfm
     if (bisect_flatten(that, sfwork, vbrsfmin, wrk, dm, p, FLATTEN_DEPTH, 0, dm, target)) {
         return;
     }
-    if (bisect_flatten(that, sfwork, vbrsfmin, wrk, dm, p, FLATTEN_GAIN, p, 255, target)) {
+    if (bisect_flatten(that, sfwork, vbrsfmin, wrk, dm, p, FLATTEN_GAIN, p, GLOBAL_GAIN_MAX, target)) {
         return;
     }
 

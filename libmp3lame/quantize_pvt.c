@@ -356,9 +356,9 @@ iteration_init(lame_internal_flags * gfc)
         adj43[i] = 0.5;
 #endif
         for (i = 0; i < Q_MAX; i++)
-            ipow20[i] = pow(2.0, (double) (i - 210) * -0.1875);
+            ipow20[i] = pow(2.0, (double) (i - GLOBAL_GAIN_UNITY) * -0.1875);
         for (i = 0; i <= Q_MAX + Q_MAX2; i++)
-            pow20[i] = pow(2.0, (double) (i - 210 - Q_MAX2) * 0.25);
+            pow20[i] = pow(2.0, (double) (i - GLOBAL_GAIN_UNITY - Q_MAX2) * 0.25);
 
         huffman_init(gfc);
         init_xrpow_core_init(gfc);
