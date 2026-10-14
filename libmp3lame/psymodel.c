@@ -2060,6 +2060,89 @@ snr_between(FLOAT bval, FLOAT snr_a, FLOAT snr_b, FLOAT bvl_a, FLOAT bvl_b)
 
 /**
  * \internal
+ * \brief Sets the history the model keeps from granule to granule to its start.
+ *
+ * \param psv  the model's state.
+ */
+static void
+init_psy_history(PsyStateVar_t * psv)
+{
+    int     i, j, sb;
+
+    psv->blocktype_old[0] = psv->blocktype_old[1] = NORM_TYPE; /* the vbr header is long blocks */
+
+    for (i = 0; i < 4; ++i) {
+        for (j = 0; j < CBANDS; ++j) {
+            psv->nb_l1[i][j] = 1e20;
+            psv->nb_l2[i][j] = 1e20;
+            psv->nb_s1[i][j] = psv->nb_s2[i][j] = 1.0;
+        }
+        for (sb = 0; sb < SBMAX_l; sb++) {
+            psv->en[i].l[sb] = 1e20;
+            psv->thm[i].l[sb] = 1e20;
+        }
+        for (j = 0; j < 3; ++j) {
+            for (sb = 0; sb < SBMAX_s; sb++) {
+                psv->en[i].s[sb][j] = 1e20;
+                psv->thm[i].s[sb][j] = 1e20;
+            }
+        }
+        psv->last_attacks[i] = 0;
+        for (j = 0; j < 9; j++)
+            psv->last_en_subshort[i][j] = 10.;
+    }
+
+
+    /* init. for loudness approx. -jd 2001 mar 27 */
+    psv->loudness_sq_save[0] = psv->loudness_sq_save[1] = 0.0;
+}
+
+
+/**
+ * \internal
+ * \brief Sets the attack thresholds: the caller's, or the defaults.
+ *
+ * \param gd   the model's constants.
+ * \param gfp  the settings; a negative threshold there means the default.
+ */
+static void
+init_attack_thresholds(PsyConst_t * gd, lame_global_flags const *gfp)
+{
+    float   x = gfp->attackthre;
+    float   y = gfp->attackthre_s;
+    if (x < 0) {
+        x = NSATTACKTHRE;
+    }
+    if (y < 0) {
+        y = NSATTACKTHRE_S;
+    }
+    gd->attack_threshold[0] = gd->attack_threshold[1] = gd->attack_threshold[2] = x;
+    gd->attack_threshold[3] = y;
+}
+
+
+#ifndef NDEBUG
+/**
+ * \internal
+ * \brief Returns how many spectral lines the partitions cover.
+ *
+ * \param part  the partition layout of one block size.
+ * \return the sum of the lines of every partition.
+ */
+static int
+partition_line_count(PsyConst_CB2SB_t const *part)
+{
+    int     b, n = 0;
+    for (b = 0; b < part->npart; ++b) {
+        n += part->numlines[b];
+    }
+    return n;
+}
+#endif
+
+
+/**
+ * \internal
  * \brief Build the per-session constant tables the model needs.
  *
  * Called once per encoder instance. It lays out the partition bands for both
@@ -2077,7 +2160,7 @@ psymodel_init(lame_global_flags const *gfp)
     SessionConfig_t *const cfg = &gfc->cfg;
     PsyStateVar_t *const psv = &gfc->sv_psy;
     PsyConst_t *gd;
-    int     i, j, b, sb;
+    int     i, j, b;
     FLOAT   bvl_a = 13, bvl_b = 24;
     FLOAT   snr_l_a = 0, snr_l_b = 0;
     FLOAT   snr_s_a = -8.25, snr_s_b = -4.5;
@@ -2102,32 +2185,7 @@ psymodel_init(lame_global_flags const *gfp)
 
     gd->force_short_block_calc = gfp->experimentalZ;
 
-    psv->blocktype_old[0] = psv->blocktype_old[1] = NORM_TYPE; /* the vbr header is long blocks */
-
-    for (i = 0; i < 4; ++i) {
-        for (j = 0; j < CBANDS; ++j) {
-            psv->nb_l1[i][j] = 1e20;
-            psv->nb_l2[i][j] = 1e20;
-            psv->nb_s1[i][j] = psv->nb_s2[i][j] = 1.0;
-        }
-        for (sb = 0; sb < SBMAX_l; sb++) {
-            psv->en[i].l[sb] = 1e20;
-            psv->thm[i].l[sb] = 1e20;
-        }
-        for (j = 0; j < 3; ++j) {
-            for (sb = 0; sb < SBMAX_s; sb++) {
-                psv->en[i].s[sb][j] = 1e20;
-                psv->thm[i].s[sb][j] = 1e20;
-            }
-            psv->last_attacks[i] = 0;
-        }
-        for (j = 0; j < 9; j++)
-            psv->last_en_subshort[i][j] = 10.;
-    }
-
-
-    /* init. for loudness approx. -jd 2001 mar 27 */
-    psv->loudness_sq_save[0] = psv->loudness_sq_save[1] = 0.0;
+    init_psy_history(psv);
 
 
 
@@ -2277,35 +2335,11 @@ psymodel_init(lame_global_flags const *gfp)
             gfc->ATH->eql_w[i] *= eql_balance;
         }
     }
+    assert(partition_line_count(&gd->s) == HBLKSIZE_s);
+    assert(partition_line_count(&gd->l) == HBLKSIZE);
+    init_attack_thresholds(gd, gfp);
     {
-        for (b = j = 0; b < gd->s.npart; ++b) {
-            for (i = 0; i < gd->s.numlines[b]; ++i) {
-                ++j;
-            }
-        }
-        assert(j == 129);
-        for (b = j = 0; b < gd->l.npart; ++b) {
-            for (i = 0; i < gd->l.numlines[b]; ++i) {
-                ++j;
-            }
-        }
-        assert(j == 513);
-    }
-    /* short block attack threshold */
-    {
-        float   x = gfp->attackthre;
-        float   y = gfp->attackthre_s;
-        if (x < 0) {
-            x = NSATTACKTHRE;
-        }
-        if (y < 0) {
-            y = NSATTACKTHRE_S;
-        }
-        gd->attack_threshold[0] = gd->attack_threshold[1] = gd->attack_threshold[2] = x;
-        gd->attack_threshold[3] = y;
-    }
-    {
-        float   sk_s = -10.f, sk_l = -4.7f;
+        float   sk_s, sk_l;
         static float const sk[] =
             { -7.4, -7.4, -7.4, -9.5, -7.4, -6.1, -5.5, -4.7, -4.7, -4.7, -4.7 };
         if (gfp->VBR_q < 4) {
