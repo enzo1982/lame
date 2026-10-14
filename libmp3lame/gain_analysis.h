@@ -70,22 +70,22 @@ extern  "C" {
     };
 
     struct replaygain_data {
-        Float_t linprebuf[MAX_ORDER * 2];
         Float_t *linpre;     /* left input samples, with pre-buffer */
-        Float_t lstepbuf[MAX_SAMPLES_PER_WINDOW + MAX_ORDER];
         Float_t *lstep;      /* left "first step" (i.e. post first filter) samples */
-        Float_t loutbuf[MAX_SAMPLES_PER_WINDOW + MAX_ORDER];
         Float_t *lout;       /* left "out" (i.e. post second filter) samples */
-        Float_t rinprebuf[MAX_ORDER * 2];
         Float_t *rinpre;     /* right input samples ... */
-        Float_t rstepbuf[MAX_SAMPLES_PER_WINDOW + MAX_ORDER];
         Float_t *rstep;
-        Float_t routbuf[MAX_SAMPLES_PER_WINDOW + MAX_ORDER];
         Float_t *rout;
         long    sampleWindow; /* number of samples required to reach number of milliseconds required for RMS window */
         long    totsamp;
         double  lsum;
         double  rsum;
+        Float_t linprebuf[MAX_ORDER * 2];
+        Float_t lstepbuf[MAX_SAMPLES_PER_WINDOW + MAX_ORDER];
+        Float_t loutbuf[MAX_SAMPLES_PER_WINDOW + MAX_ORDER];
+        Float_t rinprebuf[MAX_ORDER * 2];
+        Float_t rstepbuf[MAX_SAMPLES_PER_WINDOW + MAX_ORDER];
+        Float_t routbuf[MAX_SAMPLES_PER_WINDOW + MAX_ORDER];
         int     freqindex;
         uint32_t A[STEPS_per_dB * MAX_dB];
 

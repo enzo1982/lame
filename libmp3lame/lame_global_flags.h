@@ -29,6 +29,8 @@ typedef enum short_block_e {
 ***********************************************************************/
 struct lame_global_struct {
     unsigned int class_id;
+    int     lame_allocated_gfp; /* is this struct owned by calling
+                                   program or lame?                     */
 
     /* input description */
     unsigned long num_samples; /* number of samples. default=2^32-1           */
@@ -162,9 +164,6 @@ struct lame_global_struct {
     /* internal variables, do not set...                                    */
     /* provided because they may be of use to calling application           */
   /************************************************************************/
-
-    int     lame_allocated_gfp; /* is this struct owned by calling
-                                   program or lame?                     */
 
 
 

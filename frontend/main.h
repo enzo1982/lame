@@ -98,8 +98,8 @@ typedef struct FrontendConfig
     ReaderConfig  reader;           /**< how the input file is read */
     WriterConfig  writer;           /**< how the output file is written */
     UiConfig      ui_config;        /**< what is printed while encoding */
-    DecoderConfig decoder;          /**< the settings of --decode */
     RawPCMConfig  raw_pcm;          /**< the format of raw PCM input */
+    DecoderConfig decoder;          /**< the settings of --decode */
 } FrontendConfig;
 
 /**
@@ -111,8 +111,8 @@ typedef struct FrontendConfig
 { /* reader    */ { sf_unknown, 0, 0, 0, 0 }                            \
 , /* writer    */ { 0, 0, 0, 0 }                                        \
 , /* ui_config */ { 0, 1, 0, 0 }                                        \
-, /* decoder   */ { 0, 0, 0, 0, { 0 } }                                 \
 , /* raw_pcm   */ { 16, -1, ByteOrderLittleEndian }                     \
+, /* decoder   */ { 0, 0, 0, 0, { 0 } }                                 \
 }
 
 /** @internal @brief The default configuration, ::FRONTEND_CONFIG_DEFAULTS. */

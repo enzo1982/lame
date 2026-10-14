@@ -137,14 +137,14 @@ extern  "C" {
 
 
     typedef struct {
+        int    *bag;         /* pointer to our bag */
+        unsigned long nBytesWritten;
         int     sum;         /* what we have seen so far */
         int     seen;        /* how many frames we have seen in this chunk */
         int     want;        /* how many frames we want to collect into one chunk */
         int     pos;         /* actual position in our bag */
         int     size;        /* size of our bag */
-        int    *bag;         /* pointer to our bag */
         unsigned int nVbrNumFrames;
-        unsigned long nBytesWritten;
         /* VBR tag data */
         unsigned int TotalFrameSize;
     } VBR_seek_info_t;
@@ -297,9 +297,9 @@ extern  "C" {
         int     ResvSize;    /* in bits */
         int     ResvMax;     /* in bits */
 
-        int     in_buffer_nsamples;
         sample_t *in_buffer_0;
         sample_t *in_buffer_1;
+        int     in_buffer_nsamples;
 
 #ifndef  MFSIZE
 # define MFSIZE  ( 3*1152 + ENCDELAY - MDCTDELAY )
@@ -586,6 +586,9 @@ extern  "C" {
         int     fill_buffer_resample_init;
 
         SessionConfig_t cfg;
+        uint16_t nMusicCRC;
+
+        uint16_t _unused;
 
         /* variables used by lame.c */
         Bit_stream_struc bs;
@@ -595,19 +598,14 @@ extern  "C" {
 
         PsyStateVar_t sv_psy; /* DATA FROM PSYMODEL.C */
         PsyResult_t ov_psy;
+        /* Which vector routines this instance runs.  Decided once, in
+           lame_init_params(), rather than recomputed at each call site: a
+           selection forced for performance testing has to be one that no
+           call site can bypass. */
+        vector_impl_t vector_impl;
         EncStateVar_t sv_enc; /* DATA FROM ENCODER.C */
         EncResult_t ov_enc;
         QntStateVar_t sv_qnt; /* DATA FROM QUANTIZE.C */
-
-        RpgStateVar_t sv_rpg;
-        RpgResult_t ov_rpg;
-
-        /* optional ID3 tags, used in id3tag.c  */
-        struct id3tag_spec tag_spec;
-        uint16_t nMusicCRC;
-
-        uint16_t _unused;
-
         /* CPU features */
         /* Only what the encoder dispatches on.  A feature nothing selects on
            has no bit here: it could only ever be reported, and a report of a
@@ -620,11 +618,11 @@ extern  "C" {
             unsigned int _unused:28;
         } CPU_features;
 
-        /* Which vector routines this instance runs.  Decided once, in
-           lame_init_params(), rather than recomputed at each call site: a
-           selection forced for performance testing has to be one that no
-           call site can bypass. */
-        vector_impl_t vector_impl;
+        RpgStateVar_t sv_rpg;
+        RpgResult_t ov_rpg;
+
+        /* optional ID3 tags, used in id3tag.c  */
+        struct id3tag_spec tag_spec;
 
 
         VBR_seek_info_t VBR_seek_table; /* used for Xing VBR header */

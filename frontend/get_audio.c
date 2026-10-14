@@ -335,13 +335,13 @@ typedef struct blockAlign_struct {
 } blockAlign;
 
 typedef struct IFF_AIFF_struct {
-    short   numChannels;
     unsigned long numSampleFrames;
-    short   sampleSize;
     double  sampleRate;
     uint32_t sampleType;
     uint32_t sampleFormat;
     blockAlign blkAlgn;
+    short   numChannels;
+    short   sampleSize;
 } IFF_AIFF;
 
 
@@ -505,9 +505,9 @@ struct audio_reader {
     int     pcmswapbytes;
     int     pcm_is_unsigned_8bit;
     int     pcm_is_ieee_float;
+    int     input_ends_inside_a_frame;
     unsigned long num_samples_read;
     unsigned long num_samples_above_full_scale;
-    int     input_ends_inside_a_frame;
     FILE   *music_in;
     SNDFILE *snd_file;
     hip_t     hip;
