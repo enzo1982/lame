@@ -2390,6 +2390,12 @@ open_wave_file(audio_reader * reader, lame_t gfp, char const *inPath, int *enc_d
         return 0;
     }
     if (frontend_config.reader.input_format == sf_unknown) {
+        /* The input type comes from the file name or an input option, and
+           standard input has no name. */
+        if (lame_get_decode_only(gfp))
+            reader_error("To decode an MP3 from standard input, or from a file whose name does\n"
+                         "not end in .mp3, give --mp3input (--mp2input or --mp1input for\n"
+                         "layer II or layer I).\n");
         close_input_file(musicin);
         return 0;
     }
