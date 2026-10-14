@@ -1,0 +1,8 @@
+# libabigail suppressions for maintainer/abicheck.sh: types whose layout is not
+# part of the ABI. lame.h declares these structs without their members, so a
+# program holds only a pointer to them; see doc/maintainer-abi.md.
+
+[suppress_type]
+  label = the encoder and decoder state behind the opaque handles of lame.h
+  type_kind = struct
+  name_regexp = ^(lame_global_struct|hip_global_struct)$

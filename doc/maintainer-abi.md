@@ -202,6 +202,19 @@ Regenerating the baseline accepts an ABI change. So the regeneration belongs in
 the same commit as the change, where reviewers can see it. Do not regenerate it
 because the check failed: that is the mistake this file exists to prevent.
 
+### Types that are not part of the ABI
+
+`lame.h` declares `struct lame_global_struct` and `struct hip_global_struct`
+without their members. A program only holds a pointer to them (`lame_t`,
+`hip_t`), so their layout is not part of the ABI and can change in any release.
+The debug information of the build still describes them, together with the
+encoder state they point to, and `abidiff` would report every change there.
+
+`maintainer/abi/libmp3lame.abignore` lists these types, and the check passes it
+to `abidiff`. A change inside them is not reported. A change to a type that
+`lame.h` defines, such as `mp3data_struct`, is still reported. Add a type to
+this file only when `lame.h` declares it without its members.
+
 ### Compare a regeneration with `abidiff`, never with `diff`
 
 The baseline is XML. So it is tempting to compare two dumps with `diff`.
@@ -240,6 +253,7 @@ export lists, and they work on every architecture.
 library : libmp3lame/.libs/libmp3lame.so
 contract: include/libmp3lame.sym, include/lame.def
 baseline: maintainer/abi/libmp3lame.abi
+suppress: maintainer/abi/libmp3lame.abignore
 
 [1/3] contract: the committed export lists (libmp3lame.sym, lame.def) name the same symbols
       PASS  246 symbols, named by both

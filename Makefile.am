@@ -29,6 +29,7 @@ EXTRA_DIST = \
 	testcase.wav \
 	maintainer/abicheck.sh \
 	maintainer/abi/libmp3lame.abi \
+	maintainer/abi/libmp3lame.abignore \
 	maintainer/check-dist.sh \
 	maintainer/check-dist.ps1 \
 	maintainer/gen-api-docs.sh \

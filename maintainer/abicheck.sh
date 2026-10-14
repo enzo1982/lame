@@ -35,6 +35,9 @@ Usage: $prog [-b DIR] [-i DIR] [-a FILE] [-h]
              lame.def. (default: include)
   -a FILE    ABI baseline to compare against, as written by abidw.
              (default: maintainer/abi/libmp3lame.abi)
+  -s FILE    libabigail suppression file: the types whose changes are not
+             ABI changes. (default: libmp3lame.abignore beside the baseline;
+             the check runs without suppressions when it does not exist)
   -h         Show this help and exit.
 
 Run it after building the library:
@@ -49,8 +52,9 @@ EOF
 libdir=libmp3lame/.libs
 incdir=include
 baseline=maintainer/abi/libmp3lame.abi
+suppressions=
 
-while getopts "b:i:a:h" opt; do
+while getopts "b:i:a:s:h" opt; do
 	case "$opt" in
 		b)
 			libdir=$OPTARG
@@ -60,6 +64,9 @@ while getopts "b:i:a:h" opt; do
 			;;
 		a)
 			baseline=$OPTARG
+			;;
+		s)
+			suppressions=$OPTARG
 			;;
 		h)
 			usage
@@ -148,7 +155,13 @@ fi
 printf '== LAME ABI check ==\n\n'
 printf 'library : %s\n' "${lib:-(not found in $libdir)}"
 printf 'contract: %s, %s\n' "$sym" "$def"
-printf 'baseline: %s\n\n' "$baseline"
+printf 'baseline: %s\n' "$baseline"
+[ -n "$suppressions" ] || suppressions=$(dirname "$baseline")/libmp3lame.abignore
+if [ -f "$suppressions" ]; then
+	printf 'suppress: %s\n\n' "$suppressions"
+else
+	printf 'suppress: none (%s not found)\n\n' "$suppressions"
+fi
 
 # --- extractors -------------------------------------------------------------
 
@@ -293,7 +306,11 @@ elif have objdump && ! objdump -h "$lib" 2>/dev/null | grep -q '\.debug_info'; t
 	# already covers, while still reporting every type as removed.
 	verdict SKIP 'the library carries no debug information - rebuild with -g'
 else
-	abidiff "$baseline" "$lib" >"$work/abidiff" 2>&1
+	if [ -f "$suppressions" ]; then
+		abidiff --suppressions "$suppressions" "$baseline" "$lib" >"$work/abidiff" 2>&1
+	else
+		abidiff "$baseline" "$lib" >"$work/abidiff" 2>&1
+	fi
 	rc=$?
 	# libabigail's exit status is a bit field, verified against the installed
 	# tool rather than read off the documentation: 1 = abidiff itself failed,
