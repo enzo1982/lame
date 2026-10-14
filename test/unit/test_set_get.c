@@ -40,6 +40,7 @@
 
 #include "test_fixture.h"
 #include "test_float_bits.h"
+#include "test_report.h"
 
 #include "lame.h"
 
@@ -710,6 +711,30 @@ test_readonly_getters(void **state)
     assert_int_equal(lame_get_maximum_number_of_samples(NULL, 65536), LAME_GENERICERROR);
 }
 
+/**
+ * @brief Checks that lame_get_size_mp3buffer() reports no error before the
+ *        first frame is encoded.
+ *
+ * It is a query. Right after lame_init_params() no frame header is written yet,
+ * and the getter must still return a size without calling the error callback.
+ *
+ * @param state the encoder instance from the fixture.
+ */
+static void
+test_size_mp3buffer_is_silent(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+
+    assert_int_equal(lame_set_errorf(gfp, report_capture), 0);
+    assert_int_equal(lame_set_in_samplerate(gfp, 44100), 0);
+    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
+    assert_int_equal(lame_set_brate(gfp, 128), 0);
+    assert_int_equal(lame_init_params(gfp), 0);
+    report_reset();
+    assert_true(lame_get_size_mp3buffer(gfp) > 0);
+    assert_int_equal(report_calls, 0);
+}
+
 /*
  * Several settings are stored with a negative "not chosen yet" marker that
  * lame_init_params() resolves later, and reading one back before initializing
@@ -1344,6 +1369,8 @@ main(void)
         cmocka_unit_test_setup_teardown(test_preset_unknown_rejected, lame_fixture_setup,
                                         lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_readonly_getters, lame_fixture_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_size_mp3buffer_is_silent, lame_fixture_setup,
+                                        lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_unset_markers, lame_fixture_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_athaa_type_explicit_choice_survives,
                                         lame_fixture_setup, lame_fixture_teardown),

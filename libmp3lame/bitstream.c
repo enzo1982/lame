@@ -812,10 +812,6 @@ compute_flushbits(const lame_internal_flags * gfc, int *total_bytes_output)
         *total_bytes_output = (*total_bytes_output / 8);
     *total_bytes_output += gfc->bs.buf_byte_idx + 1;
 
-
-    if (flushbits < 0) {
-        ERRORF(gfc, "strange error flushing buffer ... \n");
-    }
     return flushbits;
 }
 
@@ -833,8 +829,10 @@ flush_bitstream(lame_internal_flags * gfc)
     l3_side = &gfc->l3_side;
 
 
-    if ((flushbits = compute_flushbits(gfc, &nbytes)) < 0)
+    if ((flushbits = compute_flushbits(gfc, &nbytes)) < 0) {
+        ERRORF(gfc, "strange error flushing buffer ... \n");
         return;
+    }
     drain_into_ancillary(gfc, flushbits);
 
     /* check that the 100% of the last frame has been written to bitstream */
