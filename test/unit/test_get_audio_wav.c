@@ -54,6 +54,9 @@
 /* the code under test (pulls in the static parse_wave_header + helpers) */
 #include "get_audio.c"
 
+/** @brief The reader the tests read through, as init_infile() would return it. */
+static struct audio_reader reader;
+
 /* --- fixtures ---------------------------------------------------------- */
 
 /** @brief Offset of nSamplesPerSec within ::valid_wav. */
@@ -123,7 +126,7 @@ test_valid_wav_accepted(void **state)
     lame_t gfp = (lame_t) *state;
     FILE  *sf = bytes_stream(valid_wav, sizeof valid_wav);
 
-    assert_int_equal(parse_wave_header(gfp, sf), 1);
+    assert_int_equal(parse_wave_header(&reader, gfp, sf), 1);
     /* the rate field has not moved out from under the tests below */
     assert_int_equal(lame_get_in_samplerate(gfp), (int) WAV_FIXTURE_RATE);
     fclose(sf);
@@ -155,7 +158,7 @@ test_high_sample_rates_accepted(void **state)
 
         build_wav_with_rate(hdr, rates[i]);
         sf = bytes_stream(hdr, sizeof hdr);
-        r = parse_wave_header(gfp, sf);
+        r = parse_wave_header(&reader, gfp, sf);
         if (r != 1) {
             fail_msg("a sample rate of %u Hz was refused (returned %d)",
                      (unsigned int) rates[i], r);
@@ -184,7 +187,7 @@ test_boundary_rate_accepted(void **state)
 
     build_wav_with_rate(hdr, (uint32_t) INT_MAX);
     sf = bytes_stream(hdr, sizeof hdr);
-    assert_int_equal(parse_wave_header(gfp, sf), 1);
+    assert_int_equal(parse_wave_header(&reader, gfp, sf), 1);
     assert_int_equal(lame_get_in_samplerate(gfp), INT_MAX);
     fclose(sf);
 }
@@ -224,7 +227,7 @@ test_unrepresentable_sample_rate_rejected(void **state)
 
         build_wav_with_rate(hdr, cases[i].rate);
         sf = bytes_stream(hdr, sizeof hdr);
-        r = parse_wave_header(gfp, sf);
+        r = parse_wave_header(&reader, gfp, sf);
         if (r != -1) {
             fail_msg("a sample rate of %s (%u) was accepted (returned %d)",
                      cases[i].what, (unsigned int) cases[i].rate, r);
@@ -252,7 +255,7 @@ test_zero_sample_rate_rejected(void **state)
 
     build_wav_with_rate(hdr, 0u);
     sf = bytes_stream(hdr, sizeof hdr);
-    assert_int_not_equal(parse_wave_header(gfp, sf), 1);
+    assert_int_not_equal(parse_wave_header(&reader, gfp, sf), 1);
     fclose(sf);
 }
 
@@ -322,7 +325,7 @@ test_supported_sample_widths_accepted(void **state)
 
         build_wav_with_format(hdr, cases[i].tag, cases[i].bits);
         sf = bytes_stream(hdr, sizeof hdr);
-        r = parse_wave_header(gfp, sf);
+        r = parse_wave_header(&reader, gfp, sf);
         if (r != 1) {
             fail_msg("format 0x%04X at %u bits was refused (returned %d)",
                      (unsigned int) cases[i].tag, (unsigned int) cases[i].bits, r);
@@ -350,7 +353,7 @@ expect_widths_rejected(lame_t gfp, const struct wav_width_case *cases, size_t n)
 
         build_wav_with_format(hdr, cases[i].tag, cases[i].bits);
         sf = bytes_stream(hdr, sizeof hdr);
-        r = parse_wave_header(gfp, sf);
+        r = parse_wave_header(&reader, gfp, sf);
         if (r != -1) {
             fail_msg("%s (format 0x%04X, %u bits) was accepted (returned %d)",
                      cases[i].what, (unsigned int) cases[i].tag,

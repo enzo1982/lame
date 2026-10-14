@@ -147,9 +147,11 @@ preserve_file_times(char const *inPath, char const *outPath)
 
 
 static FILE *
-init_files(lame_global_flags * gf, char const *inPath, char const *outPath)
+init_files(lame_global_flags * gf, char const *inPath, char const *outPath, audio_reader ** reader)
 {
     FILE   *outf;
+
+    *reader = NULL;
     /* Mostly it is not useful to use the same input and output name.
        This test is very easy and buggy and don't recognize different names
        assigning the same file
@@ -166,7 +168,7 @@ init_files(lame_global_flags * gf, char const *inPath, char const *outPath)
      * samplerate, num_channels and num_samples yourself.
      */
     capture_file_times(inPath);
-    if (init_infile(gf, inPath) < 0) {
+    if ((*reader = init_infile(gf, inPath)) == NULL) {
         error_printf("Can't init infile '%s'\n", inPath);
         return NULL;
     }
@@ -220,15 +222,15 @@ printInputFormat(lame_t gfp)
  * samples to skip, to (for example) compensate for the encoder delay */
 
 static int
-lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
+lame_decoder_loop(lame_t gfp, audio_reader * reader, FILE * outf, char *inPath, char *outPath)
 {
     short int Buffer[2][FRAME_BUFFER_SAMPLES];
     int     i, iread;
     double  wavsize;
     unsigned int data_size;
     int     tmp_num_channels = lame_get_num_channels(gfp);
-    int     skip_start = samples_to_skip_at_start();
-    int     skip_end = samples_to_skip_at_end();
+    int     skip_start = samples_to_skip_at_start(reader);
+    int     skip_end = samples_to_skip_at_end(reader);
     DecoderProgress dp = 0;
 
     if (!(tmp_num_channels >= 1 && tmp_num_channels <= 2)) {
@@ -278,7 +280,7 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
 
     wavsize = 0;
     do {
-        iread = get_audio16(gfp, Buffer); /* read in 'iread' samples */
+        iread = get_audio16(reader, gfp, Buffer); /* read in 'iread' samples */
         if (iread >= 0) {
             wavsize += iread;
             if (dp != 0) {
@@ -306,7 +308,7 @@ lame_decoder_loop(lame_t gfp, FILE * outf, char *inPath, char *outPath)
 
     if (dp != 0)
         decoder_progress_finish(dp);
-    if (input_ends_inside_a_frame())
+    if (input_ends_inside_a_frame(reader))
         return -1;
     return 0;
 
@@ -338,17 +340,17 @@ close_output(FILE * outf)
 }
 
 static int
-lame_decoder(lame_t gfp, FILE * outf, char *inPath, char *outPath)
+lame_decoder(lame_t gfp, audio_reader * reader, FILE * outf, char *inPath, char *outPath)
 {
     int     ret;
 
-    ret = lame_decoder_loop(gfp, outf, inPath, outPath);
+    ret = lame_decoder_loop(gfp, reader, outf, inPath, outPath);
     if (close_output(outf) != 0 && ret == 0) {
         if (frontend_config.ui_config.silent < 10)
             error_printf("Error writing to the output file\n");
         ret = -1;
     }
-    close_infile();     /* close the input file */
+    close_infile(reader); /* close the input file */
     if (ret == 0)
         preserve_file_times(inPath, outPath);
     return ret;
@@ -356,7 +358,7 @@ lame_decoder(lame_t gfp, FILE * outf, char *inPath, char *outPath)
 
 
 static void
-print_trailing_info(lame_global_flags * gf)
+print_trailing_info(lame_global_flags * gf, audio_reader const * reader)
 {
     if (lame_get_findReplayGain(gf)) {
         int     RadioGain = lame_get_RadioGain(gf);
@@ -414,11 +416,11 @@ print_trailing_info(lame_global_flags * gf)
     /* Not the report above: that one measures the decoded output at the
        current gain and needs decoding on the fly. This counts the input
        samples beyond full scale at the current gain, as they were read. */
-    if (samples_above_full_scale() > 0) {
+    if (samples_above_full_scale(reader) > 0) {
         error_printf("WARNING: %lu input sample(s) are above full scale. They are encoded at\n"
                      "         their level and clip when played back at full volume. Lower\n"
                      "         the level with --scale, or check the result with --clipdetect.\n",
-                     samples_above_full_scale());
+                     samples_above_full_scale(reader));
     }
 }
 
@@ -489,13 +491,14 @@ write_id3v1_tag(lame_t gf, FILE * outf)
  * @brief Writes the ID3v2 tag at the start of the output file: the tag that
  *        the library builds, or else the tag of the input file.
  *
- * @param gf    the encoder instance.
- * @param outf  the output file.
- * @param size  receives the size of the tag in bytes, 0 when there is none.
+ * @param gf      the encoder instance.
+ * @param reader  the input file.
+ * @param outf    the output file.
+ * @param size    receives the size of the tag in bytes, 0 when there is none.
  * @return 0, or 1 when the tag cannot be written.
  */
 static int
-write_id3v2_tag(lame_t gf, FILE * outf, size_t * size)
+write_id3v2_tag(lame_t gf, audio_reader const * reader, FILE * outf, size_t * size)
 {
     size_t  id3v2_size = lame_get_id3v2_tag(gf, 0, 0);
 
@@ -511,8 +514,8 @@ write_id3v2_tag(lame_t gf, FILE * outf, size_t * size)
         }
     }
     else {
-        unsigned char* id3v2tag = getOldTag(gf);
-        id3v2_size = sizeOfOldTag(gf);
+        unsigned char* id3v2tag = getOldTag(reader);
+        id3v2_size = sizeOfOldTag(reader);
         if ( id3v2_size > 0 ) {
             size_t written = fwrite(id3v2tag, 1, id3v2_size, outf);
             if (written != id3v2_size) {
@@ -624,11 +627,12 @@ decline_replaygain_frames(char const *why)
  * lame_init_params() and before the ID3v2 tag is written. This program writes
  * the tag itself, so the tag fields can still change then.
  *
- * @param gf    the encoder instance whose tag is being built.
- * @param outf  the output file. It must be seekable, for the later rewrite.
+ * @param gf      the encoder instance whose tag is being built.
+ * @param reader  the input file.
+ * @param outf    the output file. It must be seekable, for the later rewrite.
  */
 static void
-reserve_replaygain_frames(lame_global_flags * gf, FILE * outf)
+reserve_replaygain_frames(lame_global_flags * gf, audio_reader const * reader, FILE * outf)
 {
     if (frontend_config.writer.replaygain_id3v2 == 0)
         return;
@@ -642,7 +646,7 @@ reserve_replaygain_frames(lame_global_flags * gf, FILE * outf)
     }
     /*  Transcoding an MP3 whose tag is passed through byte for byte: nothing
         can be patched into a tag this program did not render.  */
-    if (sizeOfOldTag(gf) > 0 && lame_get_id3v2_tag(gf, 0, 0) == 0) {
+    if (sizeOfOldTag(reader) > 0 && lame_get_id3v2_tag(gf, 0, 0) == 0) {
         decline_replaygain_frames("the source file's ID3v2 tag is copied through unchanged");
         return;
     }
@@ -727,18 +731,19 @@ update_replaygain_frames(lame_global_flags * gf, FILE * outf, size_t id3v2_size)
 #define ENCODE_OUTPUT_FAILED 1
 
 static int
-lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char *outPath)
+lame_encoder_loop(lame_global_flags * gf, audio_reader * reader, FILE * outf, int nogap,
+                  char *inPath, char *outPath)
 {
     unsigned char mp3buffer[LAME_MAXMP3BUFFER];
     int     Buffer[2][FRAME_BUFFER_SAMPLES];
     float   BufferF[2][FRAME_BUFFER_SAMPLES];
-    int const floats = input_is_float();
+    int const floats = input_is_float(reader);
     int     iread, imp3, owrite, in_limit=0;
     size_t  id3v2_size;
 
     encoder_progress_begin(gf, inPath, outPath);
 
-    if (write_id3v2_tag(gf, outf, &id3v2_size) != 0) {
+    if (write_id3v2_tag(gf, reader, outf, &id3v2_size) != 0) {
         encoder_progress_end(gf);
         error_printf("Error writing ID3v2 tag \n");
         return ENCODE_OUTPUT_FAILED;
@@ -755,7 +760,7 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
     /* encode until we hit eof */
     do {
         /* read in 'iread' samples */
-        iread = floats ? get_audio_float(gf, BufferF) : get_audio(gf, Buffer);
+        iread = floats ? get_audio_float(reader, gf, BufferF) : get_audio(reader, gf, Buffer);
 
         if (iread >= 0) {
             int     done = 0;
@@ -827,25 +832,26 @@ lame_encoder_loop(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, 
     update_replaygain_frames(gf, outf, id3v2_size);
     flush_if_asked(outf);
     if (frontend_config.ui_config.silent <= 0) {
-        print_trailing_info(gf);
+        print_trailing_info(gf, reader);
     }
-    if (input_ends_inside_a_frame())
+    if (input_ends_inside_a_frame(reader))
         return ENCODE_INPUT_FAILED;
     return 0;
 }
 
 
 static int
-lame_encoder(lame_global_flags * gf, FILE * outf, int nogap, char *inPath, char *outPath)
+lame_encoder(lame_global_flags * gf, audio_reader * reader, FILE * outf, int nogap, char *inPath,
+             char *outPath)
 {
     int     ret;
 
-    ret = lame_encoder_loop(gf, outf, nogap, inPath, outPath);
+    ret = lame_encoder_loop(gf, reader, outf, nogap, inPath, outPath);
     if (close_output(outf) != 0 && ret == 0) {
         error_printf("Error writing to the output file\n");
         ret = ENCODE_OUTPUT_FAILED;
     }
-    close_infile();     /* close the input file */
+    close_infile(reader); /* close the input file */
     if (ret == 0)
         preserve_file_times(inPath, outPath);
     return ret;
@@ -879,6 +885,7 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
     int     ret;
     int     i;
     FILE   *outf = NULL;
+    audio_reader *reader = NULL;
 
     memset(inPath, 0, sizeof(inPath));
 
@@ -906,13 +913,13 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
                   return -1;
               }
           }
-          outf = init_files(gf, nogap_inPath[0], nogap_outPath[0]);
+          outf = init_files(gf, nogap_inPath[0], nogap_outPath[0], &reader);
     }
     else {
-        outf = init_files(gf, inPath, outPath);
+        outf = init_files(gf, inPath, outPath, &reader);
     }
     if (outf == NULL) {
-        close_infile();
+        close_infile(reader);
         return -1;
     }
     /* turn off automatic writing of ID3 tag data into mp3 stream 
@@ -928,11 +935,11 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
     if (ret < 0) {
         error_printf("fatal error during initialization\n");
         fclose(outf);
-        close_infile();
+        close_infile(reader);
         return ret;
     }
 
-    reserve_replaygain_frames(gf, outf);
+    reserve_replaygain_frames(gf, reader, outf);
 
     if (frontend_config.ui_config.silent > 0) {
         frontend_config.ui_config.brhist = 0; /* turn off VBR histogram */
@@ -940,11 +947,11 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
 
     if (lame_get_decode_only(gf)) {
         /* decode an mp3 file to a .wav */
-        ret = lame_decoder(gf, outf, inPath, outPath);
+        ret = lame_decoder(gf, reader, outf, inPath, outPath);
     }
     else if (max_nogap == 0) {
         /* encode a single input file */
-        ret = lame_encoder(gf, outf, 0, inPath, outPath);
+        ret = lame_encoder(gf, reader, outf, 0, inPath, outPath);
     }
     else {
         /* encode multiple input files using nogap option */
@@ -956,9 +963,9 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
             if (i > 0) {
                 /* note: if init_files changes anything, like
                    samplerate, num_channels, etc, we are screwed */
-                outf = init_files(gf, nogap_inPath[i], nogap_outPath[i]);
+                outf = init_files(gf, nogap_inPath[i], nogap_outPath[i], &reader);
                 if (outf == NULL) {
-                    close_infile();
+                    close_infile(reader);
                     return -1;
                 }
                 /* reinitialize bitstream for next encoding.  this is normally done
@@ -967,7 +974,8 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
             }
             lame_set_nogap_total(gf, max_nogap);
             lame_set_nogap_currentindex(gf, i);
-            ret = lame_encoder(gf, outf, use_flush_nogap, nogap_inPath[i], nogap_outPath[i]);
+            ret = lame_encoder(gf, reader, outf, use_flush_nogap, nogap_inPath[i],
+                               nogap_outPath[i]);
             if (ret != 0) {
                 ++failed;
                 if (first_failure == 0) {

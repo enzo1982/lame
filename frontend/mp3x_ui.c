@@ -2352,7 +2352,7 @@ mp3x_driver_refresh_for_empty(Mp3xDriver *d)
        called mp3x_core_shutdown (which zeroed core_state.hip), the
        init's hip guard is a no-op, and the memset on Pinfo clears
        pdisp->sampfreq so the render functions bail on their own check. */
-    mp3x_core_init();
+    mp3x_core_init(NULL);
 
     /* Clear graphs so they display a deliberate empty state, not stale data. */
     mp3x_apply_display(d);

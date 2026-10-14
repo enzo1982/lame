@@ -59,8 +59,7 @@ extern "C" {
  * The session owns: the lame_t (encoder/analyzer handle), heap copies of
  * the path and display name, and all per-file transport state (running,
  * input/drain completion, frames_done, idle-source ID). It does NOT own GTK
- * widgets, the open input FILE (that belongs to get_audio.c's global), or any decoder
- * handles (those belong to mp3x_core and get_audio.c).
+ * widgets or any decoder handles (those belong to mp3x_core and the reader).
  *
  * Display view preferences (channel, ms, difference, sfblines, kbflag,
  * subblock) are driver-lifetime - they survive file swaps when valid - and
@@ -74,6 +73,7 @@ typedef struct Mp3xSession {
 
     /* Input */
     lame_t           gf;             /* owned; created in _open, closed in _close */
+    audio_reader    *reader;         /* owned; the open input, NULL when not open */
     gchar           *in_path;        /* heap-owned UTF-8 filesystem path; NULL
                                         when session is not open */
     gchar           *display_name;   /* heap-owned display name (basename or

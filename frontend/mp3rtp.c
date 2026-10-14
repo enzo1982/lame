@@ -180,6 +180,7 @@ lame_main(lame_t gf, int argc, char **argv)
     int     wavsamples;
     int     mp3bytes;
     FILE   *outf;
+    audio_reader *reader;
     unsigned int port = 5004;
     unsigned int ttl = 2;
     char    dummy;
@@ -272,7 +273,7 @@ lame_main(lame_t gf, int argc, char **argv)
      * if you want to do your own file input, skip this call and set
      * these values yourself.  
      */
-    if (init_infile(gf, inPath) < 0) {
+    if ((reader = init_infile(gf, inPath)) == NULL) {
         rtp_deinitialization();
         fclose(outf);
         error_printf("Can't init infile '%s'\n", inPath);
@@ -287,7 +288,7 @@ lame_main(lame_t gf, int argc, char **argv)
     if (ret < 0) {
         rtp_deinitialization();
         fclose(outf);
-        close_infile();
+        close_infile(reader);
         error_printf("fatal error during initialization\n");
         return -1;
     }
@@ -298,8 +299,9 @@ lame_main(lame_t gf, int argc, char **argv)
         frontend_config.ui_config.update_interval = 2.;
 
     /* encode until we hit EOF */
-    floats = input_is_float();
-    while ((wavsamples = floats ? get_audio_float(gf, BufferF) : get_audio(gf, Buffer)) > 0) {
+    floats = input_is_float(reader);
+    while ((wavsamples = floats ? get_audio_float(reader, gf, BufferF)
+                                : get_audio(reader, gf, Buffer)) > 0) {
         if (floats) {
             levelmessage(maxvalue_float(BufferF, wavsamples), &maxx, &tmpx);
             mp3bytes = lame_encode_buffer_ieee_float(gf, BufferF[0], BufferF[1], wavsamples,
@@ -314,7 +316,7 @@ lame_main(lame_t gf, int argc, char **argv)
             error_printf("Error: %s (error %d)\n", frontend_encode_error_text(mp3bytes), mp3bytes);
             rtp_deinitialization();
             fclose(outf);
-            close_infile();
+            close_infile(reader);
             return -1;
         }
         rtp_output(mp3buffer, mp3bytes); /* write MP3 output to RTP port */
@@ -325,7 +327,7 @@ lame_main(lame_t gf, int argc, char **argv)
             error_printf("Error reading input file\n");
         rtp_deinitialization();
         fclose(outf);
-        close_infile();
+        close_infile(reader);
         return 1;
     }
 
@@ -335,7 +337,7 @@ lame_main(lame_t gf, int argc, char **argv)
         error_printf("Error: %s (error %d)\n", frontend_encode_error_text(mp3bytes), mp3bytes);
         rtp_deinitialization();
         fclose(outf);
-        close_infile();
+        close_infile(reader);
         return -1;
     }
     rtp_output(mp3buffer, mp3bytes); /* write MP3 output to RTP port */
@@ -345,7 +347,7 @@ lame_main(lame_t gf, int argc, char **argv)
 
     rtp_deinitialization();
     fclose(outf);
-    close_infile();     /* close the sound input file */
+    close_infile(reader); /* close the sound input file */
     return 0;
 }
 

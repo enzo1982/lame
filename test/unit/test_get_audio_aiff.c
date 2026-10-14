@@ -61,6 +61,9 @@
 /* the code under test (pulls in the static parse_aiff_header + helpers) */
 #include "get_audio.c"
 
+/** @brief The reader the tests read through, as init_infile() would return it. */
+static struct audio_reader reader;
+
 /* --- fread spin-trap --------------------------------------------------- */
 
 extern size_t __real_fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
@@ -153,7 +156,7 @@ test_undersized_form_size_rejected(void **state)
         fread_calls = 0;
         spin_trap_armed = 1;
         if (setjmp(spin_trap) == 0) {
-            int r = parse_aiff_header(gfp, sf);
+            int r = parse_aiff_header(&reader, gfp, sf);
             spin_trap_armed = 0;
             assert_int_equal(r, -1);    /* rejected, not parsed */
         } else {
@@ -181,7 +184,7 @@ test_valid_aiff_accepted(void **state)
     fread_calls = 0;
     spin_trap_armed = 1;
     if (setjmp(spin_trap) == 0) {
-        r = parse_aiff_header(gfp, sf);
+        r = parse_aiff_header(&reader, gfp, sf);
         spin_trap_armed = 0;
         assert_int_equal(r, 1);         /* accepted */
     } else {
@@ -241,7 +244,7 @@ test_unrepresentable_sample_rate_rejected(void **state)
         memcpy(hdr + AIFF_RATE_OFFSET, cases[i].rate, sizeof cases[i].rate);
         sf = bytes_stream(hdr, sizeof hdr);
 
-        r = parse_aiff_header(gfp, sf);
+        r = parse_aiff_header(&reader, gfp, sf);
         if (r != -1) {
             fail_msg("a sample rate of %s was accepted (returned %d)",
                      cases[i].what, r);

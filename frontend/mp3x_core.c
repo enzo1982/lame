@@ -68,6 +68,7 @@ static int disp_back = 0;
  * mp3x_core_init() can establish a genuinely fresh analyzer session.
  */
 typedef struct {
+    audio_reader *reader;         /* the input of the session */
     hip_t       hip;              /* decoder for the just-encoded data */
     int         mpglag;
     short int   buffer[2][FRAME_BUFFER_SAMPLES];
@@ -153,7 +154,7 @@ accumulate_stats(plotting_data *p)
 }
 
 void
-mp3x_core_init(void)
+mp3x_core_init(audio_reader *reader)
 {
     int i;
 
@@ -161,6 +162,7 @@ mp3x_core_init(void)
         hip_decode_exit(core_state.hip);
 
     memset((char *) &core_state, 0, sizeof core_state);
+    core_state.reader = reader;
     memset((char *) &stats, 0, sizeof stats);
     memset((char *) Pinfo, 0, sizeof(Pinfo));
     memset((char *) mp3x_sfb_l, 0, sizeof mp3x_sfb_l);
@@ -214,8 +216,8 @@ mp3x_core_makeframe(lame_global_flags *gfp)
      * the libraries put this data in the right place: */
     gfc->pinfo = pinfo;
     if (is_mpeg_file_format(frontend_config.reader.input_format)) {
-        hip_set_pinfo(get_hip(), pplot);
-        iread = get_audio16(gfp, core_state.buffer);
+        hip_set_pinfo(get_hip(core_state.reader), pplot);
+        iread = get_audio16(core_state.reader, gfp, core_state.buffer);
 
 
         /* add a delay of framesize-DECDELAY, which will make the total delay
@@ -246,11 +248,11 @@ mp3x_core_makeframe(lame_global_flags *gfp)
 
         /* feed data to encoder until encoder produces some output */
         while (lame_get_frameNum(gfp) == pinfo->frameNum) {
-            int const floats = input_is_float();
+            int const floats = input_is_float(core_state.reader);
             if (floats)
-                iread = get_audio_float(gfp, core_state.bufferf);
+                iread = get_audio_float(core_state.reader, gfp, core_state.bufferf);
             else
-                iread = get_audio16(gfp, core_state.buffer);
+                iread = get_audio16(core_state.reader, gfp, core_state.buffer);
             if (iread > framesize) {
                 /* NOTE: frame analyzer requires that we encode one frame
                  * for each pass through this loop.  If lame_encode_buffer()

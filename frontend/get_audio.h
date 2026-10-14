@@ -49,17 +49,22 @@ typedef enum sound_file_format_e {
 
 int     is_mpeg_file_format( int input_file_format );
 
-int     init_infile(lame_t gfp, char const * inPath);
-int     samples_to_skip_at_start(void);
-int     samples_to_skip_at_end(void);
-unsigned long samples_above_full_scale(void);
-int     input_ends_inside_a_frame(void);
-int     input_is_float(void);
-void    close_infile(void);
-int     get_audio(lame_t gfp, int buffer[2][FRAME_BUFFER_SAMPLES]);
-int     get_audio16(lame_t gfp, short buffer[2][FRAME_BUFFER_SAMPLES]);
-int     get_audio_float(lame_t gfp, float buffer[2][FRAME_BUFFER_SAMPLES]);
-hip_t   get_hip(void);
+/** @internal @brief An open input file, from init_infile(). */
+typedef struct audio_reader audio_reader;
+
+audio_reader *init_infile(lame_t gfp, char const * inPath);
+int     samples_to_skip_at_start(audio_reader const * reader);
+int     samples_to_skip_at_end(audio_reader const * reader);
+unsigned long samples_above_full_scale(audio_reader const * reader);
+int     input_ends_inside_a_frame(audio_reader const * reader);
+int     input_is_float(audio_reader const * reader);
+void    close_infile(audio_reader * reader);
+int     get_audio(audio_reader * reader, lame_t gfp, int buffer[2][FRAME_BUFFER_SAMPLES]);
+int     get_audio16(audio_reader * reader, lame_t gfp, short buffer[2][FRAME_BUFFER_SAMPLES]);
+int     get_audio_float(audio_reader * reader, lame_t gfp, float buffer[2][FRAME_BUFFER_SAMPLES]);
+hip_t   get_hip(audio_reader const * reader);
+size_t  sizeOfOldTag(audio_reader const * reader);
+unsigned char *getOldTag(audio_reader const * reader);
 
 /** The data size a WAV header gets while the length of the data is not known. */
 #define WAV_DATA_SIZE_UNKNOWN 0x7FFFFFFFu
@@ -71,30 +76,7 @@ unsigned int wav_data_size(double frames, int bytes_per_frame);
 int     WriteWaveHeader(FILE * const fp, unsigned int pcmbytes, int freq, int channels, int bits);
 int     put_audio16(FILE* outf, short Buffer[2][FRAME_BUFFER_SAMPLES], int iread, int nch);
 
-/*
-struct AudioReader;
-typedef struct AudioReader* AudioReader;
 
-AudioReader ar_open(lame_t gfp, char const* inPath);
-int     ar_samplesToSkipAtStart(AudioReader ar);
-int     ar_samplesToSkipAtEnd(AudioReader ar);
-void    ar_close(AudioReader ar);
-int     ar_readInt(AudioReader ar, lame_t gfp, int buffer[2][1152]);
-int     ar_readShort(AudioReader ar, lame_t gfp, short buffer[2][1152]);
-int     ar_readFloat(AudioReader ar, lame_t gfp, float buffer[2][1152]);
-
-struct AudioWriter;
-typedef struct AudioWriter* AudioWriter;
-
-AudioWriter aw_open(lame_t gfp, char const* outPath, int pcmbystes, int freq, int channels, int bits);
-int     aw_writeWaveHeader(AudioWriter aw);
-int     aw_write(AudioWriter aw, short buffer[2][1152], int n);
-int     aw_write(AudioWriter aw, float buffer[2][1152], int n);
-
-*/
-
-extern size_t sizeOfOldTag(lame_t gf);
-extern unsigned char* getOldTag(lame_t gf);
 
 #ifdef __cplusplus
 }

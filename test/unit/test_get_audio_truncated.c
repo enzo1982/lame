@@ -44,6 +44,9 @@
 /* the code under test (pulls in the static helpers) */
 #include "get_audio.c"
 
+/** @brief The reader the tests read through, as init_infile() would return it. */
+static struct audio_reader reader;
+
 /** @brief The frames that each test file holds: two whole reads and part of a
  *         third, so that the cut falls into a read of fewer frames. */
 #define WHOLE_FRAMES (2 * 1152 + 500)
@@ -109,13 +112,13 @@ stereo_wave(int bytes_per_sample, int cut)
 static void
 open_reader(lame_t gfp, FILE *f)
 {
-    memset(&global, 0, sizeof global);
-    frontend_config.reader.input_format = parse_file_header(gfp, f);
+    memset(&reader, 0, sizeof reader);
+    frontend_config.reader.input_format = parse_file_header(&reader, gfp, f);
     assert_int_equal(frontend_config.reader.input_format, sf_wave);
-    global.music_in = f;
-    initPcmBuffer(&global.pcm32, sizeof(int));
-    initPcmBuffer(&global.pcm16, sizeof(short));
-    initPcmBuffer(&global.pcmf, sizeof(float));
+    reader.music_in = f;
+    initPcmBuffer(&reader.pcm32, sizeof(int));
+    initPcmBuffer(&reader.pcm16, sizeof(short));
+    initPcmBuffer(&reader.pcmf, sizeof(float));
     assert_int_equal(lame_init_params(gfp), 0);
 }
 
@@ -127,11 +130,11 @@ open_reader(lame_t gfp, FILE *f)
 static void
 close_reader(lame_t gfp)
 {
-    freePcmBuffer(&global.pcm32);
-    freePcmBuffer(&global.pcm16);
-    freePcmBuffer(&global.pcmf);
-    fclose(global.music_in);
-    global.music_in = NULL;
+    freePcmBuffer(&reader.pcm32);
+    freePcmBuffer(&reader.pcm16);
+    freePcmBuffer(&reader.pcmf);
+    fclose(reader.music_in);
+    reader.music_in = NULL;
     lame_close(gfp);
 }
 
@@ -151,7 +154,7 @@ check_integer_file(int cut)
 
     assert_non_null(gfp);
     open_reader(gfp, stereo_wave(2, cut));
-    while ((n = get_audio(gfp, buffer)) > 0) {
+    while ((n = get_audio(&reader, gfp, buffer)) > 0) {
         for (i = 0; i < n; ++i) {
             if (buffer[0][i] <= 0 || buffer[1][i] >= 0)
                 fail_msg("frame %ld: left %d, right %d", frames + i, buffer[0][i], buffer[1][i]);
@@ -160,7 +163,7 @@ check_integer_file(int cut)
     }
     assert_int_equal(n, 0);
     assert_int_equal(frames, WHOLE_FRAMES);
-    assert_int_equal(input_ends_inside_a_frame(), cut ? 1 : 0);
+    assert_int_equal(input_ends_inside_a_frame(&reader), cut ? 1 : 0);
     close_reader(gfp);
 }
 
@@ -180,8 +183,8 @@ check_float_file(int cut)
 
     assert_non_null(gfp);
     open_reader(gfp, stereo_wave(4, cut));
-    assert_true(input_is_float());
-    while ((n = get_audio_float(gfp, buffer)) > 0) {
+    assert_true(input_is_float(&reader));
+    while ((n = get_audio_float(&reader, gfp, buffer)) > 0) {
         for (i = 0; i < n; ++i) {
             if (!(buffer[0][i] > 0.0f) || !(buffer[1][i] < 0.0f))
                 fail_msg("frame %ld: left %g, right %g", frames + i, buffer[0][i], buffer[1][i]);
@@ -190,7 +193,7 @@ check_float_file(int cut)
     }
     assert_int_equal(n, 0);
     assert_int_equal(frames, WHOLE_FRAMES);
-    assert_int_equal(input_ends_inside_a_frame(), cut ? 1 : 0);
+    assert_int_equal(input_ends_inside_a_frame(&reader), cut ? 1 : 0);
     close_reader(gfp);
 }
 

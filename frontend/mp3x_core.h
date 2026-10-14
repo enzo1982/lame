@@ -23,6 +23,7 @@
 #include "machine.h"            /* base types */
 #include "encoder.h"            /* DECDELAY, BLKSIZE, SBMAX_l, SBMAX_s used below */
 #include "lame-analysis.h"      /* struct plotting_data, READ_AHEAD, NUMPINFO */
+#include "get_audio.h"          /* audio_reader */
 /* Note: struct plotting_data (lame-analysis.h) references constants from
    encoder.h, so this header includes it; consumers need -Ilibmp3lame. */
 
@@ -130,8 +131,11 @@ int mp3x_core_disp_backpos(void);
  *  For PCM input, the re-synthesis decoder is created when it is first needed.
  *  \c pplot and \c pdisp are set to the start position,
  *  <tt>&amp;Pinfo[READ_AHEAD]</tt>.
+ *
+ *  \param reader  the input the session reads its frames from, or NULL when
+ *                 no file is open.
  */
-void mp3x_core_init(void);
+void mp3x_core_init(audio_reader *reader);
 
 /**
  *  Reads one frame of input, encodes it, and decodes it again into \c *pinfo.

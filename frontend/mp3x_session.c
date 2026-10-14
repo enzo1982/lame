@@ -50,16 +50,15 @@ extern FrontendConfig *mp3x_driver_baseline(Mp3xDriver *d);
 /* ==========================================================================
  * Frontend-global baseline
  *
- * frontend_config (and get_audio.c's `global`) are process-wide
- * singletons. Because mp3x holds at most one open input at a time, we treat
+ * frontend_config is a process-wide
+ * singleton. Because mp3x holds at most one open input at a time, we treat
  * them as current-session state: every mp3x_session_open restores the
  * baseline captured at startup, so options from a prior file or
  * from raw-input CLI flags on the initial file cannot leak into a later
  * GUI-opened self-describing file.
  *
- * get_audio.c's `global` is intentionally NOT captured here; it is fully
- * reset by the existing init_infile()/close_infile() pair. init_infile resets
- * its fields; close_infile releases its owned resources and clears pointers.
+ * The input is not part of it: each session opens its own reader with
+ * init_infile() and closes it with close_infile().
  * ========================================================================== */
 
 void
@@ -336,7 +335,7 @@ mp3x_session_reset_fields(Mp3xSession *s)
 static gboolean
 mp3x_session_open_input(Mp3xSession *s, const char *path, GError **err)
 {
-    if (init_infile(s->gf, path) < 0) {
+    if ((s->reader = init_infile(s->gf, path)) == NULL) {
         g_set_error(err, MP3X_OPEN_ERROR, MP3X_OPEN_ERR_INIT_INFILE,
                     "mp3x: unable to initialize input file '%s'", path);
         return FALSE;
@@ -346,7 +345,7 @@ mp3x_session_open_input(Mp3xSession *s, const char *path, GError **err)
                     "mp3x: fatal error during initialization");
         return FALSE;
     }
-    mp3x_core_init();
+    mp3x_core_init(s->reader);
     return TRUE;
 }
 
@@ -399,7 +398,8 @@ mp3x_session_install(Mp3xSession *s,
     return TRUE;
 
 fail_with_infile:
-    close_infile();
+    close_infile(s->reader);
+    s->reader = NULL;
     lame_close(s->gf);
     s->gf = NULL;
     g_free(path);
@@ -521,7 +521,8 @@ mp3x_session_open_cli_initial(Mp3xSession *s, Mp3xDriver *d,
     return MP3X_CLI_OPENED;
 
 fail_with_infile:
-    close_infile();
+    close_infile(s->reader);
+    s->reader = NULL;
 fail_with_lame:
     g_clear_object(&gfile);
     mp3x_prevalidate_result_clear(&pre);
@@ -550,10 +551,11 @@ mp3x_session_close(Mp3xSession *s)
        decoder (core_state.hip). No-op for MP3 input. */
     mp3x_core_shutdown();
 
-    /* get_audio.c teardown: releases the MP3 input decoder (global.hip,
-       which wraps mpg123), the open FILE, libsndfile handle, ID3 buffer,
-       and PCM buffers, then resets the get_audio global. */
-    close_infile();
+    /* Reader teardown: releases the MP3 input decoder (which wraps mpg123),
+       the open FILE, libsndfile handle, ID3 buffer and PCM buffers, and
+       the reader. */
+    close_infile(s->reader);
+    s->reader = NULL;
 
     /* Encoder handle teardown. On normal PCM completion the core has already
        called lame_encode_flush once and fed its bytes to the re-synthesis

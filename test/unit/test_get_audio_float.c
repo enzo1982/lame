@@ -65,6 +65,9 @@ failing_realloc(void *p, size_t n)
 #include "get_audio.c"
 #undef realloc
 
+/** @brief The reader the tests read through, as init_infile() would return it. */
+static struct audio_reader reader;
+
 /**
  * @brief The largest 32-bit float below 1.0.
  *
@@ -348,16 +351,16 @@ float_aiff(const uint32_t *samples, int n)
 static void
 open_reader(lame_t gfp, FILE *f, int swapbytes)
 {
-    memset(&global, 0, sizeof global);
+    memset(&reader, 0, sizeof reader);
     frontend_config.reader.swapbytes = swapbytes;
-    global.pcmswapbytes = swapbytes;
-    frontend_config.reader.input_format = parse_file_header(gfp, f);
+    reader.pcmswapbytes = swapbytes;
+    frontend_config.reader.input_format = parse_file_header(&reader, gfp, f);
     assert_true(frontend_config.reader.input_format == sf_wave
                 || frontend_config.reader.input_format == sf_aiff);
-    global.music_in = f;
-    initPcmBuffer(&global.pcm32, sizeof(int));
-    initPcmBuffer(&global.pcm16, sizeof(short));
-    initPcmBuffer(&global.pcmf, sizeof(float));
+    reader.music_in = f;
+    initPcmBuffer(&reader.pcm32, sizeof(int));
+    initPcmBuffer(&reader.pcm16, sizeof(short));
+    initPcmBuffer(&reader.pcmf, sizeof(float));
     assert_int_equal(lame_init_params(gfp), 0);
 }
 
@@ -369,11 +372,11 @@ open_reader(lame_t gfp, FILE *f, int swapbytes)
 static void
 close_reader(lame_t gfp)
 {
-    freePcmBuffer(&global.pcm32);
-    freePcmBuffer(&global.pcm16);
-    freePcmBuffer(&global.pcmf);
-    fclose(global.music_in);
-    global.music_in = NULL;
+    freePcmBuffer(&reader.pcm32);
+    freePcmBuffer(&reader.pcm16);
+    freePcmBuffer(&reader.pcmf);
+    fclose(reader.music_in);
+    reader.music_in = NULL;
     frontend_config.reader.swapbytes = 0;
     lame_close(gfp);
 }
@@ -421,8 +424,8 @@ test_wave_samples_arrive_unchanged(void **state)
     (void) state;
     assert_non_null(gfp);
     open_reader(gfp, float_wave(1, odd_samples, 7, 0), 0);
-    assert_true(input_is_float());
-    assert_int_equal(get_audio_float(gfp, buffer), 7);
+    assert_true(input_is_float(&reader));
+    assert_int_equal(get_audio_float(&reader, gfp, buffer), 7);
     assert_bits(buffer[0], odd_samples, 7, 1);
     close_reader(gfp);
 }
@@ -445,8 +448,8 @@ test_aiff_samples_arrive_unchanged(void **state)
     (void) state;
     assert_non_null(gfp);
     open_reader(gfp, float_aiff(samples, 8), 0);
-    assert_true(input_is_float());
-    assert_int_equal(get_audio_float(gfp, buffer), 4);
+    assert_true(input_is_float(&reader));
+    assert_int_equal(get_audio_float(&reader, gfp, buffer), 4);
     assert_bits(buffer[0], samples, 4, 2);
     assert_bits(buffer[1], samples + 1, 4, 2);
     close_reader(gfp);
@@ -466,7 +469,7 @@ test_swapped_wave_arrives_unchanged(void **state)
     (void) state;
     assert_non_null(gfp);
     open_reader(gfp, float_wave(1, odd_samples, 7, 1), 1);
-    assert_int_equal(get_audio_float(gfp, buffer), 7);
+    assert_int_equal(get_audio_float(&reader, gfp, buffer), 7);
     assert_bits(buffer[0], odd_samples, 7, 1);
     close_reader(gfp);
 }
@@ -488,7 +491,7 @@ test_swapped_wave_differs_unswapped(void **state)
     (void) state;
     assert_non_null(gfp);
     open_reader(gfp, float_wave(1, odd_samples, 7, 1), 0);
-    assert_int_equal(get_audio_float(gfp, buffer), 7);
+    assert_int_equal(get_audio_float(&reader, gfp, buffer), 7);
     memcpy(&bits, &buffer[0][0], sizeof bits);
     assert_int_equal(bits, 0x0000003Fu);
     close_reader(gfp);
@@ -509,8 +512,8 @@ test_reader_counts_above_full_scale(void **state)
     (void) state;
     assert_non_null(gfp);
     open_reader(gfp, float_wave(1, samples, 4, 0), 0);
-    assert_int_equal(get_audio_float(gfp, buffer), 4);
-    assert_int_equal(samples_above_full_scale(), 2);
+    assert_int_equal(get_audio_float(&reader, gfp, buffer), 4);
+    assert_int_equal(samples_above_full_scale(&reader), 2);
     close_reader(gfp);
 }
 
@@ -528,7 +531,7 @@ test_integer_reader_refuses_float_file(void **state)
     (void) state;
     assert_non_null(gfp);
     open_reader(gfp, float_wave(1, samples, 2, 0), 0);
-    assert_true(get_audio(gfp, buffer) < 0);
+    assert_true(get_audio(&reader, gfp, buffer) < 0);
     close_reader(gfp);
 }
 
@@ -547,7 +550,7 @@ test_decode_reader_converts(void **state)
     (void) state;
     assert_non_null(gfp);
     open_reader(gfp, float_wave(1, samples, 3, 0), 0);
-    assert_int_equal(get_audio16(gfp, buffer), 3);
+    assert_int_equal(get_audio16(&reader, gfp, buffer), 3);
     assert_int_equal(buffer[0][0], 16384);
     assert_int_equal(buffer[0][1], -16384);
     assert_int_equal(buffer[0][2], SHRT_MAX);
@@ -571,7 +574,7 @@ test_decode_reader_refuses_nan(void **state)
     (void) state;
     assert_non_null(gfp);
     open_reader(gfp, float_wave(1, samples, 3, 0), 0);
-    assert_true(get_audio16(gfp, buffer) < 0);
+    assert_true(get_audio16(&reader, gfp, buffer) < 0);
     close_reader(gfp);
 }
 
@@ -594,7 +597,7 @@ test_buffer_growth_failure_is_an_error(LAME_UNUSED void **state)
     assert_non_null(gfp);
     open_reader(gfp, float_wave(1, odd_samples, 7, 0), 0);
     realloc_fails = 1;
-    got = get_audio_float(gfp, buffer);
+    got = get_audio_float(&reader, gfp, buffer);
     realloc_fails = 0;
     assert_true(got < 0);
     close_reader(gfp);
