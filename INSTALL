@@ -1,34 +1,36 @@
-LAME 3.xx    January 2001  Mark Taylor (http://www.mp3dev.org)
+LAME build options
 
 
 =======================================================================
 Compile time options
 =======================================================================
-There are serveral targets which can be built from this
+There are several targets which can be built from this
 source code:
 
 lame, lame.exe  The command line encoder
 
-mp3x            A GTK based graphical MP3 frame analyzer.  For debugging,
-                development, and studing MP3 frames produced by any
+mp3x            A GTK 4 based graphical MP3 frame analyzer.  For debugging,
+                development, and studying MP3 frames produced by any
                 encoder.
 
+mp3rtp          The command line encoder that streams the MP3 with RTP.
+
 lame_enc.dll    a Windows DLL used by many GUIs which support lame.
-                (Can only be compiled by MSVC???)
+                Built with MSVC: Makefile.MSVC or vc_solution/vs_lame.slnx.
 
-lame.acm        *** DEPRECATED ***
-                a Windows ACM codec which can be used by many windows programs, 
-                and any directshow program. See MSVC project files in ACM 
-                directory. Right click on lame.inf to install.
+lameACM.acm     a Windows ACM codec which can be used by many Windows
+                programs.  Built from vc_solution/vs_lame_clients.slnx.
+                Right click on ACM/LameACM.inf to install.
 
-lame_enc.dshow  a Windows direct show filter for lame.  Potentially has
-                more flexability than the ACM codec, but code needs some
-                work.  See MSVC project files in dshow directory
+lame.ax         a Windows DirectShow filter for lame.  Built from
+                vc_solution/vs_lame_clients.slnx, which needs the
+                DirectShow base classes; see vc_solution/README.vs.txt.
 
 libmp3lame.a    the static encoding library used by all platforms, required
                 by all the above targets.
 
 libmp3lame.so   shared version of libmp3lame.a for *NIX platforms
+                (libmp3lame.dll on Windows)
 
 
 The following compile time options can be used.  For libmp3lame.a and 
@@ -37,9 +39,8 @@ be set in config.h or in the IDE.
 On unix systems, they are set via ./configure.  
 
 
-#define HAVE_MPGLIB   compile in mpglib's mp3 *decoding* capibility
-#define HAVE_VORBIS   compile in Vorbis decoding capibility
-                      (you need libvorbis already built)
+#define HAVE_MPG123   compile in MPEG *decoding* with libmpg123
+                      (you need libmpg123 1.26.0 or newer)
 #define NOANALYSIS    do not compile in hooks used by the 
                       MP3 frame analyzer.
 
@@ -58,28 +59,26 @@ Run the following commands:
 % make install
 
 For a complete list of options, try "./configure --help"
-Some of the more usefull options:
+Some of the more useful options:
 
-For the encoding library:
+  --disable-decoder           Build without the MPEG decoder (libmpg123)
 
   --enable-mp3x               Build the mp3 frame analyzer, 'mp3x'
+                              (needs GTK 4.10 or newer and the decoder)
 
   --enable-mp3rtp             Build the encode-to-RTP program, 'mp3rtp'
-                              (broken as of August 2001)
- 
+
 
 For the LAME front end encoder:
 
   --with-fileio=lame          Use lame's internal file io routines [default]
-               =sndfile       Use Erik de Castro Lopo's libsndfile (Supports 
-                              many more input formats, but no stdin possible 
-                              currently)
-
-  --with-sndfile-prefix=DIR   Alternate location for libsndfile
-                              (if --with-fileio=sndfile)
+               =sndfile       Use Erik de Castro Lopo's libsndfile (supports
+                              many more input formats; standard input is
+                              read by lame's internal routines).  configure
+                              finds libsndfile 1.0.2 or newer with pkg-config.
 
 
-Other usefull configure options:
+Other useful configure options:
 
   --enable-debug              Build a debug version
 
@@ -106,16 +105,15 @@ Other usefull configure options:
                               decoder in libmp3lame.  A dynamically linked
                               lame needs the libmp3lame of the same build.
 
-  --prefix = PATH             default is /usr/local
-                              (LAME currently installs:
+  --prefix=PATH               default is /usr/local
+                              (LAME installs, among others:
                                 /usr/local/bin/lame
                                 /usr/local/lib/libmp3lame.a
                                 /usr/local/lib/libmp3lame.so
-                                /usr/local/include/lame.h
-
-
-  --with-vorbis                Enable Ogg Vorbis decoding support
-  --with-vorbis-prefix = PATH  specify where to find Vorbis libs
+                                /usr/local/include/lame/lame.h
+                                /usr/local/lib/pkgconfig/lame.pc
+                                /usr/local/share/man/man1/lame.1
+                                /usr/local/share/doc/lame/html/)
 
 
 Some more advanced ways to influence the build procedure
@@ -154,9 +152,9 @@ Some more advanced ways to influence the build procedure
 Building the software on Windows with MSVC:
 (or MSVC + 3rd party C compiler such as ICL)
 =======================================================================
-There are MSVC project files, and a Makefile.MSVC included with the 
-project.  For production use, be sure to compile a "Release" target, 
-with the "maximum speed" compile option.   
+There are Visual Studio solutions in vc_solution (see
+vc_solution/README.vs.txt) and a Makefile.MSVC included with the
+project.  For production use, be sure to build a "Release" configuration.
 
 The GTK frame analyzer mp3x is built from the Visual Studio solution in
 vc_solution, which needs GTK 4; see vc_solution/README.vs.txt. Makefile.MSVC
@@ -164,35 +162,20 @@ does not build it.
 
 Various build options can be set in configMS.h
 
-Note: project files for building lame.exe seem to be broken or not
-quite compatable with MSVC6.  The most reliable way to build lame and
-lame_enc.dll is to run the .bat script (comes with MSVC6) which sets
-up your VC environment to work from the command line, and then:
+To build lame.exe from the command line, open a developer command prompt
+of Visual Studio and run:
 
-copy configMS.h config.h 
-nmake -f Makefile.MSVC  comp=msvc  asm=no
+nmake -f Makefile.MSVC
 
-Project files for the dll, ACM codec and directshow filter 
-seem to be in better sahpe.  
+Makefile.MSVC copies configMS.h to config.h itself.  The comment at its
+top lists the arguments it takes.
 
 
 =======================================================================
 Building the software on Windows with free compilers:
 =======================================================================
-LAME can be compiled with various Windows ports (all free) of GCC (DJGPP, 
-Mingw32).  See README.DJGPP.  
-
-For Mingw32, use the configure script as on any other platform.
-You may need to remove these lines from brhist.c:
-
-#ifdef _WIN32
-COORD Pos;
-HANDLE CH;
-CONSOLE_SCREEN_BUFFER_INFO CSBI;
-#endif
-
-Mingw32 users may also try to use the unix configure script (explained
-above), it has _untested_ support for Mingw32.
+With MSYS2 (MinGW-w64), use the configure script as on any other
+platform.
 
 Cygwin users should use the unix configure script (explained above). If
 you have problems with the configure script try:
@@ -200,10 +183,4 @@ you have problems with the configure script try:
 Patches to enable the build of the lame_enc.dll with Cygwin and autoconf /
 automake / libtool are welcome!
 
-To use the Borland C compiler (now free!) see README.B32 and Makefile.B32.
-Borland can also compile the lame_enc.dll, but this is untested.
-
-Can DJGPP or Mingw32 produce lame_enc.dll?
-
-Various build options can be set in configMS.h
-
+lame_enc.dll, the ACM codec and the DirectShow filter are built with MSVC.
