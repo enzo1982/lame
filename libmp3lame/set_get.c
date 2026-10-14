@@ -4257,8 +4257,6 @@ change.
 /*
  *  just another daily changing developer switch  
  */
-void CDECL lame_set_tune(lame_global_flags *, float);
-
 void
 lame_set_tune(lame_global_flags * gfp, float val)
 {

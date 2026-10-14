@@ -945,7 +945,7 @@ format_bitstream(lame_internal_flags * gfc)
 
 static int
 do_gain_analysis(LAME_UNUSED lame_internal_flags * gfc, LAME_UNUSED unsigned char* buffer,
-                 LAME_UNUSED int minimum)
+                 int minimum)
 {
 #ifdef HAVE_MPG123
     SessionConfig_t const *const cfg = &gfc->cfg;

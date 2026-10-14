@@ -190,13 +190,13 @@ printInputFormat(lame_t gfp)
     case sf_mp123:     /* FIXME: !!! */
         break;
     case sf_mp3:
-        console_printf("MPEG-%u%s Layer %s", v_main, v_ex, "III");
+        console_printf("MPEG-%d%s Layer %s", v_main, v_ex, "III");
         break;
     case sf_mp2:
-        console_printf("MPEG-%u%s Layer %s", v_main, v_ex, "II");
+        console_printf("MPEG-%d%s Layer %s", v_main, v_ex, "II");
         break;
     case sf_mp1:
-        console_printf("MPEG-%u%s Layer %s", v_main, v_ex, "I");
+        console_printf("MPEG-%d%s Layer %s", v_main, v_ex, "I");
         break;
     case sf_raw:
         console_printf("raw PCM data");

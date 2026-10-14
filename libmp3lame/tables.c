@@ -209,7 +209,7 @@ static const uint16_t t33HB[] = {
 };
 
 
-const uint8_t t1l[] = {
+static const uint8_t t1l[] = {
     1, 4,
     3, 5
 };

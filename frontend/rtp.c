@@ -143,14 +143,14 @@ report_socket_error(char const *what)
 static char const *
 address_text(struct sockaddr const *sa, char *buf, size_t buflen)
 {
-    void   *addr;
+    void const *addr;
 
 #ifdef IPV6
     if (sa->sa_family == AF_INET6)
-        addr = (void *) &((struct sockaddr_in6 *) sa)->sin6_addr;
+        addr = &((struct sockaddr_in6 const *) sa)->sin6_addr;
     else
 #endif
-        addr = (void *) &((struct sockaddr_in *) sa)->sin_addr;
+        addr = &((struct sockaddr_in const *) sa)->sin_addr;
 
     if (inet_ntop(sa->sa_family, addr, buf, buflen) == NULL)
         return "?";
@@ -163,9 +163,9 @@ is_multicast(struct sockaddr const *sa)
 {
 #ifdef IPV6
     if (sa->sa_family == AF_INET6)
-        return ((struct sockaddr_in6 *) sa)->sin6_addr.s6_addr[0] == 0xFF;
+        return ((struct sockaddr_in6 const *) sa)->sin6_addr.s6_addr[0] == 0xFF;
 #endif
-    return (ntohl(((struct sockaddr_in *) sa)->sin_addr.s_addr) >> 28) == 0xE;
+    return (ntohl(((struct sockaddr_in const *) sa)->sin_addr.s_addr) >> 28) == 0xE;
 }
 
 
@@ -175,7 +175,7 @@ is_broadcast(struct sockaddr const *sa)
 {
     if (sa->sa_family != AF_INET)
         return 0;
-    return ntohl(((struct sockaddr_in *) sa)->sin_addr.s_addr) == INADDR_BROADCAST;
+    return ntohl(((struct sockaddr_in const *) sa)->sin_addr.s_addr) == INADDR_BROADCAST;
 }
 
 

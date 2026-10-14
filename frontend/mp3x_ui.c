@@ -2407,7 +2407,7 @@ on_close_request(LAME_UNUSED GtkWindow *win, gpointer user_data)
 }
 
 static void
-on_window_destroy(LAME_UNUSED GtkWindow *win, gpointer user_data)
+on_window_destroy(GtkWindow *win, gpointer user_data)
 {
     Mp3xDriver *d = user_data;
     if (d->win == GTK_WINDOW(win))

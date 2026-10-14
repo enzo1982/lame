@@ -97,13 +97,12 @@ typedef VOLATILE union {
 /*********************************************************************
  * XRPOW_FTOI is a macro to convert floats to ints.
  * if XRPOW_FTOI(x) = nearest_int(x), then QUANTFAC(x)=adj43asm[x]
- *                                         ROUNDFAC= -0.0946
+ *                                         rounding offset -0.0946
  *
  * if XRPOW_FTOI(x) = floor(x), then QUANTFAC(x)=asj43[x]
- *                                   ROUNDFAC=0.4054
+ *                                   rounding offset 0.4054
  *********************************************************************/
 #  define QUANTFAC(rx)  adj43[rx]
-#  define ROUNDFAC_def 0.4054f
 #  define XRPOW_FTOI(src,dest) ((dest) = (int)(src))
 #endif
 

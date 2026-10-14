@@ -59,8 +59,6 @@ typedef BE_ERR (*BLADE_TEST_BEFLUSHNOGAP) (HBE_STREAM, PBYTE, PDWORD);
 #define TONE_PEAK   12000.0
 /** @brief Seconds of audio each stream encodes. */
 #define SECONDS     1
-/** @brief Buffer size for one returned chunk. beInitStream reports a smaller size. */
-#define OUT_ROOM    65536
 /** @brief Buffer size for a whole encoded stream at these settings. */
 #define STREAM_ROOM (KBPS * MP3_BITS_PER_KBIT / MP3_BITS_PER_BYTE * (SECONDS + 1))
 

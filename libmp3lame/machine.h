@@ -134,21 +134,6 @@ typedef float FLOAT;
 # endif
 #endif
 
-#ifndef FLOAT8
-typedef double FLOAT8;
-# ifdef DBL_MAX
-#  define FLOAT8_MAX DBL_MAX
-# else
-#  define FLOAT8_MAX 1e99 /* approx */
-# endif
-#else
-# ifdef FLT_MAX
-#  define FLOAT8_MAX FLT_MAX
-# else
-#  define FLOAT8_MAX 1e37 /* approx */
-# endif
-#endif
-
 /* sample_t must be floating point, at least 32 bits */
 typedef FLOAT sample_t;
 

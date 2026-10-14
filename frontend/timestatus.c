@@ -278,7 +278,7 @@ encoder_progress_begin( lame_global_flags const* gf
             };
             switch (lame_get_VBR(gf)) {
             case vbr_rh:
-                console_printf("%s MPEG-%u%s Layer III VBR(q=%g) qval=%i\n",
+                console_printf("%s MPEG-%d%s Layer III VBR(q=%g) qval=%i\n",
                                mode_names[lame_get_force_ms(gf)][lame_get_mode(gf)],
                                2 - lame_get_version(gf),
                                lame_get_out_samplerate(gf) < 16000 ? ".5" : "",
@@ -287,14 +287,14 @@ encoder_progress_begin( lame_global_flags const* gf
                 break;
             case vbr_mt:
             case vbr_mtrh:
-                console_printf("%s MPEG-%u%s Layer III VBR(q=%g)\n",
+                console_printf("%s MPEG-%d%s Layer III VBR(q=%g)\n",
                                mode_names[lame_get_force_ms(gf)][lame_get_mode(gf)],
                                2 - lame_get_version(gf),
                                lame_get_out_samplerate(gf) < 16000 ? ".5" : "",
                                lame_get_VBR_quality(gf));
                 break;
             case vbr_abr:
-                console_printf("%s MPEG-%u%s Layer III (%gx) average %d kbps qval=%i\n",
+                console_printf("%s MPEG-%d%s Layer III (%gx) average %d kbps qval=%i\n",
                                mode_names[lame_get_force_ms(gf)][lame_get_mode(gf)],
                                2 - lame_get_version(gf),
                                lame_get_out_samplerate(gf) < 16000 ? ".5" : "",
@@ -303,7 +303,7 @@ encoder_progress_begin( lame_global_flags const* gf
                                lame_get_quality(gf));
                 break;
             default:
-                console_printf("%s MPEG-%u%s Layer III (%gx) %3d kbps qval=%i\n",
+                console_printf("%s MPEG-%d%s Layer III (%gx) %3d kbps qval=%i\n",
                                mode_names[lame_get_force_ms(gf)][lame_get_mode(gf)],
                                2 - lame_get_version(gf),
                                lame_get_out_samplerate(gf) < 16000 ? ".5" : "",

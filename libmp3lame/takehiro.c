@@ -237,10 +237,10 @@ quantize_lines_xrpow(unsigned int l, FLOAT istep, const FLOAT * xp, int *pi)
 /*********************************************************************
  * XRPOW_FTOI is a macro to convert floats to ints.  
  * if XRPOW_FTOI(x) = nearest_int(x), then QUANTFAC(x)=adj43asm[x]
- *                                         ROUNDFAC= -0.0946
+ *                                         rounding offset -0.0946
  *
  * if XRPOW_FTOI(x) = floor(x), then QUANTFAC(x)=asj43[x]   
- *                                   ROUNDFAC=0.4054
+ *                                   rounding offset 0.4054
  *
  * Note: using floor() or (int) is extremely slow. On machines where
  * the TAKEHIRO_IEEE754_HACK code above does not work, it is worthwile
@@ -248,7 +248,6 @@ quantize_lines_xrpow(unsigned int l, FLOAT istep, const FLOAT * xp, int *pi)
  *********************************************************************/
 #define XRPOW_FTOI(src,dest) ((dest) = (int)(src))
 #define QUANTFAC(rx)  adj43[rx]
-#define ROUNDFAC 0.4054
 
 
 static void

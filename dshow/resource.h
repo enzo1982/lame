@@ -17,7 +17,6 @@
 #define IDC_CHECK_CRC                   1009
 #define IDC_CHECK_PES                   1010
 #define IDC_COMBO_VBRMIN                1013
-#define IDC_TITLE_TEXT                  1016
 #define IDC_RADIO_CBR                   1019
 #define IDC_RADIO_VBR                   1020
 #define IDC_SLIDER_QUALITY              1021
@@ -33,15 +32,12 @@
 #define IDC_CHECK_STRICT_ISO            1034
 #define IDC_CHECK_XING_TAG              1036
 #define IDC_CHECK_FORCE_MS              1037
-#define IDC_RICHEDIT_LAME               1039
 #define IDC_CHECK_OVERLAP               1039
 #define IDC_CHECK_STOP                  1040
-#define IDC_EDIT_TEXT                   1044
 #define IDC_LAME_LA                     1044
 #define IDC_FORCE_MONO                  1045
 #define IDC_LAME_VER                    1046
 #define IDC_LAME_URL                    1047
-#define IDC_SET_DURATION                1048
 #define IDC_RADIO_ABR                   1049
 #define IDC_COMBO_ABR                   1050
 #define IDC_CHECK_PRIVATE               1051

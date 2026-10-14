@@ -30,9 +30,6 @@
 #ifndef BRHIST_WIDTH
 # define BRHIST_WIDTH    14
 #endif
-#ifndef BRHIST_RES
-# define BRHIST_RES      14
-#endif
 
 
 /* #includes */
