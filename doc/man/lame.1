@@ -253,7 +253,7 @@ up to 640 kbps
 Uses LAME for decoding to a wav file.
 The input file can be any input type supported by encoding,
 including layer II files.
-LAME uses a fork of mpglib known as HIP for decoding.
+LAME decodes with libmpg123.
 
 If
 .B \-t
@@ -263,9 +263,8 @@ You can use
 .B \-x
 to swap bytes order.
 
-This option is not usable if the MP3 decoder was
-.B explicitly
-disabled in the build of LAME.
+A LAME built without libmpg123 cannot decode an MPEG input,
+and stops with an error.
 .TP
 .BI \-\-decode\-mp3delay " n"
 When decoding, assume the encoder delay was

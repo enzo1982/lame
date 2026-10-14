@@ -831,15 +831,16 @@
         <a name="decode"><span class="hilight">--decode</span></a> MP3 decode capability
     </p>
     <p>
-        This uses LAME's HIP<a href="#note2"><sup>2</sup></a> decoder to decode an MP3 (layers 1, 2 and 3) file to a wav file.
+        This decodes an MP3 file (layers 1, 2 and 3) to a wav file.
+        LAME decodes with libmpg123.
     </p>
     <p>
         If -t is used (disable wav header), LAME will output
         raw pcm in native endian format (use -x to swap bytes).
     </p>
     <p>
-        This option is not usable if the MP3 decoder was <b>explicitly</b> disabled
-        in the build of LAME.
+        A LAME built without libmpg123 cannot decode an MPEG input,
+        and stops with an error.
     </p>
     <p class="settingtitle">
         <a name="decode-mp3delay"><span class="hilight">--decode-mp3delay x</span></a> Indicate a different encoder delay
@@ -2007,9 +2008,6 @@
     <div id="notes">
         <ol>
             <li><a name="note1"></a>If compiled with decoding capabilities</li>
-            <li><a name="note2"></a>HIP stands for Hip Isn't a Player and is based off of
-                Michael Hipp's <a href="http://www.mpg123.de">mpglib 0.2a</a>
-            </li>
         </ol>
     </div>
 </div>

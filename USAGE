@@ -711,14 +711,14 @@ MPEG-2.5 layer III
 
 --decode MP3 decode capability
 
-    This uses LAME's HIP [2] decoder to decode an MP3 (layers 1, 2 and
-    3) file to a wav file.
+    This decodes an MP3 file (layers 1, 2 and 3) to a wav file. LAME
+    decodes with libmpg123.
 
     If -t is used (disable wav header), LAME will output raw pcm in
     native endian format (use -x to swap bytes).
 
-    This option is not usable if the MP3 decoder was explicitly disabled
-    in the build of LAME.
+    A LAME built without libmpg123 cannot decode an MPEG input, and
+    stops with an error.
 
 --decode-mp3delay x Indicate a different encoder delay for decoding
 
@@ -1589,9 +1589,6 @@ Setting         Average bitrate (kbps)
     allow for distortions, so using this switch shouldn't cause harm.
 
     - If compiled with decoding capabilities
-
-    - HIP stands for Hip Isn't a Player and is based off of Michael
-      Hipp's mpglib 0.2a
 
     HTML markup and design by Roberto Amorim and Sebastian Mares. Logo
     by Sam Fisher.
