@@ -20,8 +20,8 @@
  * Boston, MA  02111-1307, USA.
  */
 
-#ifndef ___BLADEDLL_H_INCLUDED___
-#define ___BLADEDLL_H_INCLUDED___
+#ifndef LAME_BLADEDLL_H
+#define LAME_BLADEDLL_H
 
 #ifdef _BLADEDLL
 #undef FLOAT

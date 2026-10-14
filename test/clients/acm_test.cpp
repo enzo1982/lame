@@ -55,7 +55,8 @@
 #include "../../libmp3lame/version.h"
 
 /** @brief How the codec's long name begins: its own name, then LAME's version. */
-#define LONG_NAME_PREFIX "LAME MP3 Codec v" STR(LAME_MAJOR_VERSION) "." STR(LAME_MINOR_VERSION)
+#define LONG_NAME_PREFIX "LAME MP3 Codec v" LAME_STR(LAME_MAJOR_VERSION) "." \
+                         LAME_STR(LAME_MINOR_VERSION)
 /** @brief LAME's version in the ACM's driver-version layout (major, minor, build). */
 #define DRIVER_VERSION (((DWORD) LAME_MAJOR_VERSION << 24) | ((DWORD) LAME_MINOR_VERSION << 16)                         | (DWORD) LAME_PATCH_VERSION)
 

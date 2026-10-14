@@ -74,13 +74,13 @@ extern Padding_type lame_get_padding_type(const lame_global_flags *);
  * Internal-only tuning setters. These are gated exactly as the frontend gates
  * them (frontend/parse.c): a normal build cannot reach them (release frontends
  * #define them to no-ops and the shared library does not export them), while a
- * build with _ALLOW_INTERNAL_OPTIONS pulls in the private set_get.h and calls
+ * build with LAME_INTERNAL_OPTIONS pulls in the private set_get.h and calls
  * the real functions. The tests below follow the same gate, so they are live
  * only in the developer/alpha configuration the functions themselves live in.
  * Reaching the (unexported) symbols additionally needs a static link - see the
  * test's Makefile.am entry.
  */
-#if defined _ALLOW_INTERNAL_OPTIONS
+#if defined LAME_INTERNAL_OPTIONS
 #define INTERNAL_OPTS 1
 #include "set_get.h"
 #else

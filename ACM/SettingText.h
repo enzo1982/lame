@@ -4,8 +4,8 @@
  *        of the same settings, and LAME's licence notice.
  */
 
-#if !defined(_SETTINGTEXT_H__INCLUDED_)
-#define _SETTINGTEXT_H__INCLUDED_
+#if !defined(LAME_ACM_SETTINGTEXT_H)
+#define LAME_ACM_SETTINGTEXT_H
 
 #if _MSC_VER >= 1000
 #pragma once
@@ -41,4 +41,4 @@ extern const char ABOUT_CREDITS[];
 /** @brief The credit for the icon, in the about boxes. */
 extern const char ABOUT_ICON_CREDIT[];
 
-#endif // !defined(_SETTINGTEXT_H__INCLUDED_)
+#endif // !defined(LAME_ACM_SETTINGTEXT_H)

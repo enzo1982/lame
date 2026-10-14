@@ -32,8 +32,8 @@ IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
 OF SUCH DAMAGE. 
 ************************************************************************/
 
-#if !defined(_DBG_H__INCLUDED_)
-#define _DBG_H__INCLUDED_
+#if !defined(LAME_ACM_ADBG_H)
+#define LAME_ACM_ADBG_H
 
 #include <stdio.h>
 #include <windows.h>
@@ -82,7 +82,7 @@ private:
 	bool my_use_file;
 	bool my_debug_output;
 
-	int _OutPut(const char * format,va_list params) const;
+	int OutPutV(const char * format,va_list params) const;
 
 	char prefix[MAX_PREFIX_LENGTH];
 
@@ -136,4 +136,4 @@ public:
 
 #endif // !defined(NDEBUG)
 
-#endif // !defined(_DBG_H__INCLUDED_)
+#endif // !defined(LAME_ACM_ADBG_H)

@@ -20,8 +20,8 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#ifndef	__REG__
-#define	__REG__
+#ifndef	LAME_DSHOW_REG_H
+#define	LAME_DSHOW_REG_H
 
 namespace Lame
 {
@@ -43,4 +43,4 @@ public:
 	void	setDWORD(LPCTSTR valuename, DWORD dwValue);
 };
 }
-#endif // __REG__
+#endif // LAME_DSHOW_REG_H

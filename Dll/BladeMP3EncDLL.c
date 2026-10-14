@@ -38,7 +38,7 @@ extern "C" {
 
 #define         Min(A, B)       ((A) < (B) ? (A) : (B))
 
-#define _RELEASEDEBUG 0
+#define BLADE_RELEASE_DEBUG 0
 
 // lame_enc DLL version number
 const BYTE MAJORVERSION = 1;
@@ -116,7 +116,7 @@ static void DebugVPrintf(const char* pzFormat, va_list ap)
         }
     }
 
-#if defined _DEBUG || _RELEASEDEBUG
+#if defined _DEBUG || BLADE_RELEASE_DEBUG
     OutputDebugStringA( szBuffer );
 #endif
 }

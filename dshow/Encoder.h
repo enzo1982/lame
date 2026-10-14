@@ -20,8 +20,8 @@
  * Boston, MA 02111-1307, USA.
  */
 
-#if !defined(AFX_VITECENCODER_H__40DC8A44_B937_11D2_A381_A2FD7C37FA15__INCLUDED_)
-#define AFX_VITECENCODER_H__40DC8A44_B937_11D2_A381_A2FD7C37FA15__INCLUDED_
+#if !defined(LAME_DSHOW_ENCODER_H)
+#define LAME_DSHOW_ENCODER_H
 
 #if _MSC_VER >= 1000
 #pragma once
@@ -182,4 +182,4 @@ protected:
     CCritSec            m_lock;
 };
 
-#endif // !defined(AFX_VITECENCODER_H__40DC8A44_B937_11D2_A381_A2FD7C37FA15__INCLUDED_)
+#endif // !defined(LAME_DSHOW_ENCODER_H)

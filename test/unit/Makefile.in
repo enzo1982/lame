@@ -160,7 +160,7 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@@WITH_LAME_FRONTEND_TRUE@	test_output_complete.sh
 # The exit status of mp3rtp. It skips where mp3rtp is not built.
 @ENABLE_UNIT_TESTS_TRUE@@HAVE_SOCKETS_TRUE@am__append_5 = test_mp3rtp_status.sh
-@ENABLE_UNIT_TESTS_TRUE@@INTERNAL_OPTS_TRUE@am__append_6 = -D_ALLOW_INTERNAL_OPTIONS
+@ENABLE_UNIT_TESTS_TRUE@@INTERNAL_OPTS_TRUE@am__append_6 = -DLAME_INTERNAL_OPTIONS
 @ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_7 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
 @ENABLE_UNIT_TESTS_TRUE@@WITH_AVX2_TRUE@@WITH_XMM_TRUE@am__append_8 = $(top_builddir)/libmp3lame/vector/liblamevectoravx2.la
 @ENABLE_UNIT_TESTS_TRUE@@WITH_AVX512_TRUE@@WITH_XMM_TRUE@am__append_9 = $(top_builddir)/libmp3lame/vector/liblamevectoravx512.la
@@ -1523,7 +1523,7 @@ SH_LOG_COMPILER = $(SHELL)
 # Exercises the parameter API in set_get.c. The exported getters/setters are
 # tested in every build; the internal-only tuning setters are additionally
 # tested when configured with --enable-internal (the same gate the frontend
-# uses), which defines _ALLOW_INTERNAL_OPTIONS and pulls in the private
+# uses), which defines LAME_INTERNAL_OPTIONS and pulls in the private
 # libmp3lame/set_get.h - hence the extra include path. Those internal symbols
 # are withheld from the shared library by include/libmp3lame.sym, so under
 # --enable-internal this test links the STATIC archive (-static) to reach them;

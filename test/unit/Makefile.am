@@ -472,7 +472,7 @@ test_huffman_tables_LDADD = $(CMOCKA_LIBS) \
 # Exercises the parameter API in set_get.c. The exported getters/setters are
 # tested in every build; the internal-only tuning setters are additionally
 # tested when configured with --enable-internal (the same gate the frontend
-# uses), which defines _ALLOW_INTERNAL_OPTIONS and pulls in the private
+# uses), which defines LAME_INTERNAL_OPTIONS and pulls in the private
 # libmp3lame/set_get.h - hence the extra include path. Those internal symbols
 # are withheld from the shared library by include/libmp3lame.sym, so under
 # --enable-internal this test links the STATIC archive (-static) to reach them;
@@ -483,7 +483,7 @@ test_set_get_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/libmp3lame \
 	-I$(top_builddir)
 if INTERNAL_OPTS
-test_set_get_CPPFLAGS += -D_ALLOW_INTERNAL_OPTIONS
+test_set_get_CPPFLAGS += -DLAME_INTERNAL_OPTIONS
 test_set_get_LDFLAGS = -static
 endif
 test_set_get_LDADD = $(CMOCKA_LIBS) \

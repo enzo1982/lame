@@ -1438,20 +1438,19 @@ disable_FPE(void)
         mask = _controlfp(mask, _MCW_EM);
     }
 #elif defined(__CYGWIN__)
-#  define _FPU_GETCW(cw) __asm__ ("fnstcw %0" : "=m" (*&cw))
-#  define _FPU_SETCW(cw) __asm__ ("fldcw %0" : : "m" (*&cw))
+#  define LAME_X87_GETCW(cw) __asm__ ("fnstcw %0" : "=m" (*&cw))
+#  define LAME_X87_SETCW(cw) __asm__ ("fldcw %0" : : "m" (*&cw))
 
-#  define _EM_INEXACT     0x00000020 /* inexact (precision) */
-#  define _EM_UNDERFLOW   0x00000010 /* underflow */
-#  define _EM_OVERFLOW    0x00000008 /* overflow */
-#  define _EM_ZERODIVIDE  0x00000004 /* zero divide */
-#  define _EM_INVALID     0x00000001 /* invalid */
+/* x87 control word: the mask bits of three exceptions */
+#  define LAME_X87_MASK_OVERFLOW    0x00000008
+#  define LAME_X87_MASK_ZERODIVIDE  0x00000004
+#  define LAME_X87_MASK_INVALID     0x00000001
     {
         unsigned int mask;
-        _FPU_GETCW(mask);
+        LAME_X87_GETCW(mask);
         /* Set the FPU control word to abort on most FPEs */
-        mask &= ~(_EM_OVERFLOW | _EM_ZERODIVIDE | _EM_INVALID);
-        _FPU_SETCW(mask);
+        mask &= ~(LAME_X87_MASK_OVERFLOW | LAME_X87_MASK_ZERODIVIDE | LAME_X87_MASK_INVALID);
+        LAME_X87_SETCW(mask);
     }
 # elif defined(HAVE_FENV_H) && defined(HAVE_FEENABLEEXCEPT)
     {
@@ -1475,11 +1474,15 @@ disable_FPE(void)
  * so the body is compiled only where they turn up.
  */
 #  if defined(_FPU_MASK_IM) && defined(_FPU_MASK_ZM) && defined(_FPU_MASK_OM)
-#   ifndef _FPU_GETCW
-#   define _FPU_GETCW(cw) __asm__ ("fnstcw %0" : "=m" (*&cw))
+#   ifdef _FPU_GETCW
+#    define LAME_X87_GETCW(cw) _FPU_GETCW(cw)
+#   else
+#    define LAME_X87_GETCW(cw) __asm__ ("fnstcw %0" : "=m" (*&cw))
 #   endif
-#   ifndef _FPU_SETCW
-#   define _FPU_SETCW(cw) __asm__ ("fldcw %0" : : "m" (*&cw))
+#   ifdef _FPU_SETCW
+#    define LAME_X87_SETCW(cw) _FPU_SETCW(cw)
+#   else
+#    define LAME_X87_SETCW(cw) __asm__ ("fldcw %0" : : "m" (*&cw))
 #   endif
 
         /*
@@ -1489,9 +1492,9 @@ disable_FPE(void)
          */
 
         unsigned int mask;
-        _FPU_GETCW(mask);
+        LAME_X87_GETCW(mask);
         mask &= ~(_FPU_MASK_IM | _FPU_MASK_ZM | _FPU_MASK_OM);
-        _FPU_SETCW(mask);
+        LAME_X87_SETCW(mask);
 #  endif
     }
 #endif

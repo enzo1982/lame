@@ -64,7 +64,16 @@ ADbg::~ADbg()
 /// The longest line of debug output, in bytes, terminator included.
 static const size_t LINE_BYTES = 1000;
 
-inline int ADbg::_OutPut(const char * format,va_list params) const
+/**
+ * @brief Writes one line of debug output: the formatted message, after the time
+ *        and the prefix when they are set, to the debugger and to the debug
+ *        file, each when it is on.
+ * @param format  the printf format of the message.
+ * @param params  the arguments of the format.
+ * @return the length of the line, at most the line buffer less its terminator;
+ *         negative when the line could not be formatted.
+ */
+inline int ADbg::OutPutV(const char * format,va_list params) const
 {
 	char message[LINE_BYTES];
 	char line[LINE_BYTES];
@@ -128,7 +137,7 @@ int ADbg::OutPut(int forLevel, const char * format,...) const
 
 		va_start(tstlist, format);
 
-		result = _OutPut(format,tstlist);
+		result = OutPutV(format,tstlist);
 
 		va_end(tstlist);
 	}
@@ -143,7 +152,7 @@ int ADbg::OutPut(const char * format,...) const
 
 	va_start(tstlist, format);
 
-	result = _OutPut(format,tstlist);
+	result = OutPutV(format,tstlist);
 
 	va_end(tstlist);
 

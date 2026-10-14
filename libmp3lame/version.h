@@ -26,10 +26,8 @@
 /*
  * To make a string from a token, use the # operator:
  */
-#ifndef STR
-# define __STR(x)  #x
-# define STR(x)    __STR(x)
-#endif
+#define LAME_STR_(x)  #x
+#define LAME_STR(x)   LAME_STR_(x)
 
 # define LAME_URL              "https://lame.sourceforge.io"
 
@@ -48,20 +46,21 @@
 # define PSY_BETA_VERSION        0 /* Set number if this is a beta version, otherwise zero */
 
 #if LAME_ALPHA_VERSION
-#define LAME_PATCH_LEVEL_STRING " alpha " STR(LAME_PATCH_VERSION)
+#define LAME_PATCH_LEVEL_STRING " alpha " LAME_STR(LAME_PATCH_VERSION)
 #endif
 #if LAME_BETA_VERSION
-#define LAME_PATCH_LEVEL_STRING " beta " STR(LAME_PATCH_VERSION)
+#define LAME_PATCH_LEVEL_STRING " beta " LAME_STR(LAME_PATCH_VERSION)
 #endif
 #if LAME_RELEASE_VERSION
 #if LAME_PATCH_VERSION
-#define LAME_PATCH_LEVEL_STRING " release " STR(LAME_PATCH_VERSION)
+#define LAME_PATCH_LEVEL_STRING " release " LAME_STR(LAME_PATCH_VERSION)
 #else
 #define LAME_PATCH_LEVEL_STRING ""
 #endif
 #endif
 
-# define LAME_VERSION_STRING STR(LAME_MAJOR_VERSION) "." STR(LAME_MINOR_VERSION) LAME_PATCH_LEVEL_STRING
+# define LAME_VERSION_STRING LAME_STR(LAME_MAJOR_VERSION) "." LAME_STR(LAME_MINOR_VERSION) \
+                            LAME_PATCH_LEVEL_STRING
 
 #ifndef RC_INVOKED
 const char *get_lame_tag_encoder_short_version(void);

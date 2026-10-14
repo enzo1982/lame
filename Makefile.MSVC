@@ -547,13 +547,13 @@ libA:	$(LIB_OBJ)
 lib: libA
 
 lame.res: $(srcdir)/libmp3lame/lame.rc
-	@rc.exe /d "NDEBUG" /d "_APP=lame.exe" /l 0x409 /fo"./frontend/lame.res" "$(srcdir)/libmp3lame/lame.rc"
+	@rc.exe /d "NDEBUG" /d "LAME_RC_APP=lame.exe" /l 0x409 /fo"./frontend/lame.res" "$(srcdir)/libmp3lame/lame.rc"
 
 mp3rtp.res: $(srcdir)/libmp3lame/lame.rc
-	@rc.exe /d "NDEBUG" /d "_APP=mp3rtp.exe" /l 0x409 /fo"./frontend/mp3rtp.res" "$(srcdir)/libmp3lame/lame.rc"
+	@rc.exe /d "NDEBUG" /d "LAME_RC_APP=mp3rtp.exe" /l 0x409 /fo"./frontend/mp3rtp.res" "$(srcdir)/libmp3lame/lame.rc"
 
 lame_enc.res: $(srcdir)/libmp3lame/lame.rc
-	@rc.exe /d "NDEBUG" /d "_DLL=lame_enc.dll" /l 0x409 /fo"./frontend/lame_enc.res" "$(srcdir)/libmp3lame/lame.rc"
+	@rc.exe /d "NDEBUG" /d "LAME_RC_DLL=lame_enc.dll" /l 0x409 /fo"./frontend/lame_enc.res" "$(srcdir)/libmp3lame/lame.rc"
 
 !	IF "$(MPG123)" == "YES"
 #	The distribution ships a .def and no import library. $(MACHINE) rather

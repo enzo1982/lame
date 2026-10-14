@@ -9,8 +9,8 @@
  * from the font, so the whole layout scales with it.
  */
 
-#if !defined(_DIALOGFONT_H__INCLUDED_)
-#define _DIALOGFONT_H__INCLUDED_
+#if !defined(LAME_ACM_DIALOGFONT_H)
+#define LAME_ACM_DIALOGFONT_H
 
 #if _MSC_VER >= 1000
 #pragma once
@@ -24,4 +24,4 @@ bool SystemDialogFont(LOGFONTW & the_Font);
 bool DialogTemplateWithFont(const HINSTANCE the_Instance, const WORD the_Dialog, const LOGFONTW & the_Font, std::vector<BYTE> & the_Template);
 INT_PTR DialogBoxSystemFont(const HINSTANCE the_Instance, const WORD the_Dialog, const HWND the_Parent, const DLGPROC the_Proc, const LPARAM the_Param);
 
-#endif // !defined(_DIALOGFONT_H__INCLUDED_)
+#endif // !defined(LAME_ACM_DIALOGFONT_H)

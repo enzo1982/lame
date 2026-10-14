@@ -1067,7 +1067,7 @@ if test "x${enable_internal}" = "xyes"; then
 	if test "x${enable_static}" = "xno"; then
 		AC_MSG_ERROR([--enable-internal needs the static libmp3lame archive, but --disable-static was given. The internal setters are not exported from the shared library, so the frontend must link statically. Re-run without --disable-static.])
 	fi
-	# _ALLOW_INTERNAL_OPTIONS is defined per-target (frontend and the set_get
+	# LAME_INTERNAL_OPTIONS is defined per-target (frontend and the set_get
 	# unit test) via the INTERNAL_OPTS automake conditional, NOT globally: a
 	# global define would pull the internal-option code path of parse.c into the
 	# other unit tests that compile parse.c only for its argument helpers, and

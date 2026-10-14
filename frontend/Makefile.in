@@ -99,7 +99,7 @@ host_triplet = @host@
 # are unaffected. configure has already forced -static into FRONTEND_LDFLAGS,
 # so the frontend can reach the internal setters, which the shared library does
 # not export.
-@INTERNAL_OPTS_TRUE@am__append_1 = -D_ALLOW_INTERNAL_OPTIONS
+@INTERNAL_OPTS_TRUE@am__append_1 = -DLAME_INTERNAL_OPTIONS
 subdir = frontend
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/host-cpu-c-abi.m4 \

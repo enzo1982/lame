@@ -52,7 +52,7 @@ AM_CPPFLAGS = @LAME_CPPFLAGS@ -I$(top_srcdir)/libmp3lame -I$(top_srcdir)/include
 # so the frontend can reach the internal setters, which the shared library does
 # not export.
 if INTERNAL_OPTS
-AM_CPPFLAGS += -D_ALLOW_INTERNAL_OPTIONS
+AM_CPPFLAGS += -DLAME_INTERNAL_OPTIONS
 endif
 
 LDADD = @LDADD@ \

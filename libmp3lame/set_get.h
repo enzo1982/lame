@@ -18,8 +18,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#ifndef __SET_GET_H__
-#define __SET_GET_H__
+#ifndef LAME_SET_GET_H
+#define LAME_SET_GET_H
 
 #include <lame.h>
 

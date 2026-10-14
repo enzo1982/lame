@@ -25,8 +25,8 @@
 	\version \$Id$
 */
 
-#if !defined(_DEBUG_H__INCLUDED_)
-#define _DEBUG_H__INCLUDED_
+#if !defined(LAME_ACM_ADEBUG_H)
+#define LAME_ACM_ADEBUG_H
 
 #define DEBUG_LEVEL_CREATION 0
 
@@ -35,5 +35,5 @@
 #define DEBUG_LEVEL_FUNC_DEBUG 2
 #define DEBUG_LEVEL_FUNC_CODE 3
 
-#endif /* !defined(_DEBUG_H__INCLUDED_) */
+#endif /* !defined(LAME_ACM_ADEBUG_H) */
 

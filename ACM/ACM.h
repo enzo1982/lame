@@ -25,8 +25,8 @@
 	\version \$Id$
 */
 
-#if !defined(_ACM_H__INCLUDED_)
-#define _ACM_H__INCLUDED_
+#if !defined(LAME_ACM_ACM_H)
+#define LAME_ACM_ACM_H
 
 #if _MSC_VER >= 1000
 #pragma once
@@ -121,5 +121,5 @@ protected:
 	static char VersionString[VERSION_STRING_CHARS];
 };
 
-#endif // !defined(_ACM_H__INCLUDED_)
+#endif // !defined(LAME_ACM_ACM_H)
 

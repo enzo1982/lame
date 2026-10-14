@@ -8,8 +8,8 @@
  * dialog to the property frame. The pages of the filter derive from it.
  */
 
-#if !defined(_SYSTEMFONTPAGE_H__INCLUDED_)
-#define _SYSTEMFONTPAGE_H__INCLUDED_
+#if !defined(LAME_DSHOW_SYSTEMFONTPAGE_H)
+#define LAME_DSHOW_SYSTEMFONTPAGE_H
 
 class CSystemFontPropertyPage : public CBasePropertyPage
 {
@@ -27,4 +27,4 @@ private:
     BOOL m_bHasObject;
 };
 
-#endif // !defined(_SYSTEMFONTPAGE_H__INCLUDED_)
+#endif // !defined(LAME_DSHOW_SYSTEMFONTPAGE_H)

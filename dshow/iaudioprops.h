@@ -22,8 +22,8 @@
 
 // A custom interface to allow the user to modify audio
 // encoder properties
-#ifndef __IAUDIOPROPERTIES__
-#define __IAUDIOPROPERTIES__
+#ifndef LAME_DSHOW_IAUDIOPROPS_H
+#define LAME_DSHOW_IAUDIOPROPS_H
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -311,7 +311,7 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-#endif // __IAUDIOPROPERTIES__
+#endif // LAME_DSHOW_IAUDIOPROPS_H
 
 
 

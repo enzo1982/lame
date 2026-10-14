@@ -113,7 +113,7 @@ static iconv_t os2_iconv_open (const char *tocode, const char *fromcode)
 #endif /* KLIBC iconv */
 #endif /* HAVE_ICONV */
 
-#if defined _ALLOW_INTERNAL_OPTIONS
+#if defined LAME_INTERNAL_OPTIONS
 #define INTERNAL_OPTS 1
 #else
 #define INTERNAL_OPTS 0
@@ -352,9 +352,9 @@ char* toUtf8(char const* s)
 }
 #endif
 
-static int evaluateArgument(char const* token, char const* arg, char* _EndPtr)
+static int evaluateArgument(char const* token, char const* arg, char* end_ptr)
 {
-    if (arg != 0 && arg != _EndPtr)
+    if (arg != 0 && arg != end_ptr)
         return 1;
     error_printf("WARNING: argument missing for '%s'\n", token);
     return 0;
@@ -385,8 +385,8 @@ refuse_number(char const* token, char const* arg)
 
 static int getDoubleValue(char const* token, char const* arg, double* ptr)
 {
-    char *_EndPtr=0;
-    double d = strtod(arg, &_EndPtr);
+    char *end_ptr=0;
+    double d = strtod(arg, &end_ptr);
     if (!double_is_finite(d) || d > MAX_NUMERIC_ARGUMENT || d < -MAX_NUMERIC_ARGUMENT) {
         refuse_number(token, arg);
         d = 0;
@@ -394,13 +394,13 @@ static int getDoubleValue(char const* token, char const* arg, double* ptr)
     if (ptr != 0) {
         *ptr = d;
     }
-    return evaluateArgument(token, arg, _EndPtr);
+    return evaluateArgument(token, arg, end_ptr);
 }
 
 static int getIntValue(char const* token, char const* arg, int* ptr)
 {
-    char *_EndPtr=0;
-    long d = strtol(arg, &_EndPtr, 10);
+    char *end_ptr=0;
+    long d = strtol(arg, &end_ptr, 10);
     if (d > (long) MAX_NUMERIC_ARGUMENT || d < -(long) MAX_NUMERIC_ARGUMENT) {
         refuse_number(token, arg);
         d = 0;
@@ -408,7 +408,7 @@ static int getIntValue(char const* token, char const* arg, int* ptr)
     if (ptr != 0) {
         *ptr = (int)d;
     }
-    return evaluateArgument(token, arg, _EndPtr);
+    return evaluateArgument(token, arg, end_ptr);
 }
 
 #ifdef ID3TAGS_EXTENDED

@@ -18,8 +18,8 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  */
-#ifndef _MPGLIB_H_
-#define _MPGLIB_H_
+#ifndef LAME_MPGLIB_H
+#define LAME_MPGLIB_H
 
 #ifdef HAVE_CONFIG_H
 # include <config.h>
@@ -59,4 +59,4 @@ typedef struct mpstr_tag {
 } MPSTR, *PMPSTR;
 
 
-#endif /* _MPGLIB_H_ */
+#endif /* LAME_MPGLIB_H */

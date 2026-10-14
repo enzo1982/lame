@@ -25,8 +25,8 @@
 	\version \$Id$
 */
 
-#if !defined(_ACMSTREAM_H__INCLUDED_)
-#define _ACMSTREAM_H__INCLUDED_
+#if !defined(LAME_ACM_ACMSTREAM_H)
+#define LAME_ACM_ACMSTREAM_H
 
 #if _MSC_VER >= 1000
 #pragma once
@@ -122,5 +122,5 @@ protected:
 	bool my_ForceMS;  // of a joint stereo stream
 };
 
-#endif // !defined(_ACMSTREAM_H__INCLUDED_)
+#endif // !defined(LAME_ACM_ACMSTREAM_H)
 

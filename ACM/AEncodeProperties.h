@@ -25,8 +25,8 @@
 	\version \$Id$
 */
 
-#if !defined(_AENCODEPROPERTIES_H__INCLUDED_)
-#define _AENCODEPROPERTIES_H__INCLUDED_
+#if !defined(LAME_ACM_AENCODEPROPERTIES_H)
+#define LAME_ACM_AENCODEPROPERTIES_H
 
 #if _MSC_VER > 1000
 #pragma once
@@ -433,4 +433,4 @@ private:
 	static TiXmlElement * ChildElement(TiXmlElement & parent, const char * name);
 };
 
-#endif // !defined(_AENCODEPROPERTIES_H__INCLUDED_)
+#endif // !defined(LAME_ACM_AENCODEPROPERTIES_H)
