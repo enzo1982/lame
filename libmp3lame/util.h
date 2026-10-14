@@ -678,6 +678,19 @@ extern  "C" {
 
 /**
  * \internal
+ * \brief Stores \a value in 2 bytes, the most significant byte first.
+ * \param bytes  where the 2 bytes go.
+ * \param value  the value.
+ */
+static inline void
+put_be16(unsigned char *bytes, uint16_t value)
+{
+    bytes[0] = (unsigned char) (value >> 8);
+    bytes[1] = (unsigned char) value;
+}
+
+/**
+ * \internal
  * \brief Stores \a value in 4 bytes, the most significant byte first.
  * \param bytes  where the 4 bytes go.
  * \param value  the value.

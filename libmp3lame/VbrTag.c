@@ -152,12 +152,31 @@ AddVbrFrame(lame_internal_flags * gfc)
 }
 
 
-static void
-CreateI2(unsigned char *buf, int nValue)
+/**
+ * \internal
+ * \brief Returns the bitrate of the frame that carries the Xing and LAME tags.
+ *
+ * \param cfg  the session configuration.
+ * \return the bitrate in kbps: the stream's own in CBR, else a fixed one per
+ *         MPEG version.
+ */
+static int
+xing_frame_kbps(SessionConfig_t const *cfg)
 {
-    /* big endian create */
-    buf[0] = (nValue >> 8) & 0xff;
-    buf[1] = (nValue) & 0xff;
+    int     kbps;
+    if (1 == cfg->version) {
+        kbps = XING_BITRATE1;
+    }
+    else {
+        if (cfg->samplerate_out < 16000)
+            kbps = XING_BITRATE25;
+        else
+            kbps = XING_BITRATE2;
+    }
+
+    if (cfg->vbr == vbr_off)
+        kbps = cfg->avg_bitrate;
+    return kbps;
 }
 
 static void
@@ -179,19 +198,7 @@ setLameTagFrameHeader(lame_internal_flags const *gfc, unsigned char *buffer)
     buffer[0] = (uint8_t) 0xff;
     abyte = (buffer[1] & (unsigned char) 0xf1);
     {
-        int     bitrate;
-        if (1 == cfg->version) {
-            bitrate = XING_BITRATE1;
-        }
-        else {
-            if (cfg->samplerate_out < 16000)
-                bitrate = XING_BITRATE25;
-            else
-                bitrate = XING_BITRATE2;
-        }
-
-        if (cfg->vbr == vbr_off)
-            bitrate = cfg->avg_bitrate;
+        int const bitrate = xing_frame_kbps(cfg);
 
         if (cfg->free_format)
             bbyte = 0x00;
@@ -248,18 +255,7 @@ InitVbrTag(lame_global_flags * gfp)
      */
 
 
-    if (1 == cfg->version) {
-        kbps_header = XING_BITRATE1;
-    }
-    else {
-        if (cfg->samplerate_out < 16000)
-            kbps_header = XING_BITRATE25;
-        else
-            kbps_header = XING_BITRATE2;
-    }
-
-    if (cfg->vbr == vbr_off)
-        kbps_header = cfg->avg_bitrate;
+    kbps_header = xing_frame_kbps(cfg);
 
     /* make sure LAME Header fits into Frame
      */
@@ -385,7 +381,7 @@ PutLameVBR(lame_global_flags const *gfp, size_t nMusicLength, uint8_t * pbtStrea
     uint8_t nVBR;
     uint8_t nRevision = 0x00;
     uint8_t nRevMethod;
-    uint8_t vbr_type_translator[] = { 1, 5, 3, 2, 4, 0, 3 }; /*numbering different in vbr_mode vs. Lame tag */
+    static const uint8_t vbr_type_translator[] = { 1, 5, 3, 2, 4, 0, 3 }; /*numbering different in vbr_mode vs. Lame tag */
 
     uint8_t nLowpass =
         (((cfg->lowpassfreq / 100.0) + .5) > 255 ? 255 : (cfg->lowpassfreq / 100.0) + .5);
@@ -429,13 +425,13 @@ PutLameVBR(lame_global_flags const *gfp, size_t nMusicLength, uint8_t * pbtStrea
             break;
         }
     default:{          /*vbr modes */
-            nABRBitrate = bitrate_table[cfg->version][cfg->vbr_min_bitrate_index];;
+            nABRBitrate = bitrate_table[cfg->version][cfg->vbr_min_bitrate_index];
         }
     }
 
 
     /*revision and vbr method */
-    if (cfg->vbr < sizeof(vbr_type_translator))
+    if (cfg->vbr < dimension_of(vbr_type_translator))
         nVBR = vbr_type_translator[cfg->vbr];
     else
         nVBR = 0x00;    /*unknown. */
@@ -565,10 +561,10 @@ PutLameVBR(lame_global_flags const *gfp, size_t nMusicLength, uint8_t * pbtStrea
     put_be32(&pbtStreamBuffer[nBytesWritten], nPeakSignalAmplitude);
     nBytesWritten += 4;
 
-    CreateI2(&pbtStreamBuffer[nBytesWritten], nRadioReplayGain);
+    put_be16(&pbtStreamBuffer[nBytesWritten], nRadioReplayGain);
     nBytesWritten += 2;
 
-    CreateI2(&pbtStreamBuffer[nBytesWritten], nAudiophileReplayGain);
+    put_be16(&pbtStreamBuffer[nBytesWritten], nAudiophileReplayGain);
     nBytesWritten += 2;
 
     pbtStreamBuffer[nBytesWritten] = nFlags;
@@ -592,13 +588,13 @@ PutLameVBR(lame_global_flags const *gfp, size_t nMusicLength, uint8_t * pbtStrea
 
     pbtStreamBuffer[nBytesWritten++] = 0; /*unused in rev0 */
 
-    CreateI2(&pbtStreamBuffer[nBytesWritten], cfg->preset);
+    put_be16(&pbtStreamBuffer[nBytesWritten], (uint16_t) cfg->preset);
     nBytesWritten += 2;
 
     put_be32(&pbtStreamBuffer[nBytesWritten], (int) nMusicLength);
     nBytesWritten += 4;
 
-    CreateI2(&pbtStreamBuffer[nBytesWritten], nMusicCRC);
+    put_be16(&pbtStreamBuffer[nBytesWritten], nMusicCRC);
     nBytesWritten += 2;
 
     /*Calculate tag CRC.... must be done here, since it includes
@@ -606,7 +602,7 @@ PutLameVBR(lame_global_flags const *gfp, size_t nMusicLength, uint8_t * pbtStrea
 
     crc = CRC_update_lookup(crc, pbtStreamBuffer, nBytesWritten);
 
-    CreateI2(&pbtStreamBuffer[nBytesWritten], crc);
+    put_be16(&pbtStreamBuffer[nBytesWritten], crc);
     nBytesWritten += 2;
 
     return nBytesWritten;
