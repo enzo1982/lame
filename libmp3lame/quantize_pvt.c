@@ -970,7 +970,9 @@ set_pinfo(lame_internal_flags const *gfc,
     FLOAT const ifqstep = (cod_info->scalefac_scale == 0) ? .5 : 1.0;
     int const *const scalefac = cod_info->scalefac;
 
-    FLOAT   l3_xmin[SFBMAX], xfsf[SFBMAX];
+    /* calc_xmin() and calc_noise() fill the bands below psymax; the bands above
+       it are shown as 0 */
+    FLOAT   l3_xmin[SFBMAX] = { 0 }, xfsf[SFBMAX] = { 0 };
     calc_noise_result noise;
 
     (void) calc_xmin(gfc, ratio, cod_info, l3_xmin);
