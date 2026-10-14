@@ -597,6 +597,58 @@ athAdjust(FLOAT a, FLOAT x, FLOAT athFloor, float ATHfixpoint)
 /*            calc_xmin                                                  */
 /*************************************************************************/
 
+/**
+ * \internal
+ * \brief Returns the highest spectral line of a granule that needs coding.
+ *
+ * That is the highest line above 1e-12, rounded up to an odd line in a long
+ * block or to the end of its group of six in short blocks. Below 44 kHz,
+ * without sfb21_extra, it is no higher than the last band LAME codes.
+ *
+ * \param gfc       the encoder.
+ * \param cod_info  the granule, with its spectrum and block type.
+ * \return the index of the line.
+ */
+static int
+find_max_nonzero_coeff(lame_internal_flags const *gfc, gr_info const *cod_info)
+{
+    SessionConfig_t const *const cfg = &gfc->cfg;
+    const FLOAT *const xr = cod_info->xr;
+    int     max_nonzero = 0;
+    int     k;
+
+    for (k = 575; k > 0; --k) {
+        if (fabs(xr[k]) > 1e-12f) {
+            max_nonzero = k;
+            break;
+        }
+    }
+    if (cod_info->block_type != SHORT_TYPE) { /* NORM, START or STOP type, but not SHORT */
+        max_nonzero |= 1; /* only odd numbers */
+    }
+    else {
+        max_nonzero /= 6; /* 3 short blocks */
+        max_nonzero *= 6;
+        max_nonzero += 5;
+    }
+
+    if (gfc->sv_qnt.sfb21_extra == 0 && cfg->samplerate_out < 44000) {
+      int const sfb_l = (cfg->samplerate_out <= 8000) ? SBPSY_l_8KHZ : SBPSY_l;
+      int const sfb_s = (cfg->samplerate_out <= 8000) ? SBPSY_s_8KHZ : SBPSY_s;
+      int   limit = 575;
+      if (cod_info->block_type != SHORT_TYPE) { /* NORM, START or STOP type, but not SHORT */
+          limit = gfc->scalefac_band.l[sfb_l]-1;
+      }
+      else {
+          limit = 3*gfc->scalefac_band.s[sfb_s]-1;
+      }
+      if (max_nonzero > limit) {
+          max_nonzero = limit;
+      }
+    }
+    return max_nonzero;
+}
+
 /*
   Calculate the allowed distortion for each scalefactor band,
   as determined by the psychoacoustic model.
@@ -610,10 +662,9 @@ calc_xmin(lame_internal_flags const *gfc,
           III_psy_ratio const *const ratio, gr_info * const cod_info, FLOAT * pxmin)
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
-    int     sfb, gsfb, j = 0, ath_over = 0, k;
+    int     sfb, gsfb, j = 0, ath_over = 0;
     ATH_t const *const ATH = gfc->ATH;
     const FLOAT *const xr = cod_info->xr;
-    int     max_nonzero;
 
     for (gsfb = 0; gsfb < cod_info->psy_lmax; gsfb++) {
         FLOAT   en0, xmin;
@@ -667,38 +718,7 @@ calc_xmin(lame_internal_flags const *gfc,
 
 
 
-    /*use this function to determine the highest non-zero coeff */
-    max_nonzero = 0;
-    for (k = 575; k > 0; --k) {
-        if (fabs(xr[k]) > 1e-12f) {
-            max_nonzero = k;
-            break;
-        }
-    }
-    if (cod_info->block_type != SHORT_TYPE) { /* NORM, START or STOP type, but not SHORT */
-        max_nonzero |= 1; /* only odd numbers */
-    }
-    else {
-        max_nonzero /= 6; /* 3 short blocks */
-        max_nonzero *= 6;
-        max_nonzero += 5;
-    }
-
-    if (gfc->sv_qnt.sfb21_extra == 0 && cfg->samplerate_out < 44000) {
-      int const sfb_l = (cfg->samplerate_out <= 8000) ? 17 : 21;
-      int const sfb_s = (cfg->samplerate_out <= 8000) ?  9 : 12;
-      int   limit = 575;
-      if (cod_info->block_type != SHORT_TYPE) { /* NORM, START or STOP type, but not SHORT */
-          limit = gfc->scalefac_band.l[sfb_l]-1;
-      }
-      else {
-          limit = 3*gfc->scalefac_band.s[sfb_s]-1;
-      }
-      if (max_nonzero > limit) {
-          max_nonzero = limit;
-      }
-    }
-    cod_info->max_nonzero_coeff = max_nonzero;
+    cod_info->max_nonzero_coeff = find_max_nonzero_coeff(gfc, cod_info);
 
 
 

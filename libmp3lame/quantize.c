@@ -245,9 +245,9 @@ init_outer_loop(lame_internal_flags const *gfc, gr_info * const cod_info)
     cod_info->count1table_select = 0;
     cod_info->part2_length = 0;
     if (cfg->samplerate_out <= 8000) {
-      cod_info->sfb_lmax = 17;
-      cod_info->sfb_smin = 9;
-      cod_info->psy_lmax = 17;
+      cod_info->sfb_lmax = SBPSY_l_8KHZ;
+      cod_info->sfb_smin = SBPSY_s_8KHZ;
+      cod_info->psy_lmax = SBPSY_l_8KHZ;
     }
     else {
       cod_info->sfb_lmax = SBPSY_l;
@@ -279,8 +279,8 @@ init_outer_loop(lame_internal_flags const *gfc, gr_info * const cod_info)
         if (cfg->samplerate_out <= 8000) {
             cod_info->psymax
                 = cod_info->sfb_lmax
-                + 3 * (9 - cod_info->sfb_smin);
-            cod_info->sfbmax = cod_info->sfb_lmax + 3 * (9 - cod_info->sfb_smin);
+                + 3 * (SBPSY_s_8KHZ - cod_info->sfb_smin);
+            cod_info->sfbmax = cod_info->sfb_lmax + 3 * (SBPSY_s_8KHZ - cod_info->sfb_smin);
         }
         else {
             cod_info->psymax

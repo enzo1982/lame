@@ -106,6 +106,10 @@
 #define SBPSY_l       21
 #define SBPSY_s       12
 
+/* the same at an output rate of 8 kHz or less */
+#define SBPSY_l_8KHZ  17
+#define SBPSY_s_8KHZ   9
+
 /* total number of scalefactor bands encoded */
 #define SBMAX_l       22
 #define SBMAX_s       13
