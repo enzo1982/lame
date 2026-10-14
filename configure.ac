@@ -1696,9 +1696,8 @@ fi
 dnl iconv, deliberately last.
 dnl
 dnl Every frontend translation unit is compiled with the include paths
-dnl pkg-config reported for GTK, the decoder and libsndfile - frontend's
-dnl Makefile.am applies them to the whole directory, not just to the analyzer.
-dnl Where those paths lead to a GNU libiconv installed beside the C library's
+dnl pkg-config reported for the decoder and libsndfile, and mp3x's also with
+dnl those for GTK. Where those paths lead to a GNU libiconv installed beside the C library's
 dnl iconv, its <iconv.h> renames iconv_open to libiconv_open, and the frontend
 dnl then needs that library.  AM_ICONV must therefore be asked the question the
 dnl frontend actually asks, which means running it after those paths are known

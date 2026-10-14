@@ -36,10 +36,11 @@ mp3rtp_SOURCES = mp3rtp.c rtp.c $(common_sources)
 # session lifecycle (open/close/replace, async File dialog integration,
 # frontend-global baseline management) lives in mp3x_session.c.
 mp3x_SOURCES = mp3x_ui.c mp3x_plot.c mp3x_core.c mp3x_session.c $(common_sources)
+mp3x_CFLAGS = @GTK_CFLAGS@
 
 EXTRA_DIST = README.mp3x-gtk4
 
-CFLAGS = @CFLAGS@ @GTK_CFLAGS@ @FRONTEND_CFLAGS@ @SNDFILE_CFLAGS@
+CFLAGS = @CFLAGS@ @FRONTEND_CFLAGS@ @SNDFILE_CFLAGS@
 LDFLAGS = @LDFLAGS@ @FRONTEND_LDFLAGS@ @FRONTEND_UNICODE_LDFLAGS@ @SNDFILE_LIBS@
 
 AM_CPPFLAGS = @LAME_CPPFLAGS@ -I$(top_srcdir)/libmp3lame -I$(top_srcdir)/include \

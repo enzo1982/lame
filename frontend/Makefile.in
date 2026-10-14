@@ -134,10 +134,18 @@ am_mp3rtp_OBJECTS = mp3rtp.$(OBJEXT) rtp.$(OBJEXT) $(am__objects_1)
 mp3rtp_OBJECTS = $(am_mp3rtp_OBJECTS)
 am__DEPENDENCIES_1 = $(top_builddir)/libmp3lame/libmp3lame.la
 mp3rtp_DEPENDENCIES = $(am__DEPENDENCIES_1)
-am_mp3x_OBJECTS = mp3x_ui.$(OBJEXT) mp3x_plot.$(OBJEXT) \
-	mp3x_core.$(OBJEXT) mp3x_session.$(OBJEXT) $(am__objects_1)
+am__objects_2 = mp3x-main.$(OBJEXT) mp3x-brhist.$(OBJEXT) \
+	mp3x-console.$(OBJEXT) mp3x-get_audio.$(OBJEXT) \
+	mp3x-lametime.$(OBJEXT) mp3x-parse.$(OBJEXT) \
+	mp3x-timestatus.$(OBJEXT)
+am_mp3x_OBJECTS = mp3x-mp3x_ui.$(OBJEXT) mp3x-mp3x_plot.$(OBJEXT) \
+	mp3x-mp3x_core.$(OBJEXT) mp3x-mp3x_session.$(OBJEXT) \
+	$(am__objects_2)
 mp3x_OBJECTS = $(am_mp3x_OBJECTS)
 mp3x_DEPENDENCIES = $(am__DEPENDENCIES_1)
+mp3x_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(mp3x_CFLAGS) $(CFLAGS) \
+	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -156,9 +164,13 @@ am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/brhist.Po ./$(DEPDIR)/console.Po \
 	./$(DEPDIR)/get_audio.Po ./$(DEPDIR)/lame_main.Po \
 	./$(DEPDIR)/lametime.Po ./$(DEPDIR)/main.Po \
-	./$(DEPDIR)/mp3rtp.Po ./$(DEPDIR)/mp3x_core.Po \
-	./$(DEPDIR)/mp3x_plot.Po ./$(DEPDIR)/mp3x_session.Po \
-	./$(DEPDIR)/mp3x_ui.Po ./$(DEPDIR)/parse.Po ./$(DEPDIR)/rtp.Po \
+	./$(DEPDIR)/mp3rtp.Po ./$(DEPDIR)/mp3x-brhist.Po \
+	./$(DEPDIR)/mp3x-console.Po ./$(DEPDIR)/mp3x-get_audio.Po \
+	./$(DEPDIR)/mp3x-lametime.Po ./$(DEPDIR)/mp3x-main.Po \
+	./$(DEPDIR)/mp3x-mp3x_core.Po ./$(DEPDIR)/mp3x-mp3x_plot.Po \
+	./$(DEPDIR)/mp3x-mp3x_session.Po ./$(DEPDIR)/mp3x-mp3x_ui.Po \
+	./$(DEPDIR)/mp3x-parse.Po ./$(DEPDIR)/mp3x-timestatus.Po \
+	./$(DEPDIR)/parse.Po ./$(DEPDIR)/rtp.Po \
 	./$(DEPDIR)/timestatus.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
@@ -218,7 +230,7 @@ AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
-CFLAGS = @CFLAGS@ @GTK_CFLAGS@ @FRONTEND_CFLAGS@ @SNDFILE_CFLAGS@
+CFLAGS = @CFLAGS@ @FRONTEND_CFLAGS@ @SNDFILE_CFLAGS@
 CMOCKA_CFLAGS = @CMOCKA_CFLAGS@
 CMOCKA_LIBS = @CMOCKA_LIBS@
 CONFIG_DEFS = @CONFIG_DEFS@
@@ -410,6 +422,7 @@ mp3rtp_SOURCES = mp3rtp.c rtp.c $(common_sources)
 # session lifecycle (open/close/replace, async File dialog integration,
 # frontend-global baseline management) lives in mp3x_session.c.
 mp3x_SOURCES = mp3x_ui.c mp3x_plot.c mp3x_core.c mp3x_session.c $(common_sources)
+mp3x_CFLAGS = @GTK_CFLAGS@
 EXTRA_DIST = README.mp3x-gtk4
 AM_CPPFLAGS = @LAME_CPPFLAGS@ -I$(top_srcdir)/libmp3lame \
 	-I$(top_srcdir)/include -I$(top_srcdir) -I$(top_builddir) \
@@ -519,7 +532,7 @@ mp3rtp$(EXEEXT): $(mp3rtp_OBJECTS) $(mp3rtp_DEPENDENCIES) $(EXTRA_mp3rtp_DEPENDE
 
 mp3x$(EXEEXT): $(mp3x_OBJECTS) $(mp3x_DEPENDENCIES) $(EXTRA_mp3x_DEPENDENCIES) 
 	@rm -f mp3x$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(mp3x_OBJECTS) $(mp3x_LDADD) $(LIBS)
+	$(AM_V_CCLD)$(mp3x_LINK) $(mp3x_OBJECTS) $(mp3x_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -534,10 +547,17 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lametime.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3rtp.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x_core.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x_plot.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x_session.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x_ui.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x-brhist.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x-console.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x-get_audio.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x-lametime.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x-main.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x-mp3x_core.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x-mp3x_plot.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x-mp3x_session.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x-mp3x_ui.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x-parse.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mp3x-timestatus.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/parse.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rtp.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/timestatus.Po@am__quote@ # am--include-marker
@@ -571,6 +591,160 @@ am--depfiles: $(am__depfiles_remade)
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
+
+mp3x-mp3x_ui.o: mp3x_ui.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-mp3x_ui.o -MD -MP -MF $(DEPDIR)/mp3x-mp3x_ui.Tpo -c -o mp3x-mp3x_ui.o `test -f 'mp3x_ui.c' || echo '$(srcdir)/'`mp3x_ui.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-mp3x_ui.Tpo $(DEPDIR)/mp3x-mp3x_ui.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mp3x_ui.c' object='mp3x-mp3x_ui.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-mp3x_ui.o `test -f 'mp3x_ui.c' || echo '$(srcdir)/'`mp3x_ui.c
+
+mp3x-mp3x_ui.obj: mp3x_ui.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-mp3x_ui.obj -MD -MP -MF $(DEPDIR)/mp3x-mp3x_ui.Tpo -c -o mp3x-mp3x_ui.obj `if test -f 'mp3x_ui.c'; then $(CYGPATH_W) 'mp3x_ui.c'; else $(CYGPATH_W) '$(srcdir)/mp3x_ui.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-mp3x_ui.Tpo $(DEPDIR)/mp3x-mp3x_ui.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mp3x_ui.c' object='mp3x-mp3x_ui.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-mp3x_ui.obj `if test -f 'mp3x_ui.c'; then $(CYGPATH_W) 'mp3x_ui.c'; else $(CYGPATH_W) '$(srcdir)/mp3x_ui.c'; fi`
+
+mp3x-mp3x_plot.o: mp3x_plot.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-mp3x_plot.o -MD -MP -MF $(DEPDIR)/mp3x-mp3x_plot.Tpo -c -o mp3x-mp3x_plot.o `test -f 'mp3x_plot.c' || echo '$(srcdir)/'`mp3x_plot.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-mp3x_plot.Tpo $(DEPDIR)/mp3x-mp3x_plot.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mp3x_plot.c' object='mp3x-mp3x_plot.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-mp3x_plot.o `test -f 'mp3x_plot.c' || echo '$(srcdir)/'`mp3x_plot.c
+
+mp3x-mp3x_plot.obj: mp3x_plot.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-mp3x_plot.obj -MD -MP -MF $(DEPDIR)/mp3x-mp3x_plot.Tpo -c -o mp3x-mp3x_plot.obj `if test -f 'mp3x_plot.c'; then $(CYGPATH_W) 'mp3x_plot.c'; else $(CYGPATH_W) '$(srcdir)/mp3x_plot.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-mp3x_plot.Tpo $(DEPDIR)/mp3x-mp3x_plot.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mp3x_plot.c' object='mp3x-mp3x_plot.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-mp3x_plot.obj `if test -f 'mp3x_plot.c'; then $(CYGPATH_W) 'mp3x_plot.c'; else $(CYGPATH_W) '$(srcdir)/mp3x_plot.c'; fi`
+
+mp3x-mp3x_core.o: mp3x_core.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-mp3x_core.o -MD -MP -MF $(DEPDIR)/mp3x-mp3x_core.Tpo -c -o mp3x-mp3x_core.o `test -f 'mp3x_core.c' || echo '$(srcdir)/'`mp3x_core.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-mp3x_core.Tpo $(DEPDIR)/mp3x-mp3x_core.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mp3x_core.c' object='mp3x-mp3x_core.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-mp3x_core.o `test -f 'mp3x_core.c' || echo '$(srcdir)/'`mp3x_core.c
+
+mp3x-mp3x_core.obj: mp3x_core.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-mp3x_core.obj -MD -MP -MF $(DEPDIR)/mp3x-mp3x_core.Tpo -c -o mp3x-mp3x_core.obj `if test -f 'mp3x_core.c'; then $(CYGPATH_W) 'mp3x_core.c'; else $(CYGPATH_W) '$(srcdir)/mp3x_core.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-mp3x_core.Tpo $(DEPDIR)/mp3x-mp3x_core.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mp3x_core.c' object='mp3x-mp3x_core.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-mp3x_core.obj `if test -f 'mp3x_core.c'; then $(CYGPATH_W) 'mp3x_core.c'; else $(CYGPATH_W) '$(srcdir)/mp3x_core.c'; fi`
+
+mp3x-mp3x_session.o: mp3x_session.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-mp3x_session.o -MD -MP -MF $(DEPDIR)/mp3x-mp3x_session.Tpo -c -o mp3x-mp3x_session.o `test -f 'mp3x_session.c' || echo '$(srcdir)/'`mp3x_session.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-mp3x_session.Tpo $(DEPDIR)/mp3x-mp3x_session.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mp3x_session.c' object='mp3x-mp3x_session.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-mp3x_session.o `test -f 'mp3x_session.c' || echo '$(srcdir)/'`mp3x_session.c
+
+mp3x-mp3x_session.obj: mp3x_session.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-mp3x_session.obj -MD -MP -MF $(DEPDIR)/mp3x-mp3x_session.Tpo -c -o mp3x-mp3x_session.obj `if test -f 'mp3x_session.c'; then $(CYGPATH_W) 'mp3x_session.c'; else $(CYGPATH_W) '$(srcdir)/mp3x_session.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-mp3x_session.Tpo $(DEPDIR)/mp3x-mp3x_session.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='mp3x_session.c' object='mp3x-mp3x_session.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-mp3x_session.obj `if test -f 'mp3x_session.c'; then $(CYGPATH_W) 'mp3x_session.c'; else $(CYGPATH_W) '$(srcdir)/mp3x_session.c'; fi`
+
+mp3x-main.o: main.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-main.o -MD -MP -MF $(DEPDIR)/mp3x-main.Tpo -c -o mp3x-main.o `test -f 'main.c' || echo '$(srcdir)/'`main.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-main.Tpo $(DEPDIR)/mp3x-main.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='main.c' object='mp3x-main.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-main.o `test -f 'main.c' || echo '$(srcdir)/'`main.c
+
+mp3x-main.obj: main.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-main.obj -MD -MP -MF $(DEPDIR)/mp3x-main.Tpo -c -o mp3x-main.obj `if test -f 'main.c'; then $(CYGPATH_W) 'main.c'; else $(CYGPATH_W) '$(srcdir)/main.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-main.Tpo $(DEPDIR)/mp3x-main.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='main.c' object='mp3x-main.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-main.obj `if test -f 'main.c'; then $(CYGPATH_W) 'main.c'; else $(CYGPATH_W) '$(srcdir)/main.c'; fi`
+
+mp3x-brhist.o: brhist.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-brhist.o -MD -MP -MF $(DEPDIR)/mp3x-brhist.Tpo -c -o mp3x-brhist.o `test -f 'brhist.c' || echo '$(srcdir)/'`brhist.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-brhist.Tpo $(DEPDIR)/mp3x-brhist.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='brhist.c' object='mp3x-brhist.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-brhist.o `test -f 'brhist.c' || echo '$(srcdir)/'`brhist.c
+
+mp3x-brhist.obj: brhist.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-brhist.obj -MD -MP -MF $(DEPDIR)/mp3x-brhist.Tpo -c -o mp3x-brhist.obj `if test -f 'brhist.c'; then $(CYGPATH_W) 'brhist.c'; else $(CYGPATH_W) '$(srcdir)/brhist.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-brhist.Tpo $(DEPDIR)/mp3x-brhist.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='brhist.c' object='mp3x-brhist.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-brhist.obj `if test -f 'brhist.c'; then $(CYGPATH_W) 'brhist.c'; else $(CYGPATH_W) '$(srcdir)/brhist.c'; fi`
+
+mp3x-console.o: console.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-console.o -MD -MP -MF $(DEPDIR)/mp3x-console.Tpo -c -o mp3x-console.o `test -f 'console.c' || echo '$(srcdir)/'`console.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-console.Tpo $(DEPDIR)/mp3x-console.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='console.c' object='mp3x-console.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-console.o `test -f 'console.c' || echo '$(srcdir)/'`console.c
+
+mp3x-console.obj: console.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-console.obj -MD -MP -MF $(DEPDIR)/mp3x-console.Tpo -c -o mp3x-console.obj `if test -f 'console.c'; then $(CYGPATH_W) 'console.c'; else $(CYGPATH_W) '$(srcdir)/console.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-console.Tpo $(DEPDIR)/mp3x-console.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='console.c' object='mp3x-console.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-console.obj `if test -f 'console.c'; then $(CYGPATH_W) 'console.c'; else $(CYGPATH_W) '$(srcdir)/console.c'; fi`
+
+mp3x-get_audio.o: get_audio.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-get_audio.o -MD -MP -MF $(DEPDIR)/mp3x-get_audio.Tpo -c -o mp3x-get_audio.o `test -f 'get_audio.c' || echo '$(srcdir)/'`get_audio.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-get_audio.Tpo $(DEPDIR)/mp3x-get_audio.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='get_audio.c' object='mp3x-get_audio.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-get_audio.o `test -f 'get_audio.c' || echo '$(srcdir)/'`get_audio.c
+
+mp3x-get_audio.obj: get_audio.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-get_audio.obj -MD -MP -MF $(DEPDIR)/mp3x-get_audio.Tpo -c -o mp3x-get_audio.obj `if test -f 'get_audio.c'; then $(CYGPATH_W) 'get_audio.c'; else $(CYGPATH_W) '$(srcdir)/get_audio.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-get_audio.Tpo $(DEPDIR)/mp3x-get_audio.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='get_audio.c' object='mp3x-get_audio.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-get_audio.obj `if test -f 'get_audio.c'; then $(CYGPATH_W) 'get_audio.c'; else $(CYGPATH_W) '$(srcdir)/get_audio.c'; fi`
+
+mp3x-lametime.o: lametime.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-lametime.o -MD -MP -MF $(DEPDIR)/mp3x-lametime.Tpo -c -o mp3x-lametime.o `test -f 'lametime.c' || echo '$(srcdir)/'`lametime.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-lametime.Tpo $(DEPDIR)/mp3x-lametime.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lametime.c' object='mp3x-lametime.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-lametime.o `test -f 'lametime.c' || echo '$(srcdir)/'`lametime.c
+
+mp3x-lametime.obj: lametime.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-lametime.obj -MD -MP -MF $(DEPDIR)/mp3x-lametime.Tpo -c -o mp3x-lametime.obj `if test -f 'lametime.c'; then $(CYGPATH_W) 'lametime.c'; else $(CYGPATH_W) '$(srcdir)/lametime.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-lametime.Tpo $(DEPDIR)/mp3x-lametime.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lametime.c' object='mp3x-lametime.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-lametime.obj `if test -f 'lametime.c'; then $(CYGPATH_W) 'lametime.c'; else $(CYGPATH_W) '$(srcdir)/lametime.c'; fi`
+
+mp3x-parse.o: parse.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-parse.o -MD -MP -MF $(DEPDIR)/mp3x-parse.Tpo -c -o mp3x-parse.o `test -f 'parse.c' || echo '$(srcdir)/'`parse.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-parse.Tpo $(DEPDIR)/mp3x-parse.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='parse.c' object='mp3x-parse.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-parse.o `test -f 'parse.c' || echo '$(srcdir)/'`parse.c
+
+mp3x-parse.obj: parse.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-parse.obj -MD -MP -MF $(DEPDIR)/mp3x-parse.Tpo -c -o mp3x-parse.obj `if test -f 'parse.c'; then $(CYGPATH_W) 'parse.c'; else $(CYGPATH_W) '$(srcdir)/parse.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-parse.Tpo $(DEPDIR)/mp3x-parse.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='parse.c' object='mp3x-parse.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-parse.obj `if test -f 'parse.c'; then $(CYGPATH_W) 'parse.c'; else $(CYGPATH_W) '$(srcdir)/parse.c'; fi`
+
+mp3x-timestatus.o: timestatus.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-timestatus.o -MD -MP -MF $(DEPDIR)/mp3x-timestatus.Tpo -c -o mp3x-timestatus.o `test -f 'timestatus.c' || echo '$(srcdir)/'`timestatus.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-timestatus.Tpo $(DEPDIR)/mp3x-timestatus.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='timestatus.c' object='mp3x-timestatus.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-timestatus.o `test -f 'timestatus.c' || echo '$(srcdir)/'`timestatus.c
+
+mp3x-timestatus.obj: timestatus.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -MT mp3x-timestatus.obj -MD -MP -MF $(DEPDIR)/mp3x-timestatus.Tpo -c -o mp3x-timestatus.obj `if test -f 'timestatus.c'; then $(CYGPATH_W) 'timestatus.c'; else $(CYGPATH_W) '$(srcdir)/timestatus.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/mp3x-timestatus.Tpo $(DEPDIR)/mp3x-timestatus.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='timestatus.c' object='mp3x-timestatus.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mp3x_CFLAGS) $(CFLAGS) -c -o mp3x-timestatus.obj `if test -f 'timestatus.c'; then $(CYGPATH_W) 'timestatus.c'; else $(CYGPATH_W) '$(srcdir)/timestatus.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -714,10 +888,17 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/lametime.Po
 	-rm -f ./$(DEPDIR)/main.Po
 	-rm -f ./$(DEPDIR)/mp3rtp.Po
-	-rm -f ./$(DEPDIR)/mp3x_core.Po
-	-rm -f ./$(DEPDIR)/mp3x_plot.Po
-	-rm -f ./$(DEPDIR)/mp3x_session.Po
-	-rm -f ./$(DEPDIR)/mp3x_ui.Po
+	-rm -f ./$(DEPDIR)/mp3x-brhist.Po
+	-rm -f ./$(DEPDIR)/mp3x-console.Po
+	-rm -f ./$(DEPDIR)/mp3x-get_audio.Po
+	-rm -f ./$(DEPDIR)/mp3x-lametime.Po
+	-rm -f ./$(DEPDIR)/mp3x-main.Po
+	-rm -f ./$(DEPDIR)/mp3x-mp3x_core.Po
+	-rm -f ./$(DEPDIR)/mp3x-mp3x_plot.Po
+	-rm -f ./$(DEPDIR)/mp3x-mp3x_session.Po
+	-rm -f ./$(DEPDIR)/mp3x-mp3x_ui.Po
+	-rm -f ./$(DEPDIR)/mp3x-parse.Po
+	-rm -f ./$(DEPDIR)/mp3x-timestatus.Po
 	-rm -f ./$(DEPDIR)/parse.Po
 	-rm -f ./$(DEPDIR)/rtp.Po
 	-rm -f ./$(DEPDIR)/timestatus.Po
@@ -773,10 +954,17 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/lametime.Po
 	-rm -f ./$(DEPDIR)/main.Po
 	-rm -f ./$(DEPDIR)/mp3rtp.Po
-	-rm -f ./$(DEPDIR)/mp3x_core.Po
-	-rm -f ./$(DEPDIR)/mp3x_plot.Po
-	-rm -f ./$(DEPDIR)/mp3x_session.Po
-	-rm -f ./$(DEPDIR)/mp3x_ui.Po
+	-rm -f ./$(DEPDIR)/mp3x-brhist.Po
+	-rm -f ./$(DEPDIR)/mp3x-console.Po
+	-rm -f ./$(DEPDIR)/mp3x-get_audio.Po
+	-rm -f ./$(DEPDIR)/mp3x-lametime.Po
+	-rm -f ./$(DEPDIR)/mp3x-main.Po
+	-rm -f ./$(DEPDIR)/mp3x-mp3x_core.Po
+	-rm -f ./$(DEPDIR)/mp3x-mp3x_plot.Po
+	-rm -f ./$(DEPDIR)/mp3x-mp3x_session.Po
+	-rm -f ./$(DEPDIR)/mp3x-mp3x_ui.Po
+	-rm -f ./$(DEPDIR)/mp3x-parse.Po
+	-rm -f ./$(DEPDIR)/mp3x-timestatus.Po
 	-rm -f ./$(DEPDIR)/parse.Po
 	-rm -f ./$(DEPDIR)/rtp.Po
 	-rm -f ./$(DEPDIR)/timestatus.Po
