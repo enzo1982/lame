@@ -420,6 +420,28 @@ linear_int(double a, double b, double m)
 }
 
 
+/**
+ * \internal
+ * \brief Returns the default lowpass of a VBR quality.
+ *
+ * \param x           the lowpass in Hz of the qualities 0 to 10.
+ * \param fallback    the lowpass for a quality outside 0 to 9.
+ * \param VBR_q       the quality.
+ * \param VBR_q_frac  the fraction of the quality, towards the next one.
+ * \return the value of \a x at \a VBR_q, interpolated towards the next by
+ *         \a VBR_q_frac.
+ */
+static double
+default_lowpass(int const x[11], double fallback, int VBR_q, float VBR_q_frac)
+{
+    if (0 <= VBR_q && VBR_q <= 9) {
+        double  a = x[VBR_q], b = x[VBR_q + 1], m = VBR_q_frac;
+        return linear_int(a, b, m);
+    }
+    return fallback;
+}
+
+
 /* A frame carries its side information and then whatever is left, shared
    between its granules. Below this many bits per granule there is not enough
    left to place a granule at all, whatever the audio is: the bit allocation
@@ -752,19 +774,19 @@ init_params(lame_global_flags * gfp)
     /* mapping VBR scale to internal VBR quality settings */
     if (gfp->samplerate_out == 0 && (cfg->vbr == vbr_mt || cfg->vbr == vbr_mtrh)) {
         float const qval = gfp->VBR_q + gfp->VBR_q_frac;
-        struct q_map { int sr_a; float qa, qb, ta, tb; int lp; };
+        struct q_map { int sr_a; float qa, qb, ta, tb; };
         struct q_map const m[9]
-        = { {48000, 0.0,6.5,  0.0,6.5, 23700}
-          , {44100, 0.0,6.5,  0.0,6.5, 21780}
-          , {32000, 6.5,8.0,  5.2,6.5, 15800}
-          , {24000, 8.0,8.5,  5.2,6.0, 11850}
-          , {22050, 8.5,9.01, 5.2,6.5, 10892}
-          , {16000, 9.01,9.4, 4.9,6.5,  7903}
-          , {12000, 9.4,9.6,  4.5,6.0,  5928}
-          , {11025, 9.6,9.9,  5.1,6.5,  5446}
-          , { 8000, 9.9,10.,  4.9,6.5,  3952}
+        = { {48000, 0.0,6.5,  0.0,6.5}
+          , {44100, 0.0,6.5,  0.0,6.5}
+          , {32000, 6.5,8.0,  5.2,6.5}
+          , {24000, 8.0,8.5,  5.2,6.0}
+          , {22050, 8.5,9.01, 5.2,6.5}
+          , {16000, 9.01,9.4, 4.9,6.5}
+          , {12000, 9.4,9.6,  4.5,6.0}
+          , {11025, 9.6,9.9,  5.1,6.5}
+          , { 8000, 9.9,10.,  4.9,6.5}
         };
-        for (i = 2; i < 9; ++i) {
+        for (i = 2; i < (int) dimension_of(m); ++i) {
             if (gfp->samplerate_in == m[i].sr_a) {
                 if (qval < m[i].qa) {
                     double d = qval / m[i].qa;
@@ -810,13 +832,7 @@ init_params(lame_global_flags * gfp)
                 int const x[11] = {
                     19500, 19000, 18600, 18000, 17500, 16000, 15600, 14900, 12500, 10000, 3950
                 };
-                if (0 <= gfp->VBR_q && gfp->VBR_q <= 9) {
-                    double  a = x[gfp->VBR_q], b = x[gfp->VBR_q + 1], m = gfp->VBR_q_frac;
-                    lowpass = linear_int(a, b, m);
-                }
-                else {
-                    lowpass = 19500;
-                }
+                lowpass = default_lowpass(x, 19500, gfp->VBR_q, gfp->VBR_q_frac);
                 break;
             }
         case vbr_mtrh:
@@ -824,26 +840,14 @@ init_params(lame_global_flags * gfp)
                 int const x[11] = {
                     24000, 19500, 18500, 18000, 17500, 17000, 16500, 15600, 15200, 7230, 3950
                 };
-                if (0 <= gfp->VBR_q && gfp->VBR_q <= 9) {
-                    double  a = x[gfp->VBR_q], b = x[gfp->VBR_q + 1], m = gfp->VBR_q_frac;
-                    lowpass = linear_int(a, b, m);
-                }
-                else {
-                    lowpass = 21500;
-                }
+                lowpass = default_lowpass(x, 21500, gfp->VBR_q, gfp->VBR_q_frac);
                 break;
             }
         default:{
                 int const x[11] = {
                     19500, 19000, 18500, 18000, 17500, 16500, 15500, 14500, 12500, 9500, 3950
                 };
-                if (0 <= gfp->VBR_q && gfp->VBR_q <= 9) {
-                    double  a = x[gfp->VBR_q], b = x[gfp->VBR_q + 1], m = gfp->VBR_q_frac;
-                    lowpass = linear_int(a, b, m);
-                }
-                else {
-                    lowpass = 19500;
-                }
+                lowpass = default_lowpass(x, 19500, gfp->VBR_q, gfp->VBR_q_frac);
             }
         }
 
@@ -919,6 +923,8 @@ init_params(lame_global_flags * gfp)
      *  for lower bitrates, downsample with --resample
      */
 
+    assert(gfp->VBR_q <= 9);
+    assert(gfp->VBR_q >= 0);
     switch (cfg->vbr) {
     case vbr_mt:
     case vbr_rh:
@@ -1050,12 +1056,7 @@ init_params(lame_global_flags * gfp)
         for (k = 0; k < 19; k++)
             gfc->sv_enc.pefirbuf[k] = 700 * cfg->mode_gr * cfg->channels_out;
 
-        if (gfp->ATHtype == -1)
-            gfp->ATHtype = 4;
     }
-
-    assert(gfp->VBR_q <= 9);
-    assert(gfp->VBR_q >= 0);
 
     switch (cfg->vbr) {
 
