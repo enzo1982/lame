@@ -255,11 +255,12 @@ id3v2AddLameVersion(lame_t gfp)
     const char *u = get_lame_url();
     const size_t lenb = strlen(b);
 
+    /* each part is bounded, so the text always fits the buffer */
     if (lenb > 0) {
-        snprintf(buffer, sizeof(buffer), "LAME %s version %s (%s)", b, v, u);
+        snprintf(buffer, sizeof(buffer), "LAME %.8s version %.256s (%.256s)", b, v, u);
     }
     else {
-        snprintf(buffer, sizeof(buffer), "LAME version %s (%s)", v, u);
+        snprintf(buffer, sizeof(buffer), "LAME version %.256s (%.256s)", v, u);
     }
     copyV1ToV2(gfp, ID_ENCODER, buffer);
 }
