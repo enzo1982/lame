@@ -974,9 +974,6 @@ long_block_constrain(const algo_t * that, const int vbrsf[SFBMAX], const int vbr
         cod_info->scalefac_scale = 1;
         cod_info->preflag = 1;
     }
-    else {
-        assert(0);      /* this should not happen */
-    }
     cod_info->global_gain = vbrmax;
     if (cod_info->global_gain < 0) {
         cod_info->global_gain = 0;
