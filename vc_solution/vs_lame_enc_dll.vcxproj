@@ -76,8 +76,8 @@
       <Optimization>Disabled</Optimization>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <Culture>0x040c</Culture>
+      <PreprocessorDefinitions>LAME_RC_DLL=$(TargetFileName);_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link />
     <Link>
@@ -92,8 +92,8 @@
       <Optimization>Disabled</Optimization>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <Culture>0x040c</Culture>
+      <PreprocessorDefinitions>LAME_RC_DLL=$(TargetFileName);_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link />
     <Link>
@@ -108,8 +108,8 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <Culture>0x040c</Culture>
+      <PreprocessorDefinitions>LAME_RC_DLL=$(TargetFileName);NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link />
     <Link>
@@ -124,8 +124,8 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <Culture>0x040c</Culture>
+      <PreprocessorDefinitions>LAME_RC_DLL=$(TargetFileName);NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link />
     <Link>
@@ -134,6 +134,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\Dll\BladeMP3EncDLL.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\libmp3lame\lame.rc" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Dll\BladeMP3EncDLL.def" />

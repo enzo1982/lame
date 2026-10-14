@@ -28,6 +28,11 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ResourceCompile Include="..\libmp3lame\lame.rc">
+      <Filter>Source Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
     <None Include="..\Dll\BladeMP3EncDLL.def">
       <Filter>Source Files</Filter>
     </None>
