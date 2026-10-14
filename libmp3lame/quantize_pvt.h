@@ -109,6 +109,36 @@ sfb_quant_step(gr_info const *gi, int sfb)
 extern FLOAT pow20[Q_MAX + Q_MAX2 + 1];
 extern FLOAT ipow20[Q_MAX];
 
+/**
+ * \internal
+ * \brief Returns the quantizer step size of step \a x, 2^((x - 210) / 4),
+ * from the table.
+ *
+ * \param x  the step, -Q_MAX2 to Q_MAX - 1.
+ * \return the step size.
+ */
+static inline FLOAT
+POW20(int x)
+{
+    assert(0 <= x + Q_MAX2 && x < Q_MAX);
+    return pow20[x + Q_MAX2];
+}
+
+/**
+ * \internal
+ * \brief Returns the factor the quantizer applies at global gain \a x,
+ * 2^(-(x - 210) * 3 / 16), from the table.
+ *
+ * \param x  the global gain, 0 to Q_MAX - 1.
+ * \return the factor.
+ */
+static inline FLOAT
+IPOW20(int x)
+{
+    assert(0 <= x && x < Q_MAX);
+    return ipow20[x];
+}
+
 typedef struct calc_noise_result_t {
     FLOAT   over_noise;      /* sum of quantization noise > masking */
     FLOAT   tot_noise;       /* sum of all quantization noise */
