@@ -1143,7 +1143,7 @@ scfsi_calc(int ch, III_side_info_t * l3_side)
         }
         if (sfb == scfsi_band[i + 1]) {
             for (sfb = scfsi_band[i]; sfb < scfsi_band[i + 1]; sfb++) {
-                gi->scalefac[sfb] = -1;
+                gi->scalefac[sfb] = SCALEFAC_SCFSI;
             }
             l3_side->scfsi[ch][i] = 1;
         }
@@ -1151,7 +1151,7 @@ scfsi_calc(int ch, III_side_info_t * l3_side)
 
     s1 = c1 = 0;
     for (sfb = 0; sfb < 11; sfb++) {
-        if (gi->scalefac[sfb] == -1)
+        if (gi->scalefac[sfb] == SCALEFAC_SCFSI)
             continue;
         c1++;
         if (s1 < gi->scalefac[sfb])
@@ -1160,7 +1160,7 @@ scfsi_calc(int ch, III_side_info_t * l3_side)
 
     s2 = c2 = 0;
     for (; sfb < SBPSY_l; sfb++) {
-        if (gi->scalefac[sfb] == -1)
+        if (gi->scalefac[sfb] == SCALEFAC_SCFSI)
             continue;
         c2++;
         if (s2 < gi->scalefac[sfb])
@@ -1204,11 +1204,10 @@ best_scalefac_store(const lame_internal_flags * gfc,
             if (gi->l3_enc[l] != 0)
                 break;
         }
-        if (l == j)
-            gi->scalefac[sfb] = recalc = -2; /* anything goes. */
-        /*  only best_scalefac_store and calc_scfsi 
-         *  know--and only they should know--about the magic number -2. 
-         */
+        if (l == j) {
+            gi->scalefac[sfb] = SCALEFAC_ANY;
+            recalc = 1;
+        }
     }
 
     if (!gi->scalefac_scale && !gi->preflag) {
@@ -1228,7 +1227,7 @@ best_scalefac_store(const lame_internal_flags * gfc,
 
     if (!gi->preflag && gi->block_type != SHORT_TYPE && cfg->mode_gr == 2) {
         for (sfb = 11; sfb < SBPSY_l; sfb++)
-            if (gi->scalefac[sfb] < pretab[sfb] && gi->scalefac[sfb] != -2)
+            if (gi->scalefac[sfb] < pretab[sfb] && gi->scalefac[sfb] != SCALEFAC_ANY)
                 break;
         if (sfb == SBPSY_l) {
             for (sfb = 11; sfb < SBPSY_l; sfb++)
@@ -1249,8 +1248,8 @@ best_scalefac_store(const lame_internal_flags * gfc,
         recalc = 0;
     }
     for (sfb = 0; sfb < gi->sfbmax; sfb++) {
-        if (gi->scalefac[sfb] == -2) {
-            gi->scalefac[sfb] = 0; /* if anything goes, then 0 is a good choice */
+        if (gi->scalefac[sfb] == SCALEFAC_ANY) {
+            gi->scalefac[sfb] = 0;
         }
     }
     if (recalc) {

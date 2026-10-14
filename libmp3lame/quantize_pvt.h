@@ -29,6 +29,21 @@
 
 #define PRECALC_SIZE (IXMAX_VAL+2)
 
+/**
+ * \internal
+ * \brief Scalefactor marker: granule 1 shares granule 0's value (scfsi), so the
+ * band's scalefactor is not written. scfsi_calc() sets it.
+ */
+#define SCALEFAC_SCFSI (-1)
+
+/**
+ * \internal
+ * \brief Scalefactor marker: every line of the band quantizes to 0, so any
+ * value fits. Only best_scalefac_store() and the scfsi_calc() it calls see it;
+ * best_scalefac_store() sets these bands to 0 before it returns.
+ */
+#define SCALEFAC_ANY (-2)
+
 
 extern const int nr_of_sfb_block[6][3][4];
 extern const int pretab[SBMAX_l];

@@ -672,13 +672,13 @@ writeMainData(lame_internal_flags * const gfc)
                 int const slen2 = slen2_tab[gi->scalefac_compress];
                 data_bits = 0;
                 for (sfb = 0; sfb < gi->sfbdivide; sfb++) {
-                    if (gi->scalefac[sfb] == -1)
+                    if (gi->scalefac[sfb] == SCALEFAC_SCFSI)
                         continue; /* scfsi is used */
                     putbits2(gfc, gi->scalefac[sfb], slen1);
                     data_bits += slen1;
                 }
                 for (; sfb < gi->sfbmax; sfb++) {
-                    if (gi->scalefac[sfb] == -1)
+                    if (gi->scalefac[sfb] == SCALEFAC_SCFSI)
                         continue; /* scfsi is used */
                     putbits2(gfc, gi->scalefac[sfb], slen2);
                     data_bits += slen2;
