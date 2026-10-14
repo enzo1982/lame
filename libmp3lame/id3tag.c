@@ -525,7 +525,8 @@ id3tag_pad_v2(lame_t gfp)
   Padding needs an ID3v2 tag, so this function also turns one on.
 
   \param gfp  the encoder instance.
-  \param n    padding size in bytes.
+  \param n    padding size in bytes. A value above \c LAME_MAXID3V2PADDING
+              is reduced to it.
 */
 void
 id3tag_set_pad(lame_t gfp, size_t n)
@@ -539,6 +540,9 @@ id3tag_set_pad(lame_t gfp, size_t n)
     gfc->tag_spec.flags &= ~V1_ONLY_FLAG;
     gfc->tag_spec.flags |= PAD_V2_FLAG;
     gfc->tag_spec.flags |= ADD_V2_FLAG;
+    if (n > LAME_MAXID3V2PADDING) {
+        n = LAME_MAXID3V2PADDING;
+    }
     gfc->tag_spec.padding_size = (unsigned int)n;
 }
 

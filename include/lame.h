@@ -1393,7 +1393,11 @@ void CDECL id3tag_space_v1 (lame_t gfp);
 /* pad version 2 tag with extra 128 bytes */
 void CDECL id3tag_pad_v2   (lame_t gfp);
 
-/* pad version 2 tag with extra n bytes */
+/* largest padding id3tag_set_pad() writes, in bytes */
+#define LAME_MAXID3V2PADDING 128000
+
+/* pad version 2 tag with extra n bytes; a larger n than
+   LAME_MAXID3V2PADDING is reduced to it */
 void CDECL id3tag_set_pad  (lame_t gfp, size_t n);
 
 void CDECL id3tag_set_title(lame_t gfp, const char* title);

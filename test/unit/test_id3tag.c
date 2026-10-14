@@ -503,32 +503,57 @@ test_v2_only_suppresses_v1(void **state)
 /* --- ID3v2 28-bit size-field limit ------------------------------------- */
 
 /**
+ * @brief Checks that a padding above LAME_MAXID3V2PADDING gives the tag of the
+ *        maximum.
+ *
+ * id3tag_set_pad() reduces a larger padding to the maximum, so each request
+ * above it must give the same tag, byte for byte. The largest request is the
+ * largest size_t. A padding one byte below the maximum is the control: it must
+ * give a tag one byte shorter, so the padding does reach the tag.
+ *
+ * @param state the encoder instance from the fixture.
+ */
+static void
+test_v2_pad_over_max_reduced(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    size_t const over[] = { (size_t) LAME_MAXID3V2PADDING + 1, (size_t) 0x10000000,
+                            (size_t) -1 };
+    size_t const cap = (size_t) LAME_MAXID3V2PADDING + sizeof tagbuf;
+    unsigned char *at_max = calloc(cap, 1);
+    unsigned char *tag = calloc(cap, 1);
+    size_t  max_size;
+    size_t  i;
+
+    assert_non_null(at_max);
+    assert_non_null(tag);
+    id3tag_add_v2(gfp);
+    id3tag_set_title(gfp, "X");
+    id3tag_set_pad(gfp, (size_t) LAME_MAXID3V2PADDING);
+    max_size = lame_get_id3v2_tag(gfp, at_max, cap);
+    assert_true(max_size > LAME_MAXID3V2PADDING);
+    assert_true(max_size <= cap);
+    for (i = 0; i < sizeof over / sizeof over[0]; ++i) {
+        id3tag_set_pad(gfp, over[i]);
+        assert_int_equal(lame_get_id3v2_tag(gfp, tag, cap), max_size);
+        assert_memory_equal(tag, at_max, max_size);
+    }
+    id3tag_set_pad(gfp, (size_t) LAME_MAXID3V2PADDING - 1);
+    assert_int_equal(lame_get_id3v2_tag(gfp, tag, cap), max_size - 1);
+    free(tag);
+    free(at_max);
+}
+
+/**
  * @brief Checks that a tag too large for the 28-bit synchsafe size field is
  *        rejected.
  *
  * The tag size is stored in four synchsafe bytes, 28 bits in total. A larger
- * tag cannot store its own size, so the library must not write it. The test
- * makes the tag too large with a padding request. This needs no large
- * allocation. The test checks that no tag is produced.
- */
-static void
-test_v2_size_over_synchsafe_limit_rejected(void **state)
-{
-    lame_t gfp = (lame_t) *state;
-    id3tag_add_v2(gfp);
-    id3tag_set_title(gfp, "X");
-    /* One past the largest value the 28-bit field can hold. */
-    id3tag_set_pad(gfp, (size_t) 0x10000000);
-    assert_int_equal(lame_get_id3v2_tag(gfp, NULL, 0), 0);
-}
-
-/**
- * @brief Checks that album art that makes the tag too large is also rejected.
- *
- * Here most of the size comes from album art that the caller passes, not from
- * padding. The test builds the image in memory. It is about 256 MB and has a
- * valid JPEG signature, so the setter accepts it. The test frees it as soon as
- * the library has made its own copy.
+ * tag cannot store its own size, so the library must not write it. Album art
+ * the caller passes can make the tag that large; padding cannot, because
+ * id3tag_set_pad() limits it. The test builds the image in memory. It is about
+ * 256 MB and has a valid JPEG signature, so the setter accepts it. The test
+ * frees it as soon as the library has made its own copy.
  */
 static void
 test_v2_albumart_over_synchsafe_limit_rejected(void **state)
@@ -1309,7 +1334,7 @@ main(void)
         LAME_FIXTURE_TEST(test_year_beyond_int_is_9999),
         LAME_FIXTURE_TEST(test_v1_only_suppresses_v2),
         LAME_FIXTURE_TEST(test_v2_only_suppresses_v1),
-        LAME_FIXTURE_TEST(test_v2_size_over_synchsafe_limit_rejected),
+        LAME_FIXTURE_TEST(test_v2_pad_over_max_reduced),
         LAME_FIXTURE_TEST(test_v2_albumart_over_synchsafe_limit_rejected),
         LAME_FIXTURE_TEST(test_v2_size_within_limit_written),
         LAME_FIXTURE_TEST(test_v2_playlength_beyond_32bit),

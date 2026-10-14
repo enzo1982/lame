@@ -556,6 +556,22 @@ flush_if_asked(FILE * outf)
  */
 #define RG_TXXX_SLACK 3
 
+/**
+ * @internal
+ * @brief The ID3v2 padding to reserve for the ReplayGain frames.
+ *
+ * It is the user's padding plus RG_TXXX_SLACK, at most LAME_MAXID3V2PADDING,
+ * which the library would reduce it to anyway.
+ *
+ * @return the padding in bytes.
+ */
+static size_t
+replaygain_padding(void)
+{
+    size_t const want = (size_t) frontend_config.writer.id3v2_padding + RG_TXXX_SLACK;
+    return want < LAME_MAXID3V2PADDING ? want : LAME_MAXID3V2PADDING;
+}
+
 /** @internal @brief The track-gain frame, in id3tag_set_fieldvalue() form. */
 #define RG_GAIN_TXXX "TXXX=REPLAYGAIN_TRACK_GAIN="
 /** @internal @brief The track-peak frame, in id3tag_set_fieldvalue() form. */
@@ -659,7 +675,7 @@ reserve_replaygain_frames(lame_global_flags * gf, audio_reader const * reader, F
     id3tag_add_v2(gf);
     /*  Room for the finished values to be longer than the placeholders,
         on top of whatever padding the user asked for.  */
-    id3tag_set_pad(gf, (size_t) (frontend_config.writer.id3v2_padding + RG_TXXX_SLACK));
+    id3tag_set_pad(gf, replaygain_padding());
     /*  The peak sample is a by-product of decoding while encoding, so it is
         reserved only where it will actually be measured.  */
     if (set_replaygain_frames(gf, 0.0, 0.0, lame_get_decode_on_the_fly(gf)) != 0)
@@ -701,8 +717,7 @@ update_replaygain_frames(lame_global_flags * gf, FILE * outf, size_t id3v2_size)
     size = lame_get_id3v2_tag(gf, 0, 0);
     if (size >= id3v2_size && size - id3v2_size <= RG_TXXX_SLACK) {
         size_t  grew = size - id3v2_size;
-        id3tag_set_pad(gf, (size_t) (frontend_config.writer.id3v2_padding
-                                     + RG_TXXX_SLACK) - grew);
+        id3tag_set_pad(gf, replaygain_padding() - grew);
         size = lame_get_id3v2_tag(gf, 0, 0);
     }
     if (size != id3v2_size) {

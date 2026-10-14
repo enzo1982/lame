@@ -2445,7 +2445,7 @@ parse_id3_options(lame_t gfp, parse_state * st, char const *token, char *nextArg
     if (0 == local_strcasecmp(token, "pad-id3v2-size")) {
         *argUsed = getIntValue(token, nextArg, &int_value);
         if (*argUsed) {
-            int_value = int_value <= 128000 ? int_value : 128000;
+            int_value = int_value <= LAME_MAXID3V2PADDING ? int_value : LAME_MAXID3V2PADDING;
             int_value = int_value >= 0      ? int_value : 0;
             id3tag_set_pad(gfp, int_value);
             frontend_config.writer.id3v2_padding = int_value;
