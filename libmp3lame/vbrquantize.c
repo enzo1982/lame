@@ -1315,35 +1315,48 @@ reduce_bit_usage(lame_internal_flags * gfc, int gr, int ch)
 
 
 
-int
-VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
-                 const FLOAT l3_xmin[2][2][SFBMAX], const int max_bits[2][2])
+/**
+ * \internal
+ * \brief The bit budgets of one frame of the VBR new encoder, and the bits used.
+ */
+typedef struct {
+    int     max_ch[2][2]; /**< the most bits per granule and channel */
+    int     max_gr[2];    /**< the most bits per granule */
+    int     max_fr;       /**< the most bits of the frame */
+    int     use_ch[2][2]; /**< the bits used per granule and channel */
+    int     use_gr[2];    /**< the bits used per granule */
+    int     use_fr;       /**< the bits the frame uses */
+} vbr_budget_t;
+
+
+/**
+ * \internal
+ * \brief Sets up the search of each granule and channel, and the budgets.
+ *
+ * \param gfc       the encoder.
+ * \param that_     receives the search set-up per granule and channel.
+ * \param xr34orig  the spectrum, raised to the power 3/4.
+ * \param max_bits  the most bits per granule and channel.
+ * \param bud       receives the budgets.
+ */
+static void
+setup_granules(lame_internal_flags * gfc, algo_t that_[2][2], const FLOAT xr34orig[2][2][576],
+               const int max_bits[2][2], vbr_budget_t * bud)
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
-    int     sfwork_[2][2][SFBMAX];
-    int     vbrsfmin_[2][2][SFBMAX];
-    algo_t  that_[2][2];
     int const ngr = cfg->mode_gr;
     int const nch = cfg->channels_out;
-    int     max_nbits_ch[2][2] = {{0, 0}, {0 ,0}};
-    int     max_nbits_gr[2] = {0, 0};
-    int     max_nbits_fr = 0;
-    int     use_nbits_ch[2][2] = {{MAX_BITS_PER_CHANNEL+1, MAX_BITS_PER_CHANNEL+1}
-                                 ,{MAX_BITS_PER_CHANNEL+1, MAX_BITS_PER_CHANNEL+1}};
-    int     use_nbits_gr[2] = { MAX_BITS_PER_GRANULE+1, MAX_BITS_PER_GRANULE+1 };
-    int     use_nbits_fr = MAX_BITS_PER_GRANULE+MAX_BITS_PER_GRANULE;
     int     gr, ch;
-    int     ok, sum_fr;
 
     /* set up some encoding parameters
      */
     for (gr = 0; gr < ngr; ++gr) {
-        max_nbits_gr[gr] = 0;
+        bud->max_gr[gr] = 0;
         for (ch = 0; ch < nch; ++ch) {
-            max_nbits_ch[gr][ch] = max_bits[gr][ch];
-            use_nbits_ch[gr][ch] = 0;
-            max_nbits_gr[gr] += max_bits[gr][ch];
-            max_nbits_fr += max_bits[gr][ch];
+            bud->max_ch[gr][ch] = max_bits[gr][ch];
+            bud->use_ch[gr][ch] = 0;
+            bud->max_gr[gr] += max_bits[gr][ch];
+            bud->max_fr += max_bits[gr][ch];
             that_[gr][ch].find = (cfg->full_outer_loop < 0) ? guess_scalefac_x34 : find_scalefac_x34;
             that_[gr][ch].gfc = gfc;
             that_[gr][ch].cod_info = &gfc->l3_side.tt[gr][ch];
@@ -1356,6 +1369,27 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
             }
         }               /* for ch */
     }
+}
+
+
+/**
+ * \internal
+ * \brief Finds the scalefactors of each granule and channel that has bits.
+ *
+ * \param that_      the search set-up per granule and channel.
+ * \param l3_xmin    the allowed distortion per band.
+ * \param max_bits   the most bits per granule and channel.
+ * \param sfwork_    receives the scalefactors.
+ * \param vbrsfmin_  receives the smallest scalefactors.
+ * \param ngr        the granules of the frame.
+ * \param nch        the channels.
+ */
+static void
+search_scalefactors(algo_t that_[2][2], const FLOAT l3_xmin[2][2][SFBMAX], const int max_bits[2][2],
+                    int sfwork_[2][2][SFBMAX], int vbrsfmin_[2][2][SFBMAX], int ngr, int nch)
+{
+    int     gr, ch;
+
     /* searches scalefactors
      */
     for (gr = 0; gr < ngr; ++gr) {
@@ -1378,11 +1412,32 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
             }
         }               /* for ch */
     }
+}
+
+
+/**
+ * \internal
+ * \brief Quantizes the frame with the scalefactors found, and counts the bits.
+ *
+ * \param gfc       the encoder.
+ * \param that_     the search set-up per granule and channel.
+ * \param max_bits  the most bits per granule and channel.
+ * \param bud       receives the bits used.
+ */
+static void
+quantize_as_is(lame_internal_flags * gfc, algo_t that_[2][2], const int max_bits[2][2],
+               vbr_budget_t * bud)
+{
+    SessionConfig_t const *const cfg = &gfc->cfg;
+    int const ngr = cfg->mode_gr;
+    int const nch = cfg->channels_out;
+    int     gr, ch;
+
     /* encode 'as is'
      */
-    use_nbits_fr = 0;
+    bud->use_fr = 0;
     for (gr = 0; gr < ngr; ++gr) {
-        use_nbits_gr[gr] = 0;
+        bud->use_gr[gr] = 0;
         for (ch = 0; ch < nch; ++ch) {
             algo_t const *that = &that_[gr][ch];
             if (max_bits[gr][ch] > 0) {
@@ -1395,203 +1450,314 @@ VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
                  *  continue with next channel
                  */
             }
-            use_nbits_ch[gr][ch] = reduce_bit_usage(gfc, gr, ch);
-            use_nbits_gr[gr] += use_nbits_ch[gr][ch];
+            bud->use_ch[gr][ch] = reduce_bit_usage(gfc, gr, ch);
+            bud->use_gr[gr] += bud->use_ch[gr][ch];
         }               /* for ch */
-        use_nbits_fr += use_nbits_gr[gr];
+        bud->use_fr += bud->use_gr[gr];
     }
+}
 
-    /* check bit constrains
-     */
-    if (use_nbits_fr <= max_nbits_fr) {
-        ok = 1;
-        for (gr = 0; gr < ngr; ++gr) {
-            if (use_nbits_gr[gr] > MAX_BITS_PER_GRANULE) {
-                /* violates the rule that every granule has to use no more
-                 * bits than MAX_BITS_PER_GRANULE
-                 */
-                ok = 0;
-            }
-            for (ch = 0; ch < nch; ++ch) {
-                if (use_nbits_ch[gr][ch] > MAX_BITS_PER_CHANNEL) {
-                    /* violates the rule that every gr_ch has to use no more
-                     * bits than MAX_BITS_PER_CHANNEL
-                     *
-                     * This isn't explicitly stated in the ISO docs, but the
-                     * part2_3_length field has only 12 bits, that makes it
-                     * up to a maximum size of 4095 bits!!!
-                     */
-                    ok = 0;
-                }
-            }
-        }
-        if (ok) {
-            return use_nbits_fr;
-        }
-    }
-    
-    /* OK, we are in trouble and have to define how many bits are
-     * to be used for each granule
-     */
-    {
-        ok = 1;
-        sum_fr = 0;
 
-        for (gr = 0; gr < ngr; ++gr) {
-            max_nbits_gr[gr] = 0;
-            for (ch = 0; ch < nch; ++ch) {
-                if (use_nbits_ch[gr][ch] > MAX_BITS_PER_CHANNEL) {
-                    max_nbits_ch[gr][ch] = MAX_BITS_PER_CHANNEL;
-                }
-                else {
-                    max_nbits_ch[gr][ch] = use_nbits_ch[gr][ch];
-                }
-                max_nbits_gr[gr] += max_nbits_ch[gr][ch];
-            }
-            if (max_nbits_gr[gr] > MAX_BITS_PER_GRANULE) {
-                float   f[2] = {0.0f, 0.0f}, s = 0.0f;
-                for (ch = 0; ch < nch; ++ch) {
-                    if (max_nbits_ch[gr][ch] > 0) {
-                        f[ch] = sqrt(sqrt(max_nbits_ch[gr][ch]));
-                        s += f[ch];
-                    }
-                    else {
-                        f[ch] = 0;
-                    }
-                }
-                split_in_proportion(max_nbits_ch[gr], f, s, nch, MAX_BITS_PER_GRANULE);
-                if (nch > 1) {
-                    rebalance_pair(max_nbits_ch[gr], use_nbits_ch[gr], 32);
-                    if (max_nbits_ch[gr][0] > MAX_BITS_PER_CHANNEL) {
-                        max_nbits_ch[gr][0] = MAX_BITS_PER_CHANNEL;
-                    }
-                    if (max_nbits_ch[gr][1] > MAX_BITS_PER_CHANNEL) {
-                        max_nbits_ch[gr][1] = MAX_BITS_PER_CHANNEL;
-                    }
-                }
-                max_nbits_gr[gr] = 0;
-                for (ch = 0; ch < nch; ++ch) {
-                    max_nbits_gr[gr] += max_nbits_ch[gr][ch];
-                }
-            }
-            sum_fr += max_nbits_gr[gr];
-        }
-        if (sum_fr > max_nbits_fr) {
-            {
-                float   f[2] = {0.0f, 0.0f}, s = 0.0f;
-                for (gr = 0; gr < ngr; ++gr) {
-                    if (max_nbits_gr[gr] > 0) {
-                        f[gr] = sqrt(max_nbits_gr[gr]);
-                        s += f[gr];
-                    }
-                    else {
-                        f[gr] = 0;
-                    }
-                }
-                split_in_proportion(max_nbits_gr, f, s, ngr, max_nbits_fr);
-            }
-            if (ngr > 1) {
-                rebalance_pair(max_nbits_gr, use_nbits_gr, 125);
-                for (gr = 0; gr < ngr; ++gr) {
-                    if (max_nbits_gr[gr] > MAX_BITS_PER_GRANULE) {
-                        max_nbits_gr[gr] = MAX_BITS_PER_GRANULE;
-                    }
-                }
-            }
-            for (gr = 0; gr < ngr; ++gr) {
-                float   f[2] = {0.0f, 0.0f}, s = 0.0f;
-                for (ch = 0; ch < nch; ++ch) {
-                    if (max_nbits_ch[gr][ch] > 0) {
-                        f[ch] = sqrt(max_nbits_ch[gr][ch]);
-                        s += f[ch];
-                    }
-                    else {
-                        f[ch] = 0;
-                    }
-                }
-                split_in_proportion(max_nbits_ch[gr], f, s, nch, max_nbits_gr[gr]);
-                if (nch > 1) {
-                    rebalance_pair(max_nbits_ch[gr], use_nbits_ch[gr], 32);
-                    for (ch = 0; ch < nch; ++ch) {
-                        if (max_nbits_ch[gr][ch] > MAX_BITS_PER_CHANNEL) {
-                            max_nbits_ch[gr][ch] = MAX_BITS_PER_CHANNEL;
-                        }
-                    }
-                }
-            }
-        }
-        /* sanity check */
-        sum_fr = 0;
-        for (gr = 0; gr < ngr; ++gr) {
-            int     sum_gr = 0;
-            for (ch = 0; ch < nch; ++ch) {
-                sum_gr += max_nbits_ch[gr][ch];
-                if (max_nbits_ch[gr][ch] > MAX_BITS_PER_CHANNEL) {
-                    ok = 0;
-                }
-            }
-            sum_fr += sum_gr;
-            if (sum_gr > MAX_BITS_PER_GRANULE) {
-                ok = 0;
-            }
-        }
-        if (sum_fr > max_nbits_fr) {
+/**
+ * \internal
+ * \brief Tells whether every granule and channel keeps to its limit.
+ *
+ * No granule may use more than MAX_BITS_PER_GRANULE bits and no channel more
+ * than MAX_BITS_PER_CHANNEL.
+ *
+ * \param bud  the bits used.
+ * \param ngr  the granules of the frame.
+ * \param nch  the channels.
+ * \return 1 if they do, else 0.
+ */
+static int
+fits_limits(vbr_budget_t const *bud, int ngr, int nch)
+{
+    int     gr, ch;
+    int     ok = 1;
+
+    for (gr = 0; gr < ngr; ++gr) {
+        if (bud->use_gr[gr] > MAX_BITS_PER_GRANULE) {
             ok = 0;
         }
-        if (!ok) {
-            /* we must have done something wrong, fallback to 'on_pe' based constrain */
+        for (ch = 0; ch < nch; ++ch) {
+            if (bud->use_ch[gr][ch] > MAX_BITS_PER_CHANNEL) {
+                /* part2_3_length has 12 bits, so at most 4095 */
+                ok = 0;
+            }
+        }
+    }
+    return ok;
+}
+
+
+/**
+ * \internal
+ * \brief Shares the bits out again when the frame broke a limit.
+ *
+ * Each granule is capped at MAX_BITS_PER_GRANULE, and the frame at its
+ * budget, in proportion to the bits each part used.
+ *
+ * \param bud  the budgets and the bits used; the budgets change.
+ * \param ngr  the granules of the frame.
+ * \param nch  the channels.
+ */
+static void
+plan_budgets(vbr_budget_t * bud, int ngr, int nch)
+{
+    int     gr, ch;
+    int     sum_fr;
+
+    sum_fr = 0;
+
+    for (gr = 0; gr < ngr; ++gr) {
+        bud->max_gr[gr] = 0;
+        for (ch = 0; ch < nch; ++ch) {
+            if (bud->use_ch[gr][ch] > MAX_BITS_PER_CHANNEL) {
+                bud->max_ch[gr][ch] = MAX_BITS_PER_CHANNEL;
+            }
+            else {
+                bud->max_ch[gr][ch] = bud->use_ch[gr][ch];
+            }
+            bud->max_gr[gr] += bud->max_ch[gr][ch];
+        }
+        if (bud->max_gr[gr] > MAX_BITS_PER_GRANULE) {
+            float   f[2] = {0.0f, 0.0f}, s = 0.0f;
+            for (ch = 0; ch < nch; ++ch) {
+                if (bud->max_ch[gr][ch] > 0) {
+                    f[ch] = sqrt(sqrt(bud->max_ch[gr][ch]));
+                    s += f[ch];
+                }
+                else {
+                    f[ch] = 0;
+                }
+            }
+            split_in_proportion(bud->max_ch[gr], f, s, nch, MAX_BITS_PER_GRANULE);
+            if (nch > 1) {
+                rebalance_pair(bud->max_ch[gr], bud->use_ch[gr], 32);
+                if (bud->max_ch[gr][0] > MAX_BITS_PER_CHANNEL) {
+                    bud->max_ch[gr][0] = MAX_BITS_PER_CHANNEL;
+                }
+                if (bud->max_ch[gr][1] > MAX_BITS_PER_CHANNEL) {
+                    bud->max_ch[gr][1] = MAX_BITS_PER_CHANNEL;
+                }
+            }
+            bud->max_gr[gr] = 0;
+            for (ch = 0; ch < nch; ++ch) {
+                bud->max_gr[gr] += bud->max_ch[gr][ch];
+            }
+        }
+        sum_fr += bud->max_gr[gr];
+    }
+    if (sum_fr > bud->max_fr) {
+        {
+            float   f[2] = {0.0f, 0.0f}, s = 0.0f;
             for (gr = 0; gr < ngr; ++gr) {
+                if (bud->max_gr[gr] > 0) {
+                    f[gr] = sqrt(bud->max_gr[gr]);
+                    s += f[gr];
+                }
+                else {
+                    f[gr] = 0;
+                }
+            }
+            split_in_proportion(bud->max_gr, f, s, ngr, bud->max_fr);
+        }
+        if (ngr > 1) {
+            rebalance_pair(bud->max_gr, bud->use_gr, 125);
+            for (gr = 0; gr < ngr; ++gr) {
+                if (bud->max_gr[gr] > MAX_BITS_PER_GRANULE) {
+                    bud->max_gr[gr] = MAX_BITS_PER_GRANULE;
+                }
+            }
+        }
+        for (gr = 0; gr < ngr; ++gr) {
+            float   f[2] = {0.0f, 0.0f}, s = 0.0f;
+            for (ch = 0; ch < nch; ++ch) {
+                if (bud->max_ch[gr][ch] > 0) {
+                    f[ch] = sqrt(bud->max_ch[gr][ch]);
+                    s += f[ch];
+                }
+                else {
+                    f[ch] = 0;
+                }
+            }
+            split_in_proportion(bud->max_ch[gr], f, s, nch, bud->max_gr[gr]);
+            if (nch > 1) {
+                rebalance_pair(bud->max_ch[gr], bud->use_ch[gr], 32);
                 for (ch = 0; ch < nch; ++ch) {
-                    max_nbits_ch[gr][ch] = max_bits[gr][ch];
+                    if (bud->max_ch[gr][ch] > MAX_BITS_PER_CHANNEL) {
+                        bud->max_ch[gr][ch] = MAX_BITS_PER_CHANNEL;
+                    }
                 }
             }
         }
     }
+}
+
+
+/**
+ * \internal
+ * \brief Tells whether the budgets keep to every limit.
+ *
+ * \param bud  the budgets.
+ * \param ngr  the granules of the frame.
+ * \param nch  the channels.
+ * \return 1 if they do, else 0.
+ */
+static int
+budgets_are_valid(vbr_budget_t const *bud, int ngr, int nch)
+{
+    int     gr, ch;
+    int     ok = 1;
+    int     sum_fr;
+
+    /* sanity check */
+    sum_fr = 0;
+    for (gr = 0; gr < ngr; ++gr) {
+        int     sum_gr = 0;
+        for (ch = 0; ch < nch; ++ch) {
+            sum_gr += bud->max_ch[gr][ch];
+            if (bud->max_ch[gr][ch] > MAX_BITS_PER_CHANNEL) {
+                ok = 0;
+            }
+        }
+        sum_fr += sum_gr;
+        if (sum_gr > MAX_BITS_PER_GRANULE) {
+            ok = 0;
+        }
+    }
+    if (sum_fr > bud->max_fr) {
+        ok = 0;
+    }
+    return ok;
+}
+
+
+/**
+ * \internal
+ * \brief Clears what the first scalefactor storage set, before it runs again.
+ *
+ * \param l3_side  the side information of the frame.
+ * \param ngr      the granules of the frame.
+ * \param nch      the channels.
+ */
+static void
+reset_scalefac_storage(III_side_info_t * l3_side, int ngr, int nch)
+{
+    int     gr, ch;
 
     /* we already called the 'best_scalefac_store' function, so we need to reset some
      * variables before we can do it again.
      */
     for (ch = 0; ch < nch; ++ch) {
-        gfc->l3_side.scfsi[ch][0] = 0;
-        gfc->l3_side.scfsi[ch][1] = 0;
-        gfc->l3_side.scfsi[ch][2] = 0;
-        gfc->l3_side.scfsi[ch][3] = 0;
+        l3_side->scfsi[ch][0] = 0;
+        l3_side->scfsi[ch][1] = 0;
+        l3_side->scfsi[ch][2] = 0;
+        l3_side->scfsi[ch][3] = 0;
     }
     for (gr = 0; gr < ngr; ++gr) {
         for (ch = 0; ch < nch; ++ch) {
-            gfc->l3_side.tt[gr][ch].scalefac_compress = 0;
+            l3_side->tt[gr][ch].scalefac_compress = 0;
         }
     }
+}
+
+
+/**
+ * \internal
+ * \brief Quantizes the frame again to fit the budgets, and counts the bits.
+ *
+ * \param gfc        the encoder.
+ * \param that_      the search set-up per granule and channel.
+ * \param sfwork_    the scalefactors; they are cut to fit.
+ * \param vbrsfmin_  the smallest scalefactors.
+ * \param max_bits   the most bits per granule and channel.
+ * \param bud        the budgets; receives the bits used.
+ */
+static void
+requantize_to_budget(lame_internal_flags * gfc, algo_t that_[2][2], int sfwork_[2][2][SFBMAX],
+                     int vbrsfmin_[2][2][SFBMAX], const int max_bits[2][2], vbr_budget_t * bud)
+{
+    SessionConfig_t const *const cfg = &gfc->cfg;
+    int const ngr = cfg->mode_gr;
+    int const nch = cfg->channels_out;
+    int     gr, ch;
 
     /* alter our encoded data, until it fits into the target bitrate
      */
-    use_nbits_fr = 0;
+    bud->use_fr = 0;
     for (gr = 0; gr < ngr; ++gr) {
-        use_nbits_gr[gr] = 0;
+        bud->use_gr[gr] = 0;
         for (ch = 0; ch < nch; ++ch) {
             algo_t const *that = &that_[gr][ch];
-            use_nbits_ch[gr][ch] = 0;
+            bud->use_ch[gr][ch] = 0;
             if (max_bits[gr][ch] > 0) {
                 int    *sfwork = sfwork_[gr][ch];
                 int const *vbrsfmin = vbrsfmin_[gr][ch];
                 cutDistribution(sfwork, sfwork, that->cod_info->global_gain);
-                outOfBitsStrategy(that, sfwork, vbrsfmin, max_nbits_ch[gr][ch]);
+                outOfBitsStrategy(that, sfwork, vbrsfmin, bud->max_ch[gr][ch]);
             }
-            use_nbits_ch[gr][ch] = reduce_bit_usage(gfc, gr, ch);
-            assert(use_nbits_ch[gr][ch] <= max_nbits_ch[gr][ch]);
-            use_nbits_gr[gr] += use_nbits_ch[gr][ch];
+            bud->use_ch[gr][ch] = reduce_bit_usage(gfc, gr, ch);
+            assert(bud->use_ch[gr][ch] <= bud->max_ch[gr][ch]);
+            bud->use_gr[gr] += bud->use_ch[gr][ch];
         }               /* for ch */
-        use_nbits_fr += use_nbits_gr[gr];
+        bud->use_fr += bud->use_gr[gr];
     }
+}
+
+
+int
+VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
+                 const FLOAT l3_xmin[2][2][SFBMAX], const int max_bits[2][2])
+{
+    SessionConfig_t const *const cfg = &gfc->cfg;
+    int     sfwork_[2][2][SFBMAX];
+    int     vbrsfmin_[2][2][SFBMAX];
+    algo_t  that_[2][2];
+    int const ngr = cfg->mode_gr;
+    int const nch = cfg->channels_out;
+    vbr_budget_t bud = {
+        {{0, 0}, {0, 0}}, {0, 0}, 0,
+        {{MAX_BITS_PER_CHANNEL + 1, MAX_BITS_PER_CHANNEL + 1},
+         {MAX_BITS_PER_CHANNEL + 1, MAX_BITS_PER_CHANNEL + 1}},
+        {MAX_BITS_PER_GRANULE + 1, MAX_BITS_PER_GRANULE + 1},
+        MAX_BITS_PER_GRANULE + MAX_BITS_PER_GRANULE
+    };
+    int     gr, ch;
+
+    setup_granules(gfc, that_, xr34orig, max_bits, &bud);
+    search_scalefactors(that_, l3_xmin, max_bits, sfwork_, vbrsfmin_, ngr, nch);
+    quantize_as_is(gfc, that_, max_bits, &bud);
+
+    if (bud.use_fr <= bud.max_fr && fits_limits(&bud, ngr, nch)) {
+        return bud.use_fr;
+    }
+
+    /* OK, we are in trouble and have to define how many bits are
+     * to be used for each granule
+     */
+    plan_budgets(&bud, ngr, nch);
+    if (!budgets_are_valid(&bud, ngr, nch)) {
+        /* we must have done something wrong, fallback to 'on_pe' based constrain */
+        for (gr = 0; gr < ngr; ++gr) {
+            for (ch = 0; ch < nch; ++ch) {
+                bud.max_ch[gr][ch] = max_bits[gr][ch];
+            }
+        }
+    }
+
+    reset_scalefac_storage(&gfc->l3_side, ngr, nch);
+    requantize_to_budget(gfc, that_, sfwork_, vbrsfmin_, max_bits, &bud);
 
     /* check bit constrains, but it should always be ok, iff there are no bugs ;-)
      */
-    if (use_nbits_fr <= max_nbits_fr) {
-        return use_nbits_fr;
+    if (bud.use_fr <= bud.max_fr) {
+        return bud.use_fr;
     }
 
     ERRORF(gfc, "INTERNAL ERROR IN VBR NEW CODE (1313), please send bug report\n"
-           "maxbits=%d usedbits=%d\n", max_nbits_fr, use_nbits_fr);
+           "maxbits=%d usedbits=%d\n", bud.max_fr, bud.use_fr);
     gfc->sv_enc.internal_error = 1;
-    return use_nbits_fr;
+    return bud.use_fr;
 }
