@@ -407,7 +407,7 @@ lame_init_qval(lame_global_flags * gfp)
      *  the interaction itself is still to be repaired.
      */
     if (cfg->vbr == vbr_off || cfg->vbr == vbr_abr) {
-        cfg->noise_shaping_amp = 0;
+        cfg->noise_shaping_amp = NS_AMP_ISO;
     }
 }
 

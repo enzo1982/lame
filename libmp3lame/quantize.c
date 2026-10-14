@@ -732,12 +732,11 @@ amp_band(FLOAT * xr, int width, FLOAT amp, FLOAT * xrpow_max)
  *************************************************************************/
 static void
 amp_scalefac_bands(lame_internal_flags * gfc,
-                   gr_info * const cod_info, FLOAT const *distort, FLOAT xrpow[576], int bRefine)
+                   gr_info * const cod_info, FLOAT const *distort, FLOAT xrpow[576])
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     int     j, sfb;
     FLOAT   ifqstep34, trigger;
-    int     noise_shaping_amp;
 
     if (cod_info->scalefac_scale == 0) {
         ifqstep34 = IFQSTEP34_FINE;
@@ -753,19 +752,12 @@ amp_scalefac_bands(lame_internal_flags * gfc,
             trigger = distort[sfb];
     }
 
-    noise_shaping_amp = cfg->noise_shaping_amp;
-    if (noise_shaping_amp == 3) {
-        if (bRefine == 1)
-            noise_shaping_amp = 2;
-        else
-            noise_shaping_amp = 1;
-    }
-    switch (noise_shaping_amp) {
-    case 2:
+    switch (cfg->noise_shaping_amp) {
+    case NS_AMP_ONE_BAND:
         /* amplify exactly 1 band */
         break;
 
-    case 1:
+    case NS_AMP_HALF_DB:
         /* amplify bands within 50% of max (on db scale) */
         if (trigger > 1.0)
             trigger = pow(trigger, .5);
@@ -773,7 +765,7 @@ amp_scalefac_bands(lame_internal_flags * gfc,
             trigger *= .95;
         break;
 
-    case 0:
+    case NS_AMP_ISO:
     default:
         /* ISO algorithm.  amplify all bands with distort>1 */
         if (trigger > 1.0)
@@ -792,13 +784,13 @@ amp_scalefac_bands(lame_internal_flags * gfc,
 
         if (gfc->sv_qnt.substep_shaping & SUBSTEP_HALF_STEP) {
             gfc->sv_qnt.pseudohalf[sfb] = !gfc->sv_qnt.pseudohalf[sfb];
-            if (!gfc->sv_qnt.pseudohalf[sfb] && cfg->noise_shaping_amp == 2)
+            if (!gfc->sv_qnt.pseudohalf[sfb] && cfg->noise_shaping_amp == NS_AMP_ONE_BAND)
                 return;
         }
         cod_info->scalefac[sfb]++;
         amp_band(xrpow + j - width, width, ifqstep34, &cod_info->xrpow_max);
 
-        if (cfg->noise_shaping_amp == 2)
+        if (cfg->noise_shaping_amp == NS_AMP_ONE_BAND)
             return;
     }
 }
@@ -940,12 +932,12 @@ inc_subblock_gain(const lame_internal_flags * const gfc, gr_info * const cod_inf
  ********************************************************************/
 inline static int
 balance_noise(lame_internal_flags * gfc,
-              gr_info * const cod_info, FLOAT const *distort, FLOAT xrpow[576], int bRefine)
+              gr_info * const cod_info, FLOAT const *distort, FLOAT xrpow[576])
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     int     status;
 
-    amp_scalefac_bands(gfc, cod_info, distort, xrpow, bRefine);
+    amp_scalefac_bands(gfc, cod_info, distort, xrpow);
 
     /* check to make sure we have not amplified too much
      * loop_break returns 0 if there is an unamplified scalefac
@@ -1023,9 +1015,6 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
     int     age;
     calc_noise_data prev_noise;
     int     best_part2_3_length = 9999999;
-    int     bEndOfSearch = 0;
-    int     bRefine = 0;
-    int     best_ggain_pass1 = 0;
 
     (void) bin_search_StepSize(gfc, cod_info, targ_bits, ch, xrpow);
 
@@ -1046,142 +1035,115 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
     /* if (cfg->vbr == vbr_rh || cfg->vbr == vbr_mtrh) */
     memcpy(save_xrpow, xrpow, sizeof(FLOAT) * 576);
 
-    while (!bEndOfSearch) {
-        /* BEGIN MAIN LOOP */
-        do {
-            calc_noise_result noise_info;
-            int     search_limit;
-            int     maxggain = GLOBAL_GAIN_MAX;
+    /* BEGIN MAIN LOOP */
+    do {
+        calc_noise_result noise_info;
+        int     search_limit;
+        int     maxggain = GLOBAL_GAIN_MAX;
 
-            /* When quantization with no distorted bands is found,
-             * allow up to X new unsuccesful tries in serial. This
-             * gives us more possibilities for different quant_compare modes.
-             * Much more than 3 makes not a big difference, it is only slower.
-             */
+        /* When quantization with no distorted bands is found,
+         * allow up to X new unsuccesful tries in serial. This
+         * gives us more possibilities for different quant_compare modes.
+         * Much more than 3 makes not a big difference, it is only slower.
+         */
 
-            if (gfc->sv_qnt.substep_shaping & SUBSTEP_HALF_STEP) {
-                search_limit = 20;
-            }
-            else {
-                search_limit = 3;
-            }
-
+        if (gfc->sv_qnt.substep_shaping & SUBSTEP_HALF_STEP) {
+            search_limit = 20;
+        }
+        else {
+            search_limit = 3;
+        }
 
 
-            /* Check if the last scalefactor band is distorted.
-             * in VBR mode we can't get rid of the distortion, so quit now
-             * and VBR mode will try again with more bits.
-             * (makes a 10% speed increase, the files I tested were
-             * binary identical, 2000/05/20 Robert Hegemann)
-             * distort[] > 1 means noise > allowed noise
-             */
-            if (gfc->sv_qnt.sfb21_extra) {
-                if (distort[cod_info_w.sfbmax] > 1.0)
-                    break;
-                if (cod_info_w.block_type == SHORT_TYPE
-                    && (distort[cod_info_w.sfbmax + 1] > 1.0
-                        || distort[cod_info_w.sfbmax + 2] > 1.0))
-                    break;
-            }
 
-            /* try a new scalefactor conbination on cod_info_w */
-            if (balance_noise(gfc, &cod_info_w, distort, xrpow, bRefine) == 0)
+        /* Check if the last scalefactor band is distorted.
+         * in VBR mode we can't get rid of the distortion, so quit now
+         * and VBR mode will try again with more bits.
+         * (makes a 10% speed increase, the files I tested were
+         * binary identical, 2000/05/20 Robert Hegemann)
+         * distort[] > 1 means noise > allowed noise
+         */
+        if (gfc->sv_qnt.sfb21_extra) {
+            if (distort[cod_info_w.sfbmax] > 1.0)
                 break;
-            if (cod_info_w.scalefac_scale)
-                maxggain = GLOBAL_GAIN_MAX - 1; /* global_gain + scalefac_scale stays <= GLOBAL_GAIN_MAX */
-
-            /* inner_loop starts with the initial quantization step computed above
-             * and slowly increases until the bits < huff_bits.
-             * Thus it is important not to start with too large of an inital
-             * quantization step.  Too small is ok, but inner_loop will take longer
-             */
-            huff_bits = targ_bits - cod_info_w.part2_length;
-            if (huff_bits <= 0)
+            if (cod_info_w.block_type == SHORT_TYPE
+                && (distort[cod_info_w.sfbmax + 1] > 1.0
+                    || distort[cod_info_w.sfbmax + 2] > 1.0))
                 break;
+        }
 
-            /*  increase quantizer stepsize until needed bits are below maximum
-             */
+        /* try a new scalefactor conbination on cod_info_w */
+        if (balance_noise(gfc, &cod_info_w, distort, xrpow) == 0)
+            break;
+        if (cod_info_w.scalefac_scale)
+            maxggain = GLOBAL_GAIN_MAX - 1; /* global_gain + scalefac_scale stays <= GLOBAL_GAIN_MAX */
+
+        /* inner_loop starts with the initial quantization step computed above
+         * and slowly increases until the bits < huff_bits.
+         * Thus it is important not to start with too large of an inital
+         * quantization step.  Too small is ok, but inner_loop will take longer
+         */
+        huff_bits = targ_bits - cod_info_w.part2_length;
+        if (huff_bits <= 0)
+            break;
+
+        /*  increase quantizer stepsize until needed bits are below maximum
+         */
+        while ((cod_info_w.part2_3_length
+                = count_bits(gfc, xrpow, &cod_info_w, &prev_noise)) > huff_bits
+               && cod_info_w.global_gain <= maxggain)
+            cod_info_w.global_gain++;
+
+        if (cod_info_w.global_gain > maxggain)
+            break;
+
+        if (best_noise_info.over_count == 0) {
+
             while ((cod_info_w.part2_3_length
-                    = count_bits(gfc, xrpow, &cod_info_w, &prev_noise)) > huff_bits
+                    = count_bits(gfc, xrpow, &cod_info_w, &prev_noise)) > best_part2_3_length
                    && cod_info_w.global_gain <= maxggain)
                 cod_info_w.global_gain++;
 
             if (cod_info_w.global_gain > maxggain)
                 break;
-
-            if (best_noise_info.over_count == 0) {
-
-                while ((cod_info_w.part2_3_length
-                        = count_bits(gfc, xrpow, &cod_info_w, &prev_noise)) > best_part2_3_length
-                       && cod_info_w.global_gain <= maxggain)
-                    cod_info_w.global_gain++;
-
-                if (cod_info_w.global_gain > maxggain)
-                    break;
-            }
-
-            /* compute the distortion in this quantization */
-            (void) calc_noise(&cod_info_w, l3_xmin, distort, &noise_info, &prev_noise);
-            noise_info.bits = cod_info_w.part2_3_length;
-
-            /* check if this quantization is better
-             * than our saved quantization */
-            if (cod_info->block_type != SHORT_TYPE) /* NORM, START or STOP type */
-                better = cfg->quant_comp;
-            else
-                better = cfg->quant_comp_short;
-
-
-            better = quant_compare(better, &best_noise_info, &noise_info, &cod_info_w, distort);
-
-
-            /* save data so we can restore this quantization later */
-            if (better) {
-                best_part2_3_length = cod_info_w.part2_3_length;
-                best_noise_info = noise_info;
-                *cod_info = cod_info_w;
-                age = 0;
-                /* save data so we can restore this quantization later */
-                /*if (cfg->vbr == vbr_rh || cfg->vbr == vbr_mtrh) */  {
-                    /* store for later reuse */
-                    memcpy(save_xrpow, xrpow, sizeof(FLOAT) * 576);
-                }
-            }
-            else {
-                /* early stop? */
-                if (cfg->full_outer_loop == 0) {
-                    if (++age > search_limit && best_noise_info.over_count == 0)
-                        break;
-                    if ((cfg->noise_shaping_amp == 3) && bRefine && age > 30)
-                        break;
-                    if ((cfg->noise_shaping_amp == 3) && bRefine &&
-                        (cod_info_w.global_gain - best_ggain_pass1) > 15)
-                        break;
-                }
-            }
         }
-        while ((cod_info_w.global_gain + cod_info_w.scalefac_scale) < GLOBAL_GAIN_MAX);
 
-        if (cfg->noise_shaping_amp == 3) {
-            if (!bRefine) {
-                /* refine search */
-                cod_info_w = *cod_info;
-                memcpy(xrpow, save_xrpow, sizeof(FLOAT) * 576);
-                age = 0;
-                best_ggain_pass1 = cod_info_w.global_gain;
+        /* compute the distortion in this quantization */
+        (void) calc_noise(&cod_info_w, l3_xmin, distort, &noise_info, &prev_noise);
+        noise_info.bits = cod_info_w.part2_3_length;
 
-                bRefine = 1;
+        /* check if this quantization is better
+         * than our saved quantization */
+        if (cod_info->block_type != SHORT_TYPE) /* NORM, START or STOP type */
+            better = cfg->quant_comp;
+        else
+            better = cfg->quant_comp_short;
+
+
+        better = quant_compare(better, &best_noise_info, &noise_info, &cod_info_w, distort);
+
+
+        /* save data so we can restore this quantization later */
+        if (better) {
+            best_part2_3_length = cod_info_w.part2_3_length;
+            best_noise_info = noise_info;
+            *cod_info = cod_info_w;
+            age = 0;
+            /* save data so we can restore this quantization later */
+            /*if (cfg->vbr == vbr_rh || cfg->vbr == vbr_mtrh) */  {
+                /* store for later reuse */
+                memcpy(save_xrpow, xrpow, sizeof(FLOAT) * 576);
             }
-            else {
-                /* search already refined, stop */
-                bEndOfSearch = 1;
-            }
-
         }
         else {
-            bEndOfSearch = 1;
+            /* early stop? */
+            if (cfg->full_outer_loop == 0) {
+                if (++age > search_limit && best_noise_info.over_count == 0)
+                    break;
+            }
         }
     }
+    while ((cod_info_w.global_gain + cod_info_w.scalefac_scale) < GLOBAL_GAIN_MAX);
 
     assert((cod_info->global_gain + cod_info->scalefac_scale) <= GLOBAL_GAIN_MAX);
     /*  finish up

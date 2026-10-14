@@ -349,6 +349,15 @@ extern  "C" {
     };
 
 
+    /** \internal
+       \brief Which distorted bands the quantizer loop amplifies in one step. */
+    enum noise_shaping_amp_mode {
+        NS_AMP_ISO = 0,     /**< every band whose noise is not masked */
+        NS_AMP_HALF_DB = 1, /**< the bands within half the largest distortion in dB */
+        NS_AMP_ONE_BAND = 2 /**< only the most distorted band */
+    };
+
+
     /* variables used by quantize.c */
     typedef struct {
         /* variables for nspsytune */
@@ -394,11 +403,7 @@ extern  "C" {
 
         int     subblock_gain; /*  0 = no, 1 = yes */
         int     use_best_huffman; /* 0 = no.  1=outside loop  2=inside loop(slow) */
-        int     noise_shaping_amp; /*  0 = ISO model: amplify all distorted bands
-                                      1 = amplify within 50% of max (on db scale)
-                                      2 = amplify only most distorted band
-                                      3 = method 1 and refine with method 2
-                                    */
+        int     noise_shaping_amp; /* enum noise_shaping_amp_mode */
 
         int     noise_shaping_stop; /* 0 = stop at over=0, all scalefacs amplified or
                                        a scalefac has reached max value
