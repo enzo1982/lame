@@ -27,7 +27,7 @@ often.
 
 | Cell         | configure arguments                               | Change from the base                 |
 |--------------|---------------------------------------------------|--------------------------------------|
-| `full`       | `--enable-dynamic-frontends`                      | base: shared lib + dynamic frontends |
+| `full`       | `--enable-dynamic-frontends --enable-mp3rtp`      | base: shared lib + dynamic frontends, and mp3rtp |
 | `nodecoder`  | `--enable-dynamic-frontends --disable-decoder`    | mpg123 decoder off                   |
 | `nodecstrict`| `--enable-dynamic-frontends --disable-decoder --enable-maintainer-mode` | decoder off *and* warnings are errors |
 | `sndfile`    | `--enable-dynamic-frontends --with-fileio=sndfile`| file I/O via libsndfile              |
@@ -132,6 +132,10 @@ the driver contains only real failures:
 
 Only the `mp3x` cell compiles and links the analyzer sources. So without GTK 4,
 the analyzer frontend is not built at all, and `matrix-info.txt` says so.
+Only the `full` cell compiles and links `mp3rtp`, which is off by default. It
+needs no library of its own, only the socket and resolver functions, which
+`configure` looks for in the C library, `ws2_32` (MinGW) and `-lsocket`; without
+them the cell fails to configure.
 
 ## Windows usage
 

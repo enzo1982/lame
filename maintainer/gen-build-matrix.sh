@@ -278,7 +278,9 @@ fi
 # name | configure arguments
 #
 # full        base: shared build + dynamic frontends (exercises the export
-#             list; a missing symbol breaks the frontend link here)
+#             list; a missing symbol breaks the frontend link here), and the
+#             (default-off) RTP sender: the only cell that compiles and links
+#             mp3rtp.c, and where test_mp3rtp_status.sh runs instead of skipping
 # nodecoder   flip the mpg123 decoder off (the only cell not needing libmpg123)
 # sndfile     flip file I/O to libsndfile instead of the builtin reader
 # noanalyzer  flip the analyzer hooks off (NOANALYSIS)
@@ -301,7 +303,7 @@ fi
 #
 cells() {
 	cat <<'EOF'
-full|--enable-dynamic-frontends
+full|--enable-dynamic-frontends --enable-mp3rtp
 nodecoder|--enable-dynamic-frontends --disable-decoder
 nodecstrict|--enable-dynamic-frontends --disable-decoder --enable-maintainer-mode
 sndfile|--enable-dynamic-frontends --with-fileio=sndfile

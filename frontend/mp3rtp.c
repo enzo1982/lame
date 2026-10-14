@@ -138,12 +138,13 @@ static void
 levelmessage(unsigned int maxv, int* maxx, int* tmpx)
 {
     char    buff[] = "|  .  |  .  |  .  |  .  |  .  |  .  |  .  |  .  |  .  |  .  |  \r";
+    int const last_column = (int) sizeof(buff) - 3; /* the last one before "\r" */
     int     tmp = *tmpx, max = *maxx;
 
     buff[tmp] = '+';
     tmp = (maxv * 61 + 16384) / (32767 + 16384 / 61);
-    if (tmp > sizeof(buff) - 2)
-        tmp = sizeof(buff) - 2;
+    if (tmp > last_column)
+        tmp = last_column;
     if (max < tmp)
         max = tmp;
     buff[max] = 'x';
