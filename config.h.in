@@ -77,32 +77,6 @@
 	typedef double ieee754_float64_t;
 #endif
 
-/* add int16_t type */
-#undef HAVE_INT16_T
-#ifndef HAVE_INT16_T
-	typedef short int16_t;
-#endif
-
-/* add int32_t type */
-#undef HAVE_INT32_T
-#ifndef HAVE_INT32_T
-#undef A_INT32_T
-	typedef A_INT32_T int32_t;
-#endif
-
-/* add int64_t type */
-#undef HAVE_INT64_T
-#ifndef HAVE_INT64_T
-#undef A_INT64_T
-	typedef A_INT64_T int64_t;
-#endif
-
-/* add int8_t type */
-#undef HAVE_INT8_T
-#ifndef HAVE_INT8_T
-	typedef char int8_t;
-#endif
-
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
@@ -195,32 +169,6 @@
 /* Define to 1 if you have the <termcap.h> header file. */
 #undef HAVE_TERMCAP_H
 
-/* add uint16_t type */
-#undef HAVE_UINT16_T
-#ifndef HAVE_UINT16_T
-	typedef unsigned short uint16_t;
-#endif
-
-/* add uint32_t type */
-#undef HAVE_UINT32_T
-#ifndef HAVE_UINT32_T
-#undef A_UINT32_T
-	typedef A_UINT32_T uint32_t;
-#endif
-
-/* add uint64_t type */
-#undef HAVE_UINT64_T
-#ifndef HAVE_UINT64_T
-#undef A_UINT64_T
-	typedef A_UINT64_T uint64_t;
-#endif
-
-/* add uint8_t type */
-#undef HAVE_UINT8_T
-#ifndef HAVE_UINT8_T
-	typedef unsigned char uint8_t;
-#endif
-
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
@@ -274,39 +222,6 @@
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
-
-/* The size of 'double', as computed by sizeof. */
-#undef SIZEOF_DOUBLE
-
-/* The size of 'float', as computed by sizeof. */
-#undef SIZEOF_FLOAT
-
-/* The size of 'int', as computed by sizeof. */
-#undef SIZEOF_INT
-
-/* The size of 'long', as computed by sizeof. */
-#undef SIZEOF_LONG
-
-/* The size of 'long double', as computed by sizeof. */
-#undef SIZEOF_LONG_DOUBLE
-
-/* The size of 'long long', as computed by sizeof. */
-#undef SIZEOF_LONG_LONG
-
-/* The size of 'short', as computed by sizeof. */
-#undef SIZEOF_SHORT
-
-/* The size of 'unsigned int', as computed by sizeof. */
-#undef SIZEOF_UNSIGNED_INT
-
-/* The size of 'unsigned long', as computed by sizeof. */
-#undef SIZEOF_UNSIGNED_LONG
-
-/* The size of 'unsigned long long', as computed by sizeof. */
-#undef SIZEOF_UNSIGNED_LONG_LONG
-
-/* The size of 'unsigned short', as computed by sizeof. */
-#undef SIZEOF_UNSIGNED_SHORT
 
 /* If using the C implementation of alloca, define if you know the
    direction of stack growth for your system; otherwise it will be

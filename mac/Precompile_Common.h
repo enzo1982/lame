@@ -29,17 +29,6 @@
 #define ieee754_float64_t double
 #define ieee754_float32_t float
 
-#define SIZEOF_DOUBLE 8
-#define SIZEOF_FLOAT 4
-#define SIZEOF_INT 4
-#define SIZEOF_LONG 4
-#define SIZEOF_LONG_LONG 8
-#define SIZEOF_SHORT 2
-#define SIZEOF_UNSIGNED_INT 4
-#define SIZEOF_UNSIGNED_LONG 4
-#define SIZEOF_UNSIGNED_LONG_LONG 8
-#define SIZEOF_UNSIGNED_SHORT 2
-
 #define HAVE_GETTIMEOFDAY 1
 #define HAVE_SOCKET 1
 #define HAVE_STRTOL 1

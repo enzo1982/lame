@@ -346,34 +346,6 @@ fi
 
 AC_SYS_LARGEFILE
 
-AC_CHECK_SIZEOF(short)
-AC_CHECK_SIZEOF(unsigned short)
-AC_CHECK_SIZEOF(int)
-AC_CHECK_SIZEOF(unsigned int)
-AC_CHECK_SIZEOF(long)
-AC_CHECK_SIZEOF(unsigned long)
-AC_CHECK_SIZEOF(long long)
-AC_CHECK_SIZEOF(unsigned long long)
-AC_CHECK_SIZEOF(float)
-AC_CHECK_SIZEOF(double)
-
-if test $ac_cv_sizeof_short -eq 0 \
-    -o $ac_cv_sizeof_unsigned_short -eq 0 \
-    -o $ac_cv_sizeof_int -eq 0 \
-    -o $ac_cv_sizeof_unsigned_int -eq 0 \
-    -o $ac_cv_sizeof_long -eq 0 \
-    -o $ac_cv_sizeof_unsigned_long -eq 0 \
-    -o $ac_cv_sizeof_long_long -eq 0 \
-    -o $ac_cv_sizeof_unsigned_long_long -eq 0 \
-    -o $ac_cv_sizeof_float -eq 0 \
-    -o $ac_cv_sizeof_double -eq 0; then
-	echo '*** I have a problem determining the size of some variable types. Either'
-	echo '*** you compiler is broken, or your system+compiler combination is not'
-	echo '*** supportet by the "autoconf" framework we use to generate this'
-	echo '*** configure script.'
-	exit 1
-fi
-
     AC_TYPE_LONG_DOUBLE_WIDER
     ac_cv_c_long_double=$ac_cv_type_long_double_wider
     if test $ac_cv_c_long_double = yes; then
@@ -381,136 +353,6 @@ fi
 	 precision than `double'.])
     fi
   
-if test "${ac_cv_c_long_double}" = "yes" ; then
-	AC_CHECK_SIZEOF(long double)
-fi
-
-AC_CHECK_TYPES([uint8_t, int8_t, uint16_t, int16_t, uint32_t, int32_t, uint64_t, int64_t])
-
-AH_VERBATIM([HAVE_UINT8_T],
-[/* add uint8_t type */
-#undef HAVE_UINT8_T
-#ifndef HAVE_UINT8_T
-	typedef unsigned char uint8_t;
-#endif])
-
-AH_VERBATIM([HAVE_INT8_T],
-[/* add int8_t type */
-#undef HAVE_INT8_T
-#ifndef HAVE_INT8_T
-	typedef char int8_t;
-#endif])
-
-AH_VERBATIM([HAVE_UINT16_T],
-[/* add uint16_t type */
-#undef HAVE_UINT16_T
-#ifndef HAVE_UINT16_T
-	typedef unsigned short uint16_t;
-#endif])
-
-AH_VERBATIM([HAVE_INT16_T],
-[/* add int16_t type */
-#undef HAVE_INT16_T
-#ifndef HAVE_INT16_T
-	typedef short int16_t;
-#endif])
-
-if test "${HAVE_INT32_T}" = yes; then
-	AC_DEFINE(A_UINT32_T,unsigned int32_t)
-else
-	if test "${ac_cv_sizeof_unsigned_short}" = "4"; then
-		AC_DEFINE(A_UINT32_T,unsigned short)
-	else
-		if test "${ac_cv_sizeof_unsigned_int}" = "4"; then
-			AC_DEFINE(A_UINT32_T,unsigned int)
-		else
-			if test "${ac_cv_sizeof_unsigned_long}" = "4"; then
-				AC_DEFINE(A_UINT32_T,unsigned long)
-			else
-				AC_MSG_ERROR([CHECK_TYPE_uint32_t - please report to lame-dev@lists.sourceforge.net])
-			fi
-		fi
-	fi
-fi
-
-AH_VERBATIM([HAVE_UINT32_T],
-[/* add uint32_t type */
-#undef HAVE_UINT32_T
-#ifndef HAVE_UINT32_T
-#undef A_UINT32_T
-	typedef A_UINT32_T uint32_t;
-#endif])
-
-if test "${ac_cv_sizeof_short}" = "4"; then
-	AC_DEFINE(A_INT32_T,short)
-else
-	if test "${ac_cv_sizeof_int}" = "4"; then
-		AC_DEFINE(A_INT32_T,int)
-	else
-		if test "${ac_cv_sizeof_long}" = "4"; then
-			AC_DEFINE(A_INT32_T,long)
-		else
-			AC_MSG_ERROR([CHECK_TYPE_int32_t - please report to lame-dev@lists.sourceforge.net])
-		fi
-	fi
-fi
-
-AH_VERBATIM([HAVE_INT32_T],
-[/* add int32_t type */
-#undef HAVE_INT32_T
-#ifndef HAVE_INT32_T
-#undef A_INT32_T
-	typedef A_INT32_T int32_t;
-#endif])
-
-if test "${HAVE_INT64_T}" = yes; then
-        AC_DEFINE(A_UINT64_T,unsigned int64_t)
-else
-	if test "${ac_cv_sizeof_unsigned_int}" = "8"; then
-		AC_DEFINE(A_UINT64_T,unsigned int)
-	else
-		if test "${ac_cv_sizeof_unsigned_long}" = "8"; then
-			AC_DEFINE(A_UINT64_T,unsigned long)
-		else
-			if test "${ac_cv_sizeof_unsigned_long_long}" = "8"; then
-				AC_DEFINE(A_UINT64_T,unsigned long long)
-			else
-				AC_MSG_ERROR([CHECK_TYPE_uint64_t - please report to lame-dev@lists.sourceforge.net])
-			fi
-		fi
-	fi
-fi
-
-AH_VERBATIM([HAVE_UINT64_T],
-[/* add uint64_t type */
-#undef HAVE_UINT64_T
-#ifndef HAVE_UINT64_T
-#undef A_UINT64_T
-	typedef A_UINT64_T uint64_t;
-#endif])
-
-if test "${ac_cv_sizeof_int}" = "8"; then
-	AC_DEFINE(A_INT64_T,int)
-else
-	if test "${ac_cv_sizeof_long}" = "8"; then
-		AC_DEFINE(A_INT64_T,long)
-	else
-		if test "${ac_cv_sizeof_long_long}" = "8"; then
-			AC_DEFINE(A_INT64_T,long long)
-		else
-			AC_MSG_ERROR([CHECK_TYPE_int64_t - please report to lame-dev@lists.sourceforge.net])
-		fi
-	fi
-fi
-
-AH_VERBATIM([HAVE_INT64_T],
-[/* add int64_t type */
-#undef HAVE_INT64_T
-#ifndef HAVE_INT64_T
-#undef A_INT64_T
-	typedef A_INT64_T int64_t;
-#endif])
-
 AC_CHECK_TYPES([ieee754_float64_t, ieee754_float32_t])
 
 AH_VERBATIM([HAVE_IEEE754_FLOAT64_T],
@@ -535,20 +377,8 @@ if test ${cross_compiling} = "yes"; then
   [**************************************************************************]
   [*                                                                        *]
   [* You are cross compiling:                                               *]
-  [*   - I did not have a change to determine                               *]
-  [*     + the size of:                                                     *]
-  [*       - short                                                          *]
-  [*       - unsigned short                                                 *]
-  [*       - int                                                            *]
-  [*       - unsigned int                                                   *]
-  [*       - long                                                           *]
-  [*       - unsigned long                                                  *]
-  [*       - float                                                          *]
-  [*       - double                                                         *]
-  [*       - long double                                                    *]
-  [*     + the endianess of the system                                      *]
-  [*   - You have to provide appropriate defines for them in config.h, e.g. *]
-  [*     + define SIZEOF_SHORT to 2 if the size of a short is 2             *]
+  [*   - I did not have a chance to determine the endianness of the system  *]
+  [*   - You have to provide the appropriate define in config.h:            *]
   [*     + define WORDS_BIGENDIAN if your system is a big endian system     *]
   [*                                                                        *]
   [**************************************************************************])
