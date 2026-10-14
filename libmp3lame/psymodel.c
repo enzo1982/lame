@@ -484,19 +484,18 @@ convert_partition2scalefac_l_to_s(lame_internal_flags * gfc, FLOAT const *eb, FL
  * \brief Geometric interpolation, \a x raised to \a r times \a y raised to
  *        1 - \a r.
  *
- * The two end points take a shortcut, because \a r is 1 or more in almost all
- * calls.
+ * An \a r of 1 or more returns \a x, and one of 0 or less returns \a y.
  */
 static inline FLOAT
 NS_INTERP(FLOAT x, FLOAT y, FLOAT r)
 {
     /* was pow((x),(r))*pow((y),1-(r)) */
     if (r >= 1.0f)
-        return x;       /* 99.7% of the time */
+        return x;
     if (r <= 0.0f)
         return y;
     if (y > 0.0f)
-        return powf(x / y, r) * y; /* rest of the time */
+        return powf(x / y, r) * y;
     return 0.0f;        /* never happens */
 }
 
@@ -861,6 +860,43 @@ vbrpsy_compute_loudness_approximation_l(lame_internal_flags * gfc, int gr_out, i
     *  This is used for attack detection / handling.
     **********************************************************************/
 /**
+ * \internal
+ * \brief Returns the maskings and energies of the previous granule to the
+ *        caller.
+ *
+ * There is a one granule delay: the caller gets what the last call computed.
+ *
+ * \param psv               the model's state.
+ * \param gr_out            the granule the caller encodes.
+ * \param n_chn_out         the channels of the output.
+ * \param n_chn_psy         the channels the model analyses, 4 in joint stereo.
+ * \param masking_ratio     receives the left and right maskings.
+ * \param masking_MS_ratio  receives the mid and side maskings, in joint stereo.
+ * \param energy            receives the energy of each analysed channel.
+ */
+static void
+vbrpsy_return_previous(PsyStateVar_t const *psv, int gr_out, int n_chn_out, int n_chn_psy,
+                       III_psy_ratio masking_ratio[2][2], III_psy_ratio masking_MS_ratio[2][2],
+                       FLOAT energy[4])
+{
+    int     chn;
+
+    for (chn = 0; chn < n_chn_out; chn++) {
+        masking_ratio[gr_out][chn].en = psv->en[chn];
+        masking_ratio[gr_out][chn].thm = psv->thm[chn];
+        if (n_chn_psy > 2) {
+            /* MS maskings  */
+            masking_MS_ratio[gr_out][chn].en = psv->en[chn + 2];
+            masking_MS_ratio[gr_out][chn].thm = psv->thm[chn + 2];
+        }
+    }
+    for (chn = 0; chn < n_chn_psy; chn++) {
+        energy[chn] = psv->tot_ener[chn];
+    }
+}
+
+
+/**
  * \brief Detect transients and choose long or short blocks.
  *
  * Quantization noise spreads over the whole synthesis window. So in a long
@@ -898,6 +934,8 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
     int const n_chn_psy = (cfg->mode == JOINT_STEREO) ? 4 : n_chn_out;
     int     chn, i, j;
 
+    vbrpsy_return_previous(psv, gr_out, n_chn_out, n_chn_psy, masking_ratio, masking_MS_ratio,
+                           energy);
     memset(&ns_hpfsmpl[0][0], 0, sizeof(ns_hpfsmpl));
     /* Don't copy the input buffer into a temporary buffer */
     /* unroll the loop 2 times */
@@ -919,14 +957,6 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
                 sum2 += fircoef[j + 1] * (firbuf[i + j + 1] + firbuf[i + NSFIRLEN - j - 1]);
             }
             ns_hpfsmpl[chn][i] = sum1 + sum2;
-        }
-        masking_ratio[gr_out][chn].en = psv->en[chn];
-        masking_ratio[gr_out][chn].thm = psv->thm[chn];
-        if (n_chn_psy > 2) {
-            /* MS maskings  */
-            /*percep_MS_entropy         [chn-2]     = gfc -> pe  [chn];  */
-            masking_MS_ratio[gr_out][chn].en = psv->en[chn + 2];
-            masking_MS_ratio[gr_out][chn].thm = psv->thm[chn + 2];
         }
     }
     for (chn = 0; chn < n_chn_psy; chn++) {
@@ -1058,11 +1088,6 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
                 uselongblock[0] = uselongblock[1] = 0;
             }
         }
-
-        /* there is a one granule delay.  Copy maskings computed last call
-         * into masking_ratio to return to calling program.
-         */
-        energy[chn] = psv->tot_ener[chn];
     }
 }
 
@@ -1479,6 +1504,80 @@ vbrpsy_compute_MS_thresholds(const FLOAT eb[4][CBANDS], FLOAT thr[4][CBANDS],
 
 /**
  * \internal
+ * \brief Short block pre-echo control.
+ *
+ * Where an attack is near, it lowers each new short block threshold towards
+ * the one before it, and it applies the pulse factor of the attack detection.
+ *
+ * \param psv               the model's state; the short block thresholds change.
+ * \param last_thm          the thresholds of the previous granule.
+ * \param ns_attacks        the attacks per channel and short block.
+ * \param sub_short_factor  the pulse factor per channel and short block.
+ * \param n_chn_psy         the channels the model analyses.
+ */
+static void
+vbrpsy_short_preecho(PsyStateVar_t * psv, III_psy_xmin const last_thm[4],
+                     int ns_attacks[4][4], FLOAT sub_short_factor[4][3], int n_chn_psy)
+{
+    FLOAT const pcfact = 0.6f;
+    FLOAT   thmm;
+    int     chn, sb, sblock;
+
+    for (chn = 0; chn < n_chn_psy; chn++) {
+        for (sb = 0; sb < SBMAX_s; sb++) {
+            FLOAT   new_thmm[3], prev_thm, t1, t2;
+            for (sblock = 0; sblock < 3; sblock++) {
+                thmm = psv->thm[chn].s[sb][sblock];
+                thmm *= NS_PREECHO_ATT0;
+
+                t1 = t2 = thmm;
+
+                if (sblock > 0) {
+                    prev_thm = new_thmm[sblock - 1];
+                }
+                else {
+                    prev_thm = last_thm[chn].s[sb][2];
+                }
+                if (ns_attacks[chn][sblock] >= 2 || ns_attacks[chn][sblock + 1] == 1) {
+                    t1 = NS_INTERP(prev_thm, thmm, NS_PREECHO_ATT1 * pcfact);
+                }
+                thmm = Min(t1, thmm);
+                if (ns_attacks[chn][sblock] == 1) {
+                    t2 = NS_INTERP(prev_thm, thmm, NS_PREECHO_ATT2 * pcfact);
+                }
+                else if ((sblock == 0 && psv->last_attacks[chn] == 3)
+                         || (sblock > 0 && ns_attacks[chn][sblock - 1] == 3)) { /* 2nd preceeding block */
+                    switch (sblock) {
+                    case 0:
+                        prev_thm = last_thm[chn].s[sb][1];
+                        break;
+                    case 1:
+                        prev_thm = last_thm[chn].s[sb][2];
+                        break;
+                    case 2:
+                        prev_thm = new_thmm[0];
+                        break;
+                    }
+                    t2 = NS_INTERP(prev_thm, thmm, NS_PREECHO_ATT2 * pcfact);
+                }
+
+                thmm = Min(t2, thmm);
+
+                /* pulse like signal detection for fatboy.wav and so on */
+                thmm *= sub_short_factor[chn][sblock];
+
+                new_thmm[sblock] = thmm;
+            }
+            for (sblock = 0; sblock < 3; sblock++) {
+                psv->thm[chn].s[sb][sblock] = new_thmm[sblock];
+            }
+        }
+    }
+}
+
+
+/**
+ * \internal
  * \brief Run the psychoacoustic model over one granule.
  *
  * The single entry point, used by every encoding mode. The file description
@@ -1525,8 +1624,6 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
     FLOAT   eb[4][CBANDS], thr[4][CBANDS];
 
     FLOAT   sub_short_factor[4][3];
-    FLOAT   thmm;
-    FLOAT const pcfact = 0.6f;
     FLOAT const ath_factor =
         (cfg->msfix > 0.f) ? (cfg->ATH_offset_factor * gfc->ATH->adjust_factor) : 1.f;
 
@@ -1538,7 +1635,7 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
     int     uselongblock[2] = { 1, 1 };
 
     /* usual variables like loop indices, etc..    */
-    int     chn, sb, sblock;
+    int     chn, sblock;
 
     /* chn=2 and 3 = Mid and Side channels */
     int const n_chn_psy = (cfg->mode == JOINT_STEREO) ? 4 : cfg->channels_out;
@@ -1604,58 +1701,7 @@ L3psycho_anal_vbr(lame_internal_flags * gfc,
             }
         }
 
-        /****   short block pre-echo control   ****/
-        for (chn = 0; chn < n_chn_psy; chn++) {
-            for (sb = 0; sb < SBMAX_s; sb++) {
-                FLOAT   new_thmm[3], prev_thm, t1, t2;
-                for (sblock = 0; sblock < 3; sblock++) {
-                    thmm = psv->thm[chn].s[sb][sblock];
-                    thmm *= NS_PREECHO_ATT0;
-
-                    t1 = t2 = thmm;
-
-                    if (sblock > 0) {
-                        prev_thm = new_thmm[sblock - 1];
-                    }
-                    else {
-                        prev_thm = last_thm[chn].s[sb][2];
-                    }
-                    if (ns_attacks[chn][sblock] >= 2 || ns_attacks[chn][sblock + 1] == 1) {
-                        t1 = NS_INTERP(prev_thm, thmm, NS_PREECHO_ATT1 * pcfact);
-                    }
-                    thmm = Min(t1, thmm);
-                    if (ns_attacks[chn][sblock] == 1) {
-                        t2 = NS_INTERP(prev_thm, thmm, NS_PREECHO_ATT2 * pcfact);
-                    }
-                    else if ((sblock == 0 && psv->last_attacks[chn] == 3)
-                             || (sblock > 0 && ns_attacks[chn][sblock - 1] == 3)) { /* 2nd preceeding block */
-                        switch (sblock) {
-                        case 0:
-                            prev_thm = last_thm[chn].s[sb][1];
-                            break;
-                        case 1:
-                            prev_thm = last_thm[chn].s[sb][2];
-                            break;
-                        case 2:
-                            prev_thm = new_thmm[0];
-                            break;
-                        }
-                        t2 = NS_INTERP(prev_thm, thmm, NS_PREECHO_ATT2 * pcfact);
-                    }
-
-                    thmm = Min(t1, thmm);
-                    thmm = Min(t2, thmm);
-
-                    /* pulse like signal detection for fatboy.wav and so on */
-                    thmm *= sub_short_factor[chn][sblock];
-
-                    new_thmm[sblock] = thmm;
-                }
-                for (sblock = 0; sblock < 3; sblock++) {
-                    psv->thm[chn].s[sb][sblock] = new_thmm[sblock];
-                }
-            }
-        }
+        vbrpsy_short_preecho(psv, last_thm, ns_attacks, sub_short_factor, n_chn_psy);
     }
     for (chn = 0; chn < n_chn_psy; chn++) {
         psv->last_attacks[chn] = ns_attacks[chn][2];
