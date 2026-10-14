@@ -1149,44 +1149,29 @@ whole_frame_samples(audio_reader * reader, int samples_read, int num_channels)
     return samples_read - partial;
 }
 
+/**
+ * @internal
+ * @brief Returns how many samples per channel to read for the next frame.
+ *
+ * That is one frame, or less where the input's sample count says fewer are
+ * left. LAME takes input of any length, but the frame analyzer gets out of
+ * step if a read returns more than one frame.
+ *
+ * @param reader         the reader of the input file.
+ * @param gfp            the encoder.
+ * @param framesize      the samples per channel of one frame.
+ * @param input_is_mpeg  whether the input is MPEG audio.
+ * @return the number of samples per channel to read.
+ */
 static int
-get_audio_common(audio_reader * reader, lame_t gfp, int buffer[2][FRAME_BUFFER_SAMPLES],
-                 short buffer16[2][FRAME_BUFFER_SAMPLES], float bufferf[2][FRAME_BUFFER_SAMPLES])
+frame_read_limit(audio_reader const * reader, lame_t gfp, int framesize, int input_is_mpeg)
 {
-    const int num_channels = lame_get_num_channels(gfp);
-    const int framesize = lame_get_framesize(gfp);
-    /* The input format cannot change while we are reading from it, so ask once:
-       the same answer decides whether buf_tmp16 gets filled and whether it is
-       read back, and saying so lets the compiler see that too. */
-    const int input_is_mpeg = is_mpeg_file_format(frontend_config.reader.input_format);
-    int     insamp[2 * FRAME_BUFFER_SAMPLES];
-    short   buf_tmp16[2][FRAME_BUFFER_SAMPLES];
-    int     samples_read;
-    int     samples_to_read;
-    int     i;
-
-    /* sanity checks, that's what we expect to be true */
-    if ((num_channels < 1 || 2 < num_channels)
-      ||(framesize < 1 || FRAME_BUFFER_SAMPLES < framesize)
-      ||(bufferf != NULL && !reader->pcm_is_ieee_float)
-      ||(buffer != NULL && reader->pcm_is_ieee_float)) {
-        reader_error("Error: internal problem!\n");
-        return -1;
-    }
-
-    /* 
-     * NOTE: LAME can now handle arbritray size input data packets,
-     * so there is no reason to read the input data in chuncks of
-     * size "framesize".  EXCEPT:  the LAME graphical frame analyzer 
-     * will get out of sync if we read more than framesize worth of data.
-     */
-
-    samples_to_read = framesize;
+    int     samples_to_read = framesize;
 
     /* if this flag has been set, then we are carefull to read
      * exactly num_samples and no more.  This is useful for .wav and .aiff
      * files which have id3 or other tags at the end.  Note that if you
-     * are using LIBSNDFILE, this is not necessary 
+     * are using LIBSNDFILE, this is not necessary
      */
     if (reader->count_samples_carefully) {
         unsigned long tmp_num_samples, remaining;
@@ -1210,96 +1195,186 @@ get_audio_common(audio_reader * reader, lame_t gfp, int buffer[2][FRAME_BUFFER_S
                change samples_to_read to the wrong value in this case */
             samples_to_read = (int) remaining; /* bounded by framesize above */
     }
+    return samples_to_read;
+}
 
-    if (input_is_mpeg) {
-        if (buffer != NULL)
-            samples_read = read_samples_mp3(reader, gfp, reader->music_in, buf_tmp16);
-        else
-            samples_read = read_samples_mp3(reader, gfp, reader->music_in, buffer16);
-        if (samples_read < 0) {
-            return samples_read;
-        }
-    }
-    else if (reader->pcm_is_ieee_float) {
-        /* The samples as stored, 1.0 being full scale. fsamp[] is bounded as
-           insamp[] is: the sanity check above holds the frame to 1152 samples
-           of at most two channels. */
-        float   fsamp[2 * FRAME_BUFFER_SAMPLES];
-        float const *q;
-        if (reader->snd_file) {
-#ifdef LIBSNDFILE
-            samples_read = (int) sf_read_float(reader->snd_file, fsamp,
-                                               num_channels * samples_to_read);
-#else
-            samples_read = 0;
-#endif
-        }
-        else {
-            samples_read =
-                read_samples_float(reader, reader->music_in, fsamp, num_channels * samples_to_read);
-        }
-        if (samples_read < 0) {
-            return samples_read;
-        }
-        samples_read = whole_frame_samples(reader, samples_read, num_channels);
-        q = fsamp + samples_read;
-        if (bufferf == NULL) {
-            /* --decode writes 16 bit PCM, and a sample that is not a finite
-               number has no 16 bit value */
-            for (i = 0; i < samples_read; ++i) {
-                if (!float_is_finite(fsamp[i])) {
-                    reader_error("Error: the input holds a sample that is not a finite number\n");
-                    return -1;
-                }
-            }
-        }
-        samples_read /= num_channels;
-        if (bufferf != NULL)
-            DEINTERLEAVE(bufferf, q, samples_read, num_channels, SAMPLE_AS_IS);
-        else
-            DEINTERLEAVE(buffer16, q, samples_read, num_channels, float_sample_to_16bit);
-    }
-    else {
-        int    *p;
-        if (reader->snd_file) {
-#ifdef LIBSNDFILE
-            int const items = num_channels * samples_to_read;
-            samples_read = sf_read_int(reader->snd_file, insamp, items);
-#else
-            samples_read = 0;
-#endif
-        }
-        else {
-            samples_read =
-                read_samples_pcm(reader, reader->music_in, insamp, num_channels * samples_to_read);
-        }
-        if (samples_read < 0) {
-            return samples_read;
-        }
-        samples_read = whole_frame_samples(reader, samples_read, num_channels);
-        p = insamp + samples_read;
-        samples_read /= num_channels;
-        if (buffer != NULL)
-            DEINTERLEAVE(buffer, p, samples_read, num_channels, SAMPLE_AS_IS);
-        else
-            DEINTERLEAVE(buffer16, p, samples_read, num_channels, INT_TO_16BIT);
+/**
+ * @internal
+ * @brief Decodes the next frame of MPEG input.
+ *
+ * @param reader        the reader of the input file.
+ * @param gfp           the encoder.
+ * @param buffer        receives the samples scaled to int, or NULL.
+ * @param buffer16      receives the samples as 16 bit, if @p buffer is NULL.
+ * @param num_channels  the number of channels.
+ * @return the number of samples per channel, or a negative value on an error.
+ */
+static int
+read_frame_mpeg(audio_reader * reader, lame_t gfp, int buffer[2][FRAME_BUFFER_SAMPLES],
+                short buffer16[2][FRAME_BUFFER_SAMPLES], int num_channels)
+{
+    short   buf_tmp16[2][FRAME_BUFFER_SAMPLES];
+    int     samples_read;
+    int     i;
+
+    if (buffer != NULL)
+        samples_read = read_samples_mp3(reader, gfp, reader->music_in, buf_tmp16);
+    else
+        samples_read = read_samples_mp3(reader, gfp, reader->music_in, buffer16);
+    if (samples_read < 0) {
+        return samples_read;
     }
 
     /* LAME mp3 output 16bit -  convert to int, if necessary */
-    if (input_is_mpeg) {
-        if (buffer != NULL) {
+    if (buffer != NULL) {
+        for (i = samples_read; --i >= 0;)
+            buffer[0][i] = (int) ((unsigned int) buf_tmp16[0][i] << (8 * sizeof(int) - 16));
+        if (num_channels == 2) {
             for (i = samples_read; --i >= 0;)
-                buffer[0][i] = (int) ((unsigned int) buf_tmp16[0][i] << (8 * sizeof(int) - 16));
-            if (num_channels == 2) {
-                for (i = samples_read; --i >= 0;)
-                    buffer[1][i] = (int) ((unsigned int) buf_tmp16[1][i] << (8 * sizeof(int) - 16));
-            }
-            else {
-                memset(buffer[1], 0, samples_read * sizeof(int));
+                buffer[1][i] = (int) ((unsigned int) buf_tmp16[1][i] << (8 * sizeof(int) - 16));
+        }
+        else {
+            memset(buffer[1], 0, samples_read * sizeof(int));
+        }
+    }
+    return samples_read;
+}
+
+/**
+ * @internal
+ * @brief Reads the next frame of floating point PCM input.
+ *
+ * @param reader           the reader of the input file.
+ * @param buffer16         receives the samples as 16 bit, if @p bufferf is NULL.
+ * @param bufferf          receives the samples as float, or NULL.
+ * @param num_channels     the number of channels, 1 or 2.
+ * @param samples_to_read  the samples per channel to read.
+ * @return the number of samples per channel, or a negative value on an error.
+ */
+static int
+read_frame_float(audio_reader * reader, short buffer16[2][FRAME_BUFFER_SAMPLES],
+                 float bufferf[2][FRAME_BUFFER_SAMPLES], int num_channels, int samples_to_read)
+{
+    int     samples_read;
+    int     i;
+    /* The samples as stored, 1.0 being full scale. get_audio_common() holds
+       the frame to FRAME_BUFFER_SAMPLES samples of one or two channels. */
+    float   fsamp[2 * FRAME_BUFFER_SAMPLES];
+    float const *q;
+
+    assert(num_channels == 1 || num_channels == 2);
+    if (reader->snd_file) {
+#ifdef LIBSNDFILE
+        samples_read = (int) sf_read_float(reader->snd_file, fsamp,
+                                           num_channels * samples_to_read);
+#else
+        samples_read = 0;
+#endif
+    }
+    else {
+        samples_read =
+            read_samples_float(reader, reader->music_in, fsamp, num_channels * samples_to_read);
+    }
+    if (samples_read < 0) {
+        return samples_read;
+    }
+    samples_read = whole_frame_samples(reader, samples_read, num_channels);
+    q = fsamp + samples_read;
+    if (bufferf == NULL) {
+        /* --decode writes 16 bit PCM, and a sample that is not a finite
+           number has no 16 bit value */
+        for (i = 0; i < samples_read; ++i) {
+            if (!float_is_finite(fsamp[i])) {
+                reader_error("Error: the input holds a sample that is not a finite number\n");
+                return -1;
             }
         }
     }
+    samples_read /= num_channels;
+    if (bufferf != NULL)
+        DEINTERLEAVE(bufferf, q, samples_read, num_channels, SAMPLE_AS_IS);
+    else
+        DEINTERLEAVE(buffer16, q, samples_read, num_channels, float_sample_to_16bit);
+    return samples_read;
+}
 
+/**
+ * @internal
+ * @brief Reads the next frame of integer PCM input.
+ *
+ * @param reader           the reader of the input file.
+ * @param buffer           receives the samples as int, or NULL.
+ * @param buffer16         receives the samples as 16 bit, if @p buffer is NULL.
+ * @param num_channels     the number of channels, 1 or 2.
+ * @param samples_to_read  the samples per channel to read.
+ * @return the number of samples per channel, or a negative value on an error.
+ */
+static int
+read_frame_int(audio_reader * reader, int buffer[2][FRAME_BUFFER_SAMPLES],
+               short buffer16[2][FRAME_BUFFER_SAMPLES], int num_channels, int samples_to_read)
+{
+    int     insamp[2 * FRAME_BUFFER_SAMPLES];
+    int     samples_read;
+    int    *p;
+
+    assert(num_channels == 1 || num_channels == 2);
+    if (reader->snd_file) {
+#ifdef LIBSNDFILE
+        int const items = num_channels * samples_to_read;
+        samples_read = sf_read_int(reader->snd_file, insamp, items);
+#else
+        samples_read = 0;
+#endif
+    }
+    else {
+        samples_read =
+            read_samples_pcm(reader, reader->music_in, insamp, num_channels * samples_to_read);
+    }
+    if (samples_read < 0) {
+        return samples_read;
+    }
+    samples_read = whole_frame_samples(reader, samples_read, num_channels);
+    p = insamp + samples_read;
+    samples_read /= num_channels;
+    if (buffer != NULL)
+        DEINTERLEAVE(buffer, p, samples_read, num_channels, SAMPLE_AS_IS);
+    else
+        DEINTERLEAVE(buffer16, p, samples_read, num_channels, INT_TO_16BIT);
+    return samples_read;
+}
+
+static int
+get_audio_common(audio_reader * reader, lame_t gfp, int buffer[2][FRAME_BUFFER_SAMPLES],
+                 short buffer16[2][FRAME_BUFFER_SAMPLES], float bufferf[2][FRAME_BUFFER_SAMPLES])
+{
+    const int num_channels = lame_get_num_channels(gfp);
+    const int framesize = lame_get_framesize(gfp);
+    /* The input format cannot change while we are reading from it, so ask once. */
+    const int input_is_mpeg = is_mpeg_file_format(frontend_config.reader.input_format);
+    int     samples_read;
+    int     samples_to_read;
+
+    /* sanity checks, that's what we expect to be true */
+    if ((num_channels < 1 || 2 < num_channels)
+      ||(framesize < 1 || FRAME_BUFFER_SAMPLES < framesize)
+      ||(bufferf != NULL && !reader->pcm_is_ieee_float)
+      ||(buffer != NULL && reader->pcm_is_ieee_float)) {
+        reader_error("Error: internal problem!\n");
+        return -1;
+    }
+
+    samples_to_read = frame_read_limit(reader, gfp, framesize, input_is_mpeg);
+
+    if (input_is_mpeg)
+        samples_read = read_frame_mpeg(reader, gfp, buffer, buffer16, num_channels);
+    else if (reader->pcm_is_ieee_float)
+        samples_read = read_frame_float(reader, buffer16, bufferf, num_channels,
+                                        samples_to_read);
+    else
+        samples_read = read_frame_int(reader, buffer, buffer16, num_channels, samples_to_read);
+    if (samples_read < 0) {
+        return samples_read;
+    }
 
     /* if ... then it is considered infinitely long.
        Don't count the samples */
