@@ -1760,7 +1760,11 @@ static int config_dialog_found;
 static LOGFONTW config_dialog_font;
 
 /**
- * @brief Finds the first dialog window of this thread.
+ * @brief Finds the first dialog window of this thread that is shown.
+ *
+ * A modal dialog shows itself only when its message loop first has nothing
+ * to do, so a timer can find it before that, hidden and without the focus.
+ *
  * @param window  a top-level window of this thread.
  * @param found   the HWND that receives the dialog.
  * @return FALSE once the dialog is found, to stop the enumeration.
@@ -1771,7 +1775,7 @@ find_dialog(HWND window, LPARAM found)
     static const char DIALOG_CLASS[] = "#32770";
     char name[sizeof DIALOG_CLASS];
 
-    if (::GetClassNameA(window, name, sizeof name) > 0
+    if (::IsWindowVisible(window) && ::GetClassNameA(window, name, sizeof name) > 0
         && strncmp(name, DIALOG_CLASS, sizeof DIALOG_CLASS) == 0) {
         *(HWND *) found = window;
         return FALSE;
