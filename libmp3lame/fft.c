@@ -158,52 +158,28 @@ butterfly4(FLOAT * x, FLOAT a, FLOAT b, FLOAT c, FLOAT d)
     x[3] = f1 - f3;
 }
 
-#define ch01(index)  (buffer[chn][index])
-
-#define ml00(f) (window[i        ] * f(i))
-#define ml10(f) (window[i + 0x200] * f(i + 0x200))
-#define ml20(f) (window[i + 0x100] * f(i + 0x100))
-#define ml30(f) (window[i + 0x300] * f(i + 0x300))
-
-#define ml01(f) (window[i + 0x001] * f(i + 0x001))
-#define ml11(f) (window[i + 0x201] * f(i + 0x201))
-#define ml21(f) (window[i + 0x101] * f(i + 0x101))
-#define ml31(f) (window[i + 0x301] * f(i + 0x301))
-
-#define ms00(f) (window_s[i       ] * f(i + k))
-#define ms10(f) (window_s[0x7f - i] * f(i + k + 0x80))
-#define ms20(f) (window_s[i + 0x40] * f(i + k + 0x40))
-#define ms30(f) (window_s[0x3f - i] * f(i + k + 0xc0))
-
-#define ms01(f) (window_s[i + 0x01] * f(i + k + 0x01))
-#define ms11(f) (window_s[0x7e - i] * f(i + k + 0x81))
-#define ms21(f) (window_s[i + 0x41] * f(i + k + 0x41))
-#define ms31(f) (window_s[0x3e - i] * f(i + k + 0xc1))
-
 void
 fft_short(lame_internal_flags const *const gfc,
           FLOAT x_real[3][BLKSIZE_s], int chn, const sample_t *const buffer[2])
 {
+    FLOAT const *const w = gfc->cd_psy->window_s;
     int     i;
     int     j;
     int     b;
 
-#define window_s gfc->cd_psy->window_s
-#define window gfc->cd_psy->window
-
     for (b = 0; b < 3; b++) {
         FLOAT  *x = &x_real[b][BLKSIZE_s / 2];
-        short const k = (576 / 3) * (b + 1);
+        int const k = (576 / 3) * (b + 1);
+        sample_t const *const s = buffer[chn] + k;
         j = BLKSIZE_s / 8 - 1;
         do {
             i = rv_tbl[j << 2];
             x -= 4;
-            butterfly4(x, ms00(ch01), ms10(ch01), ms20(ch01), ms30(ch01));
-            butterfly4(x + BLKSIZE_s / 2, ms01(ch01), ms11(ch01), ms21(ch01), ms31(ch01));
+            butterfly4(x, w[i] * s[i], w[0x7f - i] * s[i + 0x80],
+                       w[i + 0x40] * s[i + 0x40], w[0x3f - i] * s[i + 0xc0]);
+            butterfly4(x + BLKSIZE_s / 2, w[i + 0x01] * s[i + 0x01], w[0x7e - i] * s[i + 0x81],
+                       w[i + 0x41] * s[i + 0x41], w[0x3e - i] * s[i + 0xc1]);
         } while (--j >= 0);
-
-#undef window
-#undef window_s
 
         gfc->fft_fht(x, BLKSIZE_s / 2); /* fht() takes half the length */
     }
@@ -213,22 +189,20 @@ void
 fft_long(lame_internal_flags const *const gfc,
          FLOAT x[BLKSIZE], int chn, const sample_t *const buffer[2])
 {
+    FLOAT const *const w = gfc->cd_psy->window;
+    sample_t const *const s = buffer[chn];
     int     i;
     int     jj = BLKSIZE / 8 - 1;
     x += BLKSIZE / 2;
 
-#define window_s gfc->cd_psy->window_s
-#define window gfc->cd_psy->window
-
     do {
         i = rv_tbl[jj];
         x -= 4;
-        butterfly4(x, ml00(ch01), ml10(ch01), ml20(ch01), ml30(ch01));
-        butterfly4(x + BLKSIZE / 2, ml01(ch01), ml11(ch01), ml21(ch01), ml31(ch01));
+        butterfly4(x, w[i] * s[i], w[i + 0x200] * s[i + 0x200],
+                   w[i + 0x100] * s[i + 0x100], w[i + 0x300] * s[i + 0x300]);
+        butterfly4(x + BLKSIZE / 2, w[i + 0x001] * s[i + 0x001], w[i + 0x201] * s[i + 0x201],
+                   w[i + 0x101] * s[i + 0x101], w[i + 0x301] * s[i + 0x301]);
     } while (--jj >= 0);
-
-#undef window
-#undef window_s
 
     gfc->fft_fht(x, BLKSIZE / 2); /* fht() takes half the length */
 }
