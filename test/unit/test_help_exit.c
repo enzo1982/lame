@@ -187,6 +187,46 @@ test_ordinary_invocation_proceeds(void **state)
     assert_int_equal(parse(gfp, 4, argv), PARSE_PROCEED);
 }
 
+/**
+ * @brief Checks the options that need the decoder.
+ *
+ * With the decoder, each option is accepted, which shows that the list names
+ * real options. Without it, each one is an error, and the parser knows it as an
+ * option that needs the decoder, not as an unknown one.
+ * @param state fixture state that contains an initialized encoder instance.
+ */
+static void
+test_decoder_options(void **state)
+{
+    lame_t  gfp = (lame_t) *state;
+    static char const *const options[] = {
+        "--replaygain-accurate", "--clipdetect", "--mp1input", "--mp2input", "--mp3input"
+    };
+    size_t  i;
+
+    for (i = 0; i < sizeof options / sizeof options[0]; ++i) {
+        char   *argv[4];
+        int     ret;
+
+        argv[0] = "lame";
+        argv[1] = (char *) options[i];
+        argv[2] = "in.wav";
+        argv[3] = "out.mp3";
+        ret = parse(gfp, 4, argv);
+#ifdef HAVE_MPG123
+        if (ret != PARSE_PROCEED)
+            fail_msg("\"%s\" reported %d with the decoder, not %d", options[i], ret,
+                     PARSE_PROCEED);
+#else
+        if (ret != PARSE_REJECTED)
+            fail_msg("\"%s\" reported %d without the decoder, not %d", options[i], ret,
+                     PARSE_REJECTED);
+        if (!is_decoder_option(options[i] + 2))
+            fail_msg("\"%s\" is not known as an option that needs the decoder", options[i]);
+#endif
+    }
+}
+
 /** @brief Registers and runs the help-exit-status group. */
 int
 main(void)
@@ -197,6 +237,8 @@ main(void)
         cmocka_unit_test_setup_teardown(test_unknown_preset_is_rejected,
                                         gfp_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_unknown_option_is_rejected,
+                                        gfp_setup, lame_fixture_teardown),
+        cmocka_unit_test_setup_teardown(test_decoder_options,
                                         gfp_setup, lame_fixture_teardown),
         cmocka_unit_test_setup_teardown(test_empty_argument_list_is_rejected,
                                         gfp_setup, lame_fixture_teardown),

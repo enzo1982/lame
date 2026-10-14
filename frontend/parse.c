@@ -1363,6 +1363,37 @@ local_strcasecmp(const char *s1, const char *s2)
     return c1 - c2;
 }
 
+#if !defined(HAVE_MPG123)
+/** @internal @brief The options that need the decoder, without the two dashes. */
+static char const *const decoder_options[] = {
+    "replaygain-accurate", "clipdetect", "mp1input", "mp2input", "mp3input"
+};
+
+/**
+ * @internal
+ * @brief Whether an option needs the decoder, which this build does not have.
+ * @param token  the option, without the two dashes.
+ * @return 1 when it does, 0 when it does not.
+ */
+static int
+is_decoder_option(char const *token)
+{
+    size_t  i;
+
+    for (i = 0; i < dimension_of(decoder_options); ++i)
+        if (0 == local_strcasecmp(token, decoder_options[i]))
+            return 1;
+    return 0;
+}
+
+/** @internal @brief Reports that an input or an option needs the missing decoder. */
+static void
+report_missing_decoder(void)
+{
+    error_printf("Error: libmp3lame not compiled with mpg123 *decoding* support \n");
+}
+#endif
+
 static int
 local_strncasecmp(const char *s1, const char *s2, int n)
 {
@@ -3025,6 +3056,12 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
                 if (result == OPT_NOT_MINE)
                     result = parse_developer_options(gfp, token, nextArg, &argUsed);
                 if (result == OPT_NOT_MINE) {
+#if !defined(HAVE_MPG123)
+                    if (is_decoder_option(token)) {
+                        report_missing_decoder();
+                        return -1;
+                    }
+#endif
                     error_printf("%s: unrecognized option --%s\n", ProgramName, token);
                     return -1;
                 }
@@ -3144,7 +3181,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
 
 #if !defined(HAVE_MPG123)
     if (is_mpeg_file_format(frontend_config.reader.input_format)) {
-        error_printf("Error: libmp3lame not compiled with mpg123 *decoding* support \n");
+        report_missing_decoder();
         return -1;
     }
 #endif
