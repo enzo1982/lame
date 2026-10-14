@@ -44,6 +44,27 @@
  */
 #define SCALEFAC_ANY (-2)
 
+/**
+ * \internal
+ * \brief One past the largest region0_count, a 4-bit field of the side
+ * information.
+ */
+#define REGION0_COUNT_LIMIT 16
+
+/**
+ * \internal
+ * \brief One past the largest region1_count, a 3-bit field of the side
+ * information.
+ */
+#define REGION1_COUNT_LIMIT 8
+
+/**
+ * \internal
+ * \brief The region0_count of a window-switched granule, which the standard
+ * fixes.
+ */
+#define SWITCHED_REGION0_COUNT 7
+
 
 extern const int nr_of_sfb_block[6][3][4];
 extern const int pretab[SBMAX_l];

@@ -379,8 +379,8 @@ write_granule_side_info(lame_internal_flags * gfc, gr_info const *gi, int sfc_bi
         writeheader(gfc, resolve_huffman_table(gi->table_select[1]), 5);
         writeheader(gfc, resolve_huffman_table(gi->table_select[2]), 5);
 
-        assert(0 <= gi->region0_count && gi->region0_count < 16);
-        assert(0 <= gi->region1_count && gi->region1_count < 8);
+        assert(0 <= gi->region0_count && gi->region0_count < REGION0_COUNT_LIMIT);
+        assert(0 <= gi->region1_count && gi->region1_count < REGION1_COUNT_LIMIT);
         writeheader(gfc, gi->region0_count, 4);
         writeheader(gfc, gi->region1_count, 3);
     }

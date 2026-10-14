@@ -885,10 +885,10 @@ noquant_count_bits(lame_internal_flags const *const gfc,
 
     }
     else {
-        gi->region0_count = 7;
+        gi->region0_count = SWITCHED_REGION0_COUNT;
         /*gi->region1_count = SBPSY_l - 7 - 1; */
-        gi->region1_count = SBMAX_l - 1 - 7 - 1;
-        a1 = gfc->scalefac_band.l[7 + 1];
+        gi->region1_count = SBMAX_l - 1 - SWITCHED_REGION0_COUNT - 1;
+        a1 = gfc->scalefac_band.l[SWITCHED_REGION0_COUNT + 1];
         a2 = i;
         if (a1 > a2) {
             a1 = a2;
@@ -970,6 +970,11 @@ count_bits(lame_internal_flags const *const gfc,
   the saved bits are kept in the bit reservoir.
  **********************************************************************/
 
+/**
+ * \internal
+ * \brief Entries of the tables kept per region0_count + region1_count.
+ */
+#define REGION_COUNT_SUMS (REGION0_COUNT_LIMIT - 1 + REGION1_COUNT_LIMIT - 1 + 1)
 
 inline static void
 recalc_divide_init(const lame_internal_flags * const gfc,
@@ -980,11 +985,11 @@ recalc_divide_init(const lame_internal_flags * const gfc,
 
     bigv = cod_info->big_values;
 
-    for (r0 = 0; r0 <= 7 + 15; r0++) {
+    for (r0 = 0; r0 < REGION_COUNT_SUMS; r0++) {
         r01_bits[r0] = LARGE_BITS;
     }
 
-    for (r0 = 0; r0 < 16; r0++) {
+    for (r0 = 0; r0 < REGION0_COUNT_LIMIT; r0++) {
         int const a1 = gfc->scalefac_band.l[r0 + 1];
         int     r0bits;
         if (a1 >= bigv)
@@ -992,7 +997,7 @@ recalc_divide_init(const lame_internal_flags * const gfc,
         r0bits = 0;
         r0t = gfc->choose_table(ix, ix + a1, &r0bits);
 
-        for (r1 = 0; r1 < 8; r1++) {
+        for (r1 = 0; r1 < REGION1_COUNT_LIMIT; r1++) {
             int const a2 = gfc->scalefac_band.l[r0 + r1 + 2];
             if (a2 >= bigv)
                 break;
@@ -1054,10 +1059,10 @@ best_huffman_divide(const lame_internal_flags * const gfc, gr_info * const gi)
     gr_info cod_info2;
     int const *const ix = gi->l3_enc;
 
-    int     r01_bits[7 + 15 + 1];
-    int     r01_div[7 + 15 + 1];
-    int     r0_tbl[7 + 15 + 1];
-    int     r1_tbl[7 + 15 + 1];
+    int     r01_bits[REGION_COUNT_SUMS];
+    int     r01_div[REGION_COUNT_SUMS];
+    int     r0_tbl[REGION_COUNT_SUMS];
+    int     r1_tbl[REGION_COUNT_SUMS];
 
 
     /* SHORT BLOCK stuff fails for MPEG2 */
@@ -1106,7 +1111,7 @@ best_huffman_divide(const lame_internal_flags * const gfc, gr_info * const gi)
     else {
         /* Count the number of bits necessary to code the bigvalues region. */
         cod_info2.part2_3_length = a1;
-        a1 = gfc->scalefac_band.l[7 + 1];
+        a1 = gfc->scalefac_band.l[SWITCHED_REGION0_COUNT + 1];
         if (a1 > i) {
             a1 = i;
         }
