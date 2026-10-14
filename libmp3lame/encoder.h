@@ -92,6 +92,13 @@
 /* number of subbands */
 #define SBLIMIT       32
 
+/* subband samples per granule, 576 / SBLIMIT */
+#define SUBBAND_SAMPLES 18
+
+/* how many input samples before its position the subband analysis window
+   reads: window_subband() covers 286 older and 224 newer ones */
+#define SUBBAND_LOOKBACK 286
+
 /* parition bands bands */
 #define CBANDS        64
 

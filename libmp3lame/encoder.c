@@ -216,15 +216,15 @@ lame_encode_frame_init(lame_internal_flags * gfc, const sample_t *const inbuf[2]
     int     ch, gr;
 
     if (gfc->lame_encode_frame_init == 0) {
-        sample_t primebuff0[286 + 1152 + 576];
-        sample_t primebuff1[286 + 1152 + 576];
+        sample_t primebuff0[SUBBAND_LOOKBACK + 1152 + 576];
+        sample_t primebuff1[SUBBAND_LOOKBACK + 1152 + 576];
         int const framesize = 576 * cfg->mode_gr;
         /* prime the MDCT/polyphase filterbank with a short block */
         int     i, j;
         gfc->lame_encode_frame_init = 1;
         memset(primebuff0, 0, sizeof(primebuff0));
         memset(primebuff1, 0, sizeof(primebuff1));
-        for (i = 0, j = 0; i < 286 + 576 * (1 + cfg->mode_gr); ++i) {
+        for (i = 0, j = 0; i < SUBBAND_LOOKBACK + 576 * (1 + cfg->mode_gr); ++i) {
             if (i < framesize) {
                 primebuff0[i] = 0;
                 if (cfg->channels_out == 2)
