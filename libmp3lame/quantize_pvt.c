@@ -613,7 +613,7 @@ static int
 find_max_nonzero_coeff(lame_internal_flags const *gfc, gr_info const *cod_info)
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
-    const FLOAT *const xr = cod_info->xr;
+    const FLOAT *const xr = cod_info->granule.xr;
     int     max_nonzero = 0;
     int     k;
 
@@ -623,7 +623,7 @@ find_max_nonzero_coeff(lame_internal_flags const *gfc, gr_info const *cod_info)
             break;
         }
     }
-    if (cod_info->block_type != SHORT_TYPE) { /* NORM, START or STOP type, but not SHORT */
+    if (cod_info->granule.block_type != SHORT_TYPE) { /* NORM, START or STOP type, but not SHORT */
         max_nonzero |= 1; /* only odd numbers */
     }
     else {
@@ -636,7 +636,8 @@ find_max_nonzero_coeff(lame_internal_flags const *gfc, gr_info const *cod_info)
       int const sfb_l = (cfg->samplerate_out <= 8000) ? SBPSY_l_8KHZ : SBPSY_l;
       int const sfb_s = (cfg->samplerate_out <= 8000) ? SBPSY_s_8KHZ : SBPSY_s;
       int   limit = 575;
-      if (cod_info->block_type != SHORT_TYPE) { /* NORM, START or STOP type, but not SHORT */
+      /* NORM, START or STOP type, but not SHORT */
+      if (cod_info->granule.block_type != SHORT_TYPE) {
           limit = gfc->scalefac_band.l[sfb_l]-1;
       }
       else {
@@ -664,9 +665,9 @@ calc_xmin(lame_internal_flags const *gfc,
     SessionConfig_t const *const cfg = &gfc->cfg;
     int     sfb, gsfb, j = 0, ath_over = 0;
     ATH_t const *const ATH = gfc->ATH;
-    const FLOAT *const xr = cod_info->xr;
+    const FLOAT *const xr = cod_info->granule.xr;
 
-    for (gsfb = 0; gsfb < cod_info->psy_lmax; gsfb++) {
+    for (gsfb = 0; gsfb < cod_info->granule.psy_lmax; gsfb++) {
         FLOAT   en0, xmin;
         FLOAT   rh1, rh2, rh3;
         int     width, l;
@@ -674,7 +675,7 @@ calc_xmin(lame_internal_flags const *gfc,
         xmin = athAdjust(ATH->adjust_factor, ATH->l[gsfb], ATH->floor, cfg->ATHfixpoint);
         xmin *= gfc->sv_qnt.longfact[gsfb];
 
-        width = cod_info->width[gsfb];
+        width = cod_info->granule.width[gsfb];
         rh1 = xmin / width;
         rh2 = DBL_EPSILON;
         en0 = 0.0;
@@ -711,25 +712,26 @@ calc_xmin(lame_internal_flags const *gfc,
             }
         }
         xmin = Max(xmin, DBL_EPSILON);
-        cod_info->energy_above_cutoff[gsfb] = (en0 > xmin+1e-14f) ? 1 : 0;
+        cod_info->granule.energy_above_cutoff[gsfb] = (en0 > xmin+1e-14f) ? 1 : 0;
         *pxmin++ = xmin;
     }                   /* end of long block loop */
 
 
 
 
-    cod_info->max_nonzero_coeff = find_max_nonzero_coeff(gfc, cod_info);
+    cod_info->granule.max_nonzero_coeff = find_max_nonzero_coeff(gfc, cod_info);
 
 
 
-    for (sfb = cod_info->sfb_smin; gsfb < cod_info->psymax; sfb++, gsfb += 3) {
+    for (sfb = cod_info->granule.sfb_smin; gsfb < cod_info->granule.psymax; sfb++,
+         gsfb += 3) {
         int     width, b, l;
         FLOAT   tmpATH;
 
         tmpATH = athAdjust(ATH->adjust_factor, ATH->s[sfb], ATH->floor, cfg->ATHfixpoint);
         tmpATH *= gfc->sv_qnt.shortfact[sfb];
         
-        width = cod_info->width[gsfb];
+        width = cod_info->granule.width[gsfb];
         for (b = 0; b < 3; b++) {
             FLOAT   en0 = 0.0, xmin = tmpATH;
             FLOAT   rh1, rh2, rh3;
@@ -767,7 +769,7 @@ calc_xmin(lame_internal_flags const *gfc,
                 }
             }
             xmin = Max(xmin, DBL_EPSILON);
-            cod_info->energy_above_cutoff[gsfb+b] = (en0 > xmin+1e-14f) ? 1 : 0;
+            cod_info->granule.energy_above_cutoff[gsfb+b] = (en0 > xmin+1e-14f) ? 1 : 0;
             *pxmin++ = xmin;
         }               /* b */
         if (cfg->use_temporal_masking_effect) {
@@ -787,29 +789,29 @@ calc_noise_core_c(const gr_info * const cod_info, int *startline, int l, FLOAT s
 {
     FLOAT   noise = 0;
     int     j = *startline;
-    const int *const ix = cod_info->l3_enc;
+    const int *const ix = cod_info->quant.l3_enc;
 
-    if (j > cod_info->count1) {
+    if (j > cod_info->huffman.count1) {
         while (l--) {
             FLOAT   temp;
-            temp = cod_info->xr[j];
+            temp = cod_info->granule.xr[j];
             j++;
             noise += temp * temp;
-            temp = cod_info->xr[j];
+            temp = cod_info->granule.xr[j];
             j++;
             noise += temp * temp;
         }
     }
-    else if (j > cod_info->big_values) {
+    else if (j > cod_info->huffman.big_values) {
         FLOAT   ix01[2];
         ix01[0] = 0;
         ix01[1] = step;
         while (l--) {
             FLOAT   temp;
-            temp = fabs(cod_info->xr[j]) - ix01[ix[j]];
+            temp = fabs(cod_info->granule.xr[j]) - ix01[ix[j]];
             j++;
             noise += temp * temp;
-            temp = fabs(cod_info->xr[j]) - ix01[ix[j]];
+            temp = fabs(cod_info->granule.xr[j]) - ix01[ix[j]];
             j++;
             noise += temp * temp;
         }
@@ -817,10 +819,10 @@ calc_noise_core_c(const gr_info * const cod_info, int *startline, int l, FLOAT s
     else {
         while (l--) {
             FLOAT   temp;
-            temp = fabs(cod_info->xr[j]) - pow43[ix[j]] * step;
+            temp = fabs(cod_info->granule.xr[j]) - pow43[ix[j]] * step;
             j++;
             noise += temp * temp;
-            temp = fabs(cod_info->xr[j]) - pow43[ix[j]] * step;
+            temp = fabs(cod_info->granule.xr[j]) - pow43[ix[j]] * step;
             j++;
             noise += temp * temp;
         }
@@ -861,7 +863,7 @@ calc_noise(gr_info const *const cod_info,
     res->over_SSD = 0;
 
 
-    for (sfb = 0; sfb < cod_info->psymax; sfb++) {
+    for (sfb = 0; sfb < cod_info->granule.psymax; sfb++) {
         int const s = sfb_quant_step(cod_info, sfb);
         FLOAT const r_l3_xmin = 1.f / *l3_xmin++;
         FLOAT   distort_ = 0.0f;
@@ -870,7 +872,7 @@ calc_noise(gr_info const *const cod_info,
         if (prev_noise && (prev_noise->step[sfb] == s)) {
 
             /* use previously computed values */
-            j += cod_info->width[sfb];
+            j += cod_info->granule.width[sfb];
             distort_ = r_l3_xmin * prev_noise->noise[sfb];
 
             noise = prev_noise->noise_log[sfb];
@@ -878,11 +880,11 @@ calc_noise(gr_info const *const cod_info,
         }
         else {
             FLOAT const step = POW20(s);
-            l = cod_info->width[sfb] >> 1;
+            l = cod_info->granule.width[sfb] >> 1;
 
-            if ((j + cod_info->width[sfb]) > cod_info->max_nonzero_coeff) {
+            if ((j + cod_info->granule.width[sfb]) > cod_info->granule.max_nonzero_coeff) {
                 int     usefullsize;
-                usefullsize = cod_info->max_nonzero_coeff - j + 1;
+                usefullsize = cod_info->granule.max_nonzero_coeff - j + 1;
 
                 if (usefullsize > 0)
                     l = usefullsize >> 1;
@@ -929,7 +931,7 @@ calc_noise(gr_info const *const cod_info,
 
     }
     if (prev_noise) {
-        prev_noise->global_gain = cod_info->global_gain;
+        prev_noise->global_gain = cod_info->quant.global_gain;
     }
 
     res->over_count = over;
@@ -967,8 +969,8 @@ set_pinfo(lame_internal_flags const *gfc,
     int     sfb, sfb2;
     int     j, i, l, start, end, bw;
     FLOAT   en0, en1;
-    FLOAT const ifqstep = (cod_info->scalefac_scale == 0) ? .5 : 1.0;
-    int const *const scalefac = cod_info->scalefac;
+    FLOAT const ifqstep = (cod_info->quant.scalefac_scale == 0) ? .5 : 1.0;
+    int const *const scalefac = cod_info->quant.scalefac;
 
     /* calc_xmin() and calc_noise() fill the bands below psymax; the bands above
        it are shown as 0 */
@@ -979,15 +981,15 @@ set_pinfo(lame_internal_flags const *gfc,
     (void) calc_noise(cod_info, l3_xmin, xfsf, &noise, 0);
 
     j = 0;
-    sfb2 = cod_info->sfb_lmax;
-    if (cod_info->block_type != SHORT_TYPE && !cod_info->mixed_block_flag)
+    sfb2 = cod_info->granule.sfb_lmax;
+    if (cod_info->granule.block_type != SHORT_TYPE && !cod_info->granule.mixed_block_flag)
         sfb2 = 22;
     for (sfb = 0; sfb < sfb2; sfb++) {
         start = gfc->scalefac_band.l[sfb];
         end = gfc->scalefac_band.l[sfb + 1];
         bw = end - start;
         for (en0 = 0.0; j < end; j++)
-            en0 += cod_info->xr[j] * cod_info->xr[j];
+            en0 += cod_info->granule.xr[j] * cod_info->granule.xr[j];
         en0 /= bw;
         /* convert to MDCT units */
         en1 = 1e15;     /* scaling so it shows up on FFT plot */
@@ -1003,7 +1005,7 @@ set_pinfo(lame_internal_flags const *gfc,
 
         /* there is no scalefactor bands >= SBPSY_l */
         gfc->pinfo->LAMEsfb[gr][ch][sfb] = 0;
-        if (cod_info->preflag && sfb >= 11)
+        if (cod_info->quant.preflag && sfb >= 11)
             gfc->pinfo->LAMEsfb[gr][ch][sfb] = -ifqstep * pretab[sfb];
 
         if (sfb < SBPSY_l) {
@@ -1012,15 +1014,15 @@ set_pinfo(lame_internal_flags const *gfc,
         }
     }                   /* for sfb */
 
-    if (cod_info->block_type == SHORT_TYPE) {
+    if (cod_info->granule.block_type == SHORT_TYPE) {
         sfb2 = sfb;
-        for (sfb = cod_info->sfb_smin; sfb < SBMAX_s; sfb++) {
+        for (sfb = cod_info->granule.sfb_smin; sfb < SBMAX_s; sfb++) {
             start = gfc->scalefac_band.s[sfb];
             end = gfc->scalefac_band.s[sfb + 1];
             bw = end - start;
             for (i = 0; i < 3; i++) {
                 for (en0 = 0.0, l = start; l < end; l++) {
-                    en0 += cod_info->xr[j] * cod_info->xr[j];
+                    en0 += cod_info->granule.xr[j] * cod_info->granule.xr[j];
                     j++;
                 }
                 en0 = Max(en0 / bw, 1e-20);
@@ -1041,7 +1043,7 @@ set_pinfo(lame_internal_flags const *gfc,
 
                 /* there is no scalefactor bands >= SBPSY_s */
                 gfc->pinfo->LAMEsfb_s[gr][ch][3 * sfb + i]
-                    = -2.0 * cod_info->subblock_gain[i];
+                    = -2.0 * cod_info->quant.subblock_gain[i];
                 if (sfb < SBPSY_s) {
                     gfc->pinfo->LAMEsfb_s[gr][ch][3 * sfb + i] -= ifqstep * scalefac[sfb2];
                 }
@@ -1049,9 +1051,10 @@ set_pinfo(lame_internal_flags const *gfc,
             }
         }
     }                   /* block type short */
-    gfc->pinfo->LAMEqss[gr][ch] = cod_info->global_gain;
-    gfc->pinfo->LAMEmainbits[gr][ch] = cod_info->part2_3_length + cod_info->part2_length;
-    gfc->pinfo->LAMEsfbits[gr][ch] = cod_info->part2_length;
+    gfc->pinfo->LAMEqss[gr][ch] = cod_info->quant.global_gain;
+    gfc->pinfo->LAMEmainbits[gr][ch]
+        = cod_info->huffman.part2_3_length + cod_info->quant.part2_length;
+    gfc->pinfo->LAMEsfbits[gr][ch] = cod_info->quant.part2_length;
 
     gfc->pinfo->over[gr][ch] = noise.over_count;
     gfc->pinfo->max_noise[gr][ch] = noise.max_noise * 10.0;
@@ -1084,20 +1087,22 @@ set_frame_pinfo(lame_internal_flags * gfc, const III_psy_ratio ratio[2][2])
         for (ch = 0; ch < cfg->channels_out; ch++) {
             gr_info *const cod_info = &gfc->l3_side.tt[gr][ch];
             int     scalefac_sav[SFBMAX];
-            memcpy(scalefac_sav, cod_info->scalefac, sizeof(scalefac_sav));
+            memcpy(scalefac_sav, cod_info->quant.scalefac,
+                   sizeof(scalefac_sav));
 
             /* reconstruct the scalefactors in case SCFSI was used 
              */
             if (gr == 1) {
                 int     sfb;
-                for (sfb = 0; sfb < cod_info->sfb_lmax; sfb++) {
-                    if (cod_info->scalefac[sfb] < 0) /* scfsi */
-                        cod_info->scalefac[sfb] = gfc->l3_side.tt[0][ch].scalefac[sfb];
+                for (sfb = 0; sfb < cod_info->granule.sfb_lmax; sfb++) {
+                    if (cod_info->quant.scalefac[sfb] < 0) /* scfsi */
+                        cod_info->quant.scalefac[sfb] = gfc->l3_side.tt[0][ch].quant.scalefac[sfb];
                 }
             }
 
             set_pinfo(gfc, cod_info, &ratio[gr][ch], gr, ch);
-            memcpy(cod_info->scalefac, scalefac_sav, sizeof(scalefac_sav));
+            memcpy(cod_info->quant.scalefac, scalefac_sav,
+                   sizeof(scalefac_sav));
         }               /* for ch */
     }                   /* for gr */
 }

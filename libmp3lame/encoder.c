@@ -194,8 +194,8 @@ updateStats(lame_internal_flags * const gfc)
     }
     for (gr = 0; gr < cfg->mode_gr; ++gr) {
         for (ch = 0; ch < cfg->channels_out; ++ch) {
-            int     bt = gfc->l3_side.tt[gr][ch].block_type;
-            if (gfc->l3_side.tt[gr][ch].mixed_block_flag)
+            int     bt = gfc->l3_side.tt[gr][ch].granule.block_type;
+            if (gfc->l3_side.tt[gr][ch].granule.mixed_block_flag)
                 bt = 4;
             eov->bitrate_blocktype_hist[eov->bitrate_index][bt]++;
             eov->bitrate_blocktype_hist[eov->bitrate_index][5]++;
@@ -240,7 +240,7 @@ lame_encode_frame_init(lame_internal_flags * gfc, const sample_t *const inbuf[2]
         /* polyphase filtering / mdct */
         for (gr = 0; gr < cfg->mode_gr; gr++) {
             for (ch = 0; ch < cfg->channels_out; ch++) {
-                gfc->l3_side.tt[gr][ch].block_type = SHORT_TYPE;
+                gfc->l3_side.tt[gr][ch].granule.block_type = SHORT_TYPE;
             }
         }
         mdct_sub48(gfc, primebuff0, primebuff1);
@@ -311,8 +311,8 @@ run_psymodel(lame_internal_flags * gfc, const sample_t *const inbuf[2],
         /* block type flags */
         for (ch = 0; ch < cfg->channels_out; ch++) {
             gr_info *const cod_info = &gfc->l3_side.tt[gr][ch];
-            cod_info->block_type = blocktype[ch];
-            cod_info->mixed_block_flag = 0;
+            cod_info->granule.block_type = blocktype[ch];
+            cod_info->granule.mixed_block_flag = 0;
         }
     }
 }
@@ -365,7 +365,8 @@ choose_mode_ext(lame_internal_flags const *gfc, FLOAT pe[2][2], FLOAT pe_MS[2][2
             gr_info const *const gi0 = &gfc->l3_side.tt[0][0];
             gr_info const *const gi1 = &gfc->l3_side.tt[cfg->mode_gr - 1][0];
 
-            if (gi0[0].block_type == gi0[1].block_type && gi1[0].block_type == gi1[1].block_type) {
+            if (gi0[0].granule.block_type == gi0[1].granule.block_type
+                && gi1[0].granule.block_type == gi1[1].granule.block_type) {
 
                 mode_ext = MPG_MD_MS_LR;
             }
@@ -393,14 +394,14 @@ copy_analysis_input(lame_internal_flags * gfc, FLOAT const ms_ener_ratio[2], FLO
         for (ch = 0; ch < cfg->channels_out; ch++) {
             gfc->pinfo->ms_ratio[gr] = 0;
             gfc->pinfo->ms_ener_ratio[gr] = ms_ener_ratio[gr];
-            gfc->pinfo->blocktype[gr][ch] = gfc->l3_side.tt[gr][ch].block_type;
+            gfc->pinfo->blocktype[gr][ch] = gfc->l3_side.tt[gr][ch].granule.block_type;
             gfc->pinfo->pe[gr][ch] = pe_use[gr][ch];
-            /* pinfo->xr is double but tt[].xr is FLOAT: convert
+            /* pinfo->xr is double but tt[].granule.xr is FLOAT: convert
                element-wise, a raw copy would reinterpret the bits */
             {
                 int     i;
                 for (i = 0; i < 576; ++i)
-                    gfc->pinfo->xr[gr][ch][i] = gfc->l3_side.tt[gr][ch].xr[i];
+                    gfc->pinfo->xr[gr][ch][i] = gfc->l3_side.tt[gr][ch].granule.xr[i];
             }
             /* in psymodel, LR and MS data was stored in pinfo.  
                switch to MS data: */

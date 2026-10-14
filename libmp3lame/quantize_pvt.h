@@ -108,9 +108,10 @@ extern FLOAT adj43[PRECALC_SIZE];
 static inline int
 sfb_quant_step(gr_info const *gi, int sfb)
 {
-    return gi->global_gain
-        - (gi->scalefac[sfb] + (gi->preflag ? pretab[sfb] : 0)) * (1 << (gi->scalefac_scale + 1))
-        - gi->subblock_gain[gi->window[sfb]] * 8;
+    return gi->quant.global_gain
+        - (gi->quant.scalefac[sfb] + (gi->quant.preflag ? pretab[sfb] : 0))
+        * (1 << (gi->quant.scalefac_scale + 1))
+        - gi->quant.subblock_gain[gi->granule.window[sfb]] * 8;
 }
 
 #define Q_MAX (256+1)

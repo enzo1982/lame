@@ -356,38 +356,43 @@ mpeg_header_word(SessionConfig_t const *cfg, int bitrate_index, int padding, int
 static void
 write_granule_side_info(lame_internal_flags * gfc, gr_info const *gi, int sfc_bits, int has_preflag)
 {
-    writeheader(gfc, gi->part2_3_length + gi->part2_length, 12);
-    writeheader(gfc, gi->big_values / 2, 9);
-    writeheader(gfc, gi->global_gain, 8);
-    writeheader(gfc, gi->scalefac_compress, sfc_bits);
+    writeheader(gfc, gi->huffman.part2_3_length + gi->quant.part2_length, 12);
+    writeheader(gfc, gi->huffman.big_values / 2, 9);
+    writeheader(gfc, gi->quant.global_gain, 8);
+    writeheader(gfc, gi->quant.scalefac_compress, sfc_bits);
 
-    if (gi->block_type != NORM_TYPE) {
+    if (gi->granule.block_type != NORM_TYPE) {
         writeheader(gfc, 1, 1); /* window_switching_flag */
-        writeheader(gfc, gi->block_type, 2);
-        writeheader(gfc, gi->mixed_block_flag, 1);
+        writeheader(gfc, gi->granule.block_type, 2);
+        writeheader(gfc, gi->granule.mixed_block_flag, 1);
 
-        writeheader(gfc, resolve_huffman_table(gi->table_select[0]), 5);
-        writeheader(gfc, resolve_huffman_table(gi->table_select[1]), 5);
+        writeheader(gfc, resolve_huffman_table(gi->huffman.table_select[0]),
+                    5);
+        writeheader(gfc, resolve_huffman_table(gi->huffman.table_select[1]),
+                    5);
 
-        writeheader(gfc, gi->subblock_gain[0], 3);
-        writeheader(gfc, gi->subblock_gain[1], 3);
-        writeheader(gfc, gi->subblock_gain[2], 3);
+        writeheader(gfc, gi->quant.subblock_gain[0], 3);
+        writeheader(gfc, gi->quant.subblock_gain[1], 3);
+        writeheader(gfc, gi->quant.subblock_gain[2], 3);
     }
     else {
         writeheader(gfc, 0, 1); /* window_switching_flag */
-        writeheader(gfc, resolve_huffman_table(gi->table_select[0]), 5);
-        writeheader(gfc, resolve_huffman_table(gi->table_select[1]), 5);
-        writeheader(gfc, resolve_huffman_table(gi->table_select[2]), 5);
+        writeheader(gfc, resolve_huffman_table(gi->huffman.table_select[0]),
+                    5);
+        writeheader(gfc, resolve_huffman_table(gi->huffman.table_select[1]),
+                    5);
+        writeheader(gfc, resolve_huffman_table(gi->huffman.table_select[2]),
+                    5);
 
-        assert(0 <= gi->region0_count && gi->region0_count < REGION0_COUNT_LIMIT);
-        assert(0 <= gi->region1_count && gi->region1_count < REGION1_COUNT_LIMIT);
-        writeheader(gfc, gi->region0_count, 4);
-        writeheader(gfc, gi->region1_count, 3);
+        assert(0 <= gi->huffman.region0_count && gi->huffman.region0_count < REGION0_COUNT_LIMIT);
+        assert(0 <= gi->huffman.region1_count && gi->huffman.region1_count < REGION1_COUNT_LIMIT);
+        writeheader(gfc, gi->huffman.region0_count, 4);
+        writeheader(gfc, gi->huffman.region1_count, 3);
     }
     if (has_preflag)
-        writeheader(gfc, gi->preflag, 1);
-    writeheader(gfc, gi->scalefac_scale, 1);
-    writeheader(gfc, gi->count1table_select, 1);
+        writeheader(gfc, gi->quant.preflag, 1);
+    writeheader(gfc, gi->quant.scalefac_scale, 1);
+    writeheader(gfc, gi->huffman.count1table_select, 1);
 }
 
 inline static void
@@ -471,14 +476,14 @@ inline static int
 huffman_coder_count1(lame_internal_flags * gfc, gr_info const *gi)
 {
     /* Write count1 area */
-    struct huffcodetab const *const h = &ht[gi->count1table_select + 32];
+    struct huffcodetab const *const h = &ht[gi->huffman.count1table_select + 32];
     int     i, bits = 0;
 
-    int const *ix = &gi->l3_enc[gi->big_values];
-    FLOAT const *xr = &gi->xr[gi->big_values];
-    assert(gi->count1table_select < 2);
+    int const *ix = &gi->quant.l3_enc[gi->huffman.big_values];
+    FLOAT const *xr = &gi->granule.xr[gi->huffman.big_values];
+    assert(gi->huffman.count1table_select < 2);
 
-    for (i = (gi->count1 - gi->big_values) / 4; i > 0; --i) {
+    for (i = (gi->huffman.count1 - gi->huffman.big_values) / 4; i > 0; --i) {
         int     huffbits = 0;
         int     p = 0, v;
 
@@ -548,14 +553,14 @@ Huffmancode(lame_internal_flags * const gfc, const unsigned int table_select,
         uint16_t xbits = 0;
         unsigned int xlen = h->xlen;
         unsigned int ext = 0;
-        unsigned int x1 = gi->l3_enc[i];
-        unsigned int x2 = gi->l3_enc[i + 1];
+        unsigned int x1 = gi->quant.l3_enc[i];
+        unsigned int x2 = gi->quant.l3_enc[i + 1];
 
-        assert(gi->l3_enc[i] >= 0);
-        assert(gi->l3_enc[i+1] >= 0);
+        assert(gi->quant.l3_enc[i] >= 0);
+        assert(gi->quant.l3_enc[i+1] >= 0);
 
         if (x1 != 0u) {
-            if (gi->xr[i] < 0.0f)
+            if (gi->granule.xr[i] < 0.0f)
                 ext++;
             cbits--;
         }
@@ -583,7 +588,7 @@ Huffmancode(lame_internal_flags * const gfc, const unsigned int table_select,
 
         if (x2 != 0u) {
             ext <<= 1;
-            if (gi->xr[i + 1] < 0.0f)
+            if (gi->granule.xr[i + 1] < 0.0f)
                 ext++;
             cbits--;
         }
@@ -616,12 +621,13 @@ ShortHuffmancodebits(lame_internal_flags * gfc, gr_info const *gi)
     int     region1Start;
 
     region1Start = 3 * gfc->scalefac_band.s[3];
-    if (region1Start > gi->big_values)
-        region1Start = gi->big_values;
+    if (region1Start > gi->huffman.big_values)
+        region1Start = gi->huffman.big_values;
 
     /* short blocks do not have a region2 */
-    bits = Huffmancode(gfc, gi->table_select[0], 0, region1Start, gi);
-    bits += Huffmancode(gfc, gi->table_select[1], region1Start, gi->big_values, gi);
+    bits = Huffmancode(gfc, gi->huffman.table_select[0], 0, region1Start, gi);
+    bits += Huffmancode(gfc, gi->huffman.table_select[1], region1Start,
+                        gi->huffman.big_values, gi);
     return bits;
 }
 
@@ -632,15 +638,15 @@ LongHuffmancodebits(lame_internal_flags * gfc, gr_info const *gi)
     int     bigvalues, bits;
     int     region1Start, region2Start;
 
-    bigvalues = gi->big_values;
+    bigvalues = gi->huffman.big_values;
     assert(0 <= bigvalues && bigvalues <= 576);
 
-    assert(gi->region0_count >= -1);
-    assert(gi->region1_count >= -1);
-    i = gi->region0_count + 1;
+    assert(gi->huffman.region0_count >= -1);
+    assert(gi->huffman.region1_count >= -1);
+    i = gi->huffman.region0_count + 1;
     assert((size_t) i < dimension_of(gfc->scalefac_band.l));
     region1Start = gfc->scalefac_band.l[i];
-    i += gi->region1_count + 1;
+    i += gi->huffman.region1_count + 1;
     assert((size_t) i < dimension_of(gfc->scalefac_band.l));
     region2Start = gfc->scalefac_band.l[i];
 
@@ -650,9 +656,11 @@ LongHuffmancodebits(lame_internal_flags * gfc, gr_info const *gi)
     if (region2Start > bigvalues)
         region2Start = bigvalues;
 
-    bits = Huffmancode(gfc, gi->table_select[0], 0, region1Start, gi);
-    bits += Huffmancode(gfc, gi->table_select[1], region1Start, region2Start, gi);
-    bits += Huffmancode(gfc, gi->table_select[2], region2Start, bigvalues, gi);
+    bits = Huffmancode(gfc, gi->huffman.table_select[0], 0, region1Start, gi);
+    bits += Huffmancode(gfc, gi->huffman.table_select[1], region1Start,
+                        region2Start, gi);
+    bits += Huffmancode(gfc, gi->huffman.table_select[2], region2Start,
+                        bigvalues, gi);
     return bits;
 }
 
@@ -668,24 +676,24 @@ writeMainData(lame_internal_flags * const gfc)
         for (gr = 0; gr < 2; gr++) {
             for (ch = 0; ch < cfg->channels_out; ch++) {
                 gr_info const *const gi = &l3_side->tt[gr][ch];
-                int const slen1 = slen1_tab[gi->scalefac_compress];
-                int const slen2 = slen2_tab[gi->scalefac_compress];
+                int const slen1 = slen1_tab[gi->quant.scalefac_compress];
+                int const slen2 = slen2_tab[gi->quant.scalefac_compress];
                 data_bits = 0;
-                for (sfb = 0; sfb < gi->sfbdivide; sfb++) {
-                    if (gi->scalefac[sfb] == SCALEFAC_SCFSI)
+                for (sfb = 0; sfb < gi->granule.sfbdivide; sfb++) {
+                    if (gi->quant.scalefac[sfb] == SCALEFAC_SCFSI)
                         continue; /* scfsi is used */
-                    putbits2(gfc, gi->scalefac[sfb], slen1);
+                    putbits2(gfc, gi->quant.scalefac[sfb], slen1);
                     data_bits += slen1;
                 }
-                for (; sfb < gi->sfbmax; sfb++) {
-                    if (gi->scalefac[sfb] == SCALEFAC_SCFSI)
+                for (; sfb < gi->granule.sfbmax; sfb++) {
+                    if (gi->quant.scalefac[sfb] == SCALEFAC_SCFSI)
                         continue; /* scfsi is used */
-                    putbits2(gfc, gi->scalefac[sfb], slen2);
+                    putbits2(gfc, gi->quant.scalefac[sfb], slen2);
                     data_bits += slen2;
                 }
-                assert(data_bits == gi->part2_length);
+                assert(data_bits == gi->quant.part2_length);
 
-                if (gi->block_type == SHORT_TYPE) {
+                if (gi->granule.block_type == SHORT_TYPE) {
                     data_bits += ShortHuffmancodebits(gfc, gi);
                 }
                 else {
@@ -693,7 +701,7 @@ writeMainData(lame_internal_flags * const gfc)
                 }
                 data_bits += huffman_coder_count1(gfc, gi);
                 /* does bitcount in quantize.c agree with actual bit count? */
-                assert(data_bits == gi->part2_3_length + gi->part2_length);
+                assert(data_bits == gi->huffman.part2_3_length + gi->quant.part2_length);
                 tot_bits += data_bits;
             }           /* for ch */
         }               /* for gr */
@@ -704,19 +712,22 @@ writeMainData(lame_internal_flags * const gfc)
         for (ch = 0; ch < cfg->channels_out; ch++) {
             gr_info const *const gi = &l3_side->tt[gr][ch];
             int     i, sfb_partition, scale_bits = 0;
-            assert(gi->sfb_partition_table);
+            assert(gi->quant.sfb_partition_table);
             data_bits = 0;
             sfb = 0;
             sfb_partition = 0;
 
-            if (gi->block_type == SHORT_TYPE) {
+            if (gi->granule.block_type == SHORT_TYPE) {
                 for (; sfb_partition < 4; sfb_partition++) {
-                    int const sfbs = gi->sfb_partition_table[sfb_partition] / 3;
-                    int const slen = gi->slen[sfb_partition];
+                    int const sfbs = gi->quant.sfb_partition_table[sfb_partition] / 3;
+                    int const slen = gi->quant.slen[sfb_partition];
                     for (i = 0; i < sfbs; i++, sfb++) {
-                        putbits2(gfc, Max(gi->scalefac[sfb * 3 + 0], 0), slen);
-                        putbits2(gfc, Max(gi->scalefac[sfb * 3 + 1], 0), slen);
-                        putbits2(gfc, Max(gi->scalefac[sfb * 3 + 2], 0), slen);
+                        putbits2(gfc, Max(gi->quant.scalefac[sfb * 3 + 0], 0),
+                                 slen);
+                        putbits2(gfc, Max(gi->quant.scalefac[sfb * 3 + 1], 0),
+                                 slen);
+                        putbits2(gfc, Max(gi->quant.scalefac[sfb * 3 + 2], 0),
+                                 slen);
                         scale_bits += 3 * slen;
                     }
                 }
@@ -724,10 +735,10 @@ writeMainData(lame_internal_flags * const gfc)
             }
             else {
                 for (; sfb_partition < 4; sfb_partition++) {
-                    int const sfbs = gi->sfb_partition_table[sfb_partition];
-                    int const slen = gi->slen[sfb_partition];
+                    int const sfbs = gi->quant.sfb_partition_table[sfb_partition];
+                    int const slen = gi->quant.slen[sfb_partition];
                     for (i = 0; i < sfbs; i++, sfb++) {
-                        putbits2(gfc, Max(gi->scalefac[sfb], 0), slen);
+                        putbits2(gfc, Max(gi->quant.scalefac[sfb], 0), slen);
                         scale_bits += slen;
                     }
                 }
@@ -735,8 +746,8 @@ writeMainData(lame_internal_flags * const gfc)
             }
             data_bits += huffman_coder_count1(gfc, gi);
             /* does bitcount in quantize.c agree with actual bit count? */
-            assert(data_bits == gi->part2_3_length);
-            assert(scale_bits == gi->part2_length);
+            assert(data_bits == gi->huffman.part2_3_length);
+            assert(scale_bits == gi->quant.part2_length);
             tot_bits += scale_bits + data_bits;
         }               /* for ch */
     }                   /* for gf */

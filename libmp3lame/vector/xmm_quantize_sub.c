@@ -97,23 +97,23 @@ init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int max_nz, FLOA
     vecfloat_union vec_sum;
     vecfloat_union vec_tmp;
 
-    _mm_prefetch((char const *) cod_info->xr, _MM_HINT_T0);
+    _mm_prefetch((char const *) cod_info->granule.xr, _MM_HINT_T0);
     _mm_prefetch((char const *) xrpow, _MM_HINT_T0);
 
     vec_xrpow_max._m128 = _mm_set_ps1(0);
     vec_sum._m128 = _mm_set_ps1(0);
 
     for (i = 0; i < upper4; i += 4) {
-        vec_tmp._m128 = _mm_loadu_ps(&(cod_info->xr[i])); /* load */
+        vec_tmp._m128 = _mm_loadu_ps(&(cod_info->granule.xr[i])); /* load */
         vec_tmp._m128 = xrpow_block(vec_tmp._m128, vec_fabs_mask, vec_smallest,
                                     &vec_sum._m128, &vec_xrpow_max._m128);
         _mm_storeu_ps(&(xrpow[i]), vec_tmp._m128); /* store into xrpow[] */
     }
     vec_tmp._m128 = _mm_set_ps1(0);
     switch (rest) {
-        case 3: vec_tmp._float[2] = cod_info->xr[upper4+2]; /* fall through */
-        case 2: vec_tmp._float[1] = cod_info->xr[upper4+1]; /* fall through */
-        case 1: vec_tmp._float[0] = cod_info->xr[upper4+0];
+        case 3: vec_tmp._float[2] = cod_info->granule.xr[upper4+2]; /* fall through */
+        case 2: vec_tmp._float[1] = cod_info->granule.xr[upper4+1]; /* fall through */
+        case 1: vec_tmp._float[0] = cod_info->granule.xr[upper4+0];
             vec_tmp._m128 = xrpow_block(vec_tmp._m128, vec_fabs_mask, vec_smallest,
                                         &vec_sum._m128, &vec_xrpow_max._m128);
             switch (rest) {
@@ -134,7 +134,7 @@ init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int max_nz, FLOA
                 ? vec_xrpow_max._float[2] : vec_xrpow_max._float[3];
         tmp_max = ma > mb ? ma : mb;
     }
-    cod_info->xrpow_max = tmp_max;
+    cod_info->quant.xrpow_max = tmp_max;
     *sum = tmp_sum;
 }
 

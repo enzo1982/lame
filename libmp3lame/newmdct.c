@@ -961,7 +961,7 @@ mdct_sub48(lame_internal_flags * gfc, const sample_t * w0, const sample_t * w1)
         for (gr = 0; gr < cfg->mode_gr; gr++) {
             int     band;
             gr_info *const gi = &(gfc->l3_side.tt[gr][ch]);
-            FLOAT  *mdct_enc = gi->xr;
+            FLOAT  *mdct_enc = gi->granule.xr;
             FLOAT  *samp = esv->sb_sample[ch][1 - gr][0];
 
             for (k = 0; k < SUBBAND_SAMPLES / 2; k++) {
@@ -982,10 +982,10 @@ mdct_sub48(lame_internal_flags * gfc, const sample_t * w0, const sample_t * w1)
              * + 18 current subband samples
              */
             for (band = 0; band < SBLIMIT; band++, mdct_enc += SUBBAND_SAMPLES) {
-                int     type = gi->block_type;
+                int     type = gi->granule.block_type;
                 FLOAT const *const band0 = esv->sb_sample[ch][gr][0] + order[band];
                 FLOAT  *const band1 = esv->sb_sample[ch][1 - gr][0] + order[band];
-                if (gi->mixed_block_flag && band < 2)
+                if (gi->granule.mixed_block_flag && band < 2)
                     type = NORM_TYPE;
                 if (esv->amp_filter[band] < 1e-12) {
                     memset(mdct_enc, 0, SUBBAND_SAMPLES * sizeof(FLOAT));

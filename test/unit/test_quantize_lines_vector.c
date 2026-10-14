@@ -429,7 +429,7 @@ test_xrpow_core_tiny_coefficients(LAME_UNUSED void **state)
     _mm_setcsr(csr & ~(MXCSR_FLUSH_TO_ZERO | MXCSR_DENORMALS_ARE_ZERO));
     for (i = 0; i < 576; ++i) {
         double const m = (i % 5 == 4) ? seen[(i / 5) % 4] : ldexp(1.0, -60 - (i % 80));
-        gi->xr[i] = (FLOAT) ((i & 1) ? -m : m);
+        gi->granule.xr[i] = (FLOAT) ((i & 1) ? -m : m);
     }
     /* every tail length: the last 1-3 values take their own path through the
        vector code, and that path is where the fault was */
@@ -438,7 +438,7 @@ test_xrpow_core_tiny_coefficients(LAME_UNUSED void **state)
         upper = max_nz + 1;
         for (i = 0; i < upper; ++i) {
             float const f = xrpow[i];
-            double const x = fabs((double) gi->xr[i]);
+            double const x = fabs((double) gi->granule.xr[i]);
             double const want = pow(x, 0.75);
             int     ok;
             if (float_bits_nonfinite(&xrpow[i]))
@@ -450,11 +450,11 @@ test_xrpow_core_tiny_coefficients(LAME_UNUSED void **state)
             if (!ok && bad++ == 0)
                 first = i;
         }
-        assert_false(float_bits_nonfinite(&gi->xrpow_max));
+        assert_false(float_bits_nonfinite(&gi->quant.xrpow_max));
         if (bad) {
             _mm_setcsr(csr);
             fail_msg("max_nz %d: %d value(s) wrong, the first at xr %g: %g", max_nz, bad,
-                     (double) gi->xr[first], (double) xrpow[first]);
+                     (double) gi->granule.xr[first], (double) xrpow[first]);
         }
     }
     _mm_setcsr(csr);

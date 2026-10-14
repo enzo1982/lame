@@ -225,7 +225,7 @@ ResvMaxBits(lame_internal_flags * gfc, int mean_bits, int *targ_bits, int *extra
 void
 ResvAdjust(lame_internal_flags * gfc, gr_info const *gi)
 {
-    gfc->sv_enc.ResvSize -= gi->part2_3_length + gi->part2_length;
+    gfc->sv_enc.ResvSize -= gi->huffman.part2_3_length + gi->quant.part2_length;
 }
 
 
