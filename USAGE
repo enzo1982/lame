@@ -69,6 +69,22 @@ Hydrogenaudio recommended settings
       to --abr 56 -mm, so that means that the recommendation would be to
       encode in mono, and use ABR.
 
+    Notes to the two sections above:
+
+    [1] The -b settings that each sampling frequency allows:
+
+        MPEG-1 layer III, 32, 44.1 and 48 kHz:
+            32 40 48 56 64 80 96 112 128 160 192 224 256 320
+        MPEG-2 layer III, 16, 22.05 and 24 kHz:
+            8 16 24 32 40 48 56 64 80 96 112 128 144 160
+        MPEG-2.5 layer III, 8, 11.025 and 12 kHz:
+            8 16 24 32 40 48 56 64
+
+    [2] Lossy codecs, like MP3, should not be used for archiving, since
+        the nature of lossy encoding always changes the original sound,
+        even if it sounds transparent. Use lossless codecs for this
+        purpose.
+
 ========================================================================
 Examples
 ========================================================================
@@ -1588,7 +1604,10 @@ Setting         Average bitrate (kbps)
     compared to not keeping that precision. Generally, this band should
     allow for distortions, so using this switch shouldn't cause harm.
 
-    - If compiled with decoding capabilities
+========================================================================
+Notes
+========================================================================
+    [1] If compiled with decoding capabilities
 
     HTML markup and design by Roberto Amorim and Sebastian Mares. Logo
     by Sam Fisher.
