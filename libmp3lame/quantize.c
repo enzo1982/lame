@@ -982,6 +982,32 @@ balance_noise(lame_internal_flags * gfc,
 
 
 
+/**
+ * \internal
+ * \brief Raises the global gain until the granule needs at most \a limit bits.
+ *
+ * Each step quantizes the granule again and stores its size in
+ * part2_3_length. The gain stops one above \a maxggain at most.
+ *
+ * \param gfc         the encoder.
+ * \param xrpow       the spectrum, raised to the power 3/4.
+ * \param gi          the granule; its global gain and size change.
+ * \param prev_noise  the noise cache of count_bits().
+ * \param limit       the most bits the granule may need.
+ * \param maxggain    the largest global gain allowed.
+ * \return 1 if the granule fits at a gain of \a maxggain or less, else 0.
+ */
+inline static int
+raise_gain_until_fits(lame_internal_flags const *gfc, FLOAT const *xrpow, gr_info * gi,
+                      calc_noise_data * prev_noise, int limit, int maxggain)
+{
+    while ((gi->part2_3_length = count_bits(gfc, xrpow, gi, prev_noise)) > limit
+           && gi->global_gain <= maxggain)
+        gi->global_gain++;
+    return gi->global_gain <= maxggain;
+}
+
+
 /************************************************************************
  *
  *  outer_loop ()
@@ -1089,22 +1115,12 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
 
         /*  increase quantizer stepsize until needed bits are below maximum
          */
-        while ((cod_info_w.part2_3_length
-                = count_bits(gfc, xrpow, &cod_info_w, &prev_noise)) > huff_bits
-               && cod_info_w.global_gain <= maxggain)
-            cod_info_w.global_gain++;
-
-        if (cod_info_w.global_gain > maxggain)
+        if (!raise_gain_until_fits(gfc, xrpow, &cod_info_w, &prev_noise, huff_bits, maxggain))
             break;
 
         if (best_noise_info.over_count == 0) {
-
-            while ((cod_info_w.part2_3_length
-                    = count_bits(gfc, xrpow, &cod_info_w, &prev_noise)) > best_part2_3_length
-                   && cod_info_w.global_gain <= maxggain)
-                cod_info_w.global_gain++;
-
-            if (cod_info_w.global_gain > maxggain)
+            if (!raise_gain_until_fits(gfc, xrpow, &cod_info_w, &prev_noise,
+                                       best_part2_3_length, maxggain))
                 break;
         }
 
