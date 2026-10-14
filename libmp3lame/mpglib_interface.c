@@ -339,11 +339,20 @@ report_delay_padding(hip_t hip, int *enc_delay, int *enc_padding)
     }
 }
 
+/**
+ * @internal
+ * @brief The sample format hip123_decode1() writes.
+ */
+enum hip_output {
+    HIP_OUT_S16,     /**< 16-bit samples, as short */
+    HIP_OUT_SAMPLE_T /**< sample_t on LAME's scale, not clipped */
+};
+
 static int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
-    unsigned char *pcm_l, unsigned char *pcm_r,
+    void *pcm_l, void *pcm_r,
     int *enc_delay, int *enc_padding,
     mp3data_struct *mp3data,
-    int unclipped) /* If true, produce unclipped float (sample_t) output. */
+    enum hip_output output)
 {
     int ret;
     unsigned char *mpg123buf;
@@ -353,7 +362,7 @@ static int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
     int encoding;
     int change_format;
     int samples = 0;
-    int want_enc = unclipped ? MPG123_ENC_FLOAT_32 : MPG123_ENC_SIGNED_16;
+    int want_enc = output == HIP_OUT_SAMPLE_T ? MPG123_ENC_FLOAT_32 : MPG123_ENC_SIGNED_16;
 
     /* Every decoding entry point arrives here, and hip_decode_init() hands back
        NULL where there is no decoder to give - so a caller who did not check
@@ -406,7 +415,7 @@ static int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
         both result in mpg123fill==0, so return 0 here, which is what fits. */
     {
         size_t const bytes_per_sample =
-            (unclipped ? sizeof(float) : sizeof(short)) * (size_t) channels;
+            (output == HIP_OUT_SAMPLE_T ? sizeof(float) : sizeof(short)) * (size_t) channels;
         size_t const decoded = mpg123fill / bytes_per_sample;
         /* the count is returned in an int and indexes the caller's buffers, so
            a frame yielding more than that can express is rejected rather than
@@ -418,7 +427,7 @@ static int hip123_decode1( hip_t hip, unsigned char *buffer, size_t len,
     /* Now demultilex the data in mpg123buf into pcm_l and pcm_r. */
     if(mpg123fill && mpg123buf)
     {
-        if(unclipped)
+        if(output == HIP_OUT_SAMPLE_T)
         {
             /* Lame's sample_t could be wider than 32 bit, right? */
             sample_t *spcm_l = (sample_t*)pcm_l;
@@ -487,9 +496,8 @@ hip_decode1_unclipped(hip_t hip, LAME_UNUSED unsigned char *buffer, LAME_UNUSED 
 {
     if (hip) {
 #ifdef HAVE_MPG123
-        return hip123_decode1( hip, buffer, len,
-            (unsigned char*)pcm_l, (unsigned char*)pcm_r,
-            NULL, NULL, NULL, 1 );
+        return hip123_decode1( hip, buffer, len, pcm_l, pcm_r,
+            NULL, NULL, NULL, HIP_OUT_SAMPLE_T );
 #endif
     }
     return -1;
@@ -519,9 +527,8 @@ hip_decode1_headers(hip_t hip, unsigned char *buffer,
                      size_t len, short pcm_l[], short pcm_r[], mp3data_struct * mp3data)
 {
 #ifdef HAVE_MPG123
-    return hip123_decode1( hip, buffer, len,
-        (unsigned char*)pcm_l, (unsigned char*)pcm_r,
-        NULL, NULL, mp3data, 0 );
+    return hip123_decode1( hip, buffer, len, pcm_l, pcm_r,
+        NULL, NULL, mp3data, HIP_OUT_S16 );
 #else
     int     enc_delay, enc_padding;
     return hip_decode1_headersB(hip, buffer, len, pcm_l, pcm_r, mp3data, &enc_delay, &enc_padding);
@@ -554,9 +561,8 @@ int
 hip_decode1(hip_t hip, unsigned char *buffer, size_t len, short pcm_l[], short pcm_r[])
 {
 #ifdef HAVE_MPG123
-    return hip123_decode1( hip, buffer, len,
-        (unsigned char*)pcm_l, (unsigned char*)pcm_r,
-        NULL, NULL, NULL, 0 );
+    return hip123_decode1( hip, buffer, len, pcm_l, pcm_r,
+        NULL, NULL, NULL, HIP_OUT_S16 );
 #else
     mp3data_struct mp3data;
     return hip_decode1_headers(hip, buffer, len, pcm_l, pcm_r, &mp3data);
@@ -666,9 +672,8 @@ hip_decode1_headersB(hip_t hip, LAME_UNUSED unsigned char *buffer,
 {
     if (hip) {
 #ifdef HAVE_MPG123
-        return hip123_decode1( hip, buffer, len,
-            (unsigned char*)pcm_l, (unsigned char*)pcm_r,
-            enc_delay, enc_padding, mp3data, 0);
+        return hip123_decode1( hip, buffer, len, pcm_l, pcm_r,
+            enc_delay, enc_padding, mp3data, HIP_OUT_S16);
 #endif
     }
     return -1;
