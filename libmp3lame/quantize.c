@@ -125,7 +125,7 @@ init_xrpow(lame_internal_flags * gfc, gr_info * const cod_info, FLOAT xrpow[576]
      */
     if (sum > (FLOAT) 1E-20) {
         int     j = 0;
-        if (gfc->sv_qnt.substep_shaping & 2)
+        if (gfc->sv_qnt.substep_shaping & SUBSTEP_HALF_STEP)
             j = 1;
 
         for (i = 0; i < cod_info->psymax; i++)
@@ -454,8 +454,8 @@ trancate_smallspectrums(lame_internal_flags const *gfc,
     FLOAT   distort[SFBMAX];
     calc_noise_result dummy;
 
-    if ((!(gfc->sv_qnt.substep_shaping & 4) && gi->block_type == SHORT_TYPE)
-        || gfc->sv_qnt.substep_shaping & 0x80)
+    if ((!(gfc->sv_qnt.substep_shaping & SUBSTEP_SHORT_BLOCKS) && gi->block_type == SHORT_TYPE)
+        || gfc->sv_qnt.substep_shaping & SUBSTEP_RESV_FULL)
         return;
     (void) calc_noise(gi, l3_xmin, distort, &dummy, 0);
     for (j = 0; j < 576; j++) {
@@ -790,7 +790,7 @@ amp_scalefac_bands(lame_internal_flags * gfc,
         if (distort[sfb] < trigger)
             continue;
 
-        if (gfc->sv_qnt.substep_shaping & 2) {
+        if (gfc->sv_qnt.substep_shaping & SUBSTEP_HALF_STEP) {
             gfc->sv_qnt.pseudohalf[sfb] = !gfc->sv_qnt.pseudohalf[sfb];
             if (!gfc->sv_qnt.pseudohalf[sfb] && cfg->noise_shaping_amp == 2)
                 return;
@@ -1059,7 +1059,7 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
              * Much more than 3 makes not a big difference, it is only slower.
              */
 
-            if (gfc->sv_qnt.substep_shaping & 2) {
+            if (gfc->sv_qnt.substep_shaping & SUBSTEP_HALF_STEP) {
                 search_limit = 20;
             }
             else {
@@ -1191,7 +1191,7 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
         memcpy(xrpow, save_xrpow, sizeof(FLOAT) * 576);
     /*  do the 'substep shaping'
      */
-    else if (gfc->sv_qnt.substep_shaping & 1)
+    else if (gfc->sv_qnt.substep_shaping & SUBSTEP_TRUNCATE)
         trancate_smallspectrums(gfc, cod_info, l3_xmin, xrpow);
 
     return best_noise_info.over_count;
@@ -1577,7 +1577,7 @@ VBR_old_iteration_loop(lame_internal_flags * gfc, const FLOAT pe[2][2],
 
                 /*  do the 'substep shaping'
                  */
-                if (gfc->sv_qnt.substep_shaping & 1) {
+                if (gfc->sv_qnt.substep_shaping & SUBSTEP_TRUNCATE) {
                     trancate_smallspectrums(gfc, &l3_side->tt[gr][ch], l3_xmin[gr][ch], xrpow);
                 }
 
@@ -1810,7 +1810,7 @@ calc_target_bits(lame_internal_flags * gfc,
     analog_silence_bits = mean_bits / (cfg->mode_gr * cfg->channels_out);
 
     mean_bits = cfg->vbr_avg_bitrate_kbps * framesize * 1000;
-    if (gfc->sv_qnt.substep_shaping & 1)
+    if (gfc->sv_qnt.substep_shaping & SUBSTEP_TRUNCATE)
         mean_bits *= 1.09;
     mean_bits /= cfg->samplerate_out;
     mean_bits -= cfg->sideinfo_len * 8;

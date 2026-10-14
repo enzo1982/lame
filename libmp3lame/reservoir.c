@@ -183,7 +183,7 @@ ResvMaxBits(lame_internal_flags * gfc, int mean_bits, int *targ_bits, int *extra
     if (gr0_spent)
         ResvSize += mean_bits;
 
-    if (gfc->sv_qnt.substep_shaping & 1)
+    if (gfc->sv_qnt.substep_shaping & SUBSTEP_TRUNCATE)
         ResvMax *= 0.9;
 
     targBits = mean_bits;
@@ -192,16 +192,16 @@ ResvMaxBits(lame_internal_flags * gfc, int mean_bits, int *targ_bits, int *extra
     if (ResvSize * 10 > ResvMax * 9) {
         add_bits = ResvSize - (ResvMax * 9) / 10;
         targBits += add_bits;
-        gfc->sv_qnt.substep_shaping |= 0x80;
+        gfc->sv_qnt.substep_shaping |= SUBSTEP_RESV_FULL;
     }
     else {
         add_bits = 0;
-        gfc->sv_qnt.substep_shaping &= 0x7f;
+        gfc->sv_qnt.substep_shaping &= SUBSTEP_USER_BITS;
         /* build up reservoir.  this builds the reservoir a little slower
          * than FhG.  It could simple be mean_bits/15, but this was rigged
          * to always produce 100 (the old value) at 128kbs */
         /*    *targ_bits -= (int) (mean_bits/15.2); */
-        if (!cfg->disable_reservoir && !(gfc->sv_qnt.substep_shaping & 1))
+        if (!cfg->disable_reservoir && !(gfc->sv_qnt.substep_shaping & SUBSTEP_TRUNCATE))
             targBits -= .1 * mean_bits;
     }
 

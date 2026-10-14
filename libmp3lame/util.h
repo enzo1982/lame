@@ -335,6 +335,20 @@ extern  "C" {
     } EncResult_t;
 
 
+    /** \internal
+       \brief The bits of the substep shaping setting.
+
+       The three low bits are the caller's, as lame_set_substep() takes them;
+       the encoder keeps one bit of its own in the same field. */
+    enum substep_shaping_bits {
+        SUBSTEP_TRUNCATE = 1,     /**< drop the small spectral lines after the loop */
+        SUBSTEP_HALF_STEP = 2,    /**< pseudo half steps inside the loop */
+        SUBSTEP_SHORT_BLOCKS = 4, /**< truncate short blocks too */
+        SUBSTEP_USER_BITS = 0x7f, /**< every bit but the encoder's own */
+        SUBSTEP_RESV_FULL = 0x80  /**< encoder's own: the reservoir is over 90 % full */
+    };
+
+
     /* variables used by quantize.c */
     typedef struct {
         /* variables for nspsytune */
@@ -347,12 +361,7 @@ extern  "C" {
         int     CurrentStep[2];
         int     pseudohalf[SFBMAX];
         int     sfb21_extra; /* will be set in lame_init_params */
-        int     substep_shaping; /* 0 = no substep
-                                    1 = use substep shaping at last step(VBR only)
-                                    (not implemented yet)
-                                    2 = use substep inside loop
-                                    3 = use substep inside loop and last step
-                                  */
+        int     substep_shaping; /* bits of enum substep_shaping_bits, see lame_set_substep() */
 
 
         char    bv_scf[576];

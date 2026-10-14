@@ -943,7 +943,7 @@ count_bits(lame_internal_flags const *const gfc,
 
     quantize_xrpow(xr, ix, IPOW20(gi->global_gain), gi, prev_noise, vector_implementation(gfc));
 
-    if (gfc->sv_qnt.substep_shaping & 2) {
+    if (gfc->sv_qnt.substep_shaping & SUBSTEP_HALF_STEP) {
         int     sfb, j = 0;
         /* 0.634521682242439 = 0.5946*2**(.5*0.1875) */
         int const gain = gi->global_gain + gi->scalefac_scale;
