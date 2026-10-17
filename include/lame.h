@@ -1245,6 +1245,16 @@ void CDECL hip_finish_pinfo(hip_t gfp);
  *    pcm_l[nout]  : left channel data
  *    pcm_r[nout]  : right channel data
  *
+ * pcm_l and pcm_r need room for every frame that the call completes,
+ * also frames from the input of earlier calls.  That number does not
+ * follow from len (free-format frames can be a few bytes long), and the
+ * function cannot check the size of the arrays.  With arrays of a fixed
+ * size, call hip_decode1() in a loop instead: it writes at most one
+ * frame, 1152 samples per channel.
+ *
+ * An application that decodes MP3 for its own use should use libmpg123.
+ * Its API takes the size of the output.
+ *
  *********************************************************************/
 int CDECL hip_decode( hip_t           gfp
                     , unsigned char * mp3buf

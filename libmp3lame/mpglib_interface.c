@@ -613,16 +613,20 @@ hip_decode_headers(hip_t hip, unsigned char *buffer,
   Calls \c hip_decode1() until the decoder has nothing more to return. So one
   call turns a buffer of MP3 data into all the samples it contains.
 
-  The output buffers **must be large enough for all frames in the input**,
-  not only for one frame. The function cannot check the buffer size and gives
-  no warning. If the caller does not control the input size, use
-  \c hip_decode1(). It decodes one frame per call.
+  The output buffers **must have room for every frame that the call
+  completes**, also frames from the input of earlier calls. That number does
+  not follow from \a len, because free-format frames can be a few bytes long.
+  The function cannot check the buffer size and gives no warning. A caller
+  with buffers of a fixed size calls \c hip_decode1() in a loop instead. It
+  writes at most one frame per call.
+
+  An application that decodes MP3 for its own use should use libmpg123. Its
+  API takes the size of the output.
 
   \param hip     the decoder instance.
   \param buffer  the encoded bytes to pass in.
   \param len     the number of bytes in \a buffer.
-  \param pcm_l   receives the left channel. The caller sizes it for all the
-                 frames in \a buffer.
+  \param pcm_l   receives the left channel, with room as above.
   \param pcm_r   receives the right channel, with the same size.
   \return the total number of samples per channel written, 0 if more input is
           needed, or -1 on an error, also for a NULL \a hip.
