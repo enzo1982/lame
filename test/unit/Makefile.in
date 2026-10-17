@@ -124,6 +124,7 @@ host_triplet = @host@
 @ENABLE_UNIT_TESTS_TRUE@	test_gain_analysis$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_decoder_init_fail$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	test_bitstream_reservoir$(EXEEXT) \
+@ENABLE_UNIT_TESTS_TRUE@	test_lametag_room$(EXEEXT) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_1) $(am__EXEEXT_2) \
 @ENABLE_UNIT_TESTS_TRUE@	$(am__EXEEXT_3)
 
@@ -403,6 +404,12 @@ test_id3tag_alloc_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(AM_CFLAGS) $(CFLAGS) $(test_id3tag_alloc_LDFLAGS) $(LDFLAGS) \
 	-o $@
+am__test_lametag_room_SOURCES_DIST = test_lametag_room.c
+@ENABLE_UNIT_TESTS_TRUE@am_test_lametag_room_OBJECTS = test_lametag_room-test_lametag_room.$(OBJEXT)
+test_lametag_room_OBJECTS = $(am_test_lametag_room_OBJECTS)
+@ENABLE_UNIT_TESTS_TRUE@test_lametag_room_DEPENDENCIES =  \
+@ENABLE_UNIT_TESTS_TRUE@	$(am__DEPENDENCIES_1) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la
 am__test_lib_info_SOURCES_DIST = test_lib_info.c
 @ENABLE_UNIT_TESTS_TRUE@am_test_lib_info_OBJECTS =  \
 @ENABLE_UNIT_TESTS_TRUE@	test_lib_info-test_lib_info.$(OBJEXT)
@@ -559,6 +566,7 @@ am__depfiles_remade = $(top_builddir)/frontend/$(DEPDIR)/test_file_times-lametim
 	./$(DEPDIR)/test_huffman_tables-test_huffman_tables.Po \
 	./$(DEPDIR)/test_id3tag-test_id3tag.Po \
 	./$(DEPDIR)/test_id3tag_alloc-test_id3tag_alloc.Po \
+	./$(DEPDIR)/test_lametag_room-test_lametag_room.Po \
 	./$(DEPDIR)/test_lib_info-test_lib_info.Po \
 	./$(DEPDIR)/test_merge_argv-parse_test_stubs.Po \
 	./$(DEPDIR)/test_merge_argv-test_merge_argv.Po \
@@ -610,9 +618,9 @@ SOURCES = $(test_bitstream_headers_SOURCES) \
 	$(test_get_audio_truncated_SOURCES) \
 	$(test_get_audio_wav_SOURCES) $(test_help_exit_SOURCES) \
 	$(test_huffman_tables_SOURCES) $(test_id3tag_SOURCES) \
-	$(test_id3tag_alloc_SOURCES) $(test_lib_info_SOURCES) \
-	$(test_merge_argv_SOURCES) $(test_parse_id3_SOURCES) \
-	$(test_parse_pathlen_SOURCES) \
+	$(test_id3tag_alloc_SOURCES) $(test_lametag_room_SOURCES) \
+	$(test_lib_info_SOURCES) $(test_merge_argv_SOURCES) \
+	$(test_parse_id3_SOURCES) $(test_parse_pathlen_SOURCES) \
 	$(test_quantize_lines_vector_SOURCES) \
 	$(test_quantize_pe_SOURCES) $(test_resample_decision_SOURCES) \
 	$(test_rtp_socket_SOURCES) $(test_sanity_SOURCES) \
@@ -643,6 +651,7 @@ DIST_SOURCES = $(am__test_bitstream_headers_SOURCES_DIST) \
 	$(am__test_huffman_tables_SOURCES_DIST) \
 	$(am__test_id3tag_SOURCES_DIST) \
 	$(am__test_id3tag_alloc_SOURCES_DIST) \
+	$(am__test_lametag_room_SOURCES_DIST) \
 	$(am__test_lib_info_SOURCES_DIST) \
 	$(am__test_merge_argv_SOURCES_DIST) \
 	$(am__test_parse_id3_SOURCES_DIST) \
@@ -1375,6 +1384,18 @@ SH_LOG_COMPILER = $(SHELL)
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
 
+# The size of the LAME tag frame and the tag in it are both public output, so
+# this test links libmp3lame and asks lame_get_lametag_frame() directly.
+@ENABLE_UNIT_TESTS_TRUE@test_lametag_room_SOURCES = test_lametag_room.c
+@ENABLE_UNIT_TESTS_TRUE@test_lametag_room_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
+
+@ENABLE_UNIT_TESTS_TRUE@test_lametag_room_LDADD = $(CMOCKA_LIBS) \
+@ENABLE_UNIT_TESTS_TRUE@	$(top_builddir)/libmp3lame/libmp3lame.la \
+@ENABLE_UNIT_TESTS_TRUE@	-lm
+
+
 # The encode entry points, the statistics, the LAME tag and the reporting calls
 # are all public, so this test links libmp3lame and calls them directly - no
 # frontend translation unit compiled in. It is the slowest test in the suite by
@@ -1819,6 +1840,10 @@ test_id3tag_alloc$(EXEEXT): $(test_id3tag_alloc_OBJECTS) $(test_id3tag_alloc_DEP
 	@rm -f test_id3tag_alloc$(EXEEXT)
 	$(AM_V_CCLD)$(test_id3tag_alloc_LINK) $(test_id3tag_alloc_OBJECTS) $(test_id3tag_alloc_LDADD) $(LIBS)
 
+test_lametag_room$(EXEEXT): $(test_lametag_room_OBJECTS) $(test_lametag_room_DEPENDENCIES) $(EXTRA_test_lametag_room_DEPENDENCIES) 
+	@rm -f test_lametag_room$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(test_lametag_room_OBJECTS) $(test_lametag_room_LDADD) $(LIBS)
+
 test_lib_info$(EXEEXT): $(test_lib_info_OBJECTS) $(test_lib_info_DEPENDENCIES) $(EXTRA_test_lib_info_DEPENDENCIES) 
 	@rm -f test_lib_info$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(test_lib_info_OBJECTS) $(test_lib_info_LDADD) $(LIBS)
@@ -1915,6 +1940,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_huffman_tables-test_huffman_tables.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_id3tag-test_id3tag.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_id3tag_alloc-test_id3tag_alloc.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_lametag_room-test_lametag_room.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_lib_info-test_lib_info.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_merge_argv-parse_test_stubs.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_merge_argv-test_merge_argv.Po@am__quote@ # am--include-marker
@@ -2423,6 +2449,20 @@ test_id3tag_alloc-test_id3tag_alloc.obj: test_id3tag_alloc.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_id3tag_alloc.c' object='test_id3tag_alloc-test_id3tag_alloc.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_id3tag_alloc_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_id3tag_alloc-test_id3tag_alloc.obj `if test -f 'test_id3tag_alloc.c'; then $(CYGPATH_W) 'test_id3tag_alloc.c'; else $(CYGPATH_W) '$(srcdir)/test_id3tag_alloc.c'; fi`
+
+test_lametag_room-test_lametag_room.o: test_lametag_room.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_lametag_room_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_lametag_room-test_lametag_room.o -MD -MP -MF $(DEPDIR)/test_lametag_room-test_lametag_room.Tpo -c -o test_lametag_room-test_lametag_room.o `test -f 'test_lametag_room.c' || echo '$(srcdir)/'`test_lametag_room.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_lametag_room-test_lametag_room.Tpo $(DEPDIR)/test_lametag_room-test_lametag_room.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_lametag_room.c' object='test_lametag_room-test_lametag_room.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_lametag_room_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_lametag_room-test_lametag_room.o `test -f 'test_lametag_room.c' || echo '$(srcdir)/'`test_lametag_room.c
+
+test_lametag_room-test_lametag_room.obj: test_lametag_room.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_lametag_room_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_lametag_room-test_lametag_room.obj -MD -MP -MF $(DEPDIR)/test_lametag_room-test_lametag_room.Tpo -c -o test_lametag_room-test_lametag_room.obj `if test -f 'test_lametag_room.c'; then $(CYGPATH_W) 'test_lametag_room.c'; else $(CYGPATH_W) '$(srcdir)/test_lametag_room.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/test_lametag_room-test_lametag_room.Tpo $(DEPDIR)/test_lametag_room-test_lametag_room.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='test_lametag_room.c' object='test_lametag_room-test_lametag_room.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_lametag_room_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o test_lametag_room-test_lametag_room.obj `if test -f 'test_lametag_room.c'; then $(CYGPATH_W) 'test_lametag_room.c'; else $(CYGPATH_W) '$(srcdir)/test_lametag_room.c'; fi`
 
 test_lib_info-test_lib_info.o: test_lib_info.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(test_lib_info_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT test_lib_info-test_lib_info.o -MD -MP -MF $(DEPDIR)/test_lib_info-test_lib_info.Tpo -c -o test_lib_info-test_lib_info.o `test -f 'test_lib_info.c' || echo '$(srcdir)/'`test_lib_info.c
@@ -3117,6 +3157,13 @@ test_bitstream_reservoir.log: test_bitstream_reservoir$(EXEEXT)
 	--log-file $$b.log --trs-file $$b.trs \
 	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
 	"$$tst" $(AM_TESTS_FD_REDIRECT)
+test_lametag_room.log: test_lametag_room$(EXEEXT)
+	@p='test_lametag_room$(EXEEXT)'; \
+	b='test_lametag_room'; \
+	$(am__check_pre) $(LOG_DRIVER) --test-name "$$f" \
+	--log-file $$b.log --trs-file $$b.trs \
+	$(am__common_driver_flags) $(AM_LOG_DRIVER_FLAGS) $(LOG_DRIVER_FLAGS) -- $(LOG_COMPILE) \
+	"$$tst" $(AM_TESTS_FD_REDIRECT)
 test_choose_table_vector.log: test_choose_table_vector$(EXEEXT)
 	@p='test_choose_table_vector$(EXEEXT)'; \
 	b='test_choose_table_vector'; \
@@ -3282,6 +3329,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/test_huffman_tables-test_huffman_tables.Po
 	-rm -f ./$(DEPDIR)/test_id3tag-test_id3tag.Po
 	-rm -f ./$(DEPDIR)/test_id3tag_alloc-test_id3tag_alloc.Po
+	-rm -f ./$(DEPDIR)/test_lametag_room-test_lametag_room.Po
 	-rm -f ./$(DEPDIR)/test_lib_info-test_lib_info.Po
 	-rm -f ./$(DEPDIR)/test_merge_argv-parse_test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_merge_argv-test_merge_argv.Po
@@ -3377,6 +3425,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/test_huffman_tables-test_huffman_tables.Po
 	-rm -f ./$(DEPDIR)/test_id3tag-test_id3tag.Po
 	-rm -f ./$(DEPDIR)/test_id3tag_alloc-test_id3tag_alloc.Po
+	-rm -f ./$(DEPDIR)/test_lametag_room-test_lametag_room.Po
 	-rm -f ./$(DEPDIR)/test_lib_info-test_lib_info.Po
 	-rm -f ./$(DEPDIR)/test_merge_argv-parse_test_stubs.Po
 	-rm -f ./$(DEPDIR)/test_merge_argv-test_merge_argv.Po

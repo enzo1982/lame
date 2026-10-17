@@ -775,6 +775,8 @@ lame_get_lametag_frame(lame_global_flags const *gfp, unsigned char *buffer, size
         /*Put LAME VBR info */
         nStreamIndex += PutLameVBR(gfp, stream_size, buffer + nStreamIndex, crc);
     }
+    /* The bytes written are the bytes that InitVbrTag() reserved in the frame. */
+    assert((int) nStreamIndex + (cfg->error_protection ? 2 : 0) == cfg->sideinfo_len + LAMEHEADERSIZE);
 
     return gfc->VBR_seek_table.TotalFrameSize;
 }

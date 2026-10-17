@@ -30,7 +30,7 @@ check_PROGRAMS = test_sanity test_get_audio_aiff test_get_audio_wav \
 	test_huffman_tables test_help_exit test_bitstream_headers \
 	test_free_format test_encode_api test_resample_decision \
 	test_file_times test_decode_scale test_quantize_pe test_gain_analysis \
-	test_decoder_init_fail test_bitstream_reservoir
+	test_decoder_init_fail test_bitstream_reservoir test_lametag_room
 
 # The vectorised routines exist only where the vector code was built, so there
 # is nothing to test otherwise.
@@ -341,6 +341,16 @@ test_free_format_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
 	-I$(top_builddir)
 test_free_format_LDADD = $(CMOCKA_LIBS) \
+	$(top_builddir)/libmp3lame/libmp3lame.la \
+	-lm
+
+# The size of the LAME tag frame and the tag in it are both public output, so
+# this test links libmp3lame and asks lame_get_lametag_frame() directly.
+test_lametag_room_SOURCES = test_lametag_room.c
+test_lametag_room_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
+	-I$(top_srcdir)/include \
+	-I$(top_builddir)
+test_lametag_room_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 
