@@ -156,30 +156,14 @@ typedef enum TextEncoding
 
 #ifdef HAVE_ICONV
 #define ID3TAGS_EXTENDED
-/* search for Zero termination in multi-byte strings */
-static size_t
-strlenMultiByte(char const* str, size_t w)
-{    
-    size_t n = 0;
-    if (str != 0) {
-        size_t i;
-        for (n = 0; ; ++n) {
-            size_t x = 0;
-            for (i = 0; i < w; ++i) {
-                x += *str++ == 0 ? 1 : 0;
-            }
-            if (x == w) {
-                break;
-            }
-        }
-    }
-    return n;
-}
 
 static char*
 currentCharacterEncoding(void)
 {
-#ifdef HAVE_LANGINFO_H
+#if defined(_WIN32)
+    /* main.c hands on the command line and LAMEOPT as UTF-8. */
+    char* cur_code = "UTF-8";
+#elif defined(HAVE_LANGINFO_H)
     char* cur_code = nl_langinfo(CODESET);
 #else
     char* env_lang = getenv("LANG");
@@ -187,30 +171,6 @@ currentCharacterEncoding(void)
     char* cur_code = xxx_code == NULL ? "" : xxx_code+1;
 #endif
     return cur_code;
-}
-
-static size_t
-currCharCodeSize(void)
-{
-    size_t n = 1;
-    char dst[32];
-    char* src = "A";
-    char* cur_code = currentCharacterEncoding();
-    iconv_t xiconv = iconv_open(cur_code, "ISO_8859-1");
-    if (xiconv != (iconv_t)-1) {
-        for (n = 0; n < 32; ++n) {
-            char* i_ptr = src;
-            char* o_ptr = dst;
-            size_t srcln = 1;
-            size_t avail = n;
-            size_t rc = iconv(xiconv, &i_ptr, &srcln, &o_ptr, &avail);
-            if (rc != (size_t)-1) {
-                break;
-            }
-        }
-        iconv_close(xiconv);
-    }
-    return n;
 }
 
 /**
@@ -282,14 +242,13 @@ convert_text(char const *to, char const *from, char const *src,
 static
 char* toLatin1( char* src )
 {
-    size_t w = currCharCodeSize();
     if (src == 0) {
         return 0;
     }
     {
-        size_t const l = strlenMultiByte(src, w);
+        size_t const l = strlen(src);
         return convert_text("ISO_8859-1//TRANSLIT", currentCharacterEncoding(),
-                            src, l*w, l*4, 0);
+                            src, l, l*4, 0);
     }
 }
 
@@ -297,15 +256,14 @@ char* toLatin1( char* src )
 static
 char* toUtf8( char* src )
 {
-    size_t w = currCharCodeSize();
     if (src == 0) {
         return 0;
     }
     {
         /* XXX: size calculation for UTF-16, a bit too much for UTF-8, but not too small */
-        size_t const l = strlenMultiByte(src, w);
+        size_t const l = strlen(src);
         return convert_text("UTF-8//TRANSLIT", currentCharacterEncoding(),
-                            src, l*w, (l+1)*4, 0);
+                            src, l, (l+1)*4, 0);
     }
 }
 
@@ -313,17 +271,16 @@ char* toUtf8( char* src )
 static
 char* toUtf16( char* src )
 {
-    size_t w = currCharCodeSize();
     if (src == 0) {
         return 0;
     }
     {
-        size_t const l = strlenMultiByte(src, w);
+        size_t const l = strlen(src);
         /* Two bytes are reserved at the front for the byte-order mark, which
            is written afterwards so that it survives a conversion that could
            not start at all. */
         char *dst = convert_text("UTF-16LE//TRANSLIT", currentCharacterEncoding(),
-                                 src, l*w, (l+1)*4, 2);
+                                 src, l, (l+1)*4, 2);
         if (dst != 0) {
             dst[0] = 0xff;
             dst[1] = 0xfe;
@@ -346,9 +303,10 @@ unsigned short* toUtf16(char const* s)
     return utf8ToUtf16(s);
 }
 
+/* The text is UTF-8 already: main.c converts the command line. */
 char* toUtf8(char const* s)
 {
-    return local8BitToUtf8(s);
+    return s == 0 ? 0 : strdup(s);
 }
 #endif
 

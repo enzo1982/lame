@@ -343,6 +343,12 @@
 			        being cut short in silence. As much of it as could
 			        be converted is still written, and the value that
 			        lost part of itself is named.</li>
+			    <li>On Windows, tag text with characters outside ASCII,
+			        such as <i>--tt "Caf&eacute;"</i>, is written as
+			        given, in Latin-1, UTF-16 and UTF-8 tags alike, and
+			        whatever <i>LANG</i> says. This includes tag options
+			        given in the <i>LAMEOPT</i> environment
+			        variable.</li>
 			    <li>An ID3v2 tag whose length does not fit the 28-bit
 			        tag-size field is no longer written. A very large
 			        tag, for instance from oversized embedded album art,

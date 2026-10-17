@@ -330,11 +330,6 @@ char* utf8ToConsole8Bit(const char* str)
   return mbsToMbs(str, CP_UTF8, GetConsoleOutputCP());
 }
 
-char* local8BitToUtf8(const char* str)
-{
-  return mbsToMbs(str, CP_ACP, CP_UTF8);
-}
-
 char* utf8ToLatin1(char const* str)
 {
   return mbsToMbs(str, CP_UTF8, 28591); /* Latin-1 is code page 28591 */
@@ -422,7 +417,6 @@ FILE* lame_fopen(char const* file, char const* mode)
     return fh;
 }
 
-#if !defined(__MINGW32__)
 char* lame_getenv(char const* var)
 {
     char* str = 0;
@@ -436,7 +430,6 @@ char* lame_getenv(char const* var)
     free(wvar);
     return str;
 }
-#endif
 
 #else
 
@@ -452,7 +445,7 @@ int main(int argc, char *argv[])
 
 #endif
 
-#if !defined(_WIN32) || defined(__MINGW32__)
+#if !defined(_WIN32)
 char* lame_getenv(char const* var)
 {
     char* str = getenv(var);
