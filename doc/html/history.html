@@ -315,6 +315,10 @@
 			        before that point, finishes the MP3 file and exits
 			        with an error. The channels at the end of such a file
 			        are no longer swapped.</li>
+			    <li>8-bit WAV input, and raw 8-bit input read as
+			        unsigned, no longer gets a small DC offset: silence
+			        in such a file now encodes as silence, as it does in
+			        a build with libsndfile.</li>
 			</ul>
 		    </li>
 		    <li><b>Tags and metadata</b>

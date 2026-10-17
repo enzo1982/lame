@@ -570,6 +570,71 @@ test_writer_big_endian(LAME_UNUSED void **state)
     expect_samples(2, 1, 1, stereo_be, sizeof(stereo_be));
 }
 
+/* --- 8 bit samples ----------------------------------------------------- */
+
+/** @brief The size of a canonical WAVE header with a 16 byte fmt chunk. */
+#define WAV_HEADER_BYTES 44
+
+/**
+ * @brief An unsigned 8 bit WAV reads as the signed sample in the top byte of
+ *        an int, with nothing below it: 0x80 is silence.
+ *
+ * Three stereo frames: (0x80, 0x80), (0x00, 0xFF) and (0x81, 0x7F), read
+ * through @c get_audio().
+ *
+ * @param state  the encoder instance from ::setup_lame().
+ */
+static void
+test_unsigned_8bit_samples(void **state)
+{
+    static const unsigned char samples[] = { 0x80, 0x80, 0x00, 0xFF, 0x81, 0x7F };
+    static const int expected[3][2] = { { 0, 0 }, { -128, 127 }, { 1, -1 } };
+    unsigned char h[WAV_HEADER_BYTES];
+    int     buffer[2][1152];
+    lame_t  gfp = *state;
+    FILE   *f = tmpfile();
+    int     n, i;
+
+    assert_non_null(f);
+    memcpy(h, "RIFF", 4);
+    put_le(h + 4, (uint32_t) (WAV_HEADER_BYTES - 8 + sizeof samples), 4);
+    memcpy(h + 8, "WAVEfmt ", 8);
+    put_le(h + 16, 16, 4);
+    put_le(h + 20, 1, 2);       /* PCM */
+    put_le(h + 22, 2, 2);
+    put_le(h + 24, 44100, 4);
+    put_le(h + 28, 44100 * 2, 4);
+    put_le(h + 32, 2, 2);
+    put_le(h + 34, 8, 2);
+    memcpy(h + 36, "data", 4);
+    put_le(h + 40, (uint32_t) sizeof samples, 4);
+    assert_int_equal(fwrite(h, 1, sizeof h, f), sizeof h);
+    assert_int_equal(fwrite(samples, 1, sizeof samples, f), sizeof samples);
+    rewind(f);
+
+    memset(&reader, 0, sizeof reader);
+    frontend_config.reader.input_format = parse_file_header(&reader, gfp, f);
+    assert_int_equal(frontend_config.reader.input_format, sf_wave);
+    reader.music_in = f;
+    initPcmBuffer(&reader.pcm32, sizeof(int));
+    initPcmBuffer(&reader.pcm16, sizeof(short));
+    initPcmBuffer(&reader.pcmf, sizeof(float));
+    assert_int_equal(lame_init_params(gfp), 0);
+
+    n = get_audio(&reader, gfp, buffer);
+    assert_int_equal(n, 3);
+    for (i = 0; i < n; ++i) {
+        assert_int_equal(buffer[0][i], expected[i][0] * (1 << 24));
+        assert_int_equal(buffer[1][i], expected[i][1] * (1 << 24));
+    }
+
+    freePcmBuffer(&reader.pcm32);
+    freePcmBuffer(&reader.pcm16);
+    freePcmBuffer(&reader.pcmf);
+    fclose(f);
+    reader.music_in = NULL;
+}
+
 /* --- fixture ----------------------------------------------------------- */
 
 /** @brief Per-test setup: stores a new encoder instance in @p state. */
@@ -609,6 +674,8 @@ main(void)
         cmocka_unit_test(test_header_size_capped),
         cmocka_unit_test(test_writer_little_endian),
         cmocka_unit_test(test_writer_big_endian),
+        cmocka_unit_test_setup_teardown(test_unsigned_8bit_samples,
+                                        setup_lame, lame_fixture_teardown),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

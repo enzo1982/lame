@@ -1677,7 +1677,7 @@ unpack_read_samples(const int samples_to_read, const int bytes_per_sample,
     }
     else {
         GA_URS_IFLOOP(1)
-            * --op = (int) ((unsigned int) (ip[i] ^ 0x80) << (b - 8) | (unsigned int) 0x7f << (b - 16)); /* convert from unsigned */
+            * --op = (int) ((unsigned int) (ip[i] ^ 0x80) << (b - 8)); /* convert from unsigned */
         GA_URS_IFLOOP(2)
             * --op = (int) ((unsigned int) ip[i] << (b - 8) | (unsigned int) ip[i + 1] << (b - 16));
         GA_URS_IFLOOP(3)
