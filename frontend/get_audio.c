@@ -509,6 +509,7 @@ struct audio_reader {
     unsigned long num_samples_read;
     unsigned long num_samples_above_full_scale;
     FILE   *music_in;
+    unsigned char *in_buffer;   /**< the stdio buffer of music_in, or NULL */
     SNDFILE *snd_file;
     hip_t     hip;
     PcmBuffer pcm32;
@@ -900,6 +901,7 @@ close_infile(audio_reader * reader)
     }
 #endif
     close_input_file(reader->music_in);
+    free(reader->in_buffer);
 #ifdef LIBSNDFILE
     if (reader->snd_file) {
         if (sf_close(reader->snd_file) != 0) {
@@ -2399,6 +2401,32 @@ open_mpeg_file_part2(LAME_UNUSED audio_reader * reader, lame_t gfp, LAME_UNUSED 
 }
 
 
+/** @internal @brief The size of the stdio buffer an input file is read through. */
+#define INPUT_BUFFER_BYTES (64 * 1024)
+
+/**
+ * @internal
+ * @brief Gives a file the reader opened a larger stdio buffer.
+ *
+ * It must be called before the first read. The buffer belongs to the reader,
+ * which frees it after the file is closed. Without memory for it, the file
+ * keeps the C library's buffer.
+ *
+ * @param reader   the reader of the input file.
+ * @param musicin  the file, just opened; not standard input, which stays
+ *                 open after the reader is closed.
+ */
+static void
+set_input_buffer(audio_reader * reader, FILE * musicin)
+{
+    reader->in_buffer = malloc(INPUT_BUFFER_BYTES);
+    if (reader->in_buffer != NULL
+        && setvbuf(musicin, (char *) reader->in_buffer, _IOFBF, INPUT_BUFFER_BYTES) != 0) {
+        free(reader->in_buffer);
+        reader->in_buffer = NULL;
+    }
+}
+
 static FILE *
 open_wave_file(audio_reader * reader, lame_t gfp, char const *inPath, int *enc_delay,
                int *enc_padding)
@@ -2416,6 +2444,7 @@ open_wave_file(audio_reader * reader, lame_t gfp, char const *inPath, int *enc_d
             reader_error("Could not find \"%s\".\n", inPath);
             return 0;
         }
+        set_input_buffer(reader, musicin);
     }
 
     if (frontend_config.reader.input_format == sf_ogg) {
