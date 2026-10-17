@@ -582,8 +582,10 @@ test_decode_reader_refuses_nan(void **state)
  * @brief Checks that the reader returns an error when its sample buffer
  *        cannot grow.
  *
- * The first read grows the buffer. Here realloc() fails, so the read must
- * return a negative value and not a count of samples it did not store.
+ * A read goes through the sample buffer when samples are held back at the
+ * end, and the first such read grows the buffer. Here realloc() fails, so the
+ * read must return a negative value and not a count of samples it did not
+ * store.
  *
  * @param state cmocka fixture state (unused).
  */
@@ -596,6 +598,7 @@ test_buffer_growth_failure_is_an_error(LAME_UNUSED void **state)
 
     assert_non_null(gfp);
     open_reader(gfp, float_wave(1, odd_samples, 7, 0), 0);
+    reader.pcmf.skip_end = 1;
     realloc_fails = 1;
     got = get_audio_float(&reader, gfp, buffer);
     realloc_fails = 0;
