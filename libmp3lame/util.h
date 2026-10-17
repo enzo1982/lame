@@ -85,6 +85,9 @@ extern  "C" {
 #define MAX_BITS_PER_CHANNEL 4095
 #define MAX_BITS_PER_GRANULE 7680
 
+/* the highest free format bitrate the encoder uses, in kbit/s */
+#define MAX_FREE_FORMAT_KBPS 640
+
 /* the loudest input the encoder takes, in multiples of full scale, and the
    largest scale factor the scale setters accept: 2^12 (+72 dB) */
 #define MAX_INPUT_SCALE 4096.0f

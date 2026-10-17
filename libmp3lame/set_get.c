@@ -763,7 +763,8 @@ lame_get_force_ms(const lame_global_flags * gfp)
 /*!
   With free format, a frame can use any bitrate, not only one of the values in
   the standard's table. So a bitrate between or above the table values is
-  possible. Many decoders do not support free format. For this reason LAME
+  possible, up to 640 kbps: \c lame_init_params() encodes a higher one at
+  640 kbps. Many decoders do not support free format. For this reason LAME
   warns about bitrates above 320 kbps. A free-format file may not play in
   other programs. The default is off.
 

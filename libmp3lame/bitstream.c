@@ -77,7 +77,7 @@ getframebits(const lame_internal_flags * gfc)
     else
         bit_rate = cfg->avg_bitrate;
     /*assert(bit_rate <= 550); */
-    assert(8 <= bit_rate && bit_rate <= 640);
+    assert(8 <= bit_rate && bit_rate <= MAX_FREE_FORMAT_KBPS);
 
     /* main encoding routine toggles padding on and off */
     /* one Layer3 Slot consists of 8 bits */

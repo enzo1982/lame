@@ -363,7 +363,8 @@ int CDECL lame_get_mode_automs(const lame_global_flags *);
 int CDECL lame_set_force_ms(lame_global_flags *, int);
 int CDECL lame_get_force_ms(const lame_global_flags *);
 
-/* use free_format?  default = 0 (disabled) */
+/* use free_format?  default = 0 (disabled)
+   The bitrate is then at most 640 kbps; a higher one is encoded at 640. */
 int CDECL lame_set_free_format(lame_global_flags *, int);
 int CDECL lame_get_free_format(const lame_global_flags *);
 

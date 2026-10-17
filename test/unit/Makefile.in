@@ -1375,7 +1375,7 @@ SH_LOG_COMPILER = $(SHELL)
 
 # The bitrates a free format stream can be prepared for are decided by
 # lame_init_params(), so this test links libmp3lame and asks it directly. It
-# encodes nothing, which is why it costs microseconds.
+# encodes only a few frames, which is why it costs milliseconds.
 @ENABLE_UNIT_TESTS_TRUE@test_free_format_SOURCES = test_free_format.c
 @ENABLE_UNIT_TESTS_TRUE@test_free_format_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \

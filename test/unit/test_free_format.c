@@ -12,8 +12,9 @@
  * \c lame_init_params() rejects these settings. The encoder does not fail
  * later, partway through the first frame.
  *
- * The tests call only \c lame_init_params(), because that function makes the
- * decision. So no audio is encoded, and each case takes a few microseconds.
+ * Most tests call only \c lame_init_params(), because that function makes the
+ * decision. They encode no audio, and take a few microseconds each. The test
+ * of a bitrate above the limit also encodes a few frames.
  *
  * Some of the tests check that the rejection is narrow. The bound is eight
  * bits (one byte) of room per granule. The tightest configuration that the
@@ -35,11 +36,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 
 #include <cmocka.h>
 
 #include "test_unused.h"
 #include "test_report.h"
+#include "test_encode.h"
 
 #include "lame.h"
 
@@ -200,6 +203,67 @@ test_a_huge_bitrate_gets_the_top_lowpass(LAME_UNUSED void **state)
     assert_int_equal(default_lowpass(65544), top);
 }
 
+/** @brief The samples per channel of the encode in check_encoded_at_the_limit(). */
+#define LIMIT_SAMPLES 4608
+/** @brief The size of the stream buffer of check_encoded_at_the_limit(), in bytes. */
+#define LIMIT_STREAM_BYTES 65536
+
+/**
+ * @brief Prepares a stereo stream at 44.1 kHz and @p kbps, then asks for
+ *        success, 640 kbit/s from lame_get_brate(), and encoded frames.
+ * @param kbps the bitrate to ask for, above 640.
+ */
+static void
+check_encoded_at_the_limit(int kbps)
+{
+    static short left[LIMIT_SAMPLES], right[LIMIT_SAMPLES];
+    static unsigned char stream[LIMIT_STREAM_BYTES];
+    lame_t  gfp = lame_init();
+    int     i;
+
+    for (i = 0; i < LIMIT_SAMPLES; i++)
+        left[i] = right[i] = (short) ((i * 37) % 2000 - 1000);
+    assert_non_null(gfp);
+    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
+    assert_int_equal(lame_set_in_samplerate(gfp, 44100), 0);
+    assert_int_equal(lame_set_out_samplerate(gfp, 44100), 0);
+    assert_int_equal(lame_set_brate(gfp, kbps), 0);
+    assert_int_equal(lame_set_free_format(gfp, 1), 0);
+    assert_int_equal(lame_init_params(gfp), 0);
+    assert_int_equal(lame_get_brate(gfp), 640);
+    assert_true(encode_collect(gfp, left, right, LIMIT_SAMPLES, 1, 0, stream,
+                               (int) sizeof stream) > 0);
+    (void) lame_close(gfp);
+}
+
+/**
+ * @brief Checks that a free format bitrate above 640 kbit/s is encoded at 640.
+ *
+ * 641 is one above the limit. 65544 kbit/s makes the frame size larger than an
+ * int holds.
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_a_bitrate_above_the_limit_is_encoded_at_it(LAME_UNUSED void **state)
+{
+    check_encoded_at_the_limit(641);
+    check_encoded_at_the_limit(65544);
+}
+
+/**
+ * @brief Checks that a negative free format bitrate is refused, with a
+ *        message.
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_a_negative_bitrate_is_refused(LAME_UNUSED void **state)
+{
+    assert_int_not_equal(try_settings(44100, 2, -1, 1, 0), 0);
+    assert_true(report_calls > 0);
+    assert_int_not_equal(try_settings(44100, 2, INT_MIN, 1, 0), 0);
+    assert_true(report_calls > 0);
+}
+
 int
 main(void)
 {
@@ -210,6 +274,8 @@ main(void)
         cmocka_unit_test(test_the_floor_follows_the_sample_rate),
         cmocka_unit_test(test_the_tightest_tabulated_stream_is_accepted),
         cmocka_unit_test(test_a_huge_bitrate_gets_the_top_lowpass),
+        cmocka_unit_test(test_a_bitrate_above_the_limit_is_encoded_at_it),
+        cmocka_unit_test(test_a_negative_bitrate_is_refused),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

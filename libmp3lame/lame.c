@@ -484,7 +484,7 @@ lowest_usable_free_format_bitrate(SessionConfig_t const *const cfg)
 {
     int     kbps;
 
-    for (kbps = 8; kbps <= 640; ++kbps) {
+    for (kbps = 8; kbps <= MAX_FREE_FORMAT_KBPS; ++kbps) {
         if (mean_bits_per_granule(cfg, kbps) >= MIN_MEAN_BITS_PER_GRANULE)
             return kbps;
     }
@@ -756,6 +756,10 @@ init_params(lame_global_flags * gfp)
         if (!cfg->free_format) /* for non Free Format find the nearest allowed bitrate */
             gfp->brate = FindNearestBitrate(gfp->brate, cfg->version, gfp->samplerate_out);
     }
+    /* A free format bitrate above MAX_FREE_FORMAT_KBPS is encoded at that limit.
+       A negative one becomes 0, which the check for room in a frame refuses. */
+    if (cfg->free_format)
+        gfp->brate = Max(0, Min(gfp->brate, MAX_FREE_FORMAT_KBPS));
     if (gfp->samplerate_out) {
         if (gfp->samplerate_out < 16000) {
             gfp->VBR_mean_bitrate_kbps = Max(gfp->VBR_mean_bitrate_kbps, 8);

@@ -512,6 +512,10 @@
 			        include what they use, and text is formatted only
 			        within the buffer that holds it. The encoded output
 			        does not change.</li>
+			    <li>A free format bitrate above 640 kbit/s, set through
+			        the library, is encoded at 640 kbit/s, the limit of
+			        the <i>lame</i> frontend. It no longer stops the
+			        program at the first frame.</li>
 			    <li><i>lame_print_config()</i> and
 			        <i>lame_print_internals()</i> no longer crash on an
 			        invalid instance; they do nothing, as the other calls

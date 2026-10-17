@@ -337,7 +337,7 @@ test_bitstream_headers_LDADD = $(CMOCKA_LIBS) \
 
 # The bitrates a free format stream can be prepared for are decided by
 # lame_init_params(), so this test links libmp3lame and asks it directly. It
-# encodes nothing, which is why it costs microseconds.
+# encodes only a few frames, which is why it costs milliseconds.
 test_free_format_SOURCES = test_free_format.c
 test_free_format_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \

@@ -434,8 +434,9 @@ nearestBitrateFullIndex(int bitrate)
         }
     }
 
-    /* Determine which range the value specified is closer to */
-    if ((upper_range_kbps - bitrate) > (bitrate - lower_range_kbps)) {
+    /* Determine which range the value specified is closer to; the distances in
+       double, which holds every difference of two ints exactly */
+    if (((double) upper_range_kbps - bitrate) > ((double) bitrate - lower_range_kbps)) {
         return lower_range;
     }
     return upper_range;
