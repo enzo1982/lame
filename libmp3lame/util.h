@@ -304,10 +304,16 @@ extern  "C" {
 #ifndef  MFSIZE
 # define MFSIZE  ( 3*1152 + ENCDELAY - MDCTDELAY )
 #endif
-        sample_t mfbuf[2][MFSIZE];
+/* The frames of 1152 samples, the longest frame, that mfbuf holds beyond
+   MFSIZE: the samples in use move down to its start only when the next frame
+   would not fit behind them. */
+#define MFBUF_SLIDE_FRAMES 4
+#define MFBUF_SIZE  ( MFSIZE + MFBUF_SLIDE_FRAMES*1152 )
+        sample_t mfbuf[2][MFBUF_SIZE];
 
         int     mf_samples_to_encode;
-        int     mf_size;
+        int     mf_size;        /* the samples in use, from mfbuf[ch][mf_start] on */
+        int     mf_start;       /* where in mfbuf the current frame starts */
 
         /* set when the quantization could not fit a frame into its bits, or the
            bits written disagree with the bit reservoir; every later encode call

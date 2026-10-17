@@ -1824,7 +1824,7 @@ lame_encode_buffer_sample_t(lame_internal_flags * gfc,
     SessionConfig_t const *const cfg = &gfc->cfg;
     EncStateVar_t *const esv = &gfc->sv_enc;
     int     pcm_samples_per_frame = 576 * cfg->mode_gr;
-    int     mp3size = 0, ret, i, ch, mf_needed;
+    int     mp3size = 0, ret, ch, mf_needed;
     int     mp3out;
     sample_t *mfbuf[2];
     sample_t *in_buffer[2];
@@ -1852,14 +1852,23 @@ lame_encode_buffer_sample_t(lame_internal_flags * gfc,
 
     mf_needed = calcNeeded(cfg);
 
-    mfbuf[0] = esv->mfbuf[0];
-    mfbuf[1] = esv->mfbuf[1];
-
     while (nsamples > 0) {
         sample_t const *in_buffer_ptr[2];
         int     n_in = 0;    /* number of input samples processed with fill_buffer */
         int     n_out = 0;   /* number of samples output with fill_buffer */
         /* n_in <> n_out if we are resampling */
+
+        /* move the samples in use to the start of mfbuf only when the next
+           frame of input would not fit behind them */
+        if (esv->mf_size < mf_needed
+            && esv->mf_start + esv->mf_size + pcm_samples_per_frame > MFBUF_SIZE) {
+            for (ch = 0; ch < cfg->channels_out; ch++)
+                memmove(&esv->mfbuf[ch][0], &esv->mfbuf[ch][esv->mf_start],
+                        esv->mf_size * sizeof(esv->mfbuf[0][0]));
+            esv->mf_start = 0;
+        }
+        mfbuf[0] = &esv->mfbuf[0][esv->mf_start];
+        mfbuf[1] = &esv->mfbuf[1][esv->mf_start];
 
         in_buffer_ptr[0] = in_buffer[0];
         in_buffer_ptr[1] = in_buffer[1];
@@ -1888,6 +1897,7 @@ lame_encode_buffer_sample_t(lame_internal_flags * gfc,
         /* update mfbuf[] counters */
         esv->mf_size += n_out;
         assert(esv->mf_size <= MFSIZE);
+        assert(esv->mf_start + esv->mf_size <= MFBUF_SIZE);
         
         /* lame_encode_flush may have set gfc->mf_sample_to_encode to 0
          * so we have to reinitialize it here when that happened.
@@ -1921,12 +1931,10 @@ lame_encode_buffer_sample_t(lame_internal_flags * gfc,
                 mp3size += ret;
             }
 
-            /* shift out old samples */
+            /* the next frame starts one frame later */
+            esv->mf_start += pcm_samples_per_frame;
             esv->mf_size -= pcm_samples_per_frame;
             esv->mf_samples_to_encode -= pcm_samples_per_frame;
-            for (ch = 0; ch < cfg->channels_out; ch++)
-                for (i = 0; i < esv->mf_size; i++)
-                    mfbuf[ch][i] = mfbuf[ch][i + pcm_samples_per_frame];
         }
     }
     assert(nsamples == 0);
