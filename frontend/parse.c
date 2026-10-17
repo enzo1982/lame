@@ -1595,9 +1595,26 @@ int isCommonSuffix(char const* s_ext)
 }
 
 
-int generateOutPath(char const* inPath, char const* outDir, char const* s_ext, char* outPath)
+/**
+ * @internal
+ * @brief Builds the name of an output file from the name of its input file.
+ *
+ * The name is the output directory, or the directory of the input file if
+ * there is none, then the base name of the input file, then its suffix, then
+ * @p s_ext. A suffix in #known_suffixes is left out, except when there is no
+ * output directory and the suffix is @p s_ext.
+ *
+ * @param inPath        the name of the input file.
+ * @param outDir        the output directory, or NULL or "" for none.
+ * @param s_ext         the suffix of the output file, with its dot.
+ * @param outPath       receives the name, NUL-terminated.
+ * @param outPath_size  the size of @p outPath, in bytes.
+ * @return 0 on success. 1 if the name does not fit into @p outPath. Then the
+ *         function prints an error, and @p outPath holds a part of the name.
+ */
+int generateOutPath(char const* inPath, char const* outDir, char const* s_ext, char* outPath,
+                    size_t outPath_size)
 {
-    size_t const max_path = PATH_MAX;
     size_t i = 0;
     int out_dir_used = 0;
 
@@ -1605,13 +1622,13 @@ int generateOutPath(char const* inPath, char const* outDir, char const* s_ext, c
         out_dir_used = 1;
         while (*outDir) {
             outPath[i++] = *outDir++;
-            if (i >= max_path) {
+            if (i >= outPath_size) {
                 goto err_generateOutPath;
             }
         }
         if (i > 0 && outPath[i-1] != SLASH) {
             outPath[i++] = SLASH;
-            if (i >= max_path) {
+            if (i >= outPath_size) {
                 goto err_generateOutPath;
             }
         }
@@ -1621,7 +1638,7 @@ int generateOutPath(char const* inPath, char const* outDir, char const* s_ext, c
         char const* pa;
         char const* pb;
         size_t j, n = scanPath(inPath, &pa, &pb);
-        if (i+n >= max_path) {
+        if (i+n >= outPath_size) {
             goto err_generateOutPath;
         }
         for (j = 0; j < n; ++j) {
@@ -1629,7 +1646,7 @@ int generateOutPath(char const* inPath, char const* outDir, char const* s_ext, c
         }
         if (n > 0) {
             outPath[i++] = SLASH;
-            if (i >= max_path) {
+            if (i >= outPath_size) {
                 goto err_generateOutPath;
             }
         }
@@ -1640,7 +1657,7 @@ int generateOutPath(char const* inPath, char const* outDir, char const* s_ext, c
         char const* na;
         char const* nb;
         size_t j, n = scanBasename(inPath, &na, &nb);
-        if (i+n >= max_path) {
+        if (i+n >= outPath_size) {
             goto err_generateOutPath;
         }
         for (j = 0; j < n; ++j) {
@@ -1658,20 +1675,20 @@ int generateOutPath(char const* inPath, char const* outDir, char const* s_ext, c
         if (replace_suffix == 0) {
             while (*nb) {
                 outPath[i++] = *nb++;
-                if (i >= max_path) {
+                if (i >= outPath_size) {
                     goto err_generateOutPath;
                 }
             }
             outPath[i] = 0;
         }
     }
-    if (i+5 >= max_path) {
-        goto err_generateOutPath;
+    {
+        size_t const ext_n = lame_strnlen(s_ext, outPath_size);
+        if (ext_n >= outPath_size - i) {
+            goto err_generateOutPath;
+        }
+        snprintf(outPath + i, outPath_size - i, "%s", s_ext);
     }
-    while (*s_ext) {
-        outPath[i++] = *s_ext++;
-    }
-    outPath[i] = 0;
     return 0;
 err_generateOutPath:
     error_printf( "error: output file name too long\n" );
@@ -3154,7 +3171,7 @@ parse_args_(lame_global_flags * gfp, int argc, char **argv,
         }
         else {
             char const* s_ext = lame_get_decode_only(gfp) ? ".wav" : ".mp3";
-            if (generateOutPath(inPath, outDir, s_ext, outPath) != 0) {
+            if (generateOutPath(inPath, outDir, s_ext, outPath, PATH_MAX + 1) != 0) {
                 return -1;
             }
         }

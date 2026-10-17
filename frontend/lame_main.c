@@ -923,7 +923,7 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
           /* for nogap encoding of multiple input files, it is not possible to
            * specify the output file name, only an optional output directory. */
           for (i = 0; i < max_nogap; ++i) {
-              if (generateOutPath(nogap_inPath[i], outDir, ".mp3", nogap_outPath[i]) != 0) {
+              if (generateOutPath(nogap_inPath[i], outDir, ".mp3", nogap_outPath[i], PATH_MAX + 1) != 0) {
                   error_printf("processing nogap file %d: %s\n", i+1, nogap_inPath[i]);
                   return -1;
               }

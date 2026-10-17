@@ -22,7 +22,8 @@ sound_file_format frontend_classify_suffix(const char *path);
 int     parse_args(lame_global_flags * gfp, int argc, char **argv, char *const inPath,
                    char *const outPath, char *const outDir, char **nogap_inPath, int *num_nogap);
 
-int     generateOutPath(char const* inPath, char const* outDir, char const* s_ext, char* outPath);
+int     generateOutPath(char const* inPath, char const* outDir, char const* s_ext, char* outPath,
+                        size_t outPath_size);
 
 #if defined(__cplusplus)
 }

@@ -5,8 +5,9 @@
  *        @c generateOutPath() replaces, in @c frontend/parse.c.
  *
  * Both read one table of file name suffixes. The tests check the input format
- * that a suffix hints at, the cases where a file name has no suffix, and the
- * output name that a known and an unknown suffix give.
+ * that a suffix hints at, the cases where a file name has no suffix, the
+ * output name that a known and an unknown suffix give, and that the output
+ * name stays inside its buffer.
  *
  * The test includes the whole translation unit with @c \#include, as the
  * other tests of @c parse.c do. @c parse_test_stubs.c supplies the console and
@@ -83,12 +84,47 @@ test_output_name(LAME_UNUSED void **state)
 {
     static char out[PATH_MAX + 1];
 
-    assert_int_equal(generateOutPath("song.wave", NULL, ".mp3", out), 0);
+    assert_int_equal(generateOutPath("song.wave", NULL, ".mp3", out, sizeof out), 0);
     assert_string_equal(out, "song.mp3");
-    assert_int_equal(generateOutPath("song.flac", NULL, ".mp3", out), 0);
+    assert_int_equal(generateOutPath("song.flac", NULL, ".mp3", out, sizeof out), 0);
     assert_string_equal(out, "song.mp3");
-    assert_int_equal(generateOutPath("song.xyz", NULL, ".mp3", out), 0);
+    assert_int_equal(generateOutPath("song.xyz", NULL, ".mp3", out, sizeof out), 0);
     assert_string_equal(out, "song.xyz.mp3");
+}
+
+/** @brief The size of the output buffer of test_output_name_size(). */
+#define NAME_BYTES 16
+/** @brief The bytes after that buffer that generateOutPath() must not write. */
+#define GUARD_BYTES 8
+/** @brief The value of each guard byte. */
+#define GUARD_VALUE 0x7f
+
+/**
+ * @brief Checks that the output name fails when the output suffix does not fit
+ *        the buffer, and is built when it just fits.
+ *
+ * "song.xyz" keeps its unknown suffix, and the output suffix has seven
+ * characters. So the name is 15 characters, and needs all 16 bytes of the
+ * buffer with its NUL.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_output_name_size(LAME_UNUSED void **state)
+{
+    char    out[NAME_BYTES + GUARD_BYTES];
+    size_t  i;
+
+    memset(out, GUARD_VALUE, sizeof out);
+    assert_int_equal(generateOutPath("song.xyz", NULL, ".abcdef", out, NAME_BYTES - 1), 1);
+    for (i = NAME_BYTES - 1; i < sizeof out; ++i)
+        assert_int_equal(out[i], GUARD_VALUE);
+
+    memset(out, GUARD_VALUE, sizeof out);
+    assert_int_equal(generateOutPath("song.xyz", NULL, ".abcdef", out, NAME_BYTES), 0);
+    assert_string_equal(out, "song.xyz.abcdef");
+    for (i = NAME_BYTES; i < sizeof out; ++i)
+        assert_int_equal(out[i], GUARD_VALUE);
 }
 
 /** @brief Registers and runs the suffix tests. */
@@ -99,6 +135,7 @@ main(void)
         cmocka_unit_test(test_suffix_formats),
         cmocka_unit_test(test_no_suffix),
         cmocka_unit_test(test_output_name),
+        cmocka_unit_test(test_output_name_size),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
