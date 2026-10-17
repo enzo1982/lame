@@ -506,6 +506,7 @@ struct audio_reader {
     int     pcm_is_unsigned_8bit;
     int     pcm_is_ieee_float;
     int     input_ends_inside_a_frame;
+    int     input_shorter_than_its_tag;
     unsigned long num_samples_read;
     unsigned long num_samples_above_full_scale;
     FILE   *music_in;
@@ -869,6 +870,23 @@ input_ends_inside_a_frame(audio_reader const * reader)
 
 /**
  * @internal
+ * @brief Tells whether the input file holds fewer samples than the encoder
+ *        delay and padding in its LAME tag.
+ *
+ * Such an input gives no samples. The result covers the part of the file that
+ * was read so far, and is 0 again for each new input file.
+ *
+ * @param reader  the reader of the input file.
+ * @return 1 if the input is shorter than its tag says, else 0.
+ */
+int
+input_shorter_than_its_tag(audio_reader const * reader)
+{
+    return reader->input_shorter_than_its_tag;
+}
+
+/**
+ * @internal
  * @brief Tells whether the open input file contains floating point samples.
  *
  * The frontend reads such a file with @c get_audio_float() and encodes it with
@@ -1016,8 +1034,9 @@ count_above_full_scale(lame_t gfp, float const *l, float const *r, int n)
  *                same two arrays.
  * @param left    the first channel of the output.
  * @param right   the second channel of the output.
- * @return the number of samples per channel. 0 at the end of the input, and a
- *         negative value on an error.
+ * @return the number of samples per channel. 0 at the end of the input, also
+ *         when the input is shorter than the delay and padding in its tag,
+ *         and a negative value on an error.
  */
 static int
 read_frame(audio_reader * reader, lame_t gfp, PcmBuffer * pcm, frame_dest const *dest,
@@ -1043,6 +1062,14 @@ read_frame(audio_reader * reader, lame_t gfp, PcmBuffer * pcm, frame_dest const 
     } while (used <= 0 && read > 0);
     if (read < 0) {
         return read;
+    }
+    if (used < 0) {
+        if (!reader->input_shorter_than_its_tag) {
+            reader->input_shorter_than_its_tag = 1;
+            reader_error("Error: the input holds fewer samples than the encoder delay and\n"
+                         "       padding in its LAME tag. It gives no samples.\n");
+        }
+        return 0;
     }
     if (frontend_config.reader.swap_channel == 0)
         return takePcmBuffer(pcm, left, right, used, FRAME_BUFFER_SAMPLES);

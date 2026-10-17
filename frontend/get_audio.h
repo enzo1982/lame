@@ -57,6 +57,7 @@ int     samples_to_skip_at_start(audio_reader const * reader);
 int     samples_to_skip_at_end(audio_reader const * reader);
 unsigned long samples_above_full_scale(audio_reader const * reader);
 int     input_ends_inside_a_frame(audio_reader const * reader);
+int     input_shorter_than_its_tag(audio_reader const * reader);
 int     input_is_float(audio_reader const * reader);
 void    close_infile(audio_reader * reader);
 int     get_audio(audio_reader * reader, lame_t gfp, int buffer[2][FRAME_BUFFER_SAMPLES]);

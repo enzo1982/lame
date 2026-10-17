@@ -308,7 +308,7 @@ lame_decoder_loop(lame_t gfp, audio_reader * reader, FILE * outf, char *inPath, 
 
     if (dp != 0)
         decoder_progress_finish(dp);
-    if (input_ends_inside_a_frame(reader))
+    if (input_ends_inside_a_frame(reader) || input_shorter_than_its_tag(reader))
         return -1;
     return 0;
 
@@ -849,7 +849,7 @@ lame_encoder_loop(lame_global_flags * gf, audio_reader * reader, FILE * outf, in
     if (frontend_config.ui_config.silent <= 0) {
         print_trailing_info(gf, reader);
     }
-    if (input_ends_inside_a_frame(reader))
+    if (input_ends_inside_a_frame(reader) || input_shorter_than_its_tag(reader))
         return ENCODE_INPUT_FAILED;
     return 0;
 }
