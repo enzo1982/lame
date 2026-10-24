@@ -1688,24 +1688,31 @@ set_id3_albumart(lame_t gfp, char const* file_name)
         ret = 1;
     }
     else {
-        size_t size;
         char *albumart = 0;
+        long end = -1;
 
-        fseek(fpi, 0, SEEK_END);
-        size = ftell(fpi);
-        fseek(fpi, 0, SEEK_SET);
-        albumart = (char *)malloc(size);
-        if (!albumart) {
-            ret = 2;            
+        /* A pipe, or a file too large for a long, has no size to read. */
+        if (fseek(fpi, 0, SEEK_END) == 0)
+            end = ftell(fpi);
+        if (end < 0 || fseek(fpi, 0, SEEK_SET) != 0) {
+            ret = 5;
         }
         else {
-            if (fread(albumart, 1, size, fpi) != size) {
-                ret = 3;
+            size_t const size = (size_t) end;
+
+            albumart = (char *)malloc(size);
+            if (!albumart) {
+                ret = 2;
             }
             else {
-                ret = id3tag_set_albumart(gfp, albumart, size) ? 4 : 0;
+                if (fread(albumart, 1, size, fpi) != size) {
+                    ret = 3;
+                }
+                else {
+                    ret = id3tag_set_albumart(gfp, albumart, size) ? 4 : 0;
+                }
+                free(albumart);
             }
-            free(albumart);
         }
         fclose(fpi);
     }
@@ -1714,6 +1721,7 @@ set_id3_albumart(lame_t gfp, char const* file_name)
     case 2: error_printf("Insufficient memory for reading the albumart.\n"); break;
     case 3: error_printf("Read error: '%s'.\n", file_name); break;
     case 4: error_printf("Unsupported image: '%s'.\nSpecify JPEG/PNG/GIF image\n", file_name); break;
+    case 5: error_printf("Cannot read the album art from '%s': its size is not known.\n", file_name); break;
     default: break;
     }
     return ret;

@@ -58,8 +58,8 @@ TESTS += test_pkgconfig.sh
 # the bitrate histogram of a CBR encode, the byte order of --decode -x, the
 # times --preserve-modtime gives an output whose writing failed, the exit
 # status for an output whose end could not be written, the ReplayGain
-# frames at the largest ID3v2 padding, and an MP3 shorter than the delay
-# and padding in its LAME tag.
+# frames at the largest ID3v2 padding, an MP3 shorter than the delay
+# and padding in its LAME tag, and album art read from a pipe.
 # These drive the built lame binary rather
 # than the library, so they need the source root for the test input as well as
 # the build root for the binary; both are exported below. They run only where
@@ -77,6 +77,7 @@ TESTS += test_preserve_modtime.sh
 TESTS += test_output_complete.sh
 TESTS += test_replaygain_pad_max.sh
 TESTS += test_short_mp3.sh
+TESTS += test_albumart_pipe.sh
 endif
 # The exit status of mp3rtp. It skips where mp3rtp is not built.
 if HAVE_SOCKETS
@@ -640,4 +641,4 @@ EXTRA_DIST += test_pkgconfig.sh
 EXTRA_DIST += test_exit_status.sh test_swap_channel.sh test_pipe_length.sh test_mp3rtp_status.sh \
 	test_preset_range.sh test_nogap_files.sh test_brhist_cbr.sh \
 	test_nogap_failures.sh test_decode_swap.sh test_preserve_modtime.sh \
-	test_output_complete.sh test_replaygain_pad_max.sh test_short_mp3.sh
+	test_output_complete.sh test_replaygain_pad_max.sh test_short_mp3.sh \n	test_albumart_pipe.sh
