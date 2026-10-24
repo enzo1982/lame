@@ -1387,11 +1387,13 @@ SH_LOG_COMPILER = $(SHELL)
 @ENABLE_UNIT_TESTS_TRUE@	-lm
 
 
-# The size of the LAME tag frame and the tag in it are both public output, so
-# this test links libmp3lame and asks lame_get_lametag_frame() directly.
+# The size of the LAME tag frame and the tag in it are public output, so this
+# test links libmp3lame and asks lame_get_lametag_frame(); one case sets the
+# encoder's internal byte count, which needs the library's own headers.
 @ENABLE_UNIT_TESTS_TRUE@test_lametag_room_SOURCES = test_lametag_room.c
 @ENABLE_UNIT_TESTS_TRUE@test_lametag_room_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/include \
+@ENABLE_UNIT_TESTS_TRUE@	-I$(top_srcdir)/libmp3lame \
 @ENABLE_UNIT_TESTS_TRUE@	-I$(top_builddir)
 
 @ENABLE_UNIT_TESTS_TRUE@test_lametag_room_LDADD = $(CMOCKA_LIBS) \

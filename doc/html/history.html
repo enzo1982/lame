@@ -343,6 +343,9 @@
 			        being cut short in silence. As much of it as could
 			        be converted is still written, and the value that
 			        lost part of itself is named.</li>
+			    <li>For a stream of 4 GiB or more, the Xing header and the
+			        LAME tag give the largest size their 32-bit fields can
+			        hold, no longer the size less a multiple of 4 GiB.</li>
 			    <li>The LAME tag no longer stores a wrong peak for float
 			        input louder than 256 times full scale.</li>
 			    <li><i>--ti</i> with album art that has no size, such as

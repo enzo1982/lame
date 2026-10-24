@@ -347,11 +347,13 @@ test_free_format_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \
 	-lm
 
-# The size of the LAME tag frame and the tag in it are both public output, so
-# this test links libmp3lame and asks lame_get_lametag_frame() directly.
+# The size of the LAME tag frame and the tag in it are public output, so this
+# test links libmp3lame and asks lame_get_lametag_frame(); one case sets the
+# encoder's internal byte count, which needs the library's own headers.
 test_lametag_room_SOURCES = test_lametag_room.c
 test_lametag_room_CPPFLAGS = $(AM_CPPFLAGS) $(CMOCKA_CFLAGS) \
 	-I$(top_srcdir)/include \
+	-I$(top_srcdir)/libmp3lame \
 	-I$(top_builddir)
 test_lametag_room_LDADD = $(CMOCKA_LIBS) \
 	$(top_builddir)/libmp3lame/libmp3lame.la \

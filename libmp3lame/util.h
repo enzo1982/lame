@@ -141,7 +141,7 @@ extern  "C" {
 
     typedef struct {
         int    *bag;         /* pointer to our bag */
-        unsigned long nBytesWritten;
+        uint64_t nBytesWritten;      /* the bytes of the stream so far, 64 bits everywhere */
         int     sum;         /* what we have seen so far */
         int     seen;        /* how many frames we have seen in this chunk */
         int     want;        /* how many frames we want to collect into one chunk */

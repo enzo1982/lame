@@ -15,8 +15,12 @@
  * The case checks that the tag ends at the last byte of the frame, that the
  * tag CRC is right, and that the guard bytes are unchanged.
  *
+ * One more test sets the encoder's count of the stream's bytes to 5 GiB and
+ * checks the two 32-bit fields that carry it: the Xing "bytes" field and the
+ * LAME tag's music length hold their largest value, not the count modulo 2^32.
+ *
  * These are library-level tests. They link libmp3lame and call the exported
- * API directly.
+ * API; the last one also sets the internal byte count directly.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -38,6 +42,10 @@
 #include "test_encode.h"
 
 #include "lame.h"
+#include "machine.h"
+#include "encoder.h"
+#include "util.h"
+#include "lame_global_flags.h"
 
 /** @brief The samples per channel of each encode call. */
 #define SAMPLES_PER_CALL 4608
@@ -191,6 +199,69 @@ test_the_tag_fits_its_frame(LAME_UNUSED void **state)
         check_room(&room_cases[k]);
 }
 
+/** @brief Offset of the Xing "bytes" field from the Xing or Info marker:
+ *         after the marker, the flags and the frame count, 4 bytes each. */
+#define XING_BYTES_OFFSET 12
+/** @brief Offset of the LAME tag's music length from the Xing or Info marker. */
+#define MUSIC_LENGTH_OFFSET (120 + 9 + 1 + 1 + 4 + 2 + 2 + 1 + 1 + 3 + 1 + 1 + 2)
+
+/**
+ * @brief Encodes a short CBR stream, sets the stream's byte count to
+ *        @p bytes, and reads the two size fields of the tag frame.
+ * @param bytes   the byte count to set.
+ * @param xing    receives the Xing "bytes" field.
+ * @param music   receives the LAME tag's music length.
+ */
+static void
+tag_sizes(uint64_t bytes, uint32_t *xing, uint32_t *music)
+{
+    unsigned char frame[2880];
+    lame_t  gfp = lame_init();
+    size_t  n;
+    int     start;
+
+    assert_non_null(gfp);
+    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
+    assert_int_equal(lame_set_in_samplerate(gfp, 44100), 0);
+    assert_int_equal(lame_set_out_samplerate(gfp, 44100), 0);
+    assert_int_equal(lame_set_brate(gfp, 128), 0);
+    assert_int_equal(lame_set_bWriteVbrTag(gfp, 1), 0);
+    assert_int_equal(lame_init_params(gfp), 0);
+    assert_true(encode_collect(gfp, left, right, SAMPLES_PER_CALL, CALLS, SAMPLES_PER_CALL, stream,
+                               (int) sizeof stream) > 0);
+    gfp->internal_flags->VBR_seek_table.nBytesWritten = bytes;
+    n = lame_get_lametag_frame(gfp, frame, sizeof frame);
+    assert_true(n > 0 && n <= sizeof frame);
+    start = sideinfo_bytes(1, 2);
+    assert_memory_equal(frame + start, "Info", 4);
+    *xing = ((uint32_t) frame[start + XING_BYTES_OFFSET] << 24) | ((uint32_t) frame[start + XING_BYTES_OFFSET + 1] << 16)
+        | ((uint32_t) frame[start + XING_BYTES_OFFSET + 2] << 8) | frame[start + XING_BYTES_OFFSET + 3];
+    *music = ((uint32_t) frame[start + MUSIC_LENGTH_OFFSET] << 24) | ((uint32_t) frame[start + MUSIC_LENGTH_OFFSET + 1] << 16)
+        | ((uint32_t) frame[start + MUSIC_LENGTH_OFFSET + 2] << 8) | frame[start + MUSIC_LENGTH_OFFSET + 3];
+    assert_int_equal(tag_crc(frame, (size_t) start + TAG_BYTES - TAG_CRC_BYTES),
+                     (unsigned int) ((frame[start + TAG_BYTES - 2] << 8) | frame[start + TAG_BYTES - 1]));
+    (void) lame_close(gfp);
+}
+
+/**
+ * @brief Checks the size fields of a stream of 5 GiB, and of a small one as
+ *        the control.
+ * @param state  not used.
+ */
+static void
+test_a_stream_of_4gib_or_more(LAME_UNUSED void **state)
+{
+    uint32_t xing, music;
+    uint32_t const frame_bytes = 417;   /* the tag frame at 44.1 kHz, 128 kbit/s */
+
+    tag_sizes(1000, &xing, &music);
+    assert_int_equal(xing, 1000 + frame_bytes);
+    assert_int_equal(music, 1000 + frame_bytes);
+    tag_sizes((uint64_t) 5 << 30, &xing, &music);
+    assert_int_equal(xing, 0xFFFFFFFFu);
+    assert_int_equal(music, 0xFFFFFFFFu);
+}
+
 /**
  * @brief Runs the tests.
  * @return the number of failed tests.
@@ -200,6 +271,7 @@ main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_the_tag_fits_its_frame),
+        cmocka_unit_test(test_a_stream_of_4gib_or_more),
     };
     int     i;
 
