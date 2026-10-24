@@ -2599,8 +2599,7 @@ lame_get_noATH(const lame_global_flags * gfp)
   and in the frequency range they fit. In the current code, 4 and 5 use a
   shape parameter (\c lame_set_ATHcurve()), and the others do not.
 
-  A higher number is not a better curve. Any value outside 0 to 5 gives the
-  same curve as 2, without a message.
+  A higher number is not a better curve.
 
   The default is -1, which means "not set". \c lame_init_params() then chooses
   a formula. The choice can change between releases. Before
@@ -2608,13 +2607,16 @@ lame_get_noATH(const lame_global_flags * gfp)
   the formula in use. Read the getter. Do not assume a number.
 
   \param gfp      the encoder instance.
-  \param ATHtype  the formula, 0 to 5. This function does not check the value.
-  \return 0 on success. -1 if the instance is not usable.
+  \param ATHtype  the formula, 0 to 5, or -1 for the default.
+  \return 0 on success. -1 for any other value, which leaves the setting as
+          it was, or if the instance is not usable.
 */
 int
 lame_set_ATHtype(lame_global_flags * gfp, int ATHtype)
 {
     if (is_lame_global_flags_valid(gfp)) {
+        if (ATHtype < -1 || ATHtype > 5)
+            return -1;
         /* XXX: ATHtype should be converted to an enum. */
         gfp->ATHtype = ATHtype;
         return 0;

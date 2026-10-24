@@ -193,7 +193,6 @@ static const struct int_pair int_pairs[] = {
     { "ATHonly",               lame_set_ATHonly,               lame_get_ATHonly },
     { "ATHshort",              lame_set_ATHshort,              lame_get_ATHshort },
     { "noATH",                 lame_set_noATH,                 lame_get_noATH },
-    { "ATHtype",               lame_set_ATHtype,               lame_get_ATHtype },
     { "athaa_type",            lame_set_athaa_type,            lame_get_athaa_type },
 };
 
@@ -211,6 +210,32 @@ test_int_roundtrip(void **state)
         assert_int_equal(p->set(NULL, 7), -1);
         assert_int_equal(p->get(NULL), 0);
     }
+}
+
+/**
+ * @brief Checks that the ATH formula takes 0 to 5 and the default -1, and
+ *        refuses any other value, leaving the setting as it was.
+ *
+ * The LAME tag stores the formula in four bits. A value above 15 would change
+ * the flags beside them.
+ *
+ * @param state  the encoder instance of the fixture.
+ */
+static void
+test_athtype_range(void **state)
+{
+    lame_t gfp = (lame_t) *state;
+    int     t;
+
+    for (t = -1; t <= 5; ++t) {
+        assert_int_equal(lame_set_ATHtype(gfp, t), 0);
+        assert_int_equal(lame_get_ATHtype(gfp), t);
+    }
+    assert_int_equal(lame_set_ATHtype(gfp, 6), -1);
+    assert_int_equal(lame_set_ATHtype(gfp, 16), -1);
+    assert_int_equal(lame_set_ATHtype(gfp, -2), -1);
+    assert_int_equal(lame_get_ATHtype(gfp), 5);
+    assert_int_equal(lame_set_ATHtype(NULL, 2), -1);
 }
 
 /*
@@ -1385,6 +1410,7 @@ main(void)
         cmocka_unit_test(test_float_setters_refuse_nonfinite),
         cmocka_unit_test(test_scale_setters_refuse_beyond_bound),
         cmocka_unit_test(test_extreme_int_settings),
+        cmocka_unit_test_setup_teardown(test_athtype_range, lame_fixture_setup, lame_fixture_teardown),
         cmocka_unit_test(test_tiny_compression_ratio),
         cmocka_unit_test(test_vbr_with_cbr_bitrate_beyond_tables),
 #if INTERNAL_OPTS
