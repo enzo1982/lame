@@ -92,6 +92,41 @@ test_output_name(LAME_UNUSED void **state)
     assert_string_equal(out, "song.xyz.mp3");
 }
 
+/**
+ * @brief Checks which characters separate the directories of a path.
+ *
+ * On Windows both slashes do, so an input path written with @c / gives the
+ * same output name as one written with @c \\, and an output directory may end
+ * in either. The colon after a drive letter is kept as it was. Elsewhere only
+ * @c / separates, and a backslash is part of a name.
+ *
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_output_name_separators(LAME_UNUSED void **state)
+{
+    static char out[PATH_MAX + 1];
+
+#if defined(_WIN32)
+    assert_int_equal(generateOutPath("E:/d/song.wav", "out", ".mp3", out, sizeof out), 0);
+    assert_string_equal(out, "out\\song.mp3");
+    assert_int_equal(generateOutPath("E:\\d/song.wav", "out", ".mp3", out, sizeof out), 0);
+    assert_string_equal(out, "out\\song.mp3");
+    assert_int_equal(generateOutPath("E:/d/song.wav", NULL, ".mp3", out, sizeof out), 0);
+    assert_string_equal(out, "E:/d\\song.mp3");
+    assert_int_equal(generateOutPath("E:\\d\\song.wav", "out/", ".mp3", out, sizeof out), 0);
+    assert_string_equal(out, "out/song.mp3");
+    assert_int_equal(generateOutPath("E:song.wav", "E:", ".mp3", out, sizeof out), 0);
+    assert_string_equal(out, "E:\\song.mp3");
+    assert_int_equal(frontend_classify_suffix("E:/d.wav/song"), sf_unknown);
+#else
+    assert_int_equal(generateOutPath("d/x\\y.wav", NULL, ".mp3", out, sizeof out), 0);
+    assert_string_equal(out, "d/x\\y.mp3");
+    assert_int_equal(generateOutPath("d/song.wav", "out\\", ".mp3", out, sizeof out), 0);
+    assert_string_equal(out, "out\\/song.mp3");
+#endif
+}
+
 /** @brief The size of the output buffer of test_output_name_size(). */
 #define NAME_BYTES 16
 /** @brief The bytes after that buffer that generateOutPath() must not write. */
@@ -136,6 +171,7 @@ main(void)
         cmocka_unit_test(test_no_suffix),
         cmocka_unit_test(test_output_name),
         cmocka_unit_test(test_output_name_size),
+        cmocka_unit_test(test_output_name_separators),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }

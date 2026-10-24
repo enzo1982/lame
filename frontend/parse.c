@@ -1417,6 +1417,43 @@ resample_rate(double freq)
 #define SLASH '/'
 #endif
 
+/**
+ * @internal
+ * @brief Tells whether a character is a directory separator of a path.
+ *
+ * On Windows and OS/2 both @c \\ and @c / separate; elsewhere @c / does.
+ *
+ * @param c  the character.
+ * @return 1 if @p c is a separator, else 0.
+ */
+static int
+is_slash(char c)
+{
+#if defined(_WIN32) || defined(__OS2__)
+    return c == '\\' || c == '/';
+#else
+    return c == '/';
+#endif
+}
+
+/**
+ * @internal
+ * @brief Tells whether a character ends a part of a path: a separator, or on
+ *        Windows the colon after a drive letter.
+ *
+ * @param c  the character.
+ * @return 1 if @p c ends a part, else 0.
+ */
+static int
+is_path_separator(char c)
+{
+#ifdef _WIN32
+    if (c == COLON)
+        return 1;
+#endif
+    return is_slash(c);
+}
+
 static
 size_t scanPath(char const* s, char const** a, char const** b)
 {
@@ -1424,14 +1461,8 @@ size_t scanPath(char const* s, char const** a, char const** b)
     char const* s2 = s;
     if (s != 0) {
         for (; *s; ++s) {
-            switch (*s) {
-            case SLASH:
-#ifdef _WIN32
-            case COLON:
-#endif
+            if (is_path_separator(*s))
                 s2 = s;
-                break;
-            }
         }
 #ifdef _WIN32
         if (*s2 == COLON) {
@@ -1455,26 +1486,15 @@ size_t scanBasename(char const* s, char const** a, char const** b)
     char const* s2 = s;
     if (s != 0) {
         for (; *s; ++s) {
-            switch (*s) {
-            case SLASH:
-#ifdef _WIN32
-            case COLON:
-#endif
+            if (is_path_separator(*s))
                 s1 = s2 = s;
-                break;
-            case '.':
+            else if (*s == '.')
                 s2 = s;
-                break;
-            }
         }
         if (s2 == s1) {
             s2 = s;
         }
-        if (*s1 == SLASH 
-#ifdef _WIN32
-          || *s1 == COLON
-#endif
-           ) {
+        if (is_path_separator(*s1)) {
             ++s1;
         }
     }
@@ -1584,7 +1604,7 @@ int generateOutPath(char const* inPath, char const* outDir, char const* s_ext, c
                 goto err_generateOutPath;
             }
         }
-        if (i > 0 && outPath[i-1] != SLASH) {
+        if (i > 0 && !is_slash(outPath[i-1])) {
             outPath[i++] = SLASH;
             if (i >= outPath_size) {
                 goto err_generateOutPath;
