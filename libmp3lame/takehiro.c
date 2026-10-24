@@ -414,7 +414,7 @@ quantize_xrpow(const FLOAT * xp, int *pi, FLOAT istep, gr_info const *const cod_
                 int     usefullsize;
                 usefullsize = cod_info->granule.max_nonzero_coeff - j + 1;
                 memset(&pi[cod_info->granule.max_nonzero_coeff], 0,
-                       sizeof(int) * (576 - cod_info->granule.max_nonzero_coeff));
+                       sizeof(int) * (SAMPLES_PER_GRANULE - cod_info->granule.max_nonzero_coeff));
                 l = usefullsize;
 
                 if (l < 0) {
@@ -824,7 +824,7 @@ noquant_count_bits(lame_internal_flags const *const gfc,
     int     i, a1, a2;
     int const *const ix = gi->quant.l3_enc;
 
-    i = Min(576, ((gi->granule.max_nonzero_coeff + 2) >> 1) << 1);
+    i = Min(SAMPLES_PER_GRANULE, ((gi->granule.max_nonzero_coeff + 2) >> 1) << 1);
 
     if (prev_noise)
         prev_noise->sfb_count1 = 0;
@@ -872,7 +872,7 @@ noquant_count_bits(lame_internal_flags const *const gfc,
 
     }
     else if (gi->granule.block_type == NORM_TYPE) {
-        assert(i >= 2 && i <= 576); /* reads bv_scf[i-2] and bv_scf[i-1] of 576 */
+        assert(i >= 2 && i <= SAMPLES_PER_GRANULE); /* reads bv_scf[i-2] and bv_scf[i-1] of SAMPLES_PER_GRANULE */
         a1 = gi->huffman.region0_count = gfc->sv_qnt.bv_scf[i - 2];
         a2 = gi->huffman.region1_count = gfc->sv_qnt.bv_scf[i - 1];
 
@@ -1081,7 +1081,7 @@ best_huffman_divide(const lame_internal_flags * const gfc, gr_info * const gi)
         return;
 
     i = gi->huffman.count1 + 2;
-    if (i > 576)
+    if (i > SAMPLES_PER_GRANULE)
         return;
 
     /* Determines the number of bits to encode the quadruples. */
@@ -1089,7 +1089,7 @@ best_huffman_divide(const lame_internal_flags * const gfc, gr_info * const gi)
     huffman2.count1 = i;
     a1 = a2 = 0;
 
-    assert(i <= 576);
+    assert(i <= SAMPLES_PER_GRANULE);
 
     for (; i > huffman2.big_values; i -= 4) {
         int const p = ((ix[i - 4] * 2 + ix[i - 3]) * 2 + ix[i - 2]) * 2 + ix[i - 1];
@@ -1519,7 +1519,7 @@ huffman_init(lame_internal_flags * const gfc)
         gfc->choose_table = choose_table_neon;
 #endif
 
-    for (i = 2; i <= 576; i += 2) {
+    for (i = 2; i <= SAMPLES_PER_GRANULE; i += 2) {
         int     scfb_anz = 0, bv_index;
         while (gfc->scalefac_band.l[++scfb_anz] < i);
 

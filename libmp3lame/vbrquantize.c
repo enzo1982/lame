@@ -542,7 +542,7 @@ quantize_x34(const algo_t * that)
     unsigned int const max_nonzero_coeff = (unsigned int) cod_info->granule.max_nonzero_coeff;
 
     assert(cod_info->granule.max_nonzero_coeff >= 0);
-    assert(cod_info->granule.max_nonzero_coeff < 576);
+    assert(cod_info->granule.max_nonzero_coeff < SAMPLES_PER_GRANULE);
 
     while (j <= max_nonzero_coeff) {
         int const step = sfb_quant_step(cod_info, sfb);
@@ -1339,7 +1339,7 @@ typedef struct {
  * \param bud       receives the budgets.
  */
 static void
-setup_granules(lame_internal_flags * gfc, algo_t that_[2][2], const FLOAT xr34orig[2][2][576],
+setup_granules(lame_internal_flags * gfc, algo_t that_[2][2], const FLOAT xr34orig[2][2][SAMPLES_PER_GRANULE],
                const int max_bits[2][2], vbr_budget_t * bud)
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
@@ -1709,7 +1709,7 @@ requantize_to_budget(lame_internal_flags * gfc, algo_t that_[2][2], int sfwork_[
 
 
 int
-VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][576],
+VBR_encode_frame(lame_internal_flags * gfc, const FLOAT xr34orig[2][2][SAMPLES_PER_GRANULE],
                  const FLOAT l3_xmin[2][2][SFBMAX], const int max_bits[2][2])
 {
     SessionConfig_t const *const cfg = &gfc->cfg;

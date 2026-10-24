@@ -49,7 +49,7 @@ static void
 ms_convert(III_side_info_t * l3_side, int gr)
 {
     int     i;
-    for (i = 0; i < 576; ++i) {
+    for (i = 0; i < SAMPLES_PER_GRANULE; ++i) {
         FLOAT   l, r;
         l = l3_side->tt[gr][0].granule.xr[i];
         r = l3_side->tt[gr][1].granule.xr[i];
@@ -70,7 +70,7 @@ ms_convert(III_side_info_t * l3_side, int gr)
  ************************************************************************/
 
 static void
-init_xrpow_core_c(gr_info * const cod_info, FLOAT xrpow[576], int upper, FLOAT * sum)
+init_xrpow_core_c(gr_info * const cod_info, FLOAT xrpow[SAMPLES_PER_GRANULE], int upper, FLOAT * sum)
 {
     int     i;
     FLOAT   tmp;
@@ -103,7 +103,7 @@ init_xrpow_core_init(lame_internal_flags * const gfc)
 
 
 static int
-init_xrpow(lame_internal_flags * gfc, gr_info * const cod_info, FLOAT xrpow[576])
+init_xrpow(lame_internal_flags * gfc, gr_info * const cod_info, FLOAT xrpow[SAMPLES_PER_GRANULE])
 {
     FLOAT   sum = 0;
     int     i;
@@ -116,7 +116,7 @@ init_xrpow(lame_internal_flags * gfc, gr_info * const cod_info, FLOAT xrpow[576]
      *  and calculate xrpow matching our fresh scalefactors
      */
     assert(0 <= upper && upper <= 575);
-    memset(&(xrpow[upper]), 0, (576 - upper) * sizeof(xrpow[0]));
+    memset(&(xrpow[upper]), 0, (SAMPLES_PER_GRANULE - upper) * sizeof(xrpow[0]));
 
 
     gfc->init_xrpow_core(cod_info, xrpow, upper, &sum);
@@ -134,7 +134,7 @@ init_xrpow(lame_internal_flags * gfc, gr_info * const cod_info, FLOAT xrpow[576]
         return 1;
     }
 
-    memset(&cod_info->quant.l3_enc[0], 0, sizeof(int) * 576);
+    memset(cod_info->quant.l3_enc, 0, sizeof(cod_info->quant.l3_enc));
     return 0;
 }
 
@@ -264,7 +264,7 @@ init_outer_loop(lame_internal_flags const *gfc, gr_info * const cod_info)
         cod_info->granule.window[sfb] = 3; /* which is always 0. */
     }
     if (cod_info->granule.block_type == SHORT_TYPE) {
-        FLOAT   ixwork[576];
+        FLOAT   ixwork[SAMPLES_PER_GRANULE];
         FLOAT  *ix;
 
         cod_info->granule.sfb_smin = 0;
@@ -302,7 +302,7 @@ init_outer_loop(lame_internal_flags const *gfc, gr_info * const cod_info)
            order of increasing frequency...
          */
         ix = &cod_info->granule.xr[gfc->scalefac_band.l[cod_info->granule.sfb_lmax]];
-        memcpy(ixwork, cod_info->granule.xr, 576 * sizeof(FLOAT));
+        memcpy(ixwork, cod_info->granule.xr, sizeof(ixwork));
         for (sfb = cod_info->granule.sfb_smin; sfb < SBMAX_s; sfb++) {
             int const start = gfc->scalefac_band.s[sfb];
             int const end = gfc->scalefac_band.s[sfb + 1];
@@ -365,7 +365,7 @@ typedef enum {
 
 static int
 bin_search_StepSize(lame_internal_flags * const gfc, gr_info * const cod_info,
-                    int desired_rate, const int ch, const FLOAT xrpow[576])
+                    int desired_rate, const int ch, const FLOAT xrpow[SAMPLES_PER_GRANULE])
 {
     int     nBits;
     int     CurrentStep = gfc->sv_qnt.CurrentStep[ch];
@@ -463,7 +463,7 @@ trancate_smallspectrums(lame_internal_flags const *gfc,
         || gfc->sv_qnt.substep_shaping & SUBSTEP_RESV_FULL)
         return;
     (void) calc_noise(gi, l3_xmin, distort, &dummy, 0);
-    for (j = 0; j < 576; j++) {
+    for (j = 0; j < SAMPLES_PER_GRANULE; j++) {
         FLOAT   xr = 0.0;
         if (gi->quant.l3_enc[j] != 0)
             xr = fabs(gi->granule.xr[j]);
@@ -737,7 +737,7 @@ amp_band(FLOAT * xr, int width, FLOAT amp, FLOAT * xrpow_max)
  *************************************************************************/
 static void
 amp_scalefac_bands(lame_internal_flags * gfc,
-                   gr_info * const cod_info, FLOAT const *distort, FLOAT xrpow[576])
+                   gr_info * const cod_info, FLOAT const *distort, FLOAT xrpow[SAMPLES_PER_GRANULE])
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     int     j, sfb;
@@ -812,7 +812,7 @@ amp_scalefac_bands(lame_internal_flags * gfc,
  *************************************************************************/
 
 static void
-inc_scalefac_scale(gr_info * const cod_info, FLOAT xrpow[576])
+inc_scalefac_scale(gr_info * const cod_info, FLOAT xrpow[SAMPLES_PER_GRANULE])
 {
     int     j, sfb;
 
@@ -847,7 +847,7 @@ inc_scalefac_scale(gr_info * const cod_info, FLOAT xrpow[576])
  *************************************************************************/
 
 static int
-inc_subblock_gain(const lame_internal_flags * const gfc, gr_info * const cod_info, FLOAT xrpow[576])
+inc_subblock_gain(const lame_internal_flags * const gfc, gr_info * const cod_info, FLOAT xrpow[SAMPLES_PER_GRANULE])
 {
     int     sfb, window;
     int    *const scalefac = cod_info->quant.scalefac;
@@ -943,7 +943,7 @@ inc_subblock_gain(const lame_internal_flags * const gfc, gr_info * const cod_inf
  ********************************************************************/
 inline static int
 balance_noise(lame_internal_flags * gfc,
-              gr_info * const cod_info, FLOAT const *distort, FLOAT xrpow[576])
+              gr_info * const cod_info, FLOAT const *distort, FLOAT xrpow[SAMPLES_PER_GRANULE])
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     int     status;
@@ -1039,7 +1039,7 @@ raise_gain_until_fits(lame_internal_flags const *gfc, FLOAT const *xrpow, gr_inf
 
 static int
 outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * const l3_xmin, /* allowed distortion */
-           FLOAT xrpow[576], /* coloured magnitudes of spectral */
+           FLOAT xrpow[SAMPLES_PER_GRANULE], /* coloured magnitudes of spectral */
            const int ch, const int targ_bits)
 {                       /* maximum allowed bits */
     SessionConfig_t const *const cfg = &gfc->cfg;
@@ -1047,7 +1047,7 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
     gr_huffman best_huffman;
     gr_quant best_quant;
     int     best_is_current;
-    FLOAT   save_xrpow[576];
+    FLOAT   save_xrpow[SAMPLES_PER_GRANULE];
     FLOAT   distort[SFBMAX];
     calc_noise_result best_noise_info;
     int     huff_bits;
@@ -1077,7 +1077,7 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
     best_is_current = 1;
     age = 0;
     if (restore_xrpow)
-        memcpy(save_xrpow, xrpow, sizeof(FLOAT) * 576);
+        memcpy(save_xrpow, xrpow, sizeof(save_xrpow));
 
     /* BEGIN MAIN LOOP */
     do {
@@ -1167,7 +1167,7 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
             best_is_current = 1;
             age = 0;
             if (restore_xrpow)
-                memcpy(save_xrpow, xrpow, sizeof(FLOAT) * 576);
+                memcpy(save_xrpow, xrpow, sizeof(save_xrpow));
         }
         else {
             /* early stop? */
@@ -1188,7 +1188,7 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
      */
     if (restore_xrpow)
         /* restore for reuse on next try */
-        memcpy(xrpow, save_xrpow, sizeof(FLOAT) * 576);
+        memcpy(xrpow, save_xrpow, sizeof(save_xrpow));
     /*  do the 'substep shaping'
      */
     else if (gfc->sv_qnt.substep_shaping & SUBSTEP_TRUNCATE)
@@ -1244,13 +1244,13 @@ iteration_finish_one(lame_internal_flags * gfc, int gr, int ch)
 
 static void
 VBR_encode_granule(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * const l3_xmin, /* allowed distortion of the scalefactor */
-                   FLOAT xrpow[576], /* coloured magnitudes of spectral values */
+                   FLOAT xrpow[SAMPLES_PER_GRANULE], /* coloured magnitudes of spectral values */
                    const int ch, int min_bits, int max_bits)
 {
     /* the best quantization so far, starting from the one cod_info holds */
     gr_huffman bst_huffman = cod_info->huffman;
     gr_quant bst_quant = cod_info->quant;
-    FLOAT   bst_xrpow[576];
+    FLOAT   bst_xrpow[SAMPLES_PER_GRANULE];
     int const Max_bits = max_bits;
     int     real_bits = max_bits + 1;
     int     this_bits = (max_bits + min_bits) / 2;
@@ -1287,7 +1287,7 @@ VBR_encode_granule(lame_internal_flags * gfc, gr_info * const cod_info, const FL
              */
             bst_huffman = cod_info->huffman;
             bst_quant = cod_info->quant;
-            memcpy(bst_xrpow, xrpow, sizeof(FLOAT) * 576);
+            memcpy(bst_xrpow, xrpow, sizeof(bst_xrpow));
 
             /*  try with fewer bits
              */
@@ -1307,7 +1307,7 @@ VBR_encode_granule(lame_internal_flags * gfc, gr_info * const cod_info, const FL
                  */
                 cod_info->huffman = bst_huffman;
                 cod_info->quant = bst_quant;
-                memcpy(xrpow, bst_xrpow, sizeof(FLOAT) * 576);
+                memcpy(xrpow, bst_xrpow, sizeof(bst_xrpow));
             }
         }
     } while (dbits > 12);
@@ -1520,7 +1520,7 @@ VBR_old_iteration_loop(lame_internal_flags * gfc, const FLOAT pe[2][2],
     EncResult_t *const eov = &gfc->ov_enc;
     FLOAT   l3_xmin[2][2][SFBMAX];
 
-    FLOAT   xrpow[576];
+    FLOAT   xrpow[SAMPLES_PER_GRANULE];
     int     bands[2][2];
     int     frameBits[16];
     int     used_bits;
@@ -1667,7 +1667,7 @@ VBR_new_iteration_loop(lame_internal_flags * gfc, const FLOAT pe[2][2],
     EncResult_t *const eov = &gfc->ov_enc;
     FLOAT   l3_xmin[2][2][SFBMAX];
 
-    FLOAT   xrpow[2][2][576];
+    FLOAT   xrpow[2][2][SAMPLES_PER_GRANULE];
     int     frameBits[16];
     int     used_bits;
     int     max_bits[2][2];
@@ -1675,7 +1675,7 @@ VBR_new_iteration_loop(lame_internal_flags * gfc, const FLOAT pe[2][2],
     III_side_info_t *const l3_side = &gfc->l3_side;
 
     const FLOAT (*const_l3_xmin)[2][SFBMAX] = (const FLOAT (*)[2][SFBMAX])l3_xmin;
-    const FLOAT (*const_xrpow)[2][576] = (const FLOAT (*)[2][576])xrpow;
+    const FLOAT (*const_xrpow)[2][SAMPLES_PER_GRANULE] = (const FLOAT (*)[2][SAMPLES_PER_GRANULE])xrpow;
     const int (*const_max_bits)[2] = (const int (*)[2])max_bits;
 
     memset(xrpow, 0, sizeof(xrpow));
@@ -1783,7 +1783,7 @@ calc_target_bits(lame_internal_flags * gfc,
     III_side_info_t const *const l3_side = &gfc->l3_side;
     FLOAT   res_factor;
     int     gr, ch, totbits, mean_bits;
-    int     framesize = 576 * cfg->mode_gr;
+    int     framesize = SAMPLES_PER_GRANULE * cfg->mode_gr;
     int     max_frame_bits=0, analog_silence_bits=0, targ_bits[2][2]={0};
 
     eov->bitrate_index = cfg->vbr_max_bitrate_index;
@@ -1929,7 +1929,7 @@ ABR_iteration_loop(lame_internal_flags * gfc, const FLOAT pe[2][2],
     SessionConfig_t const *const cfg = &gfc->cfg;
     EncResult_t *const eov = &gfc->ov_enc;
     FLOAT   l3_xmin[SFBMAX];
-    FLOAT   xrpow[576];
+    FLOAT   xrpow[SAMPLES_PER_GRANULE];
     int     targ_bits[2][2];
     int     mean_bits, max_frame_bits;
     int     ch, gr, ath_over;
@@ -2006,7 +2006,7 @@ CBR_iteration_loop(lame_internal_flags * gfc, const FLOAT pe[2][2],
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     FLOAT   l3_xmin[SFBMAX];
-    FLOAT   xrpow[576];
+    FLOAT   xrpow[SAMPLES_PER_GRANULE];
     int     targ_bits[2];
     int     mean_bits, max_bits;
     int     gr, ch;

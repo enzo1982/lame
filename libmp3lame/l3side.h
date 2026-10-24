@@ -50,7 +50,7 @@ typedef struct {
  *        starts: the spectrum and the bands it is quantized in.
  */
 typedef struct {
-    FLOAT   xr[576];
+    FLOAT   xr[SAMPLES_PER_GRANULE];
     int     width[SFBMAX];
     int     window[SFBMAX];
     int     block_type;
@@ -97,7 +97,7 @@ typedef struct {
     int     subblock_gain[3 + 1];
     int     slen[4];
     int     scalefac[SFBMAX];
-    int     l3_enc[576];
+    int     l3_enc[SAMPLES_PER_GRANULE];
 } gr_quant;
 
 /**

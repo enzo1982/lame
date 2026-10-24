@@ -81,7 +81,7 @@ xrpow_block(__m128 x, __m128 fabs_mask, __m128 smallest, __m128 * sum, __m128 * 
 }
 
 SSE_FUNCTION void
-init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int max_nz, FLOAT * sum)
+init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[SAMPLES_PER_GRANULE], int max_nz, FLOAT * sum)
 {
     int     i;
     float   tmp_max = 0;

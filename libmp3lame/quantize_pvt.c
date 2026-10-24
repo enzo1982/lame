@@ -266,13 +266,13 @@ compute_ath(lame_internal_flags const* gfc)
     for (sfb = 0; sfb < SBMAX_l; sfb++) {
         start = gfc->scalefac_band.l[sfb];
         end = gfc->scalefac_band.l[sfb + 1];
-        ATH_l[sfb] = ath_band_min(cfg, start, end, samp_freq, 576);
+        ATH_l[sfb] = ath_band_min(cfg, start, end, samp_freq, SAMPLES_PER_GRANULE);
     }
 
     for (sfb = 0; sfb < PSFB21; sfb++) {
         start = gfc->scalefac_band.psfb21[sfb];
         end = gfc->scalefac_band.psfb21[sfb + 1];
-        ATH_psfb21[sfb] = ath_band_min(cfg, start, end, samp_freq, 576);
+        ATH_psfb21[sfb] = ath_band_min(cfg, start, end, samp_freq, SAMPLES_PER_GRANULE);
     }
 
     for (sfb = 0; sfb < SBMAX_s; sfb++) {

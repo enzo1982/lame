@@ -378,7 +378,7 @@ extern  "C" {
         int     substep_shaping; /* bits of enum substep_shaping_bits, see lame_set_substep() */
 
 
-        char    bv_scf[576];
+        char    bv_scf[SAMPLES_PER_GRANULE];
     } QntStateVar_t;
 
 
@@ -647,7 +647,7 @@ extern  "C" {
         /* functions to replace with CPU feature optimized versions in takehiro.c */
         int     (*choose_table) (const int *ix, const int *const end, int *const s);
         void    (*fft_fht) (FLOAT *, int);
-        void    (*init_xrpow_core) (gr_info * const cod_info, FLOAT xrpow[576], int upper,
+        void    (*init_xrpow_core) (gr_info * const cod_info, FLOAT xrpow[SAMPLES_PER_GRANULE], int upper,
                                     FLOAT * sum);
 
         lame_report_function report_msg;
