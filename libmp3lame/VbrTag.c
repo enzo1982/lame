@@ -459,9 +459,11 @@ PutLameVBR(lame_global_flags const *gfp, size_t nMusicLength, uint8_t * pbtStrea
     }
 
     /* peak sample */
-    if (cfg->findPeakSample)
-        nPeakSignalAmplitude =
-            abs((int) ((((FLOAT) gfc->ov_rpg.PeakSample) / 32767.0) * pow(2, 23) + .5));
+    if (cfg->findPeakSample) {
+        /* the peak scaled to 2^23, or the field's largest value if it does not fit */
+        double const peak = (((FLOAT) gfc->ov_rpg.PeakSample) / 32767.0) * pow(2, 23) + .5;
+        nPeakSignalAmplitude = peak < 4294967296.0 ? (uint32_t) peak : 0xFFFFFFFFu;
+    }
 
     /*nogap */
     if (nNoGapCount != -1) {

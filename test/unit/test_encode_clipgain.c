@@ -19,6 +19,9 @@
  * The loud case is the control for the silent case. It shows that the figures
  * change. Without it, a zero can also mean that the measurement never ran.
  *
+ * One more test checks the peak that the LAME tag stores, for float input far
+ * above full scale: the field holds the peak scaled to 2^23 in 32 bits.
+ *
  * Library-level tests: they link libmp3lame and call the exported API directly.
  */
 
@@ -141,12 +144,83 @@ test_signal_reports_a_peak(LAME_UNUSED void **state)
     assert_int_equal(lame_close(gfp), 0);
 }
 
+/** @brief The peak 1.0 as the LAME tag stores it. */
+#define TAG_PEAK_UNITY 8388608.0
+
+/**
+ * @brief Encodes a float sine of amplitude @p amp times full scale with the
+ *        peak measurement on, and returns the peak field of its LAME tag.
+ * @param amp  the amplitude, in multiples of full scale.
+ * @param peak receives the field, as stored.
+ * @return 1 if this build measures the peak, else 0.
+ */
+static int
+tag_peak_of_float_sine(float amp, unsigned long *peak)
+{
+    static float left[SAMPLES_PER_CALL], right[SAMPLES_PER_CALL];
+    unsigned char mp3buf[MP3BUF_SIZE], tag[2880];
+    lame_t  gfp = lame_init();
+    size_t  n, k;
+    int     i;
+
+    assert_non_null(gfp);
+    for (i = 0; i < SAMPLES_PER_CALL; i++)
+        left[i] = right[i] = amp * (float) ((i % 64) - 32) / 32.0f;
+    assert_int_equal(lame_set_num_channels(gfp, 2), 0);
+    assert_int_equal(lame_set_in_samplerate(gfp, 44100), 0);
+    assert_int_equal(lame_set_brate(gfp, 128), 0);
+    if (lame_set_decode_on_the_fly(gfp, 1) != 0) {
+        (void) lame_close(gfp);
+        return 0;
+    }
+    assert_int_equal(lame_init_params(gfp), 0);
+    for (i = 0; i < CALLS; i++)
+        assert_true(lame_encode_buffer_ieee_float(gfp, left, right, SAMPLES_PER_CALL, mp3buf,
+                                                  (int) sizeof mp3buf) >= 0);
+    assert_true(lame_encode_flush(gfp, mp3buf, (int) sizeof mp3buf) >= 0);
+    n = lame_get_lametag_frame(gfp, tag, sizeof tag);
+    assert_true(n > 0 && n <= sizeof tag);
+    for (k = 0; k + 4 <= n; k++)
+        if (memcmp(tag + k, "Info", 4) == 0)
+            break;
+    /* the Xing part (120 bytes), then the version 9, method 1, lowpass 1 */
+    k += 120 + 9 + 1 + 1;
+    assert_true(k + 4 <= n);
+    *peak = ((unsigned long) tag[k] << 24) | ((unsigned long) tag[k + 1] << 16)
+        | ((unsigned long) tag[k + 2] << 8) | tag[k + 3];
+    assert_int_equal(lame_close(gfp), 0);
+    return 1;
+}
+
+/**
+ * @brief Checks the LAME tag's peak for float input far above full scale.
+ *
+ * At 300 times full scale the scaled peak is above @c INT_MAX and below
+ * 2^32, so the field holds it. At 1000 times it does not fit, and the field
+ * holds its largest value.
+ * @param state cmocka fixture state (unused).
+ */
+static void
+test_tag_peak_above_full_scale(LAME_UNUSED void **state)
+{
+    unsigned long peak;
+
+    if (!tag_peak_of_float_sine(300.0f, &peak)) {
+        skip();         /* no decoder, so no peak measurement to ask for */
+    }
+    assert_true(peak >= (unsigned long) (290 * TAG_PEAK_UNITY));
+    assert_true(peak <= 0xFFFFFFFFul);
+    assert_int_equal(tag_peak_of_float_sine(1000.0f, &peak), 1);
+    assert_true(peak == 0xFFFFFFFFul);
+}
+
 int
 main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_silence_reports_no_headroom),
         cmocka_unit_test(test_signal_reports_a_peak),
+        cmocka_unit_test(test_tag_peak_above_full_scale),
     };
     return cmocka_run_group_tests(tests, NULL, NULL);
 }
