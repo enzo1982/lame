@@ -757,7 +757,7 @@ fill_buffer(lame_internal_flags * gfc,
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     int     mf_size = gfc->sv_enc.mf_size;
-    int     framesize = 576 * cfg->mode_gr;
+    int     framesize = SAMPLES_PER_GRANULE * cfg->mode_gr;
     int     nout, ch = 0;
     int     nch = cfg->channels_out;
 

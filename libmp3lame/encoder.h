@@ -92,7 +92,10 @@
 /* number of subbands */
 #define SBLIMIT       32
 
-/* subband samples per granule, 576 / SBLIMIT */
+/* samples per granule and channel, in time and as spectral lines */
+#define SAMPLES_PER_GRANULE 576
+
+/* subband samples per granule, SAMPLES_PER_GRANULE / SBLIMIT */
 #define SUBBAND_SAMPLES 18
 
 /* how many input samples before its position the subband analysis window

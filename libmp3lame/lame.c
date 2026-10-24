@@ -1033,7 +1033,7 @@ init_params(lame_global_flags * gfp)
         int const start = gfc->scalefac_band.l[21] + i * size;
         gfc->scalefac_band.psfb21[i] = start;
     }
-    gfc->scalefac_band.psfb21[PSFB21] = 576;
+    gfc->scalefac_band.psfb21[PSFB21] = SAMPLES_PER_GRANULE;
 
     for (i = 0; i < SBMAX_s + 1; i++)
         gfc->scalefac_band.s[i] = sfBandIndex[j].s[i];
@@ -1781,7 +1781,7 @@ static int
 calcNeeded(SessionConfig_t const * cfg)
 {
     int     mf_needed;
-    int     pcm_samples_per_frame = 576 * cfg->mode_gr;
+    int     pcm_samples_per_frame = SAMPLES_PER_GRANULE * cfg->mode_gr;
 
     /* some sanity checks */
 #if ENCDELAY < MDCTDELAY
@@ -1827,7 +1827,7 @@ lame_encode_buffer_sample_t(lame_internal_flags * gfc,
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
     EncStateVar_t *const esv = &gfc->sv_enc;
-    int     pcm_samples_per_frame = 576 * cfg->mode_gr;
+    int     pcm_samples_per_frame = SAMPLES_PER_GRANULE * cfg->mode_gr;
     int     mp3size = 0, ret, ch, mf_needed;
     int     mp3out;
     sample_t *mfbuf[2];
@@ -2500,7 +2500,7 @@ lame_encode_flush(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buff
     if (esv->mf_samples_to_encode < 1) {
         return 0;
     }
-    pcm_samples_per_frame = 576 * cfg->mode_gr;
+    pcm_samples_per_frame = SAMPLES_PER_GRANULE * cfg->mode_gr;
     mf_needed = calcNeeded(cfg);
 
     samples_to_encode = esv->mf_samples_to_encode - POSTDELAY;
@@ -2515,7 +2515,7 @@ lame_encode_flush(lame_global_flags * gfp, unsigned char *mp3buffer, int mp3buff
         samples_to_encode += 16. / resample_ratio;
     }
     end_padding = pcm_samples_per_frame - (samples_to_encode % pcm_samples_per_frame);
-    if (end_padding < 576)
+    if (end_padding < SAMPLES_PER_GRANULE)
         end_padding += pcm_samples_per_frame;
     gfc->ov_enc.encoder_padding = end_padding;
     

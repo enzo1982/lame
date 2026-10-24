@@ -925,7 +925,7 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
                         FLOAT energy[4], FLOAT sub_short_factor[4][3], int ns_attacks[4][4],
                         int uselongblock[2])
 {
-    FLOAT   ns_hpfsmpl[2][576];
+    FLOAT   ns_hpfsmpl[2][SAMPLES_PER_GRANULE];
     SessionConfig_t const *const cfg = &gfc->cfg;
     PsyStateVar_t *const psv = &gfc->sv_psy;
     plotting_data *plt = cfg->analysis ? gfc->pinfo : 0;
@@ -946,9 +946,9 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
             -5.52212e-17 * 2, -0.313819 * 2
         };
         /* apply high pass filter of fs/4 */
-        const sample_t *const firbuf = &buffer[chn][576 - 350 - NSFIRLEN + 192];
+        const sample_t *const firbuf = &buffer[chn][SAMPLES_PER_GRANULE - 350 - NSFIRLEN + 192];
         assert(dimension_of(fircoef) == ((NSFIRLEN - 1) / 2));
-        for (i = 0; i < 576; i++) {
+        for (i = 0; i < SAMPLES_PER_GRANULE; i++) {
             FLOAT   sum1, sum2;
             sum1 = firbuf[i + 10];
             sum2 = 0.0;
@@ -967,7 +967,7 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
         int     ns_uselongblock = 1;
 
         if (chn == 2) {
-            for (i = 0, j = 576; j > 0; ++i, --j) {
+            for (i = 0, j = SAMPLES_PER_GRANULE; j > 0; ++i, --j) {
                 FLOAT const l = ns_hpfsmpl[0][i];
                 FLOAT const r = ns_hpfsmpl[1][i];
                 ns_hpfsmpl[0][i] = l + r;
@@ -986,7 +986,7 @@ vbrpsy_attack_detection(lame_internal_flags * gfc, const sample_t * const buffer
         }
 
         for (i = 0; i < 9; i++) {
-            FLOAT const *const pfe = pf + 576 / 9;
+            FLOAT const *const pfe = pf + SAMPLES_PER_GRANULE / 9;
             FLOAT   p = 1.;
             for (; pf < pfe; pf++)
                 if (p < fabs(*pf))
@@ -2193,7 +2193,7 @@ psymodel_init(lame_global_flags const *gfp)
      * now compute the psychoacoustic model specific constants
      ************************************************************************/
     /* compute numlines, bo, bm, bval, bval_width, mld */
-    init_numline(&gd->l, sfreq, BLKSIZE, 576, SBMAX_l, gfc->scalefac_band.l);
+    init_numline(&gd->l, sfreq, BLKSIZE, SAMPLES_PER_GRANULE, SBMAX_l, gfc->scalefac_band.l);
     assert(gd->l.npart < CBANDS);
     compute_bark_values(&gd->l, sfreq, BLKSIZE, bval, bval_width);
 
@@ -2308,7 +2308,7 @@ psymodel_init(lame_global_flags const *gfp)
     /*  prepare for ATH auto adjustment:
      *  we want to decrease the ATH by 12 dB per second
      */
-#define  frame_duration (576. * cfg->mode_gr / sfreq)
+#define  frame_duration ((double) SAMPLES_PER_GRANULE * cfg->mode_gr / sfreq)
     gfc->ATH->decay = pow(10., -12. / 10. * frame_duration);
     gfc->ATH->adjust_factor = 0.01; /* minimum, for leading low loudness */
     gfc->ATH->adjust_limit = 1.0; /* on lead, allow adjust up to maximum */

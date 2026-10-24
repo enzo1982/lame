@@ -1039,7 +1039,7 @@ mdct_sub48(lame_internal_flags * gfc, const sample_t * w0, const sample_t * w1)
         }
         wk = w1 + SUBBAND_LOOKBACK;
         if (cfg->mode_gr == 1) {
-            memcpy(esv->sb_sample[ch][0], esv->sb_sample[ch][1], 576 * sizeof(FLOAT));
+            memcpy(esv->sb_sample[ch][0], esv->sb_sample[ch][1], sizeof(esv->sb_sample[ch][0]));
         }
     }
 }

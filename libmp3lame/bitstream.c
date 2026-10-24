@@ -639,7 +639,7 @@ LongHuffmancodebits(lame_internal_flags * gfc, gr_info const *gi)
     int     region1Start, region2Start;
 
     bigvalues = gi->huffman.big_values;
-    assert(0 <= bigvalues && bigvalues <= 576);
+    assert(0 <= bigvalues && bigvalues <= SAMPLES_PER_GRANULE);
 
     assert(gi->huffman.region0_count >= -1);
     assert(gi->huffman.region1_count >= -1);

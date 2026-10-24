@@ -3566,7 +3566,7 @@ lame_get_framesize(const lame_global_flags * gfp)
         lame_internal_flags const *const gfc = gfp->internal_flags;
         if (is_lame_internal_flags_valid(gfc)) {
             SessionConfig_t const *const cfg = &gfc->cfg;
-            return 576 * cfg->mode_gr;
+            return SAMPLES_PER_GRANULE * cfg->mode_gr;
         }
     }
     return 0;
@@ -4345,7 +4345,7 @@ static int
 calc_maximum_input_samples_for_buffer_size(lame_internal_flags const* gfc, size_t buffer_size)
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
-    int const pcm_samples_per_frame = 576 * cfg->mode_gr;
+    int const pcm_samples_per_frame = SAMPLES_PER_GRANULE * cfg->mode_gr;
     int     frames_per_buffer = 0, input_samples_per_buffer = 0;
     int     kbps = 320;
 

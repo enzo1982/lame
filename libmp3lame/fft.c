@@ -169,7 +169,7 @@ fft_short(lame_internal_flags const *const gfc,
 
     for (b = 0; b < 3; b++) {
         FLOAT  *x = &x_real[b][BLKSIZE_s / 2];
-        int const k = (576 / 3) * (b + 1);
+        int const k = (SAMPLES_PER_GRANULE / 3) * (b + 1);
         sample_t const *const s = buffer[chn] + k;
         j = BLKSIZE_s / 8 - 1;
         do {

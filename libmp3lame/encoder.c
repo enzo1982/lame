@@ -216,15 +216,15 @@ lame_encode_frame_init(lame_internal_flags * gfc, const sample_t *const inbuf[2]
     int     ch, gr;
 
     if (gfc->lame_encode_frame_init == 0) {
-        sample_t primebuff0[SUBBAND_LOOKBACK + 1152 + 576];
-        sample_t primebuff1[SUBBAND_LOOKBACK + 1152 + 576];
-        int const framesize = 576 * cfg->mode_gr;
+        sample_t primebuff0[SUBBAND_LOOKBACK + 1152 + SAMPLES_PER_GRANULE];
+        sample_t primebuff1[SUBBAND_LOOKBACK + 1152 + SAMPLES_PER_GRANULE];
+        int const framesize = SAMPLES_PER_GRANULE * cfg->mode_gr;
         /* prime the MDCT/polyphase filterbank with a short block */
         int     i, j;
         gfc->lame_encode_frame_init = 1;
         memset(primebuff0, 0, sizeof(primebuff0));
         memset(primebuff1, 0, sizeof(primebuff1));
-        for (i = 0, j = 0; i < SUBBAND_LOOKBACK + 576 * (1 + cfg->mode_gr); ++i) {
+        for (i = 0, j = 0; i < SUBBAND_LOOKBACK + SAMPLES_PER_GRANULE * (1 + cfg->mode_gr); ++i) {
             if (i < framesize) {
                 primebuff0[i] = 0;
                 if (cfg->channels_out == 2)
@@ -246,8 +246,8 @@ lame_encode_frame_init(lame_internal_flags * gfc, const sample_t *const inbuf[2]
         mdct_sub48(gfc, primebuff0, primebuff1);
 
         /* check FFT will not use a negative starting offset */
-#if 576 < FFTOFFSET
-# error FFTOFFSET greater than 576: FFT uses a negative offset
+#if SAMPLES_PER_GRANULE < FFTOFFSET
+# error FFTOFFSET greater than SAMPLES_PER_GRANULE: FFT uses a negative offset
 #endif
         /* check if we have enough data for FFT */
         assert(gfc->sv_enc.mf_size >= (BLKSIZE + framesize - FFTOFFSET));
@@ -296,7 +296,7 @@ run_psymodel(lame_internal_flags * gfc, const sample_t *const inbuf[2],
     for (gr = 0; gr < cfg->mode_gr; gr++) {
 
         for (ch = 0; ch < cfg->channels_out; ch++) {
-            bufp[ch] = &inbuf[ch][576 + gr * 576 - FFTOFFSET];
+            bufp[ch] = &inbuf[ch][SAMPLES_PER_GRANULE + gr * SAMPLES_PER_GRANULE - FFTOFFSET];
         }
         L3psycho_anal_vbr(gfc, bufp, gr,
                           masking_LR, masking_MS,
@@ -400,7 +400,7 @@ copy_analysis_input(lame_internal_flags * gfc, FLOAT const ms_ener_ratio[2], FLO
                element-wise, a raw copy would reinterpret the bits */
             {
                 int     i;
-                for (i = 0; i < 576; ++i)
+                for (i = 0; i < SAMPLES_PER_GRANULE; ++i)
                     gfc->pinfo->xr[gr][ch][i] = gfc->l3_side.tt[gr][ch].granule.xr[i];
             }
             /* in psymodel, LR and MS data was stored in pinfo.  
@@ -474,7 +474,7 @@ copy_analysis_output(lame_internal_flags * gfc, const sample_t *const inbuf[2],
                      const III_psy_ratio (*masking)[2])
 {
     SessionConfig_t const *const cfg = &gfc->cfg;
-    int const framesize = 576 * cfg->mode_gr;
+    int const framesize = SAMPLES_PER_GRANULE * cfg->mode_gr;
     int     ch;
 
     for (ch = 0; ch < cfg->channels_out; ch++) {
