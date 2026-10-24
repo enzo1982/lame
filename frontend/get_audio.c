@@ -1533,7 +1533,7 @@ WriteWaveHeader(FILE * const fp, unsigned int pcmbytes, int freq, int channels, 
     write_16_bits_low_high(fp, 1); /* is PCM? */
     write_16_bits_low_high(fp, channels); /* number of channels */
     write_32_bits_low_high(fp, freq); /* sample frequency in [Hz] */
-    write_32_bits_low_high(fp, freq * channels * bytes); /* bytes per second */
+    write_32_bits_low_high(fp, (unsigned int) freq * (unsigned int) (channels * bytes)); /* bytes per second */
     write_16_bits_low_high(fp, channels * bytes); /* bytes per sample time */
     write_16_bits_low_high(fp, bits); /* bits per sample */
     fwrite("data", 1, 4, fp); /* label */

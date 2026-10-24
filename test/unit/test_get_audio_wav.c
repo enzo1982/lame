@@ -462,6 +462,32 @@ test_header_above_2gib(LAME_UNUSED void **state)
     assert_int_equal(uint32_low_high(hdr + WAV_RIFF_SIZE_OFFSET), bytes + WAV_RIFF_SIZE_EXTRA);
 }
 
+/** @brief Offset of the bytes per second in the header. */
+#define WAV_BYTE_RATE_OFFSET 28
+
+/**
+ * @brief Checks the bytes per second of a header whose rate times the frame
+ *        size is above @c INT_MAX.
+ *
+ * 600,000,000 Hz in 16 bit stereo is 2,400,000,000 bytes per second. That
+ * fits the 32-bit field, and the header must hold it exactly.
+ *
+ * @param state unused.
+ */
+static void
+test_header_byte_rate_above_int_max(LAME_UNUSED void **state)
+{
+    unsigned char hdr[WAV_HEADER_BYTES];
+    FILE   *f = tmpfile();
+
+    assert_non_null(f);
+    assert_int_equal(WriteWaveHeader(f, 0, 600000000, 2, 16), 0);
+    rewind(f);
+    assert_int_equal(fread(hdr, 1, WAV_HEADER_BYTES, f), WAV_HEADER_BYTES);
+    fclose(f);
+    assert_int_equal(uint32_low_high(hdr + WAV_BYTE_RATE_OFFSET), 2400000000u);
+}
+
 /**
  * @brief Checks that more data than a header can hold gives
  *        ::WAV_DATA_SIZE_MAX as the data size.
@@ -672,6 +698,7 @@ main(void)
                                         setup_lame, lame_fixture_teardown),
         cmocka_unit_test(test_header_above_2gib),
         cmocka_unit_test(test_header_size_capped),
+        cmocka_unit_test(test_header_byte_rate_above_int_max),
         cmocka_unit_test(test_writer_little_endian),
         cmocka_unit_test(test_writer_big_endian),
         cmocka_unit_test_setup_teardown(test_unsigned_8bit_samples,
