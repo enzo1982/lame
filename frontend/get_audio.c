@@ -980,7 +980,8 @@ float_sample_to_16bit(float u)
  * overall scale, the left and right scales, and the mix of two input channels
  * into one mono output channel. It uses the values that @c lame_init_params()
  * set. A sample that this scaling brings back within full scale is not
- * counted.
+ * counted. A NaN is not counted, and comparing it raises no floating-point
+ * exception.
  *
  * @param gfp  the encoder instance, after @c lame_init_params().
  * @param l    the left channel, where 1.0 is full scale.
@@ -1001,18 +1002,18 @@ count_above_full_scale(lame_t gfp, float const *l, float const *r, int n)
         float const mix_l = 0.5f * gain_l, mix_r = 0.5f * gain_r;
         for (i = 0; i < n; ++i) {
             float const u = mix_l * l[i] + mix_r * r[i];
-            count += (u > 1.0f) | (u < -1.0f);
+            count += isgreater(u, 1.0f) | isless(u, -1.0f);
         }
         return count;
     }
     for (i = 0; i < n; ++i) {
         float const u = gain_l * l[i];
-        count += (u > 1.0f) | (u < -1.0f);
+        count += isgreater(u, 1.0f) | isless(u, -1.0f);
     }
     if (lame_get_num_channels(gfp) == 2) {
         for (i = 0; i < n; ++i) {
             float const v = gain_r * r[i];
-            count += (v > 1.0f) | (v < -1.0f);
+            count += isgreater(v, 1.0f) | isless(v, -1.0f);
         }
     }
     return count;
