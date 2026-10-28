@@ -210,10 +210,14 @@ without their members. A program only holds a pointer to them (`lame_t`,
 The debug information of the build still describes them, together with the
 encoder state they point to, and `abidiff` would report every change there.
 
+`lame_mp3_tags_fid()` takes a `FILE *`. `FILE` belongs to the C library, and its
+layout differs between platforms.
+
 `maintainer/abi/libmp3lame.abignore` lists these types, and the check passes it
 to `abidiff`. A change inside them is not reported. A change to a type that
 `lame.h` defines, such as `mp3data_struct`, is still reported. Add a type to
-this file only when `lame.h` declares it without its members.
+this file only when `lame.h` declares it without its members, or when it
+belongs to the C library.
 
 ### Compare a regeneration with `abidiff`, never with `diff`
 

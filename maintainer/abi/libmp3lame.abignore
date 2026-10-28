@@ -6,3 +6,7 @@
   label = the encoder and decoder state behind the opaque handles of lame.h
   type_kind = struct
   name_regexp = ^(lame_global_struct|hip_global_struct)$
+
+[suppress_type]
+  label = the FILE of the C library, whose layout differs between platforms
+  name_regexp = ^(FILE|_IO_FILE|__sFILE)$
