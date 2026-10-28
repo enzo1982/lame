@@ -5622,6 +5622,7 @@ check_behind_the_wrapper(HACMDRIVER had, const wrapper_format *want)
     DWORD used, i;
     unsigned unaligned;
     char detail[CTEST_DETAIL_CHARS];
+    HRESULT hr;
     int ran;
 
     printf("        %s\n", want->what);
@@ -5636,9 +5637,11 @@ check_behind_the_wrapper(HACMDRIVER had, const wrapper_format *want)
     capture_used = 0;
     capture_unaligned = 0;
     memset(&chosen, 0, sizeof(chosen));
-    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
-    ran = run_wrapper_graph(WRAPPER_WAV_NAME, want, &chosen);
-    CoUninitialize();
+    hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    CHECK(SUCCEEDED(hr), "COM starts up");
+    ran = SUCCEEDED(hr) && run_wrapper_graph(WRAPPER_WAV_NAME, want, &chosen);
+    if (SUCCEEDED(hr))
+        CoUninitialize();
     /* what the wrapper's conversions did, before the encode below adds its own */
     through = capture_out;
     used = capture_used;
