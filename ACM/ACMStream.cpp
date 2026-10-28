@@ -106,7 +106,7 @@ ACMStream::ACMStream() :
 	my_debug.setPrefix("LAMEstream"); /// \todo get it from the registry
 	my_debug.setIncludeTime(true);  /// \todo get it from the registry
 	ConfigureDebugFromRegistry(my_debug);
-	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "ACMStream Creation (0X%08X)",this);
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "ACMStream Creation (%p)", (void *) this);
 }
 
 ACMStream::~ACMStream()
@@ -114,7 +114,7 @@ ACMStream::~ACMStream()
         // release memory - encoding is finished
 	if (gfp) lame_close( gfp );
 
-	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "ACMStream Deletion (0X%08X)",this);
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "ACMStream Deletion (%p)", (void *) this);
 }
 
 /// The longest library report line that the debug log keeps whole, in bytes.

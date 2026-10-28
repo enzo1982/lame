@@ -52,13 +52,13 @@ ADbg::ADbg(int level)
 ,hFile(INVALID_HANDLE_VALUE)
 {
 	prefix[0] = '\0';
-	OutPut(-1,"ADbg Creation at debug level = %d (0x%08X)",my_level,this);
+	OutPut(-1,"ADbg Creation at debug level = %d (%p)", my_level, (void *) this);
 }
 
 ADbg::~ADbg()
 {
 	unsetDebugFile();
-	OutPut(-1,"ADbg Deletion (0x%08X)",this);
+	OutPut(-1,"ADbg Deletion (%p)", (void *) this);
 }
 
 /// The longest line of debug output, in bytes, terminator included.

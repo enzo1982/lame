@@ -108,7 +108,7 @@ LONG WINAPI DriverProc(DWORD dwDriverId, HDRVR hdrvr, UINT msg, LONG lParam1, LO
 
 			if (debug != NULL)
 			{
-				debug->OutPut(DEBUG_LEVEL_FUNC_CODE, "OPENED instance 0x%08X",ThisACM);
+				debug->OutPut(DEBUG_LEVEL_FUNC_CODE, "OPENED instance %p", (void *) ThisACM);
 			}
 
 			return (LONG)ThisACM;// returns 0L to fail
@@ -130,7 +130,7 @@ LONG WINAPI DriverProc(DWORD dwDriverId, HDRVR hdrvr, UINT msg, LONG lParam1, LO
 			delete ThisACM;
 			if (debug != NULL)
 			{
-				debug->OutPut(DEBUG_LEVEL_FUNC_CODE, "CLOSED instance 0x%08X",ThisACM);
+				debug->OutPut(DEBUG_LEVEL_FUNC_CODE, "CLOSED instance %p", (void *) ThisACM);
 				delete debug;
 				debug = NULL;
 			}

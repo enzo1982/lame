@@ -292,7 +292,7 @@ static BOOL CALLBACK ConfigProc(
 			assert(the_prop == NULL);
 
 			the_prop = (AEncodeProperties *) lParam;
-			the_prop->my_debug.OutPut("there hwnd = 0x%08X",hwndDlg);
+			the_prop->my_debug.OutPut("there hwnd = %p", (void *) hwndDlg);
 
 			assert(the_prop != NULL);
 
@@ -740,7 +740,7 @@ AEncodeProperties::AEncodeProperties(HMODULE hModule)
 	// make sure the XML file is present
 	HANDLE hFile = ::CreateFile(my_store_location.c_str(), 0, FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_ARCHIVE, NULL );
 	::CloseHandle(hFile);
-	my_debug.OutPut("AEncodeProperties creation completed (0x%08X)",this);
+	my_debug.OutPut("AEncodeProperties creation completed (%p)", (void *) this);
 }
 
 /**
@@ -1257,7 +1257,7 @@ bool AEncodeProperties::HandleDialogCommand(const HWND parentWnd, const WPARAM w
 
 		snprintf(string, sizeof string, "%s", CONFIG_CURRENT); // only the Current config is supported at the moment
 		
-		my_debug.OutPut("my_hModule = 0x%08X",my_hModule);
+		my_debug.OutPut("my_hModule = %p", (void *) my_hModule);
 my_debug.OutPut("before : nChannelIndex %d, bCRC %d, bCopyright %d, bOriginal %d, bPrivate %d",nChannelIndex, bCRC, bCopyright, bOriginal, bPrivate);
 
 my_debug.OutPut("call UpdateValueFromDlg");
@@ -1376,7 +1376,7 @@ my_debug.OutPut("Idx = %d",Idx);
 			Idx++;
 			// only Current config supported now
 			iterateElmt = NULL;
-my_debug.OutPut("iterateElmt = 0x%08X",iterateElmt);
+my_debug.OutPut("iterateElmt = %p", (void *) iterateElmt);
 
 		}
 	}

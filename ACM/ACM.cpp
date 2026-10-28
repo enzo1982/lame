@@ -283,7 +283,7 @@ LPARAM lParam  // second message parameter
 
 inline DWORD ACM::About(HWND hParentWindow)
 {
-	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "ACM : About (Parent Window = 0x%08X)",hParentWindow);
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "ACM : About (Parent Window = %p)", (void *) hParentWindow);
 
 	DialogBoxSystemFont(my_hModule, IDD_ABOUT, hParentWindow, ::AboutProc, (LPARAM) this);
 
@@ -307,7 +307,7 @@ ACM::ACM( HMODULE hModule )
 
 	/// \todo get the debug level from the registry
 	char tmp[128];
-	wsprintf(tmp,"LAMEacm 0x%08X",this);
+	snprintf(tmp, sizeof tmp, "LAMEacm %p", (void *) this);
 	my_debug.setPrefix(tmp); /// \todo get it from the registry
 	my_debug.setIncludeTime(true);  /// \todo get it from the registry
 
@@ -316,7 +316,7 @@ ACM::ACM( HMODULE hModule )
 	FillRateTables();
 	BuildBitrateTable();
 	
-	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "New ACM Creation (0x%08X)",this);
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "New ACM Creation (%p)", (void *) this);
 }
 
 ACM::~ACM()
@@ -324,7 +324,7 @@ ACM::~ACM()
 
 	bitrate_table.clear();
 
-	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "ACM Deleted (0x%08X)",this);
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_START, "ACM Deleted (%p)", (void *) this);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1015,12 +1015,12 @@ inline DWORD ACM::OnStreamClose(LPACMDRVSTREAMINSTANCE a_StreamInstance)
 */
 inline DWORD ACM::OnStreamPrepareHeader(LPACMSTREAMHEADER a_StreamHeader)
 {
-	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "  prepare : Src : %d (0x%08X) / %d - Dst : %d (0x%08X) / %d"
+	my_debug.OutPut(DEBUG_LEVEL_FUNC_CODE, "  prepare : Src : %d (%p) / %d - Dst : %d (%p) / %d"
 												, a_StreamHeader->cbSrcLength
-												, a_StreamHeader->pbSrc
+												, (void *) a_StreamHeader->pbSrc
 												, a_StreamHeader->cbSrcLengthUsed
 												, a_StreamHeader->cbDstLength
-												, a_StreamHeader->pbDst
+												, (void *) a_StreamHeader->pbDst
 												, a_StreamHeader->cbDstLengthUsed
 											  );
 
