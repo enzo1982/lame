@@ -146,12 +146,38 @@ preserve_file_times(char const *inPath, char const *outPath)
 }
 
 
+/** @internal @brief Result of an encode: reading the input failed. */
+#define ENCODE_INPUT_FAILED (-1)
+/** @internal @brief Result of an encode: the encoder or writing the output failed. */
+#define ENCODE_OUTPUT_FAILED 1
+
+/**
+ * @internal
+ * @brief Opens the input file and the output file of one encode.
+ *
+ * @param gf       the encoder; the input file's header sets its sample rate,
+ *                 channel count and sample count.
+ * @param inPath   the input file name, "-" for standard input.
+ * @param outPath  the output file name, "-" for standard output.
+ * @param reader   receives the open input, or NULL if it could not be opened.
+ * @param failure  NULL, or receives 0 when both are open, ::ENCODE_INPUT_FAILED
+ *                 when the input cannot be encoded (it cannot be opened, or it
+ *                 is the output file too), and ::ENCODE_OUTPUT_FAILED when the
+ *                 output cannot be opened.
+ * @return the open output file, or NULL. With NULL, an input that was opened
+ *         is still open in @p reader.
+ */
 static FILE *
-init_files(lame_global_flags * gf, char const *inPath, char const *outPath, audio_reader ** reader)
+init_files(lame_global_flags * gf, char const *inPath, char const *outPath, audio_reader ** reader,
+           int *failure)
 {
     FILE   *outf;
+    int     unused;
 
+    if (failure == NULL)
+        failure = &unused;
     *reader = NULL;
+    *failure = ENCODE_INPUT_FAILED;
     /* Mostly it is not useful to use the same input and output name.
        This test is very easy and buggy and don't recognize different names
        assigning the same file
@@ -174,9 +200,11 @@ init_files(lame_global_flags * gf, char const *inPath, char const *outPath, audi
     }
     if ((outf = init_outfile(outPath, lame_get_decode_only(gf))) == NULL) {
         error_printf("Can't init outfile '%s'\n", outPath);
+        *failure = ENCODE_OUTPUT_FAILED;
         return NULL;
     }
 
+    *failure = 0;
     return outf;
 }
 
@@ -740,11 +768,6 @@ update_replaygain_frames(lame_global_flags * gf, FILE * outf, size_t id3v2_size)
 }
 
 
-/** @internal @brief Result of an encode: reading the input failed. */
-#define ENCODE_INPUT_FAILED (-1)
-/** @internal @brief Result of an encode: the encoder or writing the output failed. */
-#define ENCODE_OUTPUT_FAILED 1
-
 static int
 lame_encoder_loop(lame_global_flags * gf, audio_reader * reader, FILE * outf, int nogap,
                   char *inPath, char *outPath)
@@ -928,10 +951,10 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
                   return -1;
               }
           }
-          outf = init_files(gf, nogap_inPath[0], nogap_outPath[0], &reader);
+          outf = init_files(gf, nogap_inPath[0], nogap_outPath[0], &reader, NULL);
     }
     else {
-        outf = init_files(gf, inPath, outPath, &reader);
+        outf = init_files(gf, inPath, outPath, &reader, NULL);
     }
     if (outf == NULL) {
         close_infile(reader);
@@ -978,19 +1001,22 @@ run_command_line(lame_t gf, int argc, char **argv, char **nogap_inPath, char **n
             if (i > 0) {
                 /* note: if init_files changes anything, like
                    samplerate, num_channels, etc, we are screwed */
-                outf = init_files(gf, nogap_inPath[i], nogap_outPath[i], &reader);
+                outf = init_files(gf, nogap_inPath[i], nogap_outPath[i], &reader, &ret);
                 if (outf == NULL) {
                     close_infile(reader);
-                    return -1;
                 }
-                /* reinitialize bitstream for next encoding.  this is normally done
-                 * by lame_init_params(), but we cannot call that routine twice */
-                lame_init_bitstream(gf);
+                else {
+                    /* reinitialize bitstream for next encoding.  this is normally done
+                     * by lame_init_params(), but we cannot call that routine twice */
+                    lame_init_bitstream(gf);
+                }
             }
-            lame_set_nogap_total(gf, max_nogap);
-            lame_set_nogap_currentindex(gf, i);
-            ret = lame_encoder(gf, reader, outf, use_flush_nogap, nogap_inPath[i],
-                               nogap_outPath[i]);
+            if (outf != NULL) {
+                lame_set_nogap_total(gf, max_nogap);
+                lame_set_nogap_currentindex(gf, i);
+                ret = lame_encoder(gf, reader, outf, use_flush_nogap, nogap_inPath[i],
+                                   nogap_outPath[i]);
+            }
             if (ret != 0) {
                 ++failed;
                 if (first_failure == 0) {

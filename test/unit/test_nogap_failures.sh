@@ -7,6 +7,8 @@
 #   how many files failed, and exits with a non-zero status;
 # - an output that cannot be written: lame stops at once, does not encode the
 #   last file, and exits with a non-zero status;
+# - an output that cannot be opened: the same as one that cannot be written;
+# - an input that cannot be opened: the same as a read error;
 # - an input the encoder rejects (a float WAV holding NaN): the same as an
 #   output failure.
 #
@@ -135,6 +137,53 @@ $(cat "$WORK/err.txt")"
 else
     note "no /dev/full or no symbolic links here, so there is no output that
       fails to write. The write error arm does not run."
+fi
+
+# ------------------------------------ output that cannot be opened, middle
+#
+# The middle output path is a directory, which no platform opens as a file.
+rm -rf "$WORK/dir"; mkdir -p "$WORK/dir/b.mp3" || die "cannot create $WORK/dir/b.mp3"
+"$LAME" --silent --nogapout "$WORK/dir" --nogap \
+    "$WORK/a.wav" "$WORK/b.wav" "$WORK/c.wav" >/dev/null 2>"$WORK/err.txt"
+status=$?
+ran=$((ran + 1))
+if test "$status" -ne 0; then
+    ok "an output that cannot be opened in the middle exits non-zero ($status)"
+else
+    bad "an output that cannot be opened in the middle exits 0"
+fi
+if test -s "$WORK/dir/a.mp3" && ! test -e "$WORK/dir/c.mp3"; then
+    ok "an output that cannot be opened in the middle stops the run before the last file"
+else
+    bad "an output that cannot be opened in the middle does not stop the run:
+$(ls -l "$WORK/dir")"
+fi
+if grep -F "$SUMMARY" "$WORK/err.txt" >/dev/null; then
+    ok "an output that cannot be opened in the middle prints \"$SUMMARY\""
+else
+    bad "an output that cannot be opened in the middle does not print \"$SUMMARY\":
+$(cat "$WORK/err.txt")"
+fi
+
+# ------------------------------------- input that cannot be opened, middle
+nogap "$WORK/missing" "$WORK/a.wav" "$WORK/no-such-file.wav" "$WORK/c.wav"
+ran=$((ran + 1))
+if test "$status" -ne 0; then
+    ok "a middle input that cannot be opened exits non-zero ($status)"
+else
+    bad "a middle input that cannot be opened exits 0"
+fi
+if test -s "$WORK/missing/a.mp3" && test -s "$WORK/missing/c.mp3"; then
+    ok "a middle input that cannot be opened: the last file is encoded"
+else
+    bad "a middle input that cannot be opened: the last file is not encoded:
+$(ls -l "$WORK/missing")"
+fi
+if grep -F "$SUMMARY" "$WORK/err.txt" >/dev/null; then
+    ok "a middle input that cannot be opened prints \"$SUMMARY\""
+else
+    bad "a middle input that cannot be opened does not print \"$SUMMARY\":
+$(cat "$WORK/err.txt")"
 fi
 
 # --------------------------------------------- encoder error in the middle
