@@ -300,6 +300,12 @@ fi
 #             is the code the ordinary build never warns about, and a warning
 #             is fatal here. Every failure this cell has ever found needed
 #             both flips to appear at all.
+# debug       flip the debug build on (--enable-debug=alot): no optimization,
+#             the code under DEBUG, and the floating-point exception traps,
+#             which end the process on an invalid operation, a division by
+#             zero or an overflow that a release build ignores. It also
+#             builds mp3rtp, mp3x and the internal options, so their code
+#             runs under the same checks, and keeps the internal file reader.
 #
 cells() {
 	cat <<'EOF'
@@ -314,6 +320,7 @@ staticfe|--disable-dynamic-frontends
 nohardening|--enable-dynamic-frontends --disable-hardening
 expopt|--enable-dynamic-frontends --enable-expopt=norm
 mp3x|--enable-dynamic-frontends --enable-mp3x
+debug|--enable-debug=alot --enable-mp3rtp --enable-mp3x --enable-internal
 EOF
 }
 

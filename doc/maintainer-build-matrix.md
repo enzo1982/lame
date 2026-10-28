@@ -38,6 +38,7 @@ often.
 | `nohardening`| `--enable-dynamic-frontends --disable-hardening`  | security hardening off               |
 | `expopt`     | `--enable-dynamic-frontends --enable-expopt=norm` | experimental optimizations on        |
 | `mp3x`       | `--enable-dynamic-frontends --enable-mp3x`        | GTK 4 frame analyzer frontend on     |
+| `debug`      | `--enable-debug=alot --enable-mp3rtp --enable-mp3x --enable-internal` | debug build: no optimization, `DEBUG` code, floating-point traps; mp3rtp, mp3x and the internal options on |
 
 Dynamic linking of the frontends is the default. The base build still gives
 `--enable-dynamic-frontends` on purpose. When the frontends link against the
@@ -65,6 +66,18 @@ covers more combinations with an option that already exists.
 This cell fails on any warning, unlike all other cells. That is its purpose. So
 when the matrix reports a failure, look at this cell first, because its
 requirements are stricter than those of the other cells.
+
+The `debug` cell builds without optimization and compiles the code under
+`DEBUG`. It also turns on the floating-point exception traps, where the
+hardware has them: an invalid operation, a division by zero or an overflow ends
+the process, where a release build continues. So with the unit tests, this
+cell fails on such an operation in code that the tests reach. `alot` is the
+only debug level in the matrix, because it does everything `norm` does and
+also defines `DEBUG`.
+
+The cell also builds `mp3rtp`, `mp3x` and the internal options, so their code
+runs under the same checks. `--enable-internal` links the frontends
+statically. The cell reads input with LAME's own reader, not with libsndfile.
 
 Each compiler that the generator finds gets the whole star. So the number of
 builds is *compilers &times; cells*.
