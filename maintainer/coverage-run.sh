@@ -122,6 +122,31 @@ mp3rtp="$celldir/frontend/mp3rtp"
 have_mp3rtp=no
 [ -x "$mp3rtp" ] && have_mp3rtp=yes
 
+# --enable-mp3x builds the GTK analyzer, which only a driver executes. It runs
+# on a virtual X server when xvfb-run exists, so that no window reaches the
+# desktop, and on DISPLAY otherwise; the driver's probe says whether it can.
+mp3x="$celldir/frontend/mp3x"
+mp3x_driver="$script_dir/coverage-mp3x.py"
+have_mp3x=no
+mp3x_why="not built in this cell"
+gui() {
+	if command -v xvfb-run >/dev/null 2>&1; then
+		xvfb-run -a -s '-screen 0 1600x1200x24' "$@"
+	else
+		"$@"
+	fi
+}
+if [ -x "$mp3x" ]; then
+	if ! command -v dbus-run-session >/dev/null 2>&1; then
+		mp3x_why="skipped: no dbus-run-session"
+	elif ! mp3x_why=$(gui python3 "$mp3x_driver" --probe 2>&1); then
+		mp3x_why="skipped: $mp3x_why"
+	else
+		have_mp3x=yes
+		if command -v xvfb-run >/dev/null 2>&1; then mp3x_why="Xvfb"; else mp3x_why="on DISPLAY"; fi
+	fi
+fi
+
 # Where the rtp mode streams to. Loopback ON PURPOSE and not configurable:
 # the harness must never emit packets onto a real network, least of all the
 # multicast addresses the mp3rtp usage text suggests. Nothing listens, so
@@ -142,6 +167,7 @@ echo "decoder     : $have_decoder"
 echo "analyzer    : $have_analyzer"
 echo "sndfile io  : $have_sndfileio"
 echo "mp3rtp      : $have_mp3rtp"
+echo "mp3x driver : $have_mp3x ($mp3x_why)"
 echo "workload    : $workload"
 echo "op files    : $testdir"
 echo "mp3 corpus  : ${mp3dir:-<none>}"
@@ -213,6 +239,7 @@ sed -e 's/#.*$//' "$workload" | while IFS='|' read -r id mode input opts expect 
 		ownio)     [ "$have_sndfileio" = no ]  || continue ;;
 		sndfileio) [ "$have_sndfileio" = yes ] || continue ;;
 		mp3rtp)    [ "$have_mp3rtp" = yes ] || continue ;;
+		mp3x)      [ "$have_mp3x" = yes ] || continue ;;
 	esac
 
 	if [ "$input" = "%MP3%" ]; then
@@ -315,6 +342,12 @@ while IFS="$(printf '\t')" read -r id mode input opts expect; do
 			;;
 		rtpnoargs)
 			$timeout "$mp3rtp" $opts >/dev/null 2>&1
+			rc=$?
+			;;
+		mp3x)
+			# A private session bus, so nothing reaches the desktop's.
+			gui dbus-run-session -- python3 "$mp3x_driver" "$mp3x" \
+				"$input" "$work/mp3x-$id" > "$work/mp3x-$id.log" 2>&1
 			rc=$?
 			;;
 		*)

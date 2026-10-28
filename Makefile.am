@@ -46,6 +46,7 @@ EXTRA_DIST = \
 	maintainer/quality-compare.py \
 	maintainer/gen-coverage-matrix.sh \
 	maintainer/coverage-run.sh \
+	maintainer/coverage-mp3x.py \
 	maintainer/coverage-mkinputs.py \
 	maintainer/coverage-report.py \
 	maintainer/coverage-workload.txt

@@ -20,6 +20,8 @@
 #           noinput lame [options]                   (no file arguments)
 #           rtp     mp3rtp IP PORT [options] INPUT OUT.mp3
 #           rtpnoargs mp3rtp [options]                (no file arguments)
+#           mp3x    coverage-mp3x.py drives the mp3x analyzer on INPUT
+#                   through its menu actions and dialogs
 #   input   a %PLACEHOLDER% resolved from inputs.map (coverage-mkinputs.py),
 #           %MP3% to iterate the optional MP3 corpus, or - for no input
 #   options passed through verbatim, and word-split by the shell, so an
@@ -35,6 +37,8 @@
 #           nodecoder only where it is not
 #           analyzer  only where the analyzer hooks are compiled in
 #           mp3rtp    only where --enable-mp3rtp built the second binary
+#           mp3x      only where --enable-mp3x built the analyzer and this
+#                     system can drive it (coverage-mp3x.py --probe)
 #           ownio     only where LAME reads input files itself
 #           sndfileio only where --with-fileio=sndfile hands that to
 #                     libsndfile, which accepts input LAME's own reader
@@ -155,6 +159,13 @@ rtp-usage       | rtpnoargs | -   |                                 | fail | mp3
 rtp-stream      | rtp     | %WAV% | -V9                             | ok   | mp3rtp
 rtp-stream-mono | rtp     | %MONOWAV% | -V9 -m m                    | ok   | mp3rtp
 rtp-stream-cbr  | rtp     | %WAV% | -b 64                           | ok   | mp3rtp
+
+# --- the mp3x analyzer -------------------------------------------------------
+# A GTK program: started and left alone, it runs its start-up and nothing else.
+# The driver activates every action over D-Bus and drives the file dialogs
+# through the accessibility bus, under Xvfb where xvfb-run exists. The MP3
+# input takes the analyzer's decoder path; the driver adds a WAV of its own.
+mp3x-drive      | mp3x    | %MP3IN% |                               | ok   | mp3x
 
 # --- real-world MP3 corpus -------------------------------------------------
 # Iterated over whatever MP3 directory the runner was pointed at, if any.

@@ -28,6 +28,10 @@ produces a short, ranked list of command lines to run under the sanitizers.
 - Optional, each needed for some cells: **libmpg123**, **libsndfile**,
   **cmocka** (unit tests), **GTK 4** (>= 4.10, for the mp3x analyzer frontend,
   found with pkg-config).
+- For the mp3x driver: **dbus-run-session**, **PyGObject** with the Gio and
+  Atspi 2.0 typelibs, and an X server: **xvfb-run** (preferred, no window
+  reaches the desktop) or a display in `DISPLAY`. **xdotool** is optional;
+  without it, the driver closes the dialogs with Cancel instead of Escape.
 
 ## Running it
 
@@ -71,6 +75,16 @@ be read) runs only in a command line that exits with a non-zero status. A
 harness that counts a non-zero exit as its own failure misses exactly the error
 handling that a sanitizer run should test most. So each entry states the
 expected result, and the harness reports a mismatch in either direction.
+
+The mp3x analyzer is a GTK program, so a command line alone runs only its
+start-up. In a cell that built it, the runner starts `maintainer/coverage-mp3x.py`
+on a private session bus. The driver activates every action that mp3x
+publishes over D-Bus, takes the values of the menu choices from the menus of
+the running program, saves every export through the save dialog, leaves the
+save and open dialogs with Cancel and with Escape, and pauses and steps a file
+of its own. Each step must do what it should, or the run reports a mismatch;
+the driver's log is `work/mp3x-mp3x-drive.log` in the output directory. When
+the driver cannot run here, the runner says why in its header and skips it.
 
 `maintainer/coverage-mkinputs.py` generates the input files: mono and stereo
 PCM, 32-bit float, AIFF, raw PCM without a header, `WAVE_FORMAT_EXTENSIBLE`
