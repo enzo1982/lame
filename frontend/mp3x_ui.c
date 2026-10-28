@@ -170,6 +170,7 @@ static Mp3xDriver *mp3x_driver_ref    (Mp3xDriver *d);
 static void        mp3x_driver_unref  (Mp3xDriver *d);
 
 static void        update_transport   (Mp3xDriver *d);
+static void        update_action_sensitivity(Mp3xDriver *d);
 
 static gboolean mp3x_driver_open_file (Mp3xDriver *d, GFile *gfile, GError **err);
 static void     mp3x_driver_close_file(Mp3xDriver *d);
@@ -1300,7 +1301,9 @@ mp3x_do_one_frame(Mp3xDriver *d)
         s->advance_left--;
         if (s->advance_left == 0) {
             s->running = FALSE;
-            if (!d->plot_advancing)
+            if (d->plot_advancing)
+                update_transport(d);
+            else
                 mp3x_driver_refresh_for_session(d);
             return FALSE;
         }
@@ -2255,6 +2258,7 @@ update_transport(Mp3xDriver *d)
         gtk_widget_set_sensitive(d->btn_step, can_step);
     if (d->btn_back)
         gtk_widget_set_sensitive(d->btn_back, can_back);
+    update_action_sensitivity(d);
 }
 
 static void
@@ -2313,7 +2317,6 @@ mp3x_driver_refresh_for_session(Mp3xDriver *d)
     mp3x_apply_display(d);
     refresh_display(d);
     update_transport(d);
-    update_action_sensitivity(d);
 
     /* If channel was R but new file is mono, normalize to L. */
     if (d->session && d->channel == 1) {
@@ -2360,7 +2363,6 @@ mp3x_driver_refresh_for_empty(Mp3xDriver *d)
     set_status_readout(d);
     redraw_all(d);
     update_transport(d);
-    update_action_sensitivity(d);
 }
 
 
