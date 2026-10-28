@@ -1472,7 +1472,7 @@ mpeg2_scale_bitcount(const lame_internal_flags * gfc, gr_info * const cod_info)
     }
 #ifdef DEBUG
     if (over)
-        ERRORF(gfc, "---WARNING !! Amplification of some bands over limits\n");
+        DEBUGF(gfc, "---WARNING !! Amplification of some bands over limits\n");
 #endif
     if (!over) {
         assert(cod_info->quant.sfb_partition_table);
