@@ -875,7 +875,7 @@ init_params(lame_global_flags * gfp)
     }
     gfp->lowpassfreq = Min(gfp->samplerate_out / 2, gfp->lowpassfreq);
 
-    if (cfg->vbr == vbr_off) {
+    if (cfg->vbr == vbr_off && gfp->brate > 0) {
         gfp->compression_ratio = gfp->samplerate_out * 16 * cfg->channels_out / (1.e3 * gfp->brate);
     }
     if (cfg->vbr == vbr_abr) {
@@ -944,7 +944,8 @@ init_params(lame_global_flags * gfp)
             cfg->samplerate_out * 16 * cfg->channels_out / (1.e3 * gfp->VBR_mean_bitrate_kbps);
         break;
     default:
-        gfp->compression_ratio = cfg->samplerate_out * 16 * cfg->channels_out / (1.e3 * gfp->brate);
+        if (gfp->brate > 0)
+            gfp->compression_ratio = cfg->samplerate_out * 16 * cfg->channels_out / (1.e3 * gfp->brate);
         break;
     }
 
