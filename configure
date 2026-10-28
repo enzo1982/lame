@@ -20264,6 +20264,41 @@ printf '%s\n' "#define DEBUG 1" >>confdefs.h
 
 	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: ${CONFIG_DEBUG}" >&5
 printf '%s\n' "${CONFIG_DEBUG}" >&6; }
+
+			if test "x${CONFIG_DEBUG}" != "xno"; then
+		{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether $CC accepts -ffp-exception-behavior=maytrap" >&5
+printf %s "checking whether $CC accepts -ffp-exception-behavior=maytrap... " >&6; }
+lame_check_flag_save=$CFLAGS
+CFLAGS="$CFLAGS -O2 -ffp-exception-behavior=maytrap -Werror"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  lame_check_flag_ok=yes
+else case e in #(
+  e) lame_check_flag_ok=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+CFLAGS=$lame_check_flag_save
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $lame_check_flag_ok" >&5
+printf '%s\n' "$lame_check_flag_ok" >&6; }
+if test "x$lame_check_flag_ok" = xyes
+then :
+  OPTIMIZATION="${OPTIMIZATION} -ffp-exception-behavior=maytrap"
+fi
+
+	fi
 else
 	{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf '%s\n' "no" >&6; }

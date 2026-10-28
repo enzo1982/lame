@@ -1213,6 +1213,12 @@ dnl		AC_DEFINE(NDEBUG, 1, no debug build)
 	esac
 
 	AC_MSG_RESULT(${CONFIG_DEBUG})
+
+	dnl A debug build stops on a floating-point exception. This flag
+	dnl keeps the compiler from adding exceptions that the code does not have.
+	if test "x${CONFIG_DEBUG}" != "xno"; then
+		LAME_CHECK_CFLAG([-ffp-exception-behavior=maytrap], [OPTIMIZATION])
+	fi
 else
 	AC_MSG_RESULT(no)
 fi
