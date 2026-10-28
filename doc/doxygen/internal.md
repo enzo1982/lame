@@ -42,6 +42,9 @@ does. Each script has its own guide:
   running under the sanitizers.
 - @ref maintainer_abi - checking the exported interface of the library against
   the list in the source tree, so that every change to it is made on purpose.
+- @ref maintainer_analyze_msvc - running the static analyzer of the Microsoft
+  compiler over the Windows projects, and comparing what it finds with a
+  baseline.
 - @ref maintainer_check_dist - checking a finished distribution tarball before
   it is announced: does it unpack, build in every configuration this machine
   can build, pass its tests, and show the right version information.

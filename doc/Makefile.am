@@ -47,6 +47,7 @@ EXTRA_DIST = Doxyfile.in Doxyfile-common.in Doxyfile-internal.in \
 	maintainer-quality.md \
 	maintainer-coverage.md \
 	maintainer-abi.md \
+	maintainer-analyze-msvc.md \
 	maintainer-check-dist.md \
 	maintainer-gen-api-docs.md \
 	maintainer-gen-usage.md \

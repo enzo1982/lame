@@ -10,7 +10,8 @@ There are three kinds.
 **Checks that pass or fail.** @ref maintainer_abi checks that a program built
 against the previous library still works with this one.
 @ref maintainer_check_dist checks that the distribution tarball is complete and
-builds after a clean unpack.
+builds after a clean unpack. @ref maintainer_analyze_msvc checks that the
+static analyzer of the Microsoft compiler finds nothing beyond a baseline.
 
 **Measurements that compare two builds.** @ref maintainer_build_matrix creates
 the build configurations. The speed and quality comparisons use these builds,
@@ -29,6 +30,7 @@ the same thing.
 - @subpage maintainer_quality
 - @subpage maintainer_coverage
 - @subpage maintainer_abi
+- @subpage maintainer_analyze_msvc
 - @subpage maintainer_check_dist
 - @subpage maintainer_gen_api_docs
 - @subpage maintainer_gen_usage

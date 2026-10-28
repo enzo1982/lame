@@ -1,0 +1,31 @@
+# maintainer/analyze-msvc.ps1 baseline: file, code, number of lines, reason
+ACM/ACM.cpp C6031 1 lstrcpynA() returns its destination; there is nothing to check
+frontend/get_audio.c C28199 1 the loop reads only the samples that the reader returned as written
+frontend/get_audio.c C6001 3 each read is of entries that the code before wrote: the samples read, a row address only, the count put_audio16() filled
+frontend/get_audio.c C6262 1 a large frame on the main thread, kept on purpose
+frontend/lame_main.c C6262 2 large frames on the main thread, kept on purpose; the deepest chain is 313 KB of the 1 MB stack
+frontend/lametime.c C6031 1 _setmode() fails only for an invalid descriptor or mode, and the stream is open
+frontend/mp3rtp.c C6262 1 a large frame on the main thread, kept on purpose
+frontend/mp3rtp.c C6386 1 argc is above 2 here, so the copy writes indices 1 to argc_mod - 1 of argc_mod entries
+frontend/mp3x_core.c C6262 1 a large frame on the main thread, kept on purpose
+frontend/mp3x_core.c C6386 2 framesize is at most 1152, so the index stays below the 2304 - DECDELAY entries of pcmdata2
+frontend/mp3x_plot.c C6262 1 a large frame on the main thread, kept on purpose
+frontend/mp3x_ui.c C6387 1 g_menu_model_get_item_attribute() returns TRUE only after it has set the label
+frontend/parse.c C6031 1 getchar() waits for a key; the character is not wanted
+libmp3lame/encoder.c C6385 1 mode_gr is 1 or 2, and tt has 2 granules
+libmp3lame/id3tag.c C6011 1 nextUpperAlpha() never returns NULL
+libmp3lame/id3tag.c C6386 1 the length is 2 plus the span, which covers all four paths
+libmp3lame/psymodel.c C6262 2 large frames, kept on purpose: the heap would cost an allocation per call
+libmp3lame/psymodel.c C6386 1 the same bounds compute the count and drive the writes
+libmp3lame/takehiro.c C6385 1 2 <= i <= 576 is asserted on the line above, and bv_scf has 576 entries
+libmp3lame/util.c C6385 1 i + num_used stays below BLACKSIZE by construction
+libmp3lame/VbrTag.c C6054 1 strncmp() with a length of 3 needs no terminator
+libmp3lame/version.c C6326 1 switch (sizeof(void *)) is constant per platform on purpose
+test/clients/acm_test.cpp C6320 1 the test reports a fault of the codec instead of ending with it
+test/clients/acm_test.cpp C6387 2 a NULL bind context, as the DirectShow documentation's own enumeration passes
+test/clients/blade_test.cpp C6387 1 a failed load returns before the module is freed
+test/clients/dshow_test.cpp C28159 4 the loops compare (long) (until - GetTickCount()), which is correct across the wrap
+test/clients/dshow_test.cpp C6031 1 the allocator leaves its pointer NULL on failure, and every method checks it
+test/clients/dshow_test.cpp C6320 2 the test reports a fault of the filter instead of ending with it
+test/clients/dshow_test.cpp C6385 1 the writes before cover every byte of the 44-byte header
+test/clients/dshow_test.cpp C6387 1 a failed load jumps past the use of the module

@@ -52,6 +52,7 @@ INPUT                  = @LAME_SRCDIR@/include \
                          @LAME_SRCDIR@/doc/maintainer-quality.md \
                          @LAME_SRCDIR@/doc/maintainer-coverage.md \
                          @LAME_SRCDIR@/doc/maintainer-abi.md \
+                         @LAME_SRCDIR@/doc/maintainer-analyze-msvc.md \
                          @LAME_SRCDIR@/doc/maintainer-check-dist.md \
                          @LAME_SRCDIR@/doc/maintainer-gen-api-docs.md \
                          @LAME_SRCDIR@/doc/maintainer-gen-usage.md

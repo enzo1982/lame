@@ -28,6 +28,8 @@ EXTRA_DIST = \
 	testcase.mp3 \
 	testcase.wav \
 	maintainer/abicheck.sh \
+	maintainer/analyze-msvc.ps1 \
+	maintainer/analyze/baseline.txt \
 	maintainer/abi/libmp3lame.abi \
 	maintainer/abi/libmp3lame.abignore \
 	maintainer/check-dist.sh \
