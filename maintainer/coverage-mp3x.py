@@ -26,7 +26,8 @@ instead of being skipped.
 
 Needs a display (DISPLAY), PyGObject with the Gio and Atspi 2.0 typelibs, and
 an X server for GDK_BACKEND=x11. xdotool is optional: without it the Escape
-steps are reported as skipped.
+steps are reported as skipped. READ_AHEAD is read from
+libmp3lame/lame-analysis.h of the source tree this script is in.
 
 Part of the LAME distribution.  No warranty; see COPYING.
 """
@@ -80,6 +81,21 @@ def probe():
     return None
 
 
+def read_ahead():
+    """READ_AHEAD from libmp3lame/lame-analysis.h in the tree of this script."""
+    h = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir,
+                     'libmp3lame', 'lame-analysis.h')
+    try:
+        with open(h) as f:
+            for line in f:
+                w = line.split()
+                if len(w) >= 3 and w[0] == '#define' and w[1] == 'READ_AHEAD':
+                    return int(w[2])
+    except (OSError, ValueError):
+        pass
+    sys.exit('cannot drive mp3x: no READ_AHEAD in ' + h)
+
+
 if len(sys.argv) == 2 and sys.argv[1] == '--probe':
     why = probe()
     if why:
@@ -92,6 +108,7 @@ MP3X, FIRST, OUT = sys.argv[1:4]
 why = probe()
 if why:
     sys.exit('cannot drive mp3x: ' + why)
+READ_AHEAD = read_ahead()
 
 import gi  # noqa: E402
 gi.require_version('Atspi', '2.0')
@@ -406,6 +423,19 @@ def main():
             say('ok   recent: %s, paused' % second)
         else:
             fail('pause: the file kept running')
+        # mp3x shows the frame READ_AHEAD behind the newest, so a pause before
+        # frame READ_AHEAD + 1 leaves Back disabled until enough steps follow.
+        n = 0
+        while n < READ_AHEAD + 2 and not win.get_action_enabled('back'):
+            if not wait_enabled('step'):
+                break
+            act(win, 'step')
+            pump(lambda: win.get_action_enabled('back'), 1.0)
+            n += 1
+        if not wait_enabled('back'):
+            fail('back still disabled after %d step(s) from the pause' % n)
+        elif n:
+            say('ok   %d step(s) from an early pause until back' % n)
 
         def steps(names):
             before = failures
