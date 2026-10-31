@@ -31,6 +31,7 @@ libmp3lame/lame-analysis.h of the source tree this script is in.
 
 Part of the LAME distribution.  No warranty; see COPYING.
 """
+import importlib
 import math
 import os
 import shutil
@@ -75,7 +76,8 @@ def probe():
     try:
         import gi
         gi.require_version('Atspi', '2.0')
-        from gi.repository import Atspi, Gio  # noqa: F401
+        for name in ('Atspi', 'Gio'):
+            importlib.import_module('gi.repository.' + name)
     except (ImportError, ValueError) as e:
         return 'no PyGObject with the Gio and Atspi 2.0 typelibs (%s)' % e
     return None
