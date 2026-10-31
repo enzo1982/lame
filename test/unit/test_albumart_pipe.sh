@@ -43,7 +43,8 @@ mkfifo "$WORK/art.pipe" 2> /dev/null || skip "no mkfifo here"
 case $(uname -s) in
 MINGW* | MSYS* | CYGWIN*) skip "a native build cannot open this shell's named pipe" ;;
 esac
-( cat "$WORK/art.gif" > "$WORK/art.pipe" & )
+cat "$WORK/art.gif" > "$WORK/art.pipe" &
+writer=$!
 "$LAME" --silent --ti "$WORK/art.pipe" "$SRC" "$WORK/pipe.mp3" 2> "$WORK/pipe.err"
 st=$?
 if test "$st" -ne 0 && grep -q 'size is not known' "$WORK/pipe.err"; then
@@ -51,7 +52,8 @@ if test "$st" -ne 0 && grep -q 'size is not known' "$WORK/pipe.err"; then
 else
     bad "album art from a pipe: exit $st, message: $(head -c 100 "$WORK/pipe.err")"
 fi
-# The writer may still wait for a reader; open the pipe once so it ends.
-cat "$WORK/art.pipe" > /dev/null 2>&1 &
+# If lame did not open the pipe, the writer still waits for a reader.
+kill "$writer" 2> /dev/null
+wait "$writer" 2> /dev/null
 
 exit $rc
