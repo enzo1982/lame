@@ -246,8 +246,10 @@ check_levels(int channels)
 }
 
 /**
- * @brief Checks that every block size gives exactly the title gain of the
- *        reference.
+ * @brief Checks that every block size gives the title gain of the reference.
+ *
+ * The title gain is a histogram step. Two gains count as equal when they are
+ * less than half a step apart, so a gain one step off fails.
  *
  * @param channels  1 for mono, 2 for stereo.
  */
@@ -261,7 +263,7 @@ check_title_gain(int channels)
     for (k = 0; k < sizeof blocks / sizeof *blocks; ++k) {
         replaygain_t *rg = analyse(channels, blocks[k]);
         Float_t const gain = GetTitleGain(rg);
-        if (gain != ref)
+        if (fabs((double) gain - (double) ref) >= 0.5 / STEPS_per_dB)
             fail_msg("block %d: title gain %.2f dB, the reference %.2f dB", blocks[k], gain, ref);
         free(rg);
     }
