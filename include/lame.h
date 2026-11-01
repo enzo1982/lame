@@ -822,12 +822,12 @@ void CDECL lame_print_internals( const lame_global_flags *gfp);
  *         @li -3 lame_init_params() not called.
  *         @li -4 a problem in the psychoacoustic model.
  *         @li -6 the ReplayGain analysis of the resampled input failed.
- *         @li #LAME_BADINPUTDATA @p nsamples is negative, or a sample is
- *             louder than 4096 times full scale after lame_set_scale() and
- *             the per-channel scales. Nothing of the call is encoded.
- *         @li #LAME_INTERNALERROR the encoder could not fit a frame into its
- *             bits, or the bits it wrote disagree with its bit reservoir. This
- *             call and every later encode or flush call fail.
+ *         @li -13 the encoder could not fit a frame into its bits, or the
+ *             bits it wrote disagree with its bit reservoir. This call and
+ *             every later encode or flush call fail.
+ *         @li -14 @p nsamples is negative, or a sample is louder than 4096
+ *             times full scale after lame_set_scale() and the per-channel
+ *             scales. Nothing of the call is encoded.
  */
 int CDECL lame_encode_buffer (
         lame_global_flags*  gfp,           /* encoder instance              */
@@ -862,7 +862,7 @@ int CDECL lame_encode_buffer_interleaved(
  *
  * \note Full scale is +/- 32768, the same range as short int samples.
  *
- * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
+ * @return As lame_encode_buffer(), and additionally -14 when a
  *         sample is not a finite number, as for lame_encode_buffer_ieee_float().
  */
 int CDECL lame_encode_buffer_float(
@@ -881,9 +881,9 @@ int CDECL lame_encode_buffer_float(
  * \note Full scale is +/- 1.0.
  *
  * Every sample must be a finite number. If a sample is NaN or infinite, the
- * call returns #LAME_BADINPUTDATA and encodes nothing.
+ * call returns -14 and encodes nothing.
  *
- * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
+ * @return As lame_encode_buffer(), and additionally -14 when a
  *         sample is not a finite number. Nothing is encoded in that case.
  */
 int CDECL lame_encode_buffer_ieee_float(
@@ -899,7 +899,7 @@ int CDECL lame_encode_buffer_ieee_float(
  *
  * \note Full scale is +/- 1.0.
  *
- * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
+ * @return As lame_encode_buffer(), and additionally -14 when a
  *         sample is not a finite number, as for lame_encode_buffer_ieee_float().
  */
 int CDECL lame_encode_buffer_interleaved_ieee_float(
@@ -916,7 +916,7 @@ int CDECL lame_encode_buffer_interleaved_ieee_float(
  *
  * \note Full scale is +/- 1.0.
  *
- * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
+ * @return As lame_encode_buffer(), and additionally -14 when a
  *         sample is not a finite number, as for lame_encode_buffer_ieee_float().
  */
 int CDECL lame_encode_buffer_ieee_double(
@@ -932,7 +932,7 @@ int CDECL lame_encode_buffer_ieee_double(
  *
  * \note Full scale is +/- 1.0.
  *
- * @return As lame_encode_buffer(), and additionally #LAME_BADINPUTDATA when a
+ * @return As lame_encode_buffer(), and additionally -14 when a
  *         sample is not a finite number, as for lame_encode_buffer_ieee_float().
  */
 int CDECL lame_encode_buffer_interleaved_ieee_double(
@@ -1019,8 +1019,9 @@ int CDECL lame_encode_buffer_interleaved_int(
  * It also writes the ID3v1 tag into the stream, if there is one.
  *
  * return code = number of bytes written to mp3buf. Can be 0.  -1 when
- * mp3buf is too small for them, or NULL.  -3 if lame_init_params() was not
- * called.  LAME_INTERNALERROR as for lame_encode_buffer().
+ * mp3buf is too small for them, or NULL.  -2 malloc() problem.  -3 if
+ * lame_init_params() was not called.  -6 the ReplayGain analysis failed.
+ * -13 as for lame_encode_buffer().
  */
 int CDECL lame_encode_flush(
         lame_global_flags *  gfp,    /* encoder instance                      */
@@ -1046,7 +1047,7 @@ int CDECL lame_encode_flush(
  *
  * return code = number of bytes written to mp3buf. Can be 0.  -1 when
  * mp3buf is too small for them, or NULL.  -3 if lame_init_params() was not
- * called.  LAME_INTERNALERROR as for lame_encode_buffer().
+ * called.  -6 the ReplayGain analysis failed.
  */
 int CDECL lame_encode_flush_nogap(
         lame_global_flags *  gfp,    /* encoder instance                      */

@@ -1882,7 +1882,7 @@ lame_encode_buffer_sample_t(lame_internal_flags * gfc,
            encoded first */
         if (esv->mf_size < mf_needed
             && fill_buffer(gfc, mfbuf, &in_buffer_ptr[0], nsamples, &n_in, &n_out) < 0)
-            return LAME_NOMEM;
+            return -2;
 
         /* compute ReplayGain of resampled input if requested */
         if (cfg->findReplayGain && !cfg->decode_on_the_fly)
@@ -2275,7 +2275,7 @@ lame_encode_buffer_long(lame_global_flags * gfp,
   alternate, left channel first.
 
   If the instance is set to one input channel (\c lame_set_num_channels()),
-  the call fails with #LAME_BADINPUTDATA. This function always reads two
+  the call returns -14. This function always reads two
   channels from the buffer. For one input channel, use a non-interleaved entry
   point such as \c lame_encode_buffer(). Encoding two input channels to a mono
   output works as usual.
@@ -2306,8 +2306,8 @@ lame_encode_buffer_interleaved(lame_global_flags * gfp,
   scale is the whole range of \c int, +/- 2^(8*sizeof(int)-1), as for
   \c lame_encode_buffer_int().
 
-  If the instance is set to one input channel, the call fails with
-  #LAME_BADINPUTDATA, as for \c lame_encode_buffer_interleaved().
+  If the instance is set to one input channel, the call returns -14, as for
+  \c lame_encode_buffer_interleaved().
 
   \param gfp          the encoder instance.
   \param pcm          PCM data for both channels, interleaved.

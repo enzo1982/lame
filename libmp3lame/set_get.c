@@ -212,7 +212,7 @@ lame_get_num_channels(const lame_global_flags * gfp)
   \param scale  the factor, a finite number from -4096 to 4096. 0 makes the
                 input silent, and a negative value inverts it. If a sample is
                 louder than 4096 times full scale after all factors, the
-                encode call returns \c LAME_BADINPUTDATA.
+                encode call returns -14.
   \return 0 on success. -1 if the factor is NaN, infinite or larger than 4096,
           or if the instance is not usable. The setting does not change then.
 */
