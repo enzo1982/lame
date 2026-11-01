@@ -252,6 +252,21 @@ if [ -n "$am_version" ]; then
 	fi
 fi
 
+# The internal options exist in alpha versions only: configure rejects
+# --enable-internal when libmp3lame/version.h names a beta or a release. So the
+# version type is read out of the tree, and the internal cell is skipped outside
+# an alpha. A tree whose version.h cannot be read leaves it to configure.
+type_version=$(sed -n 's/^#[[:space:]]*define[[:space:]][[:space:]]*LAME_TYPE_VERSION[[:space:]][[:space:]]*\([0-9][0-9]*\).*/\1/p' \
+	"$srcdir/libmp3lame/version.h" 2>/dev/null | head -1)
+have_alpha=unknown
+if [ -n "$type_version" ]; then
+	if [ "$type_version" = 0 ]; then
+		have_alpha=yes
+	else
+		have_alpha=no
+	fi
+fi
+
 if [ "$have_mpg123" = no ]; then
 	echo "$prog: WARNING: libmpg123 not found via $pkgconf - decoder-on cells" >&2
 	echo "$prog:          will be skipped (they cover most of the code base)." >&2
@@ -271,6 +286,11 @@ if [ "$have_automake" = no ]; then
 	echo "$prog:          with that exact version. The strict cell will be skipped;" >&2
 	echo "$prog:          install automake $am_version to get the warnings-are-errors" >&2
 	echo "$prog:          coverage back." >&2
+fi
+if [ "$have_alpha" = no ]; then
+	echo "$prog: NOTE: this tree is not an alpha (LAME_TYPE_VERSION $type_version) -" >&2
+	echo "$prog:       configure accepts --enable-internal only in an alpha, so" >&2
+	echo "$prog:       the internal cell will be skipped." >&2
 fi
 
 # --- configuration cells (the "star") ---------------------------------------
@@ -304,8 +324,12 @@ fi
 #             the code under DEBUG, and the floating-point exception traps,
 #             which end the process on an invalid operation, a division by
 #             zero or an overflow that a release build ignores. It also
-#             builds mp3rtp, mp3x and the internal options, so their code
-#             runs under the same checks, and keeps the internal file reader.
+#             builds mp3rtp and mp3x, so their code runs under the same
+#             checks, and keeps the internal file reader.
+# internal    the debug build again, with the internal options
+#             (--enable-internal) instead of mp3x, so it needs no GTK 4.
+#             configure accepts them in an alpha version only, so the cell is
+#             skipped in a beta or a release.
 #
 cells() {
 	cat <<'EOF'
@@ -320,7 +344,8 @@ staticfe|--disable-dynamic-frontends
 nohardening|--enable-dynamic-frontends --disable-hardening
 expopt|--enable-dynamic-frontends --enable-expopt=norm
 mp3x|--enable-dynamic-frontends --enable-mp3x
-debug|--enable-debug=alot --enable-mp3rtp --enable-mp3x --enable-internal
+debug|--enable-debug=alot --enable-mp3rtp --enable-mp3x
+internal|--enable-debug=alot --enable-mp3rtp --enable-internal
 EOF
 }
 
@@ -352,6 +377,18 @@ cell_needs_sndfile() {
 cell_needs_gtk() {
 	case " $1 " in
 		*"--enable-mp3x"*)
+			return 0
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
+# A cell needs an alpha version only when it enables the internal options.
+cell_needs_alpha() {
+	case " $1 " in
+		*"--enable-internal"*)
 			return 0
 			;;
 		*)
@@ -393,6 +430,7 @@ info="$master_abs/matrix-info.txt"
 	echo "libmpg123 present  = $have_mpg123"
 	echo "libsndfile present = $have_sndfile"
 	echo "GTK 4 (>= 4.10)    = $have_gtk"
+	echo "alpha version      = $have_alpha"
 	echo "compilers:"
 	for d in $detected; do
 		echo "  ${d%%=*} -> ${d#*=}"
@@ -420,6 +458,8 @@ for d in $detected; do
 			skip_reason="GTK 4 >= 4.10 missing"
 		elif cell_needs_automake "$args" && [ "$have_automake" = no ]; then
 			skip_reason="automake $am_version missing (maintainer mode rebuilds with it)"
+		elif cell_needs_alpha "$args" && [ "$have_alpha" = no ]; then
+			skip_reason="not an alpha: configure accepts --enable-internal only there"
 		fi
 		if [ -n "$skip_reason" ]; then
 			echo "  [skip] $cname/$cell ($skip_reason)" >> "$info"
@@ -534,6 +574,10 @@ if [ "$have_automake" = no ]; then
 	echo "NOTE: automake $am_version not found - the maintainer-mode cell was"
 	echo "      skipped. That cell is the only one where a warning is an error,"
 	echo "      so this host is not checking that bar at all."
+fi
+if [ "$have_alpha" = no ]; then
+	echo
+	echo "NOTE: this tree is not an alpha - the internal cell was skipped."
 fi
 
 echo

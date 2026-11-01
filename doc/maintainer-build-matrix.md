@@ -38,7 +38,8 @@ often.
 | `nohardening`| `--enable-dynamic-frontends --disable-hardening`  | security hardening off               |
 | `expopt`     | `--enable-dynamic-frontends --enable-expopt=norm` | experimental optimizations on        |
 | `mp3x`       | `--enable-dynamic-frontends --enable-mp3x`        | GTK 4 frame analyzer frontend on     |
-| `debug`      | `--enable-debug=alot --enable-mp3rtp --enable-mp3x --enable-internal` | debug build: no optimization, `DEBUG` code, floating-point traps; mp3rtp, mp3x and the internal options on |
+| `debug`      | `--enable-debug=alot --enable-mp3rtp --enable-mp3x` | debug build: no optimization, `DEBUG` code, floating-point traps; mp3rtp and mp3x on |
+| `internal`   | `--enable-debug=alot --enable-mp3rtp --enable-internal` | the debug build with the internal options instead of mp3x; alpha versions only |
 
 Dynamic linking of the frontends is the default. The base build still gives
 `--enable-dynamic-frontends` on purpose. When the frontends link against the
@@ -75,9 +76,12 @@ cell fails on such an operation in code that the tests reach. `alot` is the
 only debug level in the matrix, because it does everything `norm` does and
 also defines `DEBUG`.
 
-The cell also builds `mp3rtp`, `mp3x` and the internal options, so their code
-runs under the same checks. `--enable-internal` links the frontends
-statically. The cell reads input with LAME's own reader, not with libsndfile.
+The cell also builds `mp3rtp` and `mp3x`, so their code runs under the same
+checks. The cell reads input with LAME's own reader, not with libsndfile.
+
+The `internal` cell is the same debug build with the internal options. It
+builds `mp3rtp`, but not `mp3x`, so it does not need GTK 4.
+`--enable-internal` links the frontends statically.
 
 Each compiler that the generator finds gets the whole star. So the number of
 builds is *compilers &times; cells*.
@@ -142,6 +146,10 @@ the driver contains only real failures:
   same version requirement as `configure`. So a GTK 4 that is too old for the
   analyzer counts as missing here, instead of creating a cell that cannot
   configure.
+- the `internal` cell needs **an alpha version**. `configure` accepts
+  `--enable-internal` only when `libmp3lame/version.h` sets
+  `LAME_TYPE_VERSION` to 0. The generator reads this value from the tree, and
+  skips the cell in a beta or a release.
 
 Only the `mp3x` cell compiles and links the analyzer sources. So without GTK 4,
 the analyzer frontend is not built at all, and `matrix-info.txt` says so.
