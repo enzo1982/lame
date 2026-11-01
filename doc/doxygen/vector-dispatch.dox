@@ -99,7 +99,7 @@ instructions they use. The float instructions of SSE4.1 (@c dpps, @c blendps,
 @c roundps, @c insertps) do things these routines do not do.
 
 So a CPU with SSE4.2 and no AVX gets the full table-search gain from the SSE2
-tier. The FreeBSD test host of the project is such a CPU (a Westmere Xeon).
+tier.
 
 @subsection vector_dispatch_saturation The 16-bit limit
 
@@ -448,28 +448,6 @@ has no mode tests. Its own results also depend on the vendor: a gain at
 @c -b @c 320 on Intel, and a cost on Zen 4. So no setting enables it correctly
 for every CPU. The routine is not slow. There is just no rule that enables it
 correctly.
-
-@subsection vector_dispatch_avx512_experiment_lesson What the experiment taught
-
-Three lessons remain after the code is gone.
-
-<b>An experiment must be reachable from an encode, even before it can be
-measured.</b> For weeks the routines were in the tree, but no wrapper installed
-them. So no encode on any machine ran them, and the field results of that time
-measured only the quantization loop. A routine that nothing calls is not "not
-yet measured": its measurements are about something else.
-
-<b>The switch must report itself.</b> Each arm printed in the @c --verbose
-header which experiment it ran. So a report from a run that did not take the
-path could be told apart from a run that did. Without this, a missing path
-gives a wrong result instead of a visible gap.
-
-<b>The test setup is code too.</b> The first @c -V @c 2 results from both
-testers measured an uncached @c getenv() in the inner loop of the switch:
-5.9 million calls per encode. They looked like a 10% AVX-512 loss on two
-vendors. The bug was in our test code, and it was found on a machine without
-AVX-512. When a measurement of an experiment is surprising, check the setup of
-the experiment before the CPU.
 
 @section vector_dispatch_record_arm The ARM routines
 
