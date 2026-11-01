@@ -58,6 +58,28 @@
 # define MXCSR_FLUSH_TO_ZERO 0x8000u
 /** MXCSR bit that reads denormal operands as zero. */
 # define MXCSR_DENORMALS_ARE_ZERO 0x0040u
+
+/**
+ * @brief Reads the SSE control and status register.
+ *
+ * @return the value of MXCSR.
+ */
+static SSE_FUNCTION unsigned int
+mxcsr_get(void)
+{
+    return _mm_getcsr();
+}
+
+/**
+ * @brief Writes the SSE control and status register.
+ *
+ * @param csr  the new value of MXCSR.
+ */
+static SSE_FUNCTION void
+mxcsr_set(unsigned int csr)
+{
+    _mm_setcsr(csr);
+}
 #endif
 
 /** Longest run that the encoder passes to the routines. */
@@ -424,9 +446,9 @@ test_xrpow_core_tiny_coefficients(LAME_UNUSED void **state)
     gr_info *gi = calloc(1, sizeof *gi);
     FLOAT   xrpow[576], sum = 0;
     int     i, bad = 0, first = -1, max_nz, upper;
-    unsigned int const csr = _mm_getcsr();
+    unsigned int const csr = mxcsr_get();
     assert_non_null(gi);
-    _mm_setcsr(csr & ~(MXCSR_FLUSH_TO_ZERO | MXCSR_DENORMALS_ARE_ZERO));
+    mxcsr_set(csr & ~(MXCSR_FLUSH_TO_ZERO | MXCSR_DENORMALS_ARE_ZERO));
     for (i = 0; i < 576; ++i) {
         double const m = (i % 5 == 4) ? seen[(i / 5) % 4] : ldexp(1.0, -60 - (i % 80));
         gi->granule.xr[i] = (FLOAT) ((i & 1) ? -m : m);
@@ -452,12 +474,12 @@ test_xrpow_core_tiny_coefficients(LAME_UNUSED void **state)
         }
         assert_false(float_bits_nonfinite(&gi->quant.xrpow_max));
         if (bad) {
-            _mm_setcsr(csr);
+            mxcsr_set(csr);
             fail_msg("max_nz %d: %d value(s) wrong, the first at xr %g: %g", max_nz, bad,
                      (double) gi->granule.xr[first], (double) xrpow[first]);
         }
     }
-    _mm_setcsr(csr);
+    mxcsr_set(csr);
     free(gi);
 #else
     skip();
