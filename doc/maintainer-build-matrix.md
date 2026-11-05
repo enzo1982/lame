@@ -172,8 +172,8 @@ pwsh DIR\build-all.ps1
 | `-Dir`        | master directory (default `.\build-matrix`)                       |
 | `-SrcDir`     | LAME source directory (default: parent of the script)             |
 | `-VsPath`     | Visual Studio install to use (overrides autodetection)            |
-| `-Mpg123Dir`  | folder with `mpg123.h` + import lib; enables the decoder-on cells |
-| `-LibsndfileDir` | libsndfile folder with `lib\sndfile.lib`; enables the libsndfile cells |
+| `-Mpg123Dir`  | mpg123 folder with one subfolder per platform (`Win32`, `x64`), each with `mpg123.h` and `libmpg123-0.def`; enables the decoder-on cells |
+| `-LibsndfileDir` | libsndfile folder with one subfolder per platform (`Win32`, `x64`), each with `lib\sndfile.lib`; enables the libsndfile cells |
 | `-GtkDir`     | GTK 4 install prefix with `lib\gtk-4.lib`; enables the mp3x cell  |
 | `-DShowBaseClassesDir` | DirectShow base class sources (`streams.h`); enables the DirectShow filter cell |
 | `-Config`     | MSBuild configurations (default `Release,Debug`)                  |

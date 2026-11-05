@@ -34,11 +34,13 @@
 .PARAMETER VsPath
   Visual Studio installation to use (overrides autodetection).
 .PARAMETER Mpg123Dir
-  mpg123 folder with mpg123.h and libmpg123-0.def, overriding the default
-  vc_solution\mpg123\Win32; enables the decoder-on cells.
+  mpg123 folder with one subfolder per platform (Win32, x64), each with mpg123.h
+  and libmpg123-0.def, overriding the default vc_solution\mpg123; enables the
+  decoder-on cells.
 .PARAMETER LibsndfileDir
-  libsndfile folder with lib\sndfile.lib, overriding the default
-  vc_solution\libsndfile\Win32; enables the libsndfile cells.
+  libsndfile folder with one subfolder per platform (Win32, x64), each with
+  lib\sndfile.lib, overriding the default vc_solution\libsndfile; enables the
+  libsndfile cells.
 .PARAMETER GtkDir
   GTK 4 install prefix with lib\gtk-4.lib (a gvsbuild tree), overriding the
   default vc_solution\gtk4\x64; enables the mp3x analyzer cell.
@@ -144,19 +146,26 @@ function Probe-Dep($override, $default, $marker) {
 	if ($dir -and (Test-Path (Join-Path $dir $marker))) { return (Resolve-Path $dir).Path }
 	return ""
 }
+function Dep-Root($override, $default) {
+	$dir = if ($override) { $override } else { $default }
+	if (Test-Path $dir) { return (Resolve-Path $dir).Path }
+	return $dir
+}
+$mpg123Root  = Dep-Root $Mpg123Dir (Join-Path $vcsol "mpg123")
+$sndfileRoot = Dep-Root $LibsndfileDir (Join-Path $vcsol "libsndfile")
 
 # mpg123: both builds generate the import library from the shipped .def - the
 # MSBuild projects into their own $(IntDir), nmake into its output directory -
 # so a distribution folder needs the header and the .def and nothing else. The
 # static distributions ship neither, which is what the second test is for.
-$mpg123 = Probe-Dep $Mpg123Dir (Join-Path $vcsol "mpg123\Win32") "mpg123.h"
+$mpg123 = Probe-Dep "" (Join-Path $mpg123Root "Win32") "mpg123.h"
 if ($mpg123 -and -not (Test-Path (Join-Path $mpg123 "libmpg123-0.def"))) {
 	Write-Warning "no libmpg123-0.def in '$mpg123' - the decoder cells will be skipped."
 	Write-Warning "A static mpg123 distribution ships none; use the regular one."
 	$mpg123 = ""
 }
 
-$sndfile = Probe-Dep $LibsndfileDir (Join-Path $vcsol "libsndfile\Win32") "lib\sndfile.lib"
+$sndfile = Probe-Dep "" (Join-Path $sndfileRoot "Win32") "lib\sndfile.lib"
 $gtk     = Probe-Dep $GtkDir        (Join-Path $vcsol "gtk4\x64")        "lib\gtk-4.lib"
 $baseCls = Probe-Dep $DShowBaseClassesDir (Join-Path $vcsol "baseclasses") "streams.h"
 
@@ -232,28 +241,27 @@ $c0 = $configs[0]; $a0 = $archs[0]; $p0 = To-Platform $a0
 $msbBase = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$sln`" /nologo /m /t:Rebuild /p:Configuration=$c0 /p:Platform=$p0"
 $msbDirs = "/p:OutDirBase=%~dp0bin\ /p:IntDirBase=%~dp0obj\"
 
-# Only the switch, never the path: $mpg123 is the 32-bit library the nmake
-# cells need, and handing it to an MSBuild cell built for another platform
-# produces a link that cannot resolve a single decoder symbol. The .props file
-# already resolves .\mpg123\$(Platform) per configuration, which is the right
-# answer for every platform this cell can be generated for - exactly as the
-# libsndfile cell below flips its switch and leaves its path alone.
+# The path is the one for the platform being built: $mpg123 is the 32-bit library
+# the nmake cells need, and handing it to an MSBuild cell built for another
+# platform produces a link that cannot resolve a single decoder symbol.
+# LibsndfilePath ends in a separator, so it is doubled in front of the closing
+# quote.
 # These gates ask about the platform being built; the probes above ask about the
 # 32-bit one the nmake cells use. A machine can easily satisfy one and not the
 # other, so a gate that does not fire has to say so - reporting the nmake probe
 # alone would leave the run claiming a library it did not build a cell for.
 $msbSkipped = @()
-$mpg123Marker = Join-Path $vcsol "mpg123\$p0\libmpg123-0.def"
-if ((Test-Path (Join-Path $vcsol "mpg123\$p0\mpg123.h")) -and (Test-Path $mpg123Marker)) {
+$mpg123Marker = Join-Path $mpg123Root "$p0\libmpg123-0.def"
+if ((Test-Path (Join-Path $mpg123Root "$p0\mpg123.h")) -and (Test-Path $mpg123Marker)) {
 	$cells += @{ Name = "msbuild-$c0-$a0-mpg123"
-		Cmd = "$msbBase /p:HaveMpg123=true $msbDirs" }
+		Cmd = "$msbBase /p:HaveMpg123=true /p:Mpg123Path=`"$mpg123Root\$p0`" $msbDirs" }
 } else {
 	$msbSkipped += "mpg123 (decoder) for $p0 - no $mpg123Marker"
 }
-$sndfileMarker = Join-Path $vcsol "libsndfile\$p0\lib\sndfile.lib"
+$sndfileMarker = Join-Path $sndfileRoot "$p0\lib\sndfile.lib"
 if (Test-Path $sndfileMarker) {
 	$cells += @{ Name = "msbuild-$c0-$a0-sndfile"
-		Cmd = "$msbBase /p:HaveLibsndfile=true $msbDirs" }
+		Cmd = "$msbBase /p:HaveLibsndfile=true /p:LibsndfilePath=`"$sndfileRoot\$p0\\`" $msbDirs" }
 } else {
 	$msbSkipped += "libsndfile for $p0 - no $sndfileMarker"
 }
@@ -300,10 +308,10 @@ if ($clientsSln) {
 # The clients again with the decoder switched on. They link the library built
 # without it, so they must build and run with no libmpg123-0.dll beside them:
 # the cell fails if one is there, because the runs would then prove nothing.
-$mpg123Win32Marker = Join-Path $vcsol "mpg123\Win32\libmpg123-0.def"
-if ($clientsSln -and (Test-Path (Join-Path $vcsol "mpg123\Win32\mpg123.h")) -and (Test-Path $mpg123Win32Marker)) {
+$mpg123Win32Marker = Join-Path $mpg123Root "Win32\libmpg123-0.def"
+if ($clientsSln -and (Test-Path (Join-Path $mpg123Root "Win32\mpg123.h")) -and (Test-Path $mpg123Win32Marker)) {
 	$cells += @{ Name = "msbuild-Release-Win32-clients-mpg123"
-		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$clientsSln`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 /p:HaveMpg123=true $msbDirs`r`nif errorlevel 1 exit /b 1`r`nif exist `"$binDir\libmpg123-0.dll`" (echo libmpg123-0.dll is beside the clients & exit /b 1)`r`n$smokeCmd -Path `"%~dp0bin`" -Require acm`r`nif errorlevel 1 exit /b 1`r`n$acmTest`r`nif errorlevel 1 exit /b 1`r`n$dshowTest`r`nif errorlevel 1 exit /b 1`r`n$bladeTest" }
+		Cmd = "cd /d `"%~dp0`"`r`n`"$msbuild`" `"$clientsSln`" /nologo /m /t:Rebuild /p:Configuration=Release /p:Platform=Win32 /p:HaveMpg123=true /p:Mpg123Path=`"$mpg123Root\Win32`" $msbDirs`r`nif errorlevel 1 exit /b 1`r`nif exist `"$binDir\libmpg123-0.dll`" (echo libmpg123-0.dll is beside the clients & exit /b 1)`r`n$smokeCmd -Path `"%~dp0bin`" -Require acm`r`nif errorlevel 1 exit /b 1`r`n$acmTest`r`nif errorlevel 1 exit /b 1`r`n$dshowTest`r`nif errorlevel 1 exit /b 1`r`n$bladeTest" }
 } elseif ($clientsSln) {
 	$msbSkipped += "the client components with mpg123 (decoder) - no $mpg123Win32Marker"
 }
