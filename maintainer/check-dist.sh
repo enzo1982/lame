@@ -258,6 +258,9 @@ case "${v_type:-}" in
 	*) v_kind="unknown type '${v_type:-}'" ;;
 esac
 version="${v_major:-?}.${v_minor:-?}"
+if [ "${v_type:-}" = 2 ] && [ "${v_patch:-0}" != 0 ]; then
+	version="$version.$v_patch"
+fi
 echo "$version" > "$verfile"
 
 echo

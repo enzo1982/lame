@@ -155,6 +155,7 @@ $vType  = Get-VersionDefine "LAME_TYPE_VERSION"
 $vPatch = Get-VersionDefine "LAME_PATCH_VERSION"
 $vKind = switch ($vType) { 0 { "alpha" } 1 { "beta" } 2 { "release" } default { "unknown type '$vType'" } }
 $version = "$vMajor.$vMinor"
+if ($vType -eq 2 -and $vPatch) { $version = "$version.$vPatch" }
 
 Write-Output ""
 Write-Output "------------------------------------------------------------"
