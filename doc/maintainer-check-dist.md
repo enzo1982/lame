@@ -18,6 +18,12 @@ A POSIX shell cannot run the native Windows build. Use
 `maintainer/check-dist.ps1` for those cells. The two scripts are separate on
 purpose: most checks apply to only one of them.
 
+The tarball does not carry the optional libraries of the Windows build.
+`check-dist.ps1` takes them with `-Mpg123Dir`, `-LibsndfileDir`, `-GtkDir` and
+`-DShowBaseClassesDir`, and the MSBuild platforms with `-Arch`, and passes these
+options to the matrix (@ref maintainer_build_matrix). Without them, a cell that
+needs a library reports SKIP.
+
 ## What it does not check
 
 It does not measure encoding quality. That has its own harness and its own

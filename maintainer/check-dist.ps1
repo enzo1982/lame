@@ -30,6 +30,18 @@
 .PARAMETER AudioDir
   Encode every file in this directory through a built cell and require success
   and a non-empty MP3. A robustness smoke test, not a quality measurement.
+.PARAMETER Mpg123Dir
+  Passed through to gen-build-matrix.ps1, like the next three. The tarball
+  carries none of these libraries, so a cell that needs one reports SKIP
+  without its option.
+.PARAMETER LibsndfileDir
+  See -Mpg123Dir.
+.PARAMETER GtkDir
+  See -Mpg123Dir.
+.PARAMETER DShowBaseClassesDir
+  See -Mpg123Dir.
+.PARAMETER Arch
+  MSBuild platforms, passed through to gen-build-matrix.ps1.
 
 .EXAMPLE
   .\check-dist.ps1 lame-4.1.tar.gz C:\temp\distcheck
@@ -40,7 +52,12 @@ param(
 	[Parameter(Mandatory = $true, Position = 1)][string]$TargetDir,
 	[switch]$Quick,
 	[string]$VsPath,
-	[string]$AudioDir
+	[string]$AudioDir,
+	[string]$Mpg123Dir,
+	[string]$LibsndfileDir,
+	[string]$GtkDir,
+	[string]$DShowBaseClassesDir,
+	[string]$Arch
 )
 
 $ErrorActionPreference = "Continue"
@@ -183,6 +200,11 @@ if (-not (Test-Path -LiteralPath $gen)) {
 } else {
 	$genArgs = @{ Dir = $matrix; SrcDir = $srcDir }
 	if ($VsPath) { $genArgs.VsPath = $VsPath }
+	if ($Mpg123Dir) { $genArgs.Mpg123Dir = $Mpg123Dir }
+	if ($LibsndfileDir) { $genArgs.LibsndfileDir = $LibsndfileDir }
+	if ($GtkDir) { $genArgs.GtkDir = $GtkDir }
+	if ($DShowBaseClassesDir) { $genArgs.DShowBaseClassesDir = $DShowBaseClassesDir }
+	if ($Arch)   { $genArgs.Arch = $Arch }
 	if ($Quick)  { $genArgs.Config = "Release"; $genArgs.Arch = "x64" }
 	$genLog = Join-Path $TargetDir "matrix-gen.log"
 	try {
