@@ -69,22 +69,6 @@ Hydrogenaudio recommended settings
       to --abr 56 -mm, so that means that the recommendation would be to
       encode in mono, and use ABR.
 
-    Notes to the two sections above:
-
-    [1] The -b settings that each sampling frequency allows:
-
-        MPEG-1 layer III, 32, 44.1 and 48 kHz:
-            32 40 48 56 64 80 96 112 128 160 192 224 256 320
-        MPEG-2 layer III, 16, 22.05 and 24 kHz:
-            8 16 24 32 40 48 56 64 80 96 112 128 144 160
-        MPEG-2.5 layer III, 8, 11.025 and 12 kHz:
-            8 16 24 32 40 48 56 64
-
-    [2] Lossy codecs, like MP3, should not be used for archiving, since
-        the nature of lossy encoding always changes the original sound,
-        even if it sounds transparent. Use lossless codecs for this
-        purpose.
-
 ========================================================================
 Examples
 ========================================================================
@@ -182,23 +166,28 @@ lame4dos.bat    Windows batch file.
 
 Lame.vbs        Windows Script Host; lameGUI.html is a front end for it.
 
-Codec           sample frequencies (kHz) bitrates (kbps)
+========================================================================
+Notes
+========================================================================
+    [1] The -b settings that each sampling frequency allows:
 
-MPEG-1 layer III
-                32, 44.1, 48 32 40 48 56 64 80 96 112 128 160 192 224
-                256 320
+        Codec           sample frequencies (kHz) | bitrates (kbps)
 
-MPEG-2 layer III
-                16, 22.05, 24 8 16 24 32 40 48 56 64 80 96 112 128 144
-                160
+        MPEG-1 layer III
+                        32, 44.1, 48 | 32 40 48 56 64 80 96 112 128 160
+                        192 224 256 320
 
-MPEG-2.5 layer III
-                8, 11.025, 12 8 16 24 32 40 48 56 64
+        MPEG-2 layer III
+                        16, 22.05, 24 | 8 16 24 32 40 48 56 64 80 96 112
+                        128 144 160
 
-    - Lossy codecs, like MP3, should not be used for archiving, since
-      the nature of lossy encoding always changes the original sound,
-      even if it sounds transparent. Use lossless codecs for this
-      purpose.
+        MPEG-2.5 layer III
+                        8, 11.025, 12 | 8 16 24 32 40 48 56 64
+
+    [2] Lossy codecs, like MP3, should not be used for archiving, since
+        the nature of lossy encoding always changes the original sound,
+        even if it sounds transparent. Use lossless codecs for this
+        purpose.
 
     HTML markup and design by Roberto Amorim and Sebastian Mares. Logo
     by Sam Fisher.
@@ -249,7 +238,8 @@ There is also support for RAW PCM data and and piped input
 
 --gain number   apply Gain adjustment in decibels, range -20.0 to +12.0.
 
---swap-channel  Swap Left and Right channels
+--swap-channel  Swap Left and Right channels. The input must have two
+                channels.
 
 --nogap file1 file2 ...
                 Gapless encoding for a set of contiguous files
@@ -569,7 +559,9 @@ versions. Can change from version to version
 
 -Z [n]          always do calculate short block maskings
 
---substep       use pseudo substep noise shaping method types 0-2
+--substep       pseudo substep noise shaping. n is 0 to 7, the sum of 1
+                (apply it), 2 (half steps from the start) and 4 (short
+                blocks too)
 
 -X n[,m]        selects between different noise measurements n for long
                 block, m for short. if m is omitted, m = n
@@ -639,18 +631,18 @@ Detailed description in alphabetical order
 
 -b n Bitrate
 
-Codec           sample frequencies (kHz) bitrates (kbps)
+Codec           sample frequencies (kHz) | bitrates (kbps)
 
 MPEG-1 layer III
-                32, 48, 44.1 32 40 48 56 64 80 96 112 128 160 192 224
+                32, 48, 44.1 | 32 40 48 56 64 80 96 112 128 160 192 224
                 256 320
 
 MPEG-2 layer III
-                16, 24, 22.05 8 16 24 32 40 48 56 64 80 96 112 128 144
+                16, 24, 22.05 | 8 16 24 32 40 48 56 64 80 96 112 128 144
                 160
 
 MPEG-2.5 layer III
-                8, 12, 11.025 8 16 24 32 40 48 56 64
+                8, 12, 11.025 | 8 16 24 32 40 48 56 64
 
     The bitrate to be used. Default is 128kbps in MPEG1 (64 for mono),
     64kbps in MPEG2 (32 for mono) and 32kbps in MPEG2.5 (16 for mono).
@@ -890,7 +882,7 @@ l3dec           310 kbps
                 7 Hip-Hop
                 35 House
                 100 Humour
-                131 Indie 19 Industrial
+                131 Indie | 19 Industrial
                 33 Instrumental
                 46 Instrumental Pop
                 47 Instrumental Rock
@@ -926,7 +918,7 @@ l3dec           310 kbps
                 67 Psychedelic
                 93 Psychedelic Rock
                 43 Punk
-                121 Punk Rock 15 Rap
+                121 Punk Rock | 15 Rap
                 68 Rave
                 14 R&B
                 16 Reggae
@@ -1283,19 +1275,20 @@ Old compatibility settings. Meaningless
 
     The valid parameters are:
 
-Priority Windows OS/2
+Priority | Windows | OS/2
 
-0               Low priority IDLE_PRIORITY_CLASS IDLE, delta = 0
+0               Low priority | IDLE_PRIORITY_CLASS | IDLE, delta = 0
 
-1               Medium priority IDLE_PRIORITY_CLASS IDLE, delta = +31
-
-2               Regular priority NORMAL_PRIORITY_CLASS REGULAR, delta =
-                -31
-
-3               High priority HIGH_PRIORITY_CLASS REGULAR, delta = 0
-
-4               Maximum priority HIGH_PRIORITY_CLASS REGULAR, delta =
+1               Medium priority | IDLE_PRIORITY_CLASS | IDLE, delta =
                 +31
+
+2               Regular priority | NORMAL_PRIORITY_CLASS | REGULAR,
+                delta = -31
+
+3               High priority | HIGH_PRIORITY_CLASS | REGULAR, delta = 0
+
+4               Maximum priority | HIGH_PRIORITY_CLASS | REGULAR, delta
+                = +31
 
     Note that if you call '--priority' without a parameter, then
     priority 0 will be assumed.
@@ -1558,6 +1551,11 @@ file
 
 -V n Enable VBR encoding
 
+    Encodes using the VBR algorithm, at the indicated quality.
+    0=highest quality, bigger files. 9.999=lowest quality, smaller
+    files. Decimal values can be specified, like: 4.51
+    On average, the resulting bitrates are as follows:
+
 Setting         Average bitrate (kbps)
 
 0               245
@@ -1588,9 +1586,11 @@ Setting         Average bitrate (kbps)
 
 -x Swap input bytes
 
-    swap bytes in the input file (or output file when using --decode).
+    swap bytes in the input file (and output file when using --decode).
     For sorting out little endian/big endian type problems. If your
-    encodings sound like static, try this first.
+    encodings sound like static, try this first. A LAME built with
+    libsndfile swaps the bytes of raw input (-r) only; for a file with a
+    header, such as WAV or AIFF, it ignores -x.
 
 -Y Ignore noise in sbf21, like CBR mode does
 

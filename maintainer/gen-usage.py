@@ -28,6 +28,7 @@ import textwrap
 
 WIDTH = 72
 RULE = '=' * WIDTH
+NOTE_INDENT = ' ' * 8
 #  Stands in for <br /> until the text has been whitespace-normalised; a real
 #  newline would be eaten by that normalisation, which is what turned the genre
 #  table into one 482-character line.
@@ -66,6 +67,8 @@ class Renderer(html.parser.HTMLParser):
         self.in_table = 0
         self.list_depth = 0
         self.in_li = 0
+        self.in_ol = False
+        self.note = 0            # the number of the current <ol> item
         self.pending_title = False
 
     # -- helpers ---------------------------------------------------------
@@ -92,7 +95,9 @@ class Renderer(html.parser.HTMLParser):
         s = self.text()
         if not s:
             return
-        if self.in_li:
+        if self.note:
+            self.para(s, indent=NOTE_INDENT, first='    [%d] ' % self.note)
+        elif self.in_li:
             self.para(s, indent='      ', first='    - ')
         else:
             self.para(s)
@@ -127,6 +132,8 @@ class Renderer(html.parser.HTMLParser):
                 self.div_stack.append('menu')
             else:
                 self.div_stack.append('div')
+                if a.get('id') == 'notes':
+                    self.emit(banner('Notes', 2))
             return
         if tag == 'br':
             #  A sentinel rather than a newline: the text is whitespace-
@@ -151,6 +158,7 @@ class Renderer(html.parser.HTMLParser):
             self.pending_title = a.get('class') == 'settingtitle'
             return
         if tag == 'table':
+            self.flush_text()
             self.in_table += 1
             self.row = []
             return
@@ -163,6 +171,7 @@ class Renderer(html.parser.HTMLParser):
             return
         if tag in ('ul', 'ol'):
             self.list_depth += 1
+            self.in_ol = tag == 'ol'
             return
         if tag == 'li':
             #  Flush rather than discard: text sitting between <ul> and the
@@ -170,6 +179,8 @@ class Renderer(html.parser.HTMLParser):
             #  hides the mistake instead of showing it.
             self.flush_text()
             self.in_li += 1
+            if self.in_ol:
+                self.note += 1
             return
 
     def handle_endtag(self, tag):
@@ -223,6 +234,8 @@ class Renderer(html.parser.HTMLParser):
             return
         if tag in ('ul', 'ol'):
             self.list_depth = max(0, self.list_depth - 1)
+            self.in_ol = False
+            self.note = 0
             self.emit('')
             return
         if tag == 'li':
@@ -247,7 +260,7 @@ class Renderer(html.parser.HTMLParser):
         if len(cells) == 1:
             self.para(cells[0], indent='')
             return
-        left, right = cells[0], ' '.join(cells[1:])
+        left, right = cells[0], ' | '.join(cells[1:])
         if not left:
             self.para(right, indent='')
             return
@@ -255,13 +268,14 @@ class Renderer(html.parser.HTMLParser):
             self.emit(left)
             self.emit('')
             return
+        lead = NOTE_INDENT if self.note else ''
         pad = 16
         first = left.ljust(pad) if len(left) < pad else left + '\n' + ' ' * pad
         if '\n' in first:
-            self.emit(left)
-            self.para(right, indent=' ' * pad, first=' ' * pad)
+            self.emit(lead + left)
+            self.para(right, indent=lead + ' ' * pad, first=lead + ' ' * pad)
         else:
-            self.para(right, indent=' ' * pad, first=first)
+            self.para(right, indent=lead + ' ' * pad, first=lead + first)
 
 
 def render(path):
