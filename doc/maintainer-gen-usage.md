@@ -1,8 +1,8 @@
 # Regenerating USAGE {#maintainer_gen_usage}
 
 `USAGE` is the plain-text form of the command-line reference. It is generated
-from `doc/html/detailed.html`. So you document a new option once, in the HTML,
-and the script adds it to `USAGE`.
+from `doc/html/usage.html` and `doc/html/detailed.html`. So you document a new
+option once, in the HTML, and the script adds it to `USAGE`.
 
 ```
 python3 maintainer/gen-usage.py
@@ -18,16 +18,15 @@ Run it from the top of the source tree, or name the tree with `--srcdir DIR`.
 
 ## What is generated and what is not
 
-The examples at the top of `USAGE` (the CBR and VBR examples, the streaming
-example, and the note about the scripts in `misc/`) are not in any HTML page.
-They are written by hand, in `doc/usage-preamble.txt`. The script creates
-everything below them from `detailed.html`.
+The script creates the examples at the top of `USAGE` (the CBR and VBR examples,
+the streaming example, and the note about the scripts in `misc/`) from
+`usage.html`, and everything below them from `detailed.html`.
 
 So you edit two files, and the script writes the third:
 
 | File | Edit it? |
 |---|---|
-| `doc/usage-preamble.txt` | yes: the examples |
+| `doc/html/usage.html` | yes: the examples |
 | `doc/html/detailed.html` | yes: the option reference |
 | `USAGE` | **no**: run the script |
 
@@ -47,5 +46,5 @@ takes the tree with `--srcdir DIR`.
 python3 maintainer/check-optdoc.py
 ```
 
-The script handles only the HTML constructs that `detailed.html` uses. If new
+The script handles only the HTML constructs that these two pages use. If new
 markup appears there and the output is wrong, look at the script first.
