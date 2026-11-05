@@ -38,11 +38,23 @@ def read(srcdir, name):
         return f.read().decode('latin-1')
 
 
+def table_options(parse_c, row_type):
+    """The option names in the tables of the parser with this row type."""
+    names = set()
+    for rows in re.findall(r'static %s const \w+\[\] = \{(.*?)\};' % row_type, parse_c, re.S):
+        names.update(re.findall(r'\{\s*' + OPTION, rows))
+    return names
+
+
 def public_options(parse_c):
-    """The long options of the parser, without those that only an
-    --enable-internal build accepts and that are not documented."""
-    opts = set(re.findall(r'T_ELIF2?\(' + OPTION, parse_c))
-    internal = set(re.findall(r'T_ELIF_INTERNAL\(' + OPTION, parse_c))
+    """The long options of the parser, without the second spelling of an
+    option and without those that only an --enable-internal build accepts
+    and that are not documented."""
+    opts = set(re.findall(r'\bif \(0 == local_strcasecmp\(token, ' + OPTION, parse_c))
+    opts |= table_options(parse_c, 'int_flag_option')
+    opts |= table_options(parse_c, 'tag_text_option')
+    internal = set(re.findall(r'dev_only_with(?:out)?_arg\(' + OPTION, parse_c))
+    internal |= table_options(parse_c, 'dev_flag_option')
     return sorted(opts - internal), len(internal)
 
 
