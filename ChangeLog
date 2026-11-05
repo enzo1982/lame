@@ -7,6 +7,141 @@
 
 -- 
 
+2026-11-05 11:12  aleidinger
+
+	* maintainer/check-dist.ps1, maintainer/check-dist.sh:
+	  Count the patch level of a release in the distribution check
+
+2026-11-05 11:12  aleidinger
+
+	* doc/maintainer-check-dist.md, maintainer/check-dist.ps1:
+	  Pass the library folders and platforms from check-dist.ps1 to the
+	  matrix
+	  
+	  The tarball carries none of the optional libraries, so the
+	  Windows check
+	  skipped the decoder, libsndfile and DirectShow cells whatever was
+	  installed.
+
+2026-11-05 11:11  aleidinger
+
+	* doc/maintainer-build-matrix.md, maintainer/gen-build-matrix.ps1:
+	  Honour the library folders in every Windows matrix cell
+	  
+	  The folders given to the matrix reached only the nmake cells; the
+	  MSBuild and
+	  client cells looked under vc_solution regardless. The mpg123 and
+	  libsndfile
+	  options now name a folder with one subfolder per platform, as the
+	  setup script
+	  lays them out, and each cell gets the path for its platform.
+
+2026-11-05 11:11  aleidinger
+
+	* maintainer/check-optdoc.py:
+	  Read the long options from the parser as it is written now
+	  
+	  The check still looked for the macros that the parser lost when
+	  it was split
+	  into one function per group, so it found no option at all and
+	  failed.
+
+2026-11-05 11:11  aleidinger
+
+	* doc/man/lame.1:
+	  Document --athaa-sensitivity in the manual page
+
+2026-11-05 11:11  aleidinger
+
+	* doc/maintainer-gen-usage.md:
+	  Name usage.html as the source of the examples in USAGE
+
+2026-11-05 11:10  aleidinger
+
+	* USAGE, doc/html/usage.html, maintainer/gen-usage.py:
+	  Number the notes in the generated USAGE
+	  
+	  The generator printed the notes as bullets, so nothing matched
+	  the [1] and
+	  [2] in the text, and a hand edit had added them a second time. It
+	  now numbers
+	  them under a Notes heading, separates table columns and keeps the
+	  text in
+	  front of a table. USAGE is generated again, with the option
+	  descriptions that
+	  changed since the hand edit.
+
+2026-11-01 20:48  aleidinger
+
+	* test/unit/test_gain_analysis.c:
+	  Compare title gains by histogram step in the ReplayGain test
+	  
+	  The test compared the title gain with its reference for exact
+	  equality. On
+	  32-bit x86 without SSE, both lie on the same histogram step, but
+	  the
+	  reference keeps more precision than a float, so the test failed.
+	  A gain now
+	  fails when it is half a step or more from the reference.
+
+2026-11-01 20:47  aleidinger
+
+	* test/unit/test_quantize_lines_vector.c:
+	  Give the SSE control register accesses of a vector test the SSE
+	  attribute
+	  
+	  The quantization vector test reads and sets MXCSR itself. On
+	  32-bit x86, where
+	  the compiler does not enable SSE by default, it did not compile,
+	  and make
+	  check stopped before any test ran. The two accesses now sit in
+	  functions
+	  marked like the library's own SSE code.
+
+2026-11-01 20:47  aleidinger
+
+	* doc/maintainer-build-matrix.md, maintainer/gen-build-matrix.sh:
+	  Build the internal options in a matrix cell of their own
+	  
+	  The debug cell enabled the internal options, which configure
+	  accepts only in
+	  an alpha version. So the distribution check of a beta or a
+	  release tarball
+	  failed in that cell. The internal options now have their own
+	  cell, and the
+	  matrix skips it outside an alpha.
+
+2026-11-01 20:47  aleidinger
+
+	* include/lame.h, libmp3lame/lame.c, libmp3lame/set_get.c:
+	  Return -2 for every failed allocation in an encode call
+	  
+	  An encode call returned -10 when the resampler could not allocate
+	  its
+	  buffers, and -2 when any other allocation failed. The
+	  documentation of the
+	  encode and flush functions now lists each return value as a
+	  number.
+
+2026-11-01 20:47  aleidinger
+
+	* doc/doxygen/vector-dispatch.dox:
+	  Remove project-internal notes from the vector dispatch page
+	  
+	  The page named the CPU of a test machine and listed lessons from
+	  how an
+	  experiment was run. Neither describes the code.
+
+2026-11-01 11:38  aleidinger
+
+	* ChangeLog:
+	  Update the ChangeLog.
+
+2026-11-01 11:31  aleidinger
+
+	* libmp3lame/version.h:
+	  Enter beta phase.
+
 2026-10-31 16:56  aleidinger
 
 	* test/unit/test_albumart_pipe.sh:
