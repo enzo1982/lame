@@ -7,6 +7,38 @@
 
 -- 
 
+2026-11-06 07:53  aleidinger
+
+	* libmp3lame/version.h:
+	  Enter beta1 phase
+
+2026-11-06 07:47  aleidinger
+
+	* doc/maintainer-check-dist.md, maintainer/check-dist.ps1,
+	  maintainer/check-dist.sh:
+	  Expect the beta name in the distribution check
+	  
+	  A beta carries its number in the package version, as in 4.1beta1.
+	  The check
+	  takes that number from LAME_PATCH_VERSION, so the name and the
+	  version that
+	  the program prints have to agree.
+
+2026-11-05 11:51  aleidinger
+
+	* testcase.mp3:
+	  Update testcase.mp3
+
+2026-11-05 11:34  aleidinger
+
+	* ChangeLog:
+	  Update the ChangeLog
+
+2026-11-05 11:31  aleidinger
+
+	* configure, configure.ac:
+	  Switch to beta1
+
 2026-11-05 11:12  aleidinger
 
 	* maintainer/check-dist.ps1, maintainer/check-dist.sh:
