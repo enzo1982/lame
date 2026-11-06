@@ -35,7 +35,7 @@
 # define LAME_MAJOR_VERSION      4 /* Major version number */
 # define LAME_MINOR_VERSION      1 /* Minor version number */
 # define LAME_TYPE_VERSION       1 /* 0:alpha 1:beta 2:release */
-# define LAME_PATCH_VERSION      0 /* Patch level */
+# define LAME_PATCH_VERSION      1 /* Patch level */
 # define LAME_ALPHA_VERSION     (LAME_TYPE_VERSION==0)
 # define LAME_BETA_VERSION      (LAME_TYPE_VERSION==1)
 # define LAME_RELEASE_VERSION   (LAME_TYPE_VERSION==2)
