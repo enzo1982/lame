@@ -260,6 +260,8 @@ esac
 version="${v_major:-?}.${v_minor:-?}"
 if [ "${v_type:-}" = 2 ] && [ "${v_patch:-0}" != 0 ]; then
 	version="$version.$v_patch"
+elif [ "${v_type:-}" = 1 ]; then
+	version="${version}beta${v_patch:-?}"
 fi
 echo "$version" > "$verfile"
 

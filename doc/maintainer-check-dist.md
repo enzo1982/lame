@@ -43,7 +43,7 @@ result.
 | Check | What it checks |
 |---|---|
 | `extract` | the tarball unpacks, into exactly one top-level directory |
-| `version-consistency` | the tarball name, the package version of `configure` and `libmp3lame/version.h` all agree |
+| `version-consistency` | the tarball name, the package version of `configure` and `libmp3lame/version.h` all agree: X.Y, X.Y.N for a patch release, and X.YbetaN for a beta, where N is `LAME_PATCH_VERSION` in both |
 | `matrix-generate` | the build harness in the tarball can create the configurations for this machine (@ref maintainer_build_matrix) |
 | `build[cell]` | this configuration compiles and links; one check per cell |
 | `unit-tests[cell]` | the CMocka tests pass in this configuration; one check per cell |
